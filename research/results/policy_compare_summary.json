@@ -1,0 +1,85 @@
+{
+  "available_policies": [
+    "gto_solver",
+    "rl_offline",
+    "rl_validated"
+  ],
+  "kind": "policy_compare_summary",
+  "pairwise": [
+    {
+      "action_pair_counts": {
+        "BET->CALL": 1,
+        "BET_50->JAM": 1,
+        "FOLD->BET": 1
+      },
+      "agreement_rate": 0.0,
+      "agreements": 0,
+      "baseline_ev_sum": 3.17,
+      "baseline_illegal_actions": 0,
+      "baseline_policy": "gto_solver",
+      "challenger_ev_delta": -0.22,
+      "challenger_ev_sum": 2.95,
+      "challenger_illegal_actions": 0,
+      "challenger_policy": "rl_validated",
+      "comparable_records": 3,
+      "differing_samples": [
+        {
+          "baseline_action": "FOLD",
+          "baseline_ev": 1.15,
+          "challenger_action": "BET",
+          "challenger_ev": 1.15,
+          "legal_actions": [
+            "FOLD",
+            "CALL",
+            "BET"
+          ],
+          "replay_id": "validated-rl-preflop-001",
+          "spot_id": "validated-rl-preflop-001",
+          "tags": [
+            "validated_rl",
+            "preflop"
+          ]
+        },
+        {
+          "baseline_action": "BET",
+          "baseline_ev": 0.74,
+          "challenger_action": "CALL",
+          "challenger_ev": 0.61,
+          "legal_actions": [
+            "FOLD",
+            "CALL",
+            "BET"
+          ],
+          "replay_id": "turn-probe-002",
+          "spot_id": "turn-probe-002",
+          "tags": [
+            "turn",
+            "probe"
+          ]
+        },
+        {
+          "baseline_action": "BET_50",
+          "baseline_ev": 1.28,
+          "challenger_action": "JAM",
+          "challenger_ev": 1.19,
+          "legal_actions": [
+            "CHECK",
+            "BET_50",
+            "JAM"
+          ],
+          "replay_id": "river-trap-003",
+          "spot_id": "river-trap-003",
+          "tags": [
+            "river",
+            "polar"
+          ]
+        }
+      ],
+      "disagreements": 3,
+      "ev_coverage_rate": 1.0,
+      "kind": "policy_matchup",
+      "records": 3
+    }
+  ],
+  "records": 3
+}

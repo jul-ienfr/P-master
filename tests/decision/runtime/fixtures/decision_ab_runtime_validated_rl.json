@@ -1,0 +1,55 @@
+{
+  "profile": {
+    "player_type": "Balanced",
+    "derived_profile": {
+      "style": "Balanced",
+      "observed_hands": 120,
+      "hands_played": 120,
+      "vpip_rate": 0.35,
+      "pfr_rate": 0.15,
+      "aggression_frequency": 0.65,
+      "reliability": 0.95,
+      "rl_ready": true
+    }
+  },
+  "solver_response": {
+    "chosen_action": "FOLD",
+    "hero_ev": 1.15,
+    "exploitability": 0.02,
+    "decision_confidence": 0.91,
+    "actions": [
+      {"action": "FOLD", "freq": 0.62},
+      {"action": "BET_75", "freq": 0.38}
+    ],
+    "elapsed_ms": 9,
+    "backend": "solver_stub"
+  },
+  "rl_action_idx": 2,
+  "request": {
+    "hero_hand": "AhKd",
+    "board": [],
+    "pot": 6.0,
+    "effective_stack": 50.0,
+    "villain_name": "Villain",
+    "legal_actions": ["FOLD", "CALL", "BET"],
+    "state_confidence": 0.92
+  },
+  "expected": {
+    "rl_off": {
+      "action": "FOLD",
+      "source": "GTO_RUST",
+      "bet_size": null,
+      "backend": "solver_stub",
+      "fallback_used": false,
+      "confidence": 0.91
+    },
+    "rl_on": {
+      "action": "BET",
+      "source": "RL_VALIDATED",
+      "bet_size": null,
+      "backend": "solver_stub",
+      "fallback_used": false,
+      "confidence": 0.91
+    }
+  }
+}

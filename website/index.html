@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="DeeperMind Pokerbot: An advanced poker bot that plays automatically on Pokerstars, Partypoker, and GG Poker. Powered by image recognition, montecarlo simulation, and genetic algorithms." />
+    <meta name="keywords" content="DeeperMind Pokerbot, Pokerstars bot, Partypoker bot, GG Poker bot, image recognition, montecarlo simulation, genetic algorithm, auto poker playing, poker software" />
+    
+    <!-- Favicon and Title -->
+    <link rel="icon" type="image/svg" sizes="32x32" href="assets/pokericon.svg">
+    <title>PokerMaster</title>
+</head>
+  <body>
+    <div id="root">
+      <div style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#0b1220;color:#e5edf7;font-family:Segoe UI,Arial,sans-serif;">
+        <div style="max-width:920px;width:100%;background:#111a2b;border:1px solid rgba(229,237,247,0.12);border-radius:16px;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,0.35);">
+          <div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;opacity:0.7;margin-bottom:8px;">PokerMaster</div>
+          <h1 style="margin:0 0 12px;font-size:28px;">Launching PokerMaster</h1>
+          <p style="margin:0;opacity:0.85;">Loading the desktop workspace. This should only take a moment.</p>
+        </div>
+      </div>
+    </div>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H40Z0W36GF"></script>
+    <script>
+  (function () {
+    const state = {
+      ready: false,
+      timeoutId: null,
+    };
+
+    function getRoot() {
+      return document.getElementById("root");
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>]/g, function (char) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[char] || char;
+      });
+    }
+
+    function renderShell(title, description, details) {
+      const root = getRoot();
+      if (!root) {
+        return;
+      }
+
+      root.innerHTML =
+        '<div style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#0b1220;color:#e5edf7;font-family:Segoe UI,Arial,sans-serif;">' +
+        '<div style="max-width:920px;width:100%;background:#111a2b;border:1px solid rgba(229,237,247,0.12);border-radius:16px;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,0.35);">' +
+        '<div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;opacity:0.7;margin-bottom:8px;">PokerMaster</div>' +
+        '<h1 style="margin:0 0 12px;font-size:28px;">' + escapeHtml(title) + "</h1>" +
+        '<p style="margin:0 0 16px;opacity:0.85;">' + escapeHtml(description) + "</p>" +
+        (details
+          ? '<pre style="margin:0;padding:16px;border-radius:12px;overflow:auto;background:#0a1020;color:#ffb4b4;white-space:pre-wrap;word-break:break-word;">' +
+            escapeHtml(details) +
+            "</pre>"
+          : "") +
+        "</div></div>";
+    }
+
+    function markReady() {
+      state.ready = true;
+      if (state.timeoutId !== null) {
+        window.clearTimeout(state.timeoutId);
+        state.timeoutId = null;
+      }
+    }
+
+    function fail(error) {
+      const details =
+        error instanceof Error
+          ? error.stack || error.message
+          : typeof error === "string"
+            ? error
+            : JSON.stringify(error, null, 2);
+      renderShell(
+        "Frontend bootstrap error",
+        "The desktop shell opened, but the UI bundle did not finish loading.",
+        details || "Unknown bootstrap failure"
+      );
+    }
+
+    window.__PM_BOOTSTRAP_SHELL__ = {
+      markReady: markReady,
+      fail: fail,
+    };
+
+    if (getRoot()) {
+      renderShell(
+        "Launching PokerMaster",
+        "Loading the desktop workspace. This should only take a moment.",
+        ""
+      );
+    }
+
+    state.timeoutId = window.setTimeout(function () {
+      if (!state.ready) {
+        fail(
+          "The UI bundle did not signal readiness within a few seconds. Check launch_pokermaster_v2.log for startup details."
+        );
+      }
+    }, 5000);
+
+    window.addEventListener("error", function (event) {
+      if (!state.ready) {
+        fail(event && (event.error || event.message) ? event.error || event.message : "Unknown window error");
+      }
+    });
+
+    window.addEventListener("unhandledrejection", function (event) {
+      if (!state.ready) {
+        fail(event ? event.reason : "Unhandled promise rejection during bootstrap");
+      }
+    });
+  })();
+
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-H40Z0W36GF');
+</script>
+    <script
+      type="module"
+      src="/src/main.tsx"
+      onerror="window.__PM_BOOTSTRAP_SHELL__ && window.__PM_BOOTSTRAP_SHELL__.fail('Failed to load the main frontend bundle (/src/main.tsx).')"
+    ></script>
+  </body>
+</html>

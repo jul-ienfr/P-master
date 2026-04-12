@@ -1,0 +1,92 @@
+{
+  "kind": "policy_compare_corpus",
+  "records": [
+    {
+      "replay_id": "validated-rl-preflop-001",
+      "spot": {
+        "spot_id": "validated-rl-preflop-001",
+        "source": "offline_corpus",
+        "game_stage": "preflop",
+        "hero_cards": ["Ah", "Kd"],
+        "board": [],
+        "hero_position": "btn",
+        "pot": 6.0,
+        "stack": 50.0,
+        "legal_actions": ["FOLD", "CALL", "BET"],
+        "action_history": ["open"],
+        "hero_range": "22+, A2s+, K9s+, QTs+, JTs, ATo+, KQo",
+        "villain_ranges": ["22+, A2s+, K2s+, Q8s+, J8s+, T8s+, 98s, ATo+, KJo+"],
+        "state_confidence": 0.92
+      },
+      "policy_actions": {
+        "gto_solver": "FOLD",
+        "rl_validated": "BET",
+        "rl_offline": "CALL"
+      },
+      "ev_by_action": {
+        "FOLD": 1.15,
+        "CALL": 0.94,
+        "BET": 1.15
+      },
+      "tags": ["validated_rl", "preflop"]
+    },
+    {
+      "replay_id": "turn-probe-002",
+      "spot": {
+        "spot_id": "turn-probe-002",
+        "source": "offline_corpus",
+        "game_stage": "turn",
+        "hero_cards": ["Qs", "Qd"],
+        "board": ["2c", "7d", "Jh", "9s"],
+        "hero_position": "bb",
+        "pot": 18.5,
+        "stack": 88.0,
+        "legal_actions": ["FOLD", "CALL", "BET"],
+        "action_history": ["villain_bet_6"],
+        "hero_range": "QQ+, AQs+, AKo",
+        "villain_ranges": ["22+, A2s+, K8s+, Q9s+, J9s+, T9s, 98s, ATo+, KQo"],
+        "state_confidence": 0.95
+      },
+      "policy_actions": {
+        "gto_solver": "BET",
+        "rl_validated": "CALL",
+        "rl_offline": "BET"
+      },
+      "ev_by_action": {
+        "FOLD": -0.55,
+        "CALL": 0.61,
+        "BET": 0.74
+      },
+      "tags": ["turn", "probe"]
+    },
+    {
+      "replay_id": "river-trap-003",
+      "spot": {
+        "spot_id": "river-trap-003",
+        "source": "offline_corpus",
+        "game_stage": "river",
+        "hero_cards": ["As", "Ts"],
+        "board": ["Ks", "Qs", "2d", "2h", "7s"],
+        "hero_position": "co",
+        "pot": 31.0,
+        "stack": 66.0,
+        "legal_actions": ["CHECK", "BET_50", "JAM"],
+        "action_history": ["check", "check", "turn_check"],
+        "hero_range": "suited_broadways",
+        "villain_ranges": ["pairs_and_draws"],
+        "state_confidence": 0.89
+      },
+      "policy_actions": {
+        "gto_solver": "BET_50",
+        "rl_validated": "JAM",
+        "rl_offline": "BET_50"
+      },
+      "ev_by_action": {
+        "CHECK": 0.92,
+        "BET_50": 1.28,
+        "JAM": 1.19
+      },
+      "tags": ["river", "polar"]
+    }
+  ]
+}

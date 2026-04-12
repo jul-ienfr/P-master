@@ -1,0 +1,27 @@
+{
+  "active_version_id": "v0001-20260411T115211Z",
+  "candidate_version_id": null,
+  "created_at": "2026-04-11T11:52:10+00:00",
+  "display_name": "Official Party Poker",
+  "identity": {
+    "cash_or_tournament": "cash",
+    "hero_seat": "bottom-right",
+    "max_players": 6,
+    "network": "PartyPoker",
+    "real_or_play": "real",
+    "site": "partypoker",
+    "skin": "Official Party Poker",
+    "table_size": "default",
+    "theme": "",
+    "variant": ""
+  },
+  "owner": "NICOLAS-SURFACE",
+  "runtime_aliases": [
+    "Official Party Poker"
+  ],
+  "slug": "official-party-poker",
+  "updated_at": "2026-04-11T11:52:11+00:00",
+  "versions": [
+    "v0001-20260411T115211Z"
+  ]
+}

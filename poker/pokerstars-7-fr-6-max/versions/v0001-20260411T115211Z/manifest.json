@@ -1,0 +1,507 @@
+{
+  "ai_assist": {
+    "provider": "local"
+  },
+  "assets": {
+    "2c": "assets/2c.png",
+    "2d": "assets/2d.png",
+    "2h": "assets/2h.png",
+    "2s": "assets/2s.png",
+    "3c": "assets/3c.png",
+    "3d": "assets/3d.png",
+    "3h": "assets/3h.png",
+    "3s": "assets/3s.png",
+    "4c": "assets/4c.png",
+    "4d": "assets/4d.png",
+    "4h": "assets/4h.png",
+    "4s": "assets/4s.png",
+    "5c": "assets/5c.png",
+    "5d": "assets/5d.png",
+    "5h": "assets/5h.png",
+    "5s": "assets/5s.png",
+    "6c": "assets/6c.png",
+    "6d": "assets/6d.png",
+    "6h": "assets/6h.png",
+    "6s": "assets/6s.png",
+    "7c": "assets/7c.png",
+    "7d": "assets/7d.png",
+    "7h": "assets/7h.png",
+    "7s": "assets/7s.png",
+    "8c": "assets/8c.png",
+    "8d": "assets/8d.png",
+    "8h": "assets/8h.png",
+    "8s": "assets/8s.png",
+    "9c": "assets/9c.png",
+    "9d": "assets/9d.png",
+    "9h": "assets/9h.png",
+    "9s": "assets/9s.png",
+    "ac": "assets/ac.png",
+    "ad": "assets/ad.png",
+    "ah": "assets/ah.png",
+    "all_in_call_button": "assets/all_in_call_button.png",
+    "as": "assets/as.png",
+    "bet_button": "assets/bet_button.png",
+    "call_button": "assets/call_button.png",
+    "check_button": "assets/check_button.png",
+    "covered_card": "assets/covered_card.png",
+    "dealer_button": "assets/dealer_button.png",
+    "fast_fold_button": "assets/fast_fold_button.png",
+    "fold_button": "assets/fold_button.png",
+    "im_back": "assets/im_back.png",
+    "jc": "assets/jc.png",
+    "jd": "assets/jd.png",
+    "jh": "assets/jh.png",
+    "js": "assets/js.png",
+    "kc": "assets/kc.png",
+    "kd": "assets/kd.png",
+    "kh": "assets/kh.png",
+    "ks": "assets/ks.png",
+    "lost_everything": "assets/lost_everything.png",
+    "my_turn": "assets/my_turn.png",
+    "qc": "assets/qc.png",
+    "qd": "assets/qd.png",
+    "qh": "assets/qh.png",
+    "qs": "assets/qs.png",
+    "raise_button": "assets/raise_button.png",
+    "resume_hand": "assets/resume_hand.png",
+    "tc": "assets/tc.png",
+    "td": "assets/td.png",
+    "th": "assets/th.png",
+    "topleft_corner": "assets/topleft_corner.png",
+    "ts": "assets/ts.png"
+  },
+  "display_name": "PokerStars 7 FR 6-max",
+  "fingerprint": {
+    "asset_hashes": {
+      "2c": "a1e952e59229c4c6bce541865eea12689fd98973fd2336e641fce502138c7a77",
+      "2d": "eb8a03abe20c19cf250fc7a398c4ff087ba421af95f5e3b101797a02c7997194",
+      "2h": "e5524f10da37cfb08b6df7674bdc1b49cf734fcd23ab26e86511f7fdb1208a98",
+      "2s": "2dd51fccd0523fc2e917d09e9a2a9aacbfe7b270e22084686d3341d2fd71d2ac",
+      "3c": "91c223016ed7d763ef0da0338606aa170180a56ff160c32d5c89ce9312798441",
+      "3d": "363988a6c012e197ffae5cafe11bf1b35fd0e5e32f8c0e7042e0a6af8f5d21ca",
+      "3h": "e07d29e3574d09e63e1c48bd11a84fef580e5e281ef2a044bb4eb9aa26992a4d",
+      "3s": "810612899f48fde244f6b3deb5b912a6becc6de2115ec9c82312402ea74302a5",
+      "4c": "243a000e02e9e6f363a4294298c06823fb539e25ca8e5105c9b353c06ef0b24a",
+      "4d": "600992af9f98107a4099314c2cb2e82273d8b83047f783db28af57db137e9268",
+      "4h": "8ebeb150d04c97c3afec31e5f5be895365f703277150394c9831d917b44ee845",
+      "4s": "5359da2517c0a1298a9425c00ea686641db51aa28346866d1015cd252cc05b1f",
+      "5c": "946f312962ee9476f74bef1f6e6140186b64f45728d41c5dc25e44b6b8b2eb6f",
+      "5d": "6a563ec14783984b824ce00d43d77c3a2e6cfdb7b14d02b50767c268a73c084a",
+      "5h": "8ae8ad4908b74a5c449b874aa1d92ade8acc3862ef9017005a6fce7eee63c5eb",
+      "5s": "d2ba5baf7d6da7eab9cfb775524a2e0a49a6eaf4d60d4b595f3a52620d8af350",
+      "6c": "28dc365de7405221d21cbf116684ca4c8b43c31162ac15e7d0ff9e9953d53ad9",
+      "6d": "90b4252350a764321fa702490df33754d422cd304c1c2a71feb8144b6adb9af0",
+      "6h": "b8ba42a6a0e2630240960656ea690d8d4150503326cda1f8ce64505b4410c8a1",
+      "6s": "edaf63650873b8bf873ece4087f6d66089dd918c661e303f77f1303589cd4281",
+      "7c": "cee85d3bf776a9289478c45dce55fcd32d68bfe4696f82cab7235ca5d2a3df20",
+      "7d": "0132bc35fdba1c5bbf5c0a45dea5db6a638d5ef0f4998b45943888f67fa338b6",
+      "7h": "1a137752c240975aab465bef979127079d96823a1da9cc6e0891b14f542e8409",
+      "7s": "3692dfbeb144b5f4541eeeaa78cb69cd799f8300bffedb08f0b9189771143166",
+      "8c": "19ac4b6ca2febb09d8a52c7c9a3cefe7a0b271fbc558037013ad92d17f9e247a",
+      "8d": "d36071065876f7c2a74327442373b3fb81007272d386a65eac4307a081f1870b",
+      "8h": "1dad713073e327a2ecbb2d61780dd40af580407bd64d3b777a3504d368200ef0",
+      "8s": "3cdb2782e68d1de551e667e1b901f4c11f98af7dcd6a6f46228dbc7b590b8f83",
+      "9c": "474853ed851215da010e183a20abb9b74959f99c59c1b2bcdf3501ae876e9f6a",
+      "9d": "8b829f814799aafcc5204e51d43e41d721249fa5b481d9e068ffa04d6b5a5d87",
+      "9h": "5c8e0aeb55d86c088b77ac798ba7c56648569eb792a4b4c1ab28d8171055d979",
+      "9s": "c835c62224b3379087bf81f7e3e128f0119e31fa37d62bf6e6d0f0978a4069c1",
+      "ac": "85018a35abcb90482ae4bc3ea0a295fcec20eaa2d122a22146fb8210e42a2e37",
+      "ad": "7d381f5af87f1c5a6d518bac921c13ff938c8a93ca2bb71003c7afb5bc052e90",
+      "ah": "7fae6d9bf787b8d373d8419880594e4af136c5525aca7705a196c2c1b18efba0",
+      "all_in_call_button": "6f7a1058d32b37ca4ab3e8dacc93a1a8b924e286b248e8247b13eadf00e2a6e0",
+      "as": "6ad1f0b06a828dabfd83ae8326054061da185285e5b1ff23fedf87ffe972ac75",
+      "bet_button": "81119212ac2e0cdf18a33ce7952ffa8e1a679d3723b9f9844f541ba880e6536e",
+      "call_button": "6f7a1058d32b37ca4ab3e8dacc93a1a8b924e286b248e8247b13eadf00e2a6e0",
+      "check_button": "5bd38340d6ca6829f17cea1e14e3dc2a1c2167ccf5207c794ca9948cec8ede78",
+      "covered_card": "8d943f9e983aa85cd5d596656e4eb5f9626585a3aa5a3f7f6ce2033bbb8882c6",
+      "dealer_button": "071471aca396db4fd4c5379cc12d33b188b23fa621fa61510bb0a94964ede16e",
+      "fast_fold_button": "a23042f75eb51f33551c5fd38e41f4bd24bc060a4c4c58289c72a299bcdee682",
+      "fold_button": "6ec2af5b8c92602f81e8701ecd864824b5eca9052d79b1c1fac8c7c9b3d01546",
+      "im_back": "5255f557094c6eb10b5bebc1122ce264801aae036254c8673a0fec1d7082b017",
+      "jc": "373f99c55eef157122bdeb00209502a2dece08bf27338939886abd8360b0c7a4",
+      "jd": "c07b6f012e8797d38fc8f06cded0b9521b21d5c5f56a659b0c24c44b57a39af7",
+      "jh": "7c1ae03ddc6d1c2329bec89f03f8484ba41d5a5081463854949f4ca22ea818df",
+      "js": "675a2854d69a6ac35e64de84f4820796ffeb5ae01788399002696a59ce526114",
+      "kc": "c990a800a3eacf507eeb975c1ebe706eaac2788bf04390c4123c1834fc8be145",
+      "kd": "72f90fe7ab3b79e037c82bda806f96893b11e9895d8dd868146d6bbe04f58cdb",
+      "kh": "96da13b325707f95ba45df06d065b6c11ad100dc0955630ec23486bf04adf354",
+      "ks": "ed664d03a3199332b388d43a391e1ba18edaa89f029507dd9b4141d7b25f3fa8",
+      "lost_everything": "7d6e35db470210b1083e4b49749cdbb8a9d7d829bfbab8d6b68773002035f632",
+      "my_turn": "460eb23093d42cc13ca810235f046dcf131461341cd4ec174eac5096e05e8d90",
+      "qc": "dfdab245421c2a22e12efa918c6c5208c7ee22fa574e64e89ff8881eea32dc04",
+      "qd": "30150e8864bfb393ef63bab863f298dfed6fe53516f634b8fc578ecfc0d39bbb",
+      "qh": "2a594e38ac74593fed84739bd53f4df3e1a0dd76709f76d8c6dcacae7e153ba4",
+      "qs": "611729ae7fb5f14bbe4a9cb4dfd34eb7766c5e217042095f94be294a522bef72",
+      "raise_button": "129d03d9eb8d3585e53cdbafa504e3ad23566a24308464c589e882dd4d15aa68",
+      "resume_hand": "d33becf15487177b3589a5bb4b93dfa9c447328330f477d02a37f97d410a6e35",
+      "tc": "6d089561c5c2762752bae161f38a5774b04189e8114b0e6c28fcb126480105fc",
+      "td": "8e4887d3d2d5e20c5fed68f149eb328ca4ee15a60880904dc7282777f31943de",
+      "th": "61216c054d2562a4b557de31ac87a696bfe3017244f0d6a81ec6507e6c811995",
+      "topleft_corner": "d76750a5b99e8eba04624ebe5207913e5971619459a10d2a518eca44a4e74eeb",
+      "ts": "e428e1fec3c7dc9d50497cb52ea0c1680f60d02e8c6a54e2a7093438bc2c0aba"
+    },
+    "hash": "01fde16e93a6c19b2046c83d7ccf54b0647d4e53b4d76362187ca3aee9fcc931",
+    "site_key": "pokerstars"
+  },
+  "identity": {
+    "cash_or_tournament": "cash",
+    "hero_seat": "bottom-right",
+    "max_players": 6,
+    "network": "PokerStars",
+    "real_or_play": "play",
+    "site": "pokerstars",
+    "skin": "PokerStars 7 FR 6-max",
+    "table_size": "955x689",
+    "theme": "dark-fr",
+    "variant": "ps7-fr-play-6max"
+  },
+  "lifecycle": {
+    "created_at": "2026-04-11T11:52:10+00:00",
+    "parent_version_id": null,
+    "published_at": "2026-04-11T23:25:09.724Z",
+    "rollback_target": null,
+    "status": "published",
+    "updated_at": "2026-04-11T23:25:09.724Z",
+    "version_id": "v0001-20260411T115211Z"
+  },
+  "nn": {},
+  "owner": "julie-local",
+  "reference_samples": [],
+  "schema_version": 1,
+  "table_data": {
+    "_last_play": "2026-04-11T23:25:09.724Z",
+    "_owner": "julie-local",
+    "_plays": 0,
+    "_visible": true,
+    "all_in_call_value": {
+      "x1": 691,
+      "y1": 646,
+      "x2": 732,
+      "y2": 673
+    },
+    "button_search_area": {
+      "0": {
+        "x1": 378,
+        "y1": 470,
+        "x2": 411,
+        "y2": 503
+      },
+      "1": {
+        "x1": 176,
+        "y1": 346,
+        "x2": 210,
+        "y2": 380
+      },
+      "2": {
+        "x1": 177,
+        "y1": 152,
+        "x2": 211,
+        "y2": 184
+      },
+      "3": {
+        "x1": 528,
+        "y1": 86,
+        "x2": 561,
+        "y2": 118
+      },
+      "4": {
+        "x1": 734,
+        "y1": 224,
+        "x2": 770,
+        "y2": 260
+      },
+      "5": {
+        "x1": 734,
+        "y1": 346,
+        "x2": 770,
+        "y2": 520
+      }
+    },
+    "buttons_search_area": {
+      "x1": 470,
+      "y1": 543,
+      "x2": 954,
+      "y2": 685
+    },
+    "call_value": {
+      "x1": 691,
+      "y1": 646,
+      "x2": 732,
+      "y2": 673
+    },
+    "covered_card_area": {
+      "0": {
+        "x1": 414,
+        "y1": 433,
+        "x2": 541,
+        "y2": 479
+      },
+      "1": {
+        "x1": 117,
+        "y1": 331,
+        "x2": 214,
+        "y2": 407
+      },
+      "2": {
+        "x1": 85,
+        "y1": 62,
+        "x2": 214,
+        "y2": 181
+      },
+      "3": {
+        "x1": 417,
+        "y1": 49,
+        "x2": 540,
+        "y2": 125
+      },
+      "4": {
+        "x1": 748,
+        "y1": 63,
+        "x2": 871,
+        "y2": 181
+      },
+      "5": {
+        "x1": 738,
+        "y1": 331,
+        "x2": 870,
+        "y2": 414
+      }
+    },
+    "current_round_pot": {
+      "x1": 453,
+      "y1": 347,
+      "x2": 504,
+      "y2": 370
+    },
+    "game_number": {
+      "x1": 112,
+      "y1": 6,
+      "x2": 540,
+      "y2": 22
+    },
+    "lost_everything_search_area": {
+      "x1": 622,
+      "y1": 598,
+      "x2": 792,
+      "y2": 681
+    },
+    "mouse_all_in": {
+      "x1": 648,
+      "y1": 620,
+      "x2": 788,
+      "y2": 678
+    },
+    "mouse_call": {
+      "x1": 648,
+      "y1": 620,
+      "x2": 788,
+      "y2": 678
+    },
+    "mouse_call2": {
+      "x1": 648,
+      "y1": 620,
+      "x2": 788,
+      "y2": 678
+    },
+    "mouse_check": {
+      "x1": 648,
+      "y1": 620,
+      "x2": 788,
+      "y2": 678
+    },
+    "mouse_fast_fold": {
+      "x1": 487,
+      "y1": 620,
+      "x2": 626,
+      "y2": 678
+    },
+    "mouse_fold": {
+      "x1": 487,
+      "y1": 620,
+      "x2": 626,
+      "y2": 678
+    },
+    "mouse_full_pot": {
+      "x1": 808,
+      "y1": 548,
+      "x2": 854,
+      "y2": 572
+    },
+    "mouse_half_pot": {
+      "x1": 716,
+      "y1": 548,
+      "x2": 770,
+      "y2": 572
+    },
+    "mouse_imback": {
+      "x1": 648,
+      "y1": 620,
+      "x2": 788,
+      "y2": 678
+    },
+    "mouse_increase": {
+      "x1": 932,
+      "y1": 554,
+      "x2": 950,
+      "y2": 584
+    },
+    "mouse_raise": {
+      "x1": 809,
+      "y1": 620,
+      "x2": 949,
+      "y2": 678
+    },
+    "my_cards_area": {
+      "x1": 414,
+      "y1": 433,
+      "x2": 541,
+      "y2": 479
+    },
+    "my_turn_search_area": {
+      "x1": 470,
+      "y1": 543,
+      "x2": 954,
+      "y2": 685
+    },
+    "player_funds_area": {
+      "0": {
+        "x1": 441,
+        "y1": 495,
+        "x2": 523,
+        "y2": 526
+      },
+      "1": {
+        "x1": 57,
+        "y1": 386,
+        "x2": 122,
+        "y2": 409
+      },
+      "2": {
+        "x1": 87,
+        "y1": 184,
+        "x2": 154,
+        "y2": 206
+      },
+      "3": {
+        "x1": 425,
+        "y1": 104,
+        "x2": 495,
+        "y2": 126
+      },
+      "4": {
+        "x1": 809,
+        "y1": 184,
+        "x2": 876,
+        "y2": 206
+      },
+      "5": {
+        "x1": 808,
+        "y1": 386,
+        "x2": 878,
+        "y2": 408
+      }
+    },
+    "player_name_area": {
+      "0": {
+        "x1": 418,
+        "y1": 460,
+        "x2": 539,
+        "y2": 493
+      },
+      "1": {
+        "x1": 55,
+        "y1": 358,
+        "x2": 135,
+        "y2": 381
+      },
+      "2": {
+        "x1": 84,
+        "y1": 156,
+        "x2": 165,
+        "y2": 178
+      },
+      "3": {
+        "x1": 420,
+        "y1": 76,
+        "x2": 501,
+        "y2": 98
+      },
+      "4": {
+        "x1": 806,
+        "y1": 156,
+        "x2": 876,
+        "y2": 178
+      },
+      "5": {
+        "x1": 802,
+        "y1": 358,
+        "x2": 884,
+        "y2": 381
+      }
+    },
+    "player_pot_area": {
+      "0": {
+        "x1": 410,
+        "y1": 395,
+        "x2": 468,
+        "y2": 421
+      },
+      "1": {
+        "x1": 206,
+        "y1": 404,
+        "x2": 258,
+        "y2": 428
+      },
+      "2": {
+        "x1": 276,
+        "y1": 236,
+        "x2": 330,
+        "y2": 260
+      },
+      "3": {
+        "x1": 526,
+        "y1": 147,
+        "x2": 570,
+        "y2": 171
+      },
+      "4": {
+        "x1": 666,
+        "y1": 358,
+        "x2": 734,
+        "y2": 383
+      },
+      "5": {
+        "x1": 666,
+        "y1": 358,
+        "x2": 734,
+        "y2": 383
+      }
+    },
+    "raise_value": {
+      "x1": 846,
+      "y1": 646,
+      "x2": 902,
+      "y2": 674
+    },
+    "table_cards_area": {
+      "x1": 318,
+      "y1": 243,
+      "x2": 635,
+      "y2": 326
+    },
+    "total_pot_area": {
+      "x1": 438,
+      "y1": 218,
+      "x2": 522,
+      "y2": 241
+    }
+  },
+  "validation": {
+    "critical_anchor_score": 1,
+    "evaluated_samples": 0,
+    "golden_pass_rate": 1,
+    "issues": [],
+    "live_pass_rate": 1,
+    "status": "green"
+  }
+}

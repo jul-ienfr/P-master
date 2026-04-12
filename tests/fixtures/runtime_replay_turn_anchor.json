@@ -1,0 +1,119 @@
+{
+  "frame_shape": [600, 1000],
+  "pot_bbox": [470, 280, 530, 320],
+  "stack_bboxes": [
+    [470, 80, 530, 120],
+    [820, 300, 880, 340],
+    [470, 500, 530, 540],
+    [120, 300, 180, 340]
+  ],
+  "hero_card_bboxes": [
+    [430, 520, 460, 570],
+    [540, 520, 570, 570]
+  ],
+  "hero_cards": ["Ah", "Kd"],
+  "board": ["2c", "7d", "Jh", "Qs", "Ac"],
+  "action_button_names": ["fold_button", "check_button", "raise_button", "raise_button"],
+  "spot_id": "replay_turn_001",
+  "pot": 18.5,
+  "state_confidence": 0.93,
+  "metadata": {
+    "source": "fixture",
+    "replay_id": "turn_anchor"
+  },
+  "players_by_seat_index": [
+    {
+      "name": "VillainUTG",
+      "stack": 97.5,
+      "is_active": true,
+      "has_folded": false,
+      "has_button": false,
+      "confidence": 0.84
+    },
+    {
+      "name": "VillainBTN",
+      "stack": 120.0,
+      "is_active": true,
+      "has_folded": false,
+      "has_button": true,
+      "confidence": 0.88
+    },
+    {
+      "name": "Hero",
+      "stack": 88.0,
+      "is_active": true,
+      "has_folded": false,
+      "has_button": false,
+      "confidence": 0.99
+    },
+    {
+      "name": "VillainSB",
+      "stack": 64.5,
+      "is_active": false,
+      "has_folded": true,
+      "has_button": false,
+      "confidence": 0.67
+    }
+  ],
+  "expected_payload": {
+    "spot_id": "replay_turn_001",
+    "street": "RIVER",
+    "pot": 18.5,
+    "board": ["2c", "7d", "Jh", "Qs", "Ac"],
+    "hero_cards": ["Ah", "Kd"],
+    "players": [
+      {
+        "seat_id": "seat_0",
+        "seat_index": 0,
+        "name": "VillainUTG",
+        "stack": 97.5,
+        "active": true,
+        "folded": false,
+        "is_hero": false,
+        "has_button": false,
+        "confidence": 0.84
+      },
+      {
+        "seat_id": "seat_1",
+        "seat_index": 1,
+        "name": "VillainBTN",
+        "stack": 120.0,
+        "active": true,
+        "folded": false,
+        "is_hero": false,
+        "has_button": true,
+        "confidence": 0.88
+      },
+      {
+        "seat_id": "seat_2",
+        "seat_index": 2,
+        "name": "Hero",
+        "stack": 88.0,
+        "active": true,
+        "folded": false,
+        "is_hero": true,
+        "has_button": false,
+        "confidence": 0.99
+      },
+      {
+        "seat_id": "seat_3",
+        "seat_index": 3,
+        "name": "VillainSB",
+        "stack": 64.5,
+        "active": false,
+        "folded": true,
+        "is_hero": false,
+        "has_button": false,
+        "confidence": 0.67
+      }
+    ],
+    "legal_actions": ["FOLD", "CHECK", "RAISE"],
+    "action_buttons": ["fold_button", "check_button", "raise_button"],
+    "state_confidence": 0.93,
+    "metadata": {
+      "source": "fixture",
+      "replay_id": "turn_anchor",
+      "hero_seat_id": "seat_2"
+    }
+  }
+}

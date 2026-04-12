@@ -1,0 +1,72 @@
+name: Binary Release Windows
+
+on:
+  workflow_dispatch:
+    
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          show-progress: false
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+    
+
+      - name: Install Tesseract
+        run: |
+          iwr https://github.com/simonflueckiger/tesserocr-windows_build/releases/download/tesserocr-v2.6.0-tesseract-5.3.1/tesserocr-2.6.0-cp311-cp311-win_amd64.whl -Out tesserocr-2.6.0-cp311-cp311-win_amd64.whl
+          pip install tesserocr-2.6.0-cp311-cp311-win_amd64.whl
+
+      - name: Install dependencies
+        run: pip install -r requirements_win.txt
+
+      - name: Run PyInstaller
+        run: |
+          cd poker
+          pyinstaller main.spec
+
+      - name: Prepare distribution
+        run: |
+          cd poker
+          mkdir dist\main\log
+          mkdir dist\main\pics
+          mkdir dist\main\log\screenshots
+          xcopy icon.ico dist\main\poker.ico* /Y
+          xcopy config_default.ini dist\main\config.ini* /Y
+          xcopy vboxapi dist\main\vboxapi\ /E
+
+      - name: Install NSIS
+        run: |
+          choco install nsis
+
+      - name: Run NSIS
+        run: |
+          makensis -V3 poker\DeepMindPokerbot.nsi
+         
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: DeepermindPokerbot-${{ github.run_number }}
+          release_name: Windows Release ${{ github.run_number }}
+          draft: false
+          prerelease: false
+          
+      - name: Upload Executable to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./DeepMindPokerbot_winstaller.exe
+          asset_name: DeepMindPokerbot_winstaller.exe
+          asset_content_type: application/octet-stream

@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "noEmit": true,
+    "baseUrl": "."
+  },
+  "include": [
+    "src/env.d.ts",
+    "src/App.tsx",
+    "src/main.tsx",
+    "src/lib/**/*.ts",
+    "src/lib/**/*.tsx",
+    "src/routes/Routing.tsx",
+    "src/routes/WorkstationShell.tsx",
+    "src/features/**/*.ts",
+    "src/features/**/*.tsx"
+  ],
+  "exclude": [
+    "dist",
+    "src-tauri",
+    "node_modules",
+    "src/components",
+    "src/views",
+    "src/routes/NavBar.tsx",
+    "src/assets/Images.tsx"
+  ]
+}

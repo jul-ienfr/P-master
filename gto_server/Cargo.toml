@@ -1,0 +1,22 @@
+[package]
+name = "gto_server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Shared root crate exposes the solver API used by this thin HTTP wrapper.
+postflop-solver = { path = "..", default-features = false, features = ["rayon"] }
+serde = { version = "1", features = ["derive"] }
+
+# HTTP server
+axum = "0.7"
+tokio = { version = "1", features = ["full"] }
+tower-http = { version = "0.5", features = ["cors"] }
+
+# Logs
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+[profile.release]
+opt-level = 3
+lto = true

@@ -1,0 +1,94 @@
+:root {
+  --pm-focus: #155eef;
+  font-family:
+    "IBM Plex Sans", "Aptos", "Segoe UI", Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+:root,
+:root[data-theme="light"] {
+  --pm-bg: #f3f5f8;
+  --pm-surface: #ffffff;
+  --pm-surface-muted: #f8fafc;
+  --pm-surface-subtle: #edf2f7;
+  --pm-sidebar-bg: #ffffff;
+  --pm-border: rgba(16, 24, 40, 0.08);
+  --pm-border-strong: rgba(16, 24, 40, 0.14);
+  --pm-text: #101828;
+  --pm-text-soft: #344054;
+  --pm-text-muted: #526173;
+  --pm-inverse-surface: #101828;
+  --pm-inverse-text: #ffffff;
+  --pm-accent-text: #0f172a;
+  --pm-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  --pm-shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.04);
+  --pm-overlay: rgba(15, 23, 42, 0.28);
+  --pm-danger: #b42318;
+  color-scheme: light;
+  color: var(--pm-text);
+  background: var(--pm-bg);
+}
+
+:root[data-theme="dark"] {
+  --pm-bg: #071018;
+  --pm-surface: #0d1722;
+  --pm-surface-muted: #111f2e;
+  --pm-surface-subtle: #172737;
+  --pm-sidebar-bg: #0a1420;
+  --pm-border: rgba(215, 224, 239, 0.12);
+  --pm-border-strong: rgba(215, 224, 239, 0.22);
+  --pm-text: #e8eef7;
+  --pm-text-soft: #c1cede;
+  --pm-text-muted: #97a7be;
+  --pm-inverse-surface: #e8eef7;
+  --pm-inverse-text: #071018;
+  --pm-accent-text: #0f172a;
+  --pm-shadow: 0 20px 48px rgba(0, 0, 0, 0.28);
+  --pm-shadow-soft: 0 16px 40px rgba(0, 0, 0, 0.24);
+  --pm-overlay: rgba(2, 6, 23, 0.68);
+  --pm-danger: #f97066;
+  color-scheme: dark;
+  color: var(--pm-text);
+  background: var(--pm-bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-width: 320px;
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--pm-bg);
+  color: var(--pm-text);
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+::selection {
+  background: rgba(21, 94, 239, 0.16);
+  color: var(--pm-text);
+}

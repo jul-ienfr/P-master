@@ -1,0 +1,29 @@
+{
+  "active_version_id": "v0001-20260411T115211Z",
+  "candidate_version_id": null,
+  "created_at": "2026-04-11T23:25:09.724Z",
+  "display_name": "PokerStars 7 FR 6-max",
+  "identity": {
+    "cash_or_tournament": "cash",
+    "hero_seat": "bottom-right",
+    "max_players": 6,
+    "network": "PokerStars",
+    "real_or_play": "play",
+    "site": "pokerstars",
+    "skin": "PokerStars 7 FR 6-max",
+    "table_size": "955x689",
+    "theme": "dark-fr",
+    "variant": "ps7-fr-play-6max"
+  },
+  "owner": "julie-local",
+  "runtime_aliases": [
+    "PokerStars 7 FR 6-max",
+    "PokerStars 7",
+    "PokerStars"
+  ],
+  "slug": "pokerstars-7-fr-6-max",
+  "updated_at": "2026-04-11T23:25:09.724Z",
+  "versions": [
+    "v0001-20260411T115211Z"
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "profile": {
+    "player_type": "Balanced",
+    "derived_profile": {
+      "style": "Balanced",
+      "observed_hands": 120,
+      "hands_played": 120,
+      "vpip_rate": 0.35,
+      "pfr_rate": 0.15,
+      "aggression_frequency": 0.65,
+      "reliability": 0.95,
+      "rl_ready": true
+    }
+  },
+  "enable_validated_rl": true,
+  "solver_response": {
+    "chosen_action": "FOLD",
+    "hero_ev": 1.15,
+    "exploitability": 0.02,
+    "decision_confidence": 0.91,
+    "actions": [
+      {"action": "FOLD", "freq": 0.62},
+      {"action": "BET_75", "freq": 0.38}
+    ],
+    "elapsed_ms": 9,
+    "backend": "solver_stub"
+  },
+  "rl_action_idx": 2,
+  "request": {
+    "hero_hand": "AhKd",
+    "board": [],
+    "pot": 6.0,
+    "effective_stack": 50.0,
+    "villain_name": "Villain",
+    "legal_actions": ["FOLD", "CALL", "BET"],
+    "state_confidence": 0.92
+  },
+  "expected": {
+    "action": "BET",
+    "bet_size": null,
+    "ev": 1.15,
+    "exploitability": 0.02,
+    "details": [
+      {"action": "FOLD", "freq": 0.62},
+      {"action": "BET_75", "freq": 0.38}
+    ],
+    "source": "RL_VALIDATED",
+    "profile": {
+      "style": "Balanced",
+      "hands_played": 120,
+      "observed_hands": 120,
+      "reliability": 0.95,
+      "vpip": 0.35,
+      "pfr": 0.15,
+      "gap": 0.2,
+      "aggression_frequency": 0.65,
+      "exploit_confidence": 1.0,
+      "range_hint": "55+, A2s+, K5s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, ATo+, KJo+, QJo",
+      "pressure_bias": 0.0,
+      "call_bias": 0.0,
+      "fold_bias": 0.0,
+      "deviation_cap": 0.25,
+      "rl_ready": true
+    },
+    "confidence": 0.91,
+    "cache_hit": false,
+    "fallback_used": false,
+    "fallback_reason": null,
+    "warnings": [],
+    "incidents": [],
+    "backend": "solver_stub",
+    "elapsed_ms": 9
+  }
+}

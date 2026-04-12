@@ -1,0 +1,59 @@
+{
+  "auto_annotator": {
+    "providers": [
+      {
+        "api_key": "",
+        "base_url": "https://api.groq.com/openai/v1",
+        "model": "llama-3.2-90b-vision-preview"
+      },
+      {
+        "api_key": "",
+        "base_url": "https://api.openai.com/v1",
+        "model": "gpt-4o"
+      }
+    ]
+  },
+  "bot": {
+    "target_fps": 30,
+    "time_budget_ms": 1000,
+    "window_title_keywords": "VirtualBox"
+  },
+  "database": {
+    "dsn": "postgresql://poker_bot:supersecretpassword@localhost:5432/poker_db"
+  },
+  "fallback_coordinates": {
+    "BET_BOX": [
+      750,
+      750
+    ],
+    "BET_BTN": [
+      800,
+      800
+    ],
+    "CALL": [
+      650,
+      800
+    ],
+    "FOLD": [
+      500,
+      800
+    ]
+  },
+  "ocr": {
+    "enabled_engines": [
+      "doctr"
+    ],
+    "mode": "consensus_amounts",
+    "parallel": true,
+    "use_gpu": true
+  },
+  "rl": {
+    "autoload_model": true,
+    "enable": true,
+    "enable_validated": false
+  },
+  "yolo": {
+    "confidence_threshold": 0.6,
+    "model_path": "models/poker_yolo_v11.engine"
+  }
+}

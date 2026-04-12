@@ -1,0 +1,95 @@
+{
+  "frames": [
+    {
+      "spot_id": "new_hand_reset_001",
+      "street": "PREFLOP",
+      "hero_cards": ["Qs", "Qc"],
+      "pot": 1.5,
+      "state_confidence": 0.9,
+      "players": [
+        {"seat_id": "hero", "seat_index": 0, "name": "Hero", "stack": 100.0, "is_hero": true},
+        {"seat_id": "villain", "seat_index": 1, "name": "Villain", "stack": 100.0, "active": true}
+      ]
+    },
+    {
+      "spot_id": "new_hand_reset_002",
+      "street": "FLOP",
+      "board": ["2c", "7d", "Jh"],
+      "hero_cards": ["Qs", "Qc"],
+      "pot": 3.5,
+      "state_confidence": 0.94,
+      "players": [
+        {"seat_id": "hero", "seat_index": 0, "name": "Hero", "stack": 100.0, "is_hero": true},
+        {"seat_id": "villain", "seat_index": 1, "name": "Villain", "stack": 100.0, "active": false, "folded": true}
+      ]
+    },
+    {
+      "spot_id": "new_hand_reset_003",
+      "street": "PREFLOP",
+      "hero_cards": ["Ah", "Ad"],
+      "board": [],
+      "pot": 1.0,
+      "state_confidence": 0.97,
+      "players": []
+    },
+    {
+      "spot_id": "new_hand_reset_004",
+      "street": "PREFLOP",
+      "hero_cards": ["Ah", "Ad"],
+      "board": [],
+      "pot": 1.0,
+      "state_confidence": 0.97,
+      "players": []
+    }
+  ],
+  "expected": {
+    "tracker": {
+      "state": "IDLE",
+      "current_board": [],
+      "pot_total": 0.0,
+      "last_pot": 0.0,
+      "hero_cards": [],
+      "legal_actions": [],
+      "action_buttons": [],
+      "spot_id": "",
+      "state_confidence": 0.0,
+      "current_hand_actions": [],
+      "observed_players_this_hand": [],
+      "players": [
+        {
+          "seat_id": "hero",
+          "seat_index": 0,
+          "name": "Hero",
+          "starting_stack": 100.0,
+          "current_stack": 100.0,
+          "bet": 0.0,
+          "is_active": true,
+          "has_folded": false,
+          "is_hero": true,
+          "has_button": false
+        },
+        {
+          "seat_id": "villain",
+          "seat_index": 1,
+          "name": "Villain",
+          "starting_stack": 100.0,
+          "current_stack": 100.0,
+          "bet": 0.0,
+          "is_active": true,
+          "has_folded": false,
+          "is_hero": false,
+          "has_button": false
+        }
+      ]
+    },
+    "db": {
+      "observed_calls": [["Hero", "PREFLOP"], ["Villain", "PREFLOP"]],
+      "action_updates": [
+        ["Villain", {"player": "Villain", "action": "FOLD", "amount": 0, "pot_size": 1.5, "street": "FLOP"}]
+      ],
+      "hand_history_calls": [
+        ["Table_1", ["2c", "7d", "Jh"], [{"player": "Villain", "action": "FOLD", "amount": 0, "pot_size": 1.5, "street": "FLOP"}]]
+      ]
+    }
+  }
+}

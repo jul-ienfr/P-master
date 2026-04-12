@@ -1,0 +1,177 @@
+{
+  "artifacts": [
+    {
+      "description": "Randomized oracle parity and representative replay validation",
+      "exists": true,
+      "key": "validation_suite",
+      "kind": "",
+      "path": "/mnt/c/Users/julie/Desktop/Poker-master/research/results/validation_suite.json",
+      "summary_keys": [
+        "oracle_randomized",
+        "replay_validation"
+      ]
+    },
+    {
+      "description": "Native solver warm/cold latency benchmark",
+      "exists": true,
+      "key": "native_latency",
+      "kind": "native_latency",
+      "path": "/mnt/c/Users/julie/Desktop/Poker-master/research/results/native_latency.json",
+      "summary_keys": [
+        "cold",
+        "kind",
+        "warm"
+      ]
+    },
+    {
+      "description": "Offline RL/replay tournament and challenger smoke suite",
+      "exists": true,
+      "key": "rl_lab_summary",
+      "kind": "rl_lab",
+      "path": "/mnt/c/Users/julie/Desktop/Poker-master/research/results/rl_lab_summary.json",
+      "summary_keys": [
+        "best_response",
+        "challenger_smoke",
+        "champion",
+        "kind",
+        "policy_lineup",
+        "ready_challengers",
+        "records",
+        "tournament"
+      ]
+    },
+    {
+      "description": "Unified phase-2 validation runner summary",
+      "exists": true,
+      "key": "refonte_ci_summary",
+      "kind": "refonte_ci_summary",
+      "path": "/mnt/c/Users/julie/Desktop/Poker-master/research/results/refonte_ci_summary.json",
+      "summary_keys": [
+        "artifacts",
+        "cargo_bin",
+        "kind",
+        "node_bin",
+        "python_bin",
+        "steps",
+        "summary"
+      ]
+    }
+  ],
+  "cargo_bin": "/home/julien/.local/bin/cargo",
+  "kind": "refonte_ci_summary",
+  "node_bin": "/home/julien/.local/bin/node",
+  "python_bin": "/home/julien/.cache/pokermaster-python-3.11/bin/python3",
+  "steps": [
+    {
+      "command": [
+        "/home/julien/.cache/pokermaster-python-3.11/bin/python3",
+        "-m",
+        "pytest",
+        "poker/tests/test_v2_contracts.py",
+        "poker/tests/test_decision_service.py",
+        "poker/tests/test_range_tracker.py",
+        "poker/tests/test_equity_backends.py",
+        "poker/tests/test_native_equity.py",
+        "poker/tests/test_decision_transcripts.py",
+        "poker/tests/test_decisionmaker_gto_v2.py",
+        "poker/tests/test_research_lab.py",
+        "poker/tests/test_restapi_local_v2.py",
+        "-q"
+      ],
+      "elapsed_ms": 39933,
+      "name": "python_v2_tests",
+      "returncode": 0,
+      "status": "passed",
+      "stderr_tail": "",
+      "stdout_tail": "estRangeTracker::test_tracker_builds_calibration_rows PASSED\npoker/tests/test_range_tracker.py::TestRangeTracker::test_villain_range_applies_board_aware_weights PASSED\npoker/tests/test_equity_backends.py::TestEquityBackends::test_auto_plan_uses_monte_carlo_for_wide_flop PASSED\npoker/tests/test_equity_backends.py::TestEquityBackends::test_normalize_equity_response_sets_backend_fields PASSED\npoker/tests/test_equity_backends.py::TestEquityBackends::test_turn_single_range_prefers_exact PASSED\npoker/tests/test_native_equity.py::TestNativeEquityHelpers::test_call_native_binding_accepts_dict_result PASSED\npoker/tests/test_native_equity.py::TestNativeEquityHelpers::test_normalize_range_percent_accepts_fraction_and_percent PASSED\npoker/tests/test_native_equity.py::TestNativeEquityHelpers::test_normalize_range_token_orders_ranks_descending PASSED\npoker/tests/test_native_equity.py::TestNativeEquityHelpers::test_normalize_winner_types_accepts_list_payload PASSED\npoker/tests/test_native_equity.py::TestNativeEquityHelpers::test_percent_to_range_string_is_stable_for_percent_and_fraction PASSED\npoker/tests/test_decision_transcripts.py::TestDecisionTranscripts::test_low_confidence_transcript_blocks_live_action PASSED\npoker/tests/test_decisionmaker_gto_v2.py::TestDecisionMakerGtoV2::test_builds_canonical_solve_request_with_action_history PASSED\npoker/tests/test_decisionmaker_gto_v2.py::TestDecisionMakerGtoV2::test_builds_v2_snapshots_from_solver_payload PASSED\npoker/tests/test_decisionmaker_gto_v2.py::TestDecisionMakerGtoV2::test_extracts_action_from_chosen_action_payload PASSED\npoker/tests/test_decisionmaker_gto_v2.py::TestDecisionMakerGtoV2::test_set_no_action_builds_gate_snapshot PASSED\npoker/tests/test_research_lab.py::TestResearchLab::test_calibration_profile_has_diagnostics PASSED\npoker/tests/test_research_lab.py::TestResearchLab::test_challenger_payload_and_loader_return_runtime_metadata PASSED\npoker/tests/test_research_lab.py::TestResearchLab::test_challenger_registry_lists_expected_entries PASSED\npoker/tests/test_research_lab.py::TestResearchLab::test_head_to_head_and_lbr_return_metrics PASSED\npoker/tests/test_research_lab.py::TestResearchLab::test_opponent_dataset_and_version_benchmark_are_populated PASSED\npoker/tests/test_research_lab.py::TestResearchLab::test_postflop_bundle_and_validation_payload_are_structured PASSED\npoker/tests/test_research_lab.py::TestResearchLab::test_rl_lab_and_automation_payloads_are_structured PASSED\npoker/tests/test_restapi_local_v2.py::TestRestApiLocalV2::test_bot_cockpit_endpoint_contract PASSED\npoker/tests/test_restapi_local_v2.py::TestRestApiLocalV2::test_config_lab_endpoint_contract PASSED\npoker/tests/test_restapi_local_v2.py::TestRestApiLocalV2::test_config_lab_payload_enriches_research_and_inspection PASSED\npoker/tests/test_restapi_local_v2.py::TestRestApiLocalV2::test_health_payload_is_ready_without_llm PASSED\npoker/tests/test_restapi_local_v2.py::TestRestApiLocalV2::test_legacy_solve_endpoint_contract PASSED\npoker/tests/test_restapi_local_v2.py::TestRestApiLocalV2::test_llm_assist_endpoint_contract PASSED\npoker/tests/test_restapi_local_v2.py::TestRestApiLocalV2::test_mock_config_payload_disables_llm_by_default PASSED\npoker/tests/test_restapi_local_v2.py::TestRestApiLocalV2::test_replay_analytics_endpoint_contract PASSED\npoker/tests/test_restapi_local_v2.py::TestRestApiLocalV2::test_research_lab_endpoint_contract PASSED\npoker/tests/test_restapi_local_v2.py::TestRestApiLocalV2::test_routes_are_registered PASSED\npoker/tests/test_restapi_local_v2.py::TestRestApiLocalV2::test_runtime_snapshot_contains_samples PASSED\npoker/tests/test_restapi_local_v2.py::TestRestApiLocalV2::test_solver_inspection_endpoint_contract PASSED\npoker/tests/test_restapi_local_v2.py::TestRestApiLocalV2::test_v2_solve_endpoint_contract PASSED\npoker/tests/test_restapi_local_v2.py::TestRestApiLocalV2::test_version_payload_contains_runtime_info PASSED\n\n============================= 53 passed in 33.19s ==============================\n"
+    },
+    {
+      "command": [
+        "/home/julien/.cache/pokermaster-python-3.11/bin/python3",
+        "research/run_validation_suite.py"
+      ],
+      "elapsed_ms": 11686,
+      "name": "research_validation_suite",
+      "returncode": 0,
+      "status": "passed",
+      "stderr_tail": "",
+      "stdout_tail": "cal/bin/node\",\n          \"runner\": \"/mnt/c/Users/julie/Desktop/Poker-master/research/node_oracle_runner.js\"\n        },\n        \"name\": \"poker_evaluator\",\n        \"reason\": \"node_runner\"\n      },\n      {\n        \"available\": false,\n        \"metadata\": {\n          \"dotnet\": \"\"\n        },\n        \"name\": \"skpokereval\",\n        \"reason\": \"dotnet_missing\"\n      }\n    ],\n    \"phevaluator_success_rate\": 1.0,\n    \"poker_evaluator_vs_pokersolver_agreement_rate\": 1.0,\n    \"poker_evaluator_vs_pokersolver_agreements\": 500,\n    \"successful\": 500\n  },\n  \"replay_validation\": {\n    \"consistency_rate\": 1.0,\n    \"consistent_records\": 10,\n    \"gated_records\": 1,\n    \"illegal_actions\": 0,\n    \"kind\": \"replay_validation\",\n    \"records\": 10,\n    \"samples\": [\n      {\n        \"chosen_action\": \"bet\",\n        \"decision_confidence\": 0.91,\n        \"gate_allowed\": true,\n        \"legal_actions\": [\n          \"check\",\n          \"bet\",\n          \"fold\",\n          \"call\"\n        ],\n        \"replay_id\": \"mock-replay-001\",\n        \"spot_id\": \"mock-spot-001\"\n      },\n      {\n        \"chosen_action\": \"check\",\n        \"decision_confidence\": 0.9,\n        \"gate_allowed\": true,\n        \"legal_actions\": [\n          \"check\",\n          \"bet_33\",\n          \"bet_50\",\n          \"bet_100\"\n        ],\n        \"replay_id\": \"representative-001\",\n        \"spot_id\": \"preset:srp_hu_100bb\"\n      },\n      {\n        \"chosen_action\": \"check\",\n        \"decision_confidence\": 0.9,\n        \"gate_allowed\": true,\n        \"legal_actions\": [\n          \"check\",\n          \"bet_50\",\n          \"bet_75\",\n          \"bet_125\"\n        ],\n        \"replay_id\": \"representative-002\",\n        \"spot_id\": \"preset:srp_hu_texture_wet\"\n      },\n      {\n        \"chosen_action\": \"check\",\n        \"decision_confidence\": 0.9,\n        \"gate_allowed\": true,\n        \"legal_actions\": [\n          \"check\",\n          \"bet_25\",\n          \"bet_50\",\n          \"jam\"\n        ],\n        \"replay_id\": \"representative-003\",\n        \"spot_id\": \"preset:3bp_hu_100bb\"\n      },\n      {\n        \"chosen_action\": \"check\",\n        \"decision_confidence\": 0.9,\n        \"gate_allowed\": true,\n        \"legal_actions\": [\n          \"check\",\n          \"bet_25\",\n          \"bet_50\",\n          \"jam\"\n        ],\n        \"replay_id\": \"representative-004\",\n        \"spot_id\": \"preset:4bp_hu_100bb\"\n      },\n      {\n        \"chosen_action\": \"check\",\n        \"decision_confidence\": 0.9,\n        \"gate_allowed\": true,\n        \"legal_actions\": [\n          \"check\",\n          \"bet_50\",\n          \"bet_75\",\n          \"jam\"\n        ],\n        \"replay_id\": \"representative-005\",\n        \"spot_id\": \"preset:turn_probe_hu\"\n      },\n      {\n        \"chosen_action\": \"check\",\n        \"decision_confidence\": 0.9,\n        \"gate_allowed\": true,\n        \"legal_actions\": [\n          \"check\",\n          \"bet_33\",\n          \"bet_66\",\n          \"bet_100\"\n        ],\n        \"replay_id\": \"representative-006\",\n        \"spot_id\": \"preset:turn_delayed_cbet_hu\"\n      },\n      {\n        \"chosen_action\": \"check\",\n        \"decision_confidence\": 0.9,\n        \"gate_allowed\": true,\n        \"legal_actions\": [\n          \"check\",\n          \"bet_75\",\n          \"jam\"\n        ],\n        \"replay_id\": \"representative-007\",\n        \"spot_id\": \"preset:river_jam_low_spr\"\n      },\n      {\n        \"chosen_action\": \"check\",\n        \"decision_confidence\": 0.9,\n        \"gate_allowed\": true,\n        \"legal_actions\": [\n          \"check\",\n          \"bet_75\",\n          \"bet_150\",\n          \"jam\"\n        ],\n        \"replay_id\": \"representative-008\",\n        \"spot_id\": \"preset:river_overbet_polar_hu\"\n      },\n      {\n        \"chosen_action\": \"NoAction\",\n        \"decision_confidence\": 0.2,\n        \"gate_allowed\": false,\n        \"legal_actions\": [\n          \"check\",\n          \"bet_33\"\n        ],\n        \"replay_id\": \"representative-blocked\",\n        \"spot_id\": \"representative-blocked\"\n      }\n    ],\n    \"zero_illegal_actions\": true\n  }\n}\nsaved=/mnt/c/Users/julie/Desktop/Poker-master/research/results/validation_suite.json\n"
+    },
+    {
+      "command": [
+        "/home/julien/.cache/pokermaster-python-3.11/bin/python3",
+        "research/run_rl_lab.py"
+      ],
+      "elapsed_ms": 3811,
+      "name": "research_rl_lab",
+      "returncode": 0,
+      "status": "passed",
+      "stderr_tail": "",
+      "stdout_tail": ",\n        \"baseline_policy\": \"baseline_trace\",\n        \"challenger_beats_baseline\": true,\n        \"challenger_ev_sum\": 1.78,\n        \"challenger_policy\": \"best_alt\",\n        \"decisive_records\": 9,\n        \"records\": 10,\n        \"winner\": \"best_alt\"\n      },\n      {\n        \"baseline_ev_sum\": 1.62,\n        \"baseline_policy\": \"baseline_trace\",\n        \"challenger_beats_baseline\": false,\n        \"challenger_ev_sum\": 1.56,\n        \"challenger_policy\": \"always_check\",\n        \"decisive_records\": 9,\n        \"records\": 10,\n        \"winner\": \"baseline_trace\"\n      },\n      {\n        \"baseline_ev_sum\": 1.62,\n        \"baseline_policy\": \"baseline_trace\",\n        \"challenger_beats_baseline\": false,\n        \"challenger_ev_sum\": 0.74,\n        \"challenger_policy\": \"always_bet_50\",\n        \"decisive_records\": 9,\n        \"records\": 10,\n        \"winner\": \"baseline_trace\"\n      },\n      {\n        \"baseline_ev_sum\": 1.62,\n        \"baseline_policy\": \"baseline_trace\",\n        \"challenger_beats_baseline\": false,\n        \"challenger_ev_sum\": 0.62,\n        \"challenger_policy\": \"always_jam\",\n        \"decisive_records\": 9,\n        \"records\": 10,\n        \"winner\": \"baseline_trace\"\n      },\n      {\n        \"baseline_ev_sum\": 1.78,\n        \"baseline_policy\": \"best_alt\",\n        \"challenger_beats_baseline\": false,\n        \"challenger_ev_sum\": 1.56,\n        \"challenger_policy\": \"always_check\",\n        \"decisive_records\": 9,\n        \"records\": 10,\n        \"winner\": \"best_alt\"\n      },\n      {\n        \"baseline_ev_sum\": 1.78,\n        \"baseline_policy\": \"best_alt\",\n        \"challenger_beats_baseline\": false,\n        \"challenger_ev_sum\": 0.74,\n        \"challenger_policy\": \"always_bet_50\",\n        \"decisive_records\": 9,\n        \"records\": 10,\n        \"winner\": \"best_alt\"\n      },\n      {\n        \"baseline_ev_sum\": 1.78,\n        \"baseline_policy\": \"best_alt\",\n        \"challenger_beats_baseline\": false,\n        \"challenger_ev_sum\": 0.62,\n        \"challenger_policy\": \"always_jam\",\n        \"decisive_records\": 9,\n        \"records\": 10,\n        \"winner\": \"best_alt\"\n      },\n      {\n        \"baseline_ev_sum\": 1.56,\n        \"baseline_policy\": \"always_check\",\n        \"challenger_beats_baseline\": false,\n        \"challenger_ev_sum\": 0.74,\n        \"challenger_policy\": \"always_bet_50\",\n        \"decisive_records\": 9,\n        \"records\": 10,\n        \"winner\": \"always_check\"\n      },\n      {\n        \"baseline_ev_sum\": 1.56,\n        \"baseline_policy\": \"always_check\",\n        \"challenger_beats_baseline\": false,\n        \"challenger_ev_sum\": 0.62,\n        \"challenger_policy\": \"always_jam\",\n        \"decisive_records\": 9,\n        \"records\": 10,\n        \"winner\": \"always_check\"\n      },\n      {\n        \"baseline_ev_sum\": 0.74,\n        \"baseline_policy\": \"always_bet_50\",\n        \"challenger_beats_baseline\": false,\n        \"challenger_ev_sum\": 0.62,\n        \"challenger_policy\": \"always_jam\",\n        \"decisive_records\": 9,\n        \"records\": 10,\n        \"winner\": \"always_bet_50\"\n      }\n    ],\n    \"records\": 10,\n    \"standings\": [\n      {\n        \"draws\": 0,\n        \"ev_sum\": 7.12,\n        \"losses\": 0,\n        \"matches\": 4,\n        \"points\": 12,\n        \"policy\": \"best_alt\",\n        \"wins\": 4\n      },\n      {\n        \"draws\": 0,\n        \"ev_sum\": 6.48,\n        \"losses\": 1,\n        \"matches\": 4,\n        \"points\": 9,\n        \"policy\": \"baseline_trace\",\n        \"wins\": 3\n      },\n      {\n        \"draws\": 0,\n        \"ev_sum\": 6.24,\n        \"losses\": 2,\n        \"matches\": 4,\n        \"points\": 6,\n        \"policy\": \"always_check\",\n        \"wins\": 2\n      },\n      {\n        \"draws\": 0,\n        \"ev_sum\": 2.96,\n        \"losses\": 3,\n        \"matches\": 4,\n        \"points\": 3,\n        \"policy\": \"always_bet_50\",\n        \"wins\": 1\n      },\n      {\n        \"draws\": 0,\n        \"ev_sum\": 2.48,\n        \"losses\": 4,\n        \"matches\": 4,\n        \"points\": 0,\n        \"policy\": \"always_jam\",\n        \"wins\": 0\n      }\n    ]\n  }\n}\nsaved=/mnt/c/Users/julie/Desktop/Poker-master/research/results/rl_lab_summary.json\n"
+    },
+    {
+      "command": [
+        "/home/julien/.local/bin/cargo",
+        "test",
+        "--test",
+        "v2_api",
+        "--",
+        "--nocapture"
+      ],
+      "elapsed_ms": 1020741,
+      "name": "rust_v2_tests",
+      "returncode": 0,
+      "status": "passed",
+      "stderr_tail": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.40s\n     Running tests/v2_api.rs (target/debug/deps/v2_api-dac9ad1b741c1e1b)\n",
+      "stdout_tail": "teration: 3 / 100 (exploitability = 1.8487e1)\niteration: 4 / 100 (exploitability = 1.8487e1)test supported_v2_spot_populates_backend_metadata has been running for over 60 seconds\n\niteration: 5 / 100 (exploitability = 1.8487e1)\niteration: 6 / 100 (exploitability = 1.8487e1)\niteration: 7 / 100 (exploitability = 1.8487e1)\niteration: 8 / 100 (exploitability = 1.8487e1)\niteration: 9 / 100 (exploitability = 1.8487e1)\niteration: 10 / 100 (exploitability = 1.9021e1)\niteration: 11 / 100 (exploitability = 1.9021e1)\niteration: 12 / 100 (exploitability = 1.9021e1)\niteration: 13 / 100 (exploitability = 1.9021e1)\niteration: 14 / 100 (exploitability = 1.9021e1)\niteration: 15 / 100 (exploitability = 1.9021e1)\niteration: 16 / 100 (exploitability = 1.9021e1)\niteration: 17 / 100 (exploitability = 1.9021e1)\niteration: 18 / 100 (exploitability = 1.9021e1)\niteration: 19 / 100 (exploitability = 1.9021e1)\niteration: 20 / 100 (exploitability = 8.6637e0)\niteration: 21 / 100 (exploitability = 8.6637e0)\niteration: 22 / 100 (exploitability = 8.6637e0)\niteration: 23 / 100 (exploitability = 8.6637e0)\niteration: 24 / 100 (exploitability = 8.6637e0)\niteration: 25 / 100 (exploitability = 8.6637e0)\niteration: 26 / 100 (exploitability = 8.6637e0)\niteration: 27 / 100 (exploitability = 8.6637e0)\niteration: 28 / 100 (exploitability = 8.6637e0)\niteration: 29 / 100 (exploitability = 8.6637e0)\niteration: 30 / 100 (exploitability = 3.0795e0)\niteration: 31 / 100 (exploitability = 3.0795e0)\niteration: 32 / 100 (exploitability = 3.0795e0)\niteration: 33 / 100 (exploitability = 3.0795e0)\niteration: 34 / 100 (exploitability = 3.0795e0)\niteration: 35 / 100 (exploitability = 3.0795e0)\niteration: 36 / 100 (exploitability = 3.0795e0)\niteration: 37 / 100 (exploitability = 3.0795e0)\niteration: 38 / 100 (exploitability = 3.0795e0)\niteration: 39 / 100 (exploitability = 3.0795e0)\niteration: 40 / 100 (exploitability = 2.8114e0)\niteration: 41 / 100 (exploitability = 2.8114e0)\niteration: 42 / 100 (exploitability = 2.8114e0)\niteration: 43 / 100 (exploitability = 2.8114e0)\niteration: 44 / 100 (exploitability = 2.8114e0)\niteration: 45 / 100 (exploitability = 2.8114e0)\niteration: 46 / 100 (exploitability = 2.8114e0)\niteration: 47 / 100 (exploitability = 2.8114e0)\niteration: 48 / 100 (exploitability = 2.8114e0)\niteration: 49 / 100 (exploitability = 2.8114e0)\niteration: 50 / 100 (exploitability = 1.4714e0)\niteration: 51 / 100 (exploitability = 1.4714e0)\niteration: 52 / 100 (exploitability = 1.4714e0)\niteration: 53 / 100 (exploitability = 1.4714e0)\niteration: 54 / 100 (exploitability = 1.4714e0)\niteration: 55 / 100 (exploitability = 1.4714e0)\niteration: 56 / 100 (exploitability = 1.4714e0)\niteration: 57 / 100 (exploitability = 1.4714e0)\niteration: 58 / 100 (exploitability = 1.4714e0)\niteration: 59 / 100 (exploitability = 1.4714e0)\niteration: 60 / 100 (exploitability = 9.0465e-1)\niteration: 61 / 100 (exploitability = 9.0465e-1)\niteration: 62 / 100 (exploitability = 9.0465e-1)\niteration: 63 / 100 (exploitability = 9.0465e-1)\niteration: 64 / 100 (exploitability = 9.0465e-1)\niteration: 65 / 100 (exploitability = 9.0465e-1)\niteration: 66 / 100 (exploitability = 9.0465e-1)\niteration: 67 / 100 (exploitability = 9.0465e-1)\niteration: 68 / 100 (exploitability = 9.0465e-1)\niteration: 69 / 100 (exploitability = 9.0465e-1)\niteration: 70 / 100 (exploitability = 6.2086e-1)\niteration: 71 / 100 (exploitability = 6.2086e-1)\niteration: 72 / 100 (exploitability = 6.2086e-1)\niteration: 73 / 100 (exploitability = 6.2086e-1)\niteration: 74 / 100 (exploitability = 6.2086e-1)\niteration: 75 / 100 (exploitability = 6.2086e-1)\niteration: 76 / 100 (exploitability = 6.2086e-1)\niteration: 77 / 100 (exploitability = 6.2086e-1)\niteration: 78 / 100 (exploitability = 6.2086e-1)\niteration: 79 / 100 (exploitability = 6.2086e-1)\niteration: 80 / 100 (exploitability = 2.9461e-1)\ntest supported_v2_spot_populates_backend_metadata ... ok\n\ntest result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1013.77s\n\n"
+    },
+    {
+      "command": [
+        "/home/julien/.local/bin/cargo",
+        "run",
+        "--example",
+        "native_latency"
+      ],
+      "elapsed_ms": 30417,
+      "name": "rust_native_latency",
+      "returncode": 0,
+      "status": "passed",
+      "stderr_tail": "   Compiling postflop-solver v0.1.0 (/mnt/c/Users/julie/Desktop/Poker-master)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 29.28s\n     Running `target/debug/examples/native_latency`\n",
+      "stdout_tail": "iteration: 0 / 10 (exploitability = 9.2456e0)\niteration: 1 / 10 (exploitability = 9.2456e0)\niteration: 2 / 10 (exploitability = 9.2456e0)\niteration: 3 / 10 (exploitability = 9.2456e0)\niteration: 4 / 10 (exploitability = 9.2456e0)\niteration: 5 / 10 (exploitability = 9.2456e0)\niteration: 6 / 10 (exploitability = 9.2456e0)\niteration: 7 / 10 (exploitability = 9.2456e0)\niteration: 8 / 10 (exploitability = 9.2456e0)\niteration: 9 / 10 (exploitability = 9.2456e0)\niteration: 10 / 10 (exploitability = 2.0099e-1)\niteration: 0 / 10 (exploitability = 7.9199e0)\niteration: 1 / 10 (exploitability = 7.9199e0)\niteration: 2 / 10 (exploitability = 7.9199e0)\niteration: 3 / 10 (exploitability = 7.9199e0)\niteration: 4 / 10 (exploitability = 7.9199e0)\niteration: 5 / 10 (exploitability = 7.9199e0)\niteration: 6 / 10 (exploitability = 7.9199e0)\niteration: 7 / 10 (exploitability = 7.9199e0)\niteration: 8 / 10 (exploitability = 7.9199e0)\niteration: 9 / 10 (exploitability = 7.9199e0)\niteration: 10 / 10 (exploitability = 9.2441e-1)\niteration: 0 / 10 (exploitability = 1.0581e1)\niteration: 1 / 10 (exploitability = 1.0581e1)\niteration: 2 / 10 (exploitability = 1.0581e1)\niteration: 3 / 10 (exploitability = 1.0581e1)\niteration: 4 / 10 (exploitability = 1.0581e1)\niteration: 5 / 10 (exploitability = 1.0581e1)\niteration: 6 / 10 (exploitability = 1.0581e1)\niteration: 7 / 10 (exploitability = 1.0581e1)\niteration: 8 / 10 (exploitability = 1.0581e1)\niteration: 9 / 10 (exploitability = 1.0581e1)\niteration: 10 / 10 (exploitability = 3.3429e-1)\niteration: 0 / 10 (exploitability = 9.2456e0)\niteration: 1 / 10 (exploitability = 9.2456e0)\niteration: 2 / 10 (exploitability = 9.2456e0)\niteration: 3 / 10 (exploitability = 9.2456e0)\niteration: 4 / 10 (exploitability = 9.2456e0)\niteration: 5 / 10 (exploitability = 9.2456e0)\niteration: 6 / 10 (exploitability = 9.2456e0)\niteration: 7 / 10 (exploitability = 9.2456e0)\niteration: 8 / 10 (exploitability = 9.2456e0)\niteration: 9 / 10 (exploitability = 9.2456e0)\niteration: 10 / 10 (exploitability = 2.0099e-1)\niteration: 0 / 10 (exploitability = 7.9199e0)\niteration: 1 / 10 (exploitability = 7.9199e0)\niteration: 2 / 10 (exploitability = 7.9199e0)\niteration: 3 / 10 (exploitability = 7.9199e0)\niteration: 4 / 10 (exploitability = 7.9199e0)\niteration: 5 / 10 (exploitability = 7.9199e0)\niteration: 6 / 10 (exploitability = 7.9199e0)\niteration: 7 / 10 (exploitability = 7.9199e0)\niteration: 8 / 10 (exploitability = 7.9199e0)\niteration: 9 / 10 (exploitability = 7.9199e0)\niteration: 10 / 10 (exploitability = 9.2441e-1)\niteration: 0 / 10 (exploitability = 1.0581e1)\niteration: 1 / 10 (exploitability = 1.0581e1)\niteration: 2 / 10 (exploitability = 1.0581e1)\niteration: 3 / 10 (exploitability = 1.0581e1)\niteration: 4 / 10 (exploitability = 1.0581e1)\niteration: 5 / 10 (exploitability = 1.0581e1)\niteration: 6 / 10 (exploitability = 1.0581e1)\niteration: 7 / 10 (exploitability = 1.0581e1)\niteration: 8 / 10 (exploitability = 1.0581e1)\niteration: 9 / 10 (exploitability = 1.0581e1)\niteration: 10 / 10 (exploitability = 3.3429e-1)\n{\"kind\":\"native_latency\",\"warm\":{\"samples_ms\":[0, 0, 0, 0, 0],\"p95_ms\":0,\"cache_hits\":5,\"prime_elapsed_ms\":18},\"cold\":{\"samples_ms\":[16, 14, 54, 16, 4],\"p95_ms\":54,\"cache_hits\":0}}\n"
+    },
+    {
+      "command": [
+        "/home/julien/.local/bin/node",
+        "node_modules/typescript/bin/tsc",
+        "-p",
+        "tsconfig.json",
+        "--noEmit"
+      ],
+      "elapsed_ms": 138744,
+      "name": "website_typecheck",
+      "returncode": 0,
+      "status": "passed",
+      "stderr_tail": "",
+      "stdout_tail": ""
+    },
+    {
+      "command": [
+        "/home/julien/.local/bin/node",
+        "node_modules/vite/bin/vite.js",
+        "build"
+      ],
+      "elapsed_ms": 374264,
+      "name": "website_build",
+      "returncode": 0,
+      "status": "passed",
+      "stderr_tail": "[plugin:vite:reporter] \n(!) /mnt/c/Users/julie/Desktop/Poker-master/website/node_modules/@tauri-apps/api/core.js is dynamically imported by /mnt/c/Users/julie/Desktop/Poker-master/website/src/lib/configLab.ts, /mnt/c/Users/julie/Desktop/Poker-master/website/src/lib/replayAnalytics.ts but also statically imported by /mnt/c/Users/julie/Desktop/Poker-master/website/src/lib/botCockpit.ts, /mnt/c/Users/julie/Desktop/Poker-master/website/src/lib/runtime.ts, /mnt/c/Users/julie/Desktop/Poker-master/website/src/lib/solverStudio.ts, dynamic import will not move module into another chunk.\n\n\n(!) Some chunks are larger than 500 kBs after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n",
+      "stdout_tail": "vite v4.5.14 building for production...\ntransforming...\n\u2713 1042 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   1.30 kB \u2502 gzip:   0.67 kB\ndist/assets/index-2895a09a.css    9.08 kB \u2502 gzip:   2.71 kB\ndist/assets/index-d95d3f33.js   729.46 kB \u2502 gzip: 218.44 kB\n\u2713 built in 6m 5s\n"
+    }
+  ],
+  "summary": {
+    "failed": 0,
+    "passed": 7,
+    "skipped": 0,
+    "status": "ok"
+  }
+}

@@ -1,0 +1,5 @@
+[env]
+PKG_CONFIG = "/usr/bin/pkg-config"
+
+[target.x86_64-unknown-linux-gnu]
+linker = "/usr/bin/cc"

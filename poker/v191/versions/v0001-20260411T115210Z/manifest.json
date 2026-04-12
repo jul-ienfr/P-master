@@ -1,0 +1,585 @@
+{
+  "ai_assist": {
+    "provider": "local"
+  },
+  "assets": {
+    "2c": "assets/2c.png",
+    "2d": "assets/2d.png",
+    "2h": "assets/2h.png",
+    "2s": "assets/2s.png",
+    "3c": "assets/3c.png",
+    "3d": "assets/3d.png",
+    "3h": "assets/3h.png",
+    "3s": "assets/3s.png",
+    "4c": "assets/4c.png",
+    "4d": "assets/4d.png",
+    "4h": "assets/4h.png",
+    "4s": "assets/4s.png",
+    "5c": "assets/5c.png",
+    "5d": "assets/5d.png",
+    "5h": "assets/5h.png",
+    "5s": "assets/5s.png",
+    "6c": "assets/6c.png",
+    "6d": "assets/6d.png",
+    "6h": "assets/6h.png",
+    "6s": "assets/6s.png",
+    "7c": "assets/7c.png",
+    "7d": "assets/7d.png",
+    "7h": "assets/7h.png",
+    "7s": "assets/7s.png",
+    "8c": "assets/8c.png",
+    "8d": "assets/8d.png",
+    "8h": "assets/8h.png",
+    "8s": "assets/8s.png",
+    "9c": "assets/9c.png",
+    "9d": "assets/9d.png",
+    "9h": "assets/9h.png",
+    "9s": "assets/9s.png",
+    "ac": "assets/ac.png",
+    "ad": "assets/ad.png",
+    "ah": "assets/ah.png",
+    "all_in_call_button": "assets/all_in_call_button.png",
+    "as": "assets/as.png",
+    "bet_button": "assets/bet_button.png",
+    "call_button": "assets/call_button.png",
+    "check_button": "assets/check_button.png",
+    "covered_card": "assets/covered_card.png",
+    "dealer_button": "assets/dealer_button.png",
+    "fast_fold_button": "assets/fast_fold_button.png",
+    "fold_button": "assets/fold_button.png",
+    "im_back": "assets/im_back.png",
+    "jc": "assets/jc.png",
+    "jd": "assets/jd.png",
+    "jh": "assets/jh.png",
+    "js": "assets/js.png",
+    "kc": "assets/kc.png",
+    "kd": "assets/kd.png",
+    "kh": "assets/kh.png",
+    "ks": "assets/ks.png",
+    "lost_everything": "assets/lost_everything.png",
+    "my_turn": "assets/my_turn.png",
+    "qc": "assets/qc.png",
+    "qd": "assets/qd.png",
+    "qh": "assets/qh.png",
+    "qs": "assets/qs.png",
+    "raise_button": "assets/raise_button.png",
+    "resume_hand": "assets/resume_hand.png",
+    "tc": "assets/tc.png",
+    "td": "assets/td.png",
+    "th": "assets/th.png",
+    "topleft_corner": "assets/topleft_corner.png",
+    "ts": "assets/ts.png"
+  },
+  "display_name": "!!!!!!!!!!!!!!!!!!!!v191",
+  "fingerprint": {
+    "asset_hashes": {
+      "2c": "2f99a0878e0fb5e4b0fd2d17f52dea086cc99b071d5b99ed77b41bccd993f238",
+      "2d": "a4d295588b029f85324ea3eb337be9388b0938884f2304a4b259190ccccef07a",
+      "2h": "5da45862d1eec5ebef790ce85ae1e00aa9864b5626b8c7165bd0c29a22c02621",
+      "2s": "3d26aa458cd7a3b93d678bd1bfb46dd484bcab9e8b1c372fc1e96b8962f38bd1",
+      "3c": "d97c6aed514056ba48f4c59db08b9125705794445c4b507f52de5c8dfb58e1c8",
+      "3d": "9ee2a453457c38c426b989800c444e9e1b624127804e506e6e9662f0401c9862",
+      "3h": "898e8728ddcb5088f68d54a2bbd029b4fd939c6fe6582dadf0e9585f33613454",
+      "3s": "a454c9949be8a522fcac53a22779b68682f5363a841ae5d574aa113f24f9ba16",
+      "4c": "544ce7a3b3f02b0cffbabc2503d005f83977170f532baceab2538773189b2676",
+      "4d": "21ddd201837bc9cdf5964b2525e6352f9fe4b30cafb506f6583fb1847f89be67",
+      "4h": "0db736a071468f7512034c04fe90375fdd9b9ae66448c91d93941a0408ac073b",
+      "4s": "8b5c682930a723410a36b24a74440966155b53bf24613fc11cca96a8e2910c69",
+      "5c": "5e01b10626d4e3ad620f32af0169295f0fe24912d52f73686df0672a0fad7c7b",
+      "5d": "0203c445feb02a3feffff9eefb68fff008d7a13c4d4d24b6c9c5268bc77a94c4",
+      "5h": "9dd22d3beab9508c0142d3aeb2be1bc6c1410ebf12146ffe96df77b19ec61bee",
+      "5s": "7218e8bbe7eb121466ff1c2750dd3587c5c70b51468488ab5b323e7c1986dec7",
+      "6c": "8b23e51431d5cf23bef231f2e2845efa8717bcef81f16a7ca51d952f2570ff01",
+      "6d": "95dceb4ebfcde1e236d9e9b70ae6641e53512017807abaf972ff83973a36a09b",
+      "6h": "517a4b24a1473a2117bf169033da831e596412179df43fea942243cd9012cd95",
+      "6s": "c7215b7a00f7b5db4dfcd775e7e560ab4e379121d55d027c1a201ed038c5f09e",
+      "7c": "81541198662c739d66da57a7e464620891032dc07de64566abb113e9f2b9a828",
+      "7d": "d5f970a155324af4e9950b06708a74868a8b75d3244afad8a6b72ca154828b97",
+      "7h": "5faeec168bfdfbc46ed8c2860441f701477d7c2526360aec4c8d365f0230b0dd",
+      "7s": "a1f9724e139a83ad9c219bc4c317bdedfc0f406096fbeefa3e7dc523137467f0",
+      "8c": "75b2be2abaa42dc43407319358e4bf338079e81007c4ae51729d334a19d136c4",
+      "8d": "10cbcbcf63cd4900aa09846bdcd8aaa274f0d7d688e20e64c0cc180bf02c84a4",
+      "8h": "a45f1b1e17aef8252e7c22998442a7a41a65cb6d17789fcf68a294c2b730dcfb",
+      "8s": "610bde8dfd8a700cc8e0decb7a5476d4f23085e3e01e3a1e361fd555a3c2ca4c",
+      "9c": "15a3e6ed23f57e3baa1fb857c23ab651c255e5c67e4e0a24309de56c7c8eeadc",
+      "9d": "e11879d748a360f656a1a9dfbcc63e3833d7680986b0b9ba2fdc99c9a490560a",
+      "9h": "c6c106780312823e885b685437627dbaa26330e1d995dfb98881dfb45b33a684",
+      "9s": "83fb7bb5575dbf0e60845e06d073a323255a31d6e1f5b71eebd96780ee2e69e1",
+      "ac": "289201b8ecf1e9716e5412079a7339368580277fa3dbb9df31b62e35f7961ca0",
+      "ad": "520c99385ba96d92aa00ac574a2d698de41a39d307e5710b49b373a88f1d4be2",
+      "ah": "7d44bb58d2c49b6e58ccc5935bf2e1d9ecae14b38303480cc3a75a7440851c89",
+      "all_in_call_button": "231aa3c4f570b1038316ec3d64ebc71c846695cab63ea7579040ecba8866e682",
+      "as": "461ada3d412524da176d087dfd4e53aed03d1e9a4f98f91b6a1bdfaf6bfc65fa",
+      "bet_button": "7b505c0aff6a521563da4d3842ee5330ae3a884e2023e0bb5ea60fa9abea6cbe",
+      "call_button": "910992a8a27bcf450f06793a8a130f698e4556583a59d7607fb75488e27f5c6d",
+      "check_button": "8067dc2b06b1f48961cac0faa879db22de02985222641cfd5d8184a1cf732326",
+      "covered_card": "1fd85ac6e2ceaf589f6ce8365f5bbfa26d0cb36329be7800dd1af53f4bef72fc",
+      "dealer_button": "a32eb06ce05a6209ffc37d4146b60de32155bfdf0892bedf517ca7dce9e850b5",
+      "fast_fold_button": "11460eaeef6512a8fcdd0e345db4d448d765e746ca62cf01eb6977ebea1a4e65",
+      "fold_button": "2a78cd96b0a9bdacf9531da010c73be082116ce6c4b05253fc80c243b07eb893",
+      "im_back": "7721c49ee50985c898e910290896ff1cb9b5a5955eadf1215d58160e61a34e4d",
+      "jc": "145625c4fc014608533ef0083ebbd15c152dccde653fbb25c91a5ff5998b288e",
+      "jd": "582fa729adcf1abb6bf2cabdec9bc03447d7681410f7d10ea457b63d95881913",
+      "jh": "e13a0d1a8111e9fc04692a6265bbdc967ed3a63fd0a505f17728272333d41568",
+      "js": "d722613fdf6ae6042b1e30795de1a2140172746e725189654a3592f495dad98c",
+      "kc": "7d387e9b73412d31d758add07c63e0d8af8d07285e64b969e805a038660f19d5",
+      "kd": "dd014444ea2291ef9c85d4675d80e68be4fe6d412904d481ce63ed8ce32bfc28",
+      "kh": "8497fa37912910bc39b89996420ba7eaa761a88af4a6983dfaeae8e3050b2f7d",
+      "ks": "72e0d6afeb0b065485c94989b66e5efaf268ddb2814a3b58f3229b7c9e4b9087",
+      "lost_everything": "aace80fb01ab616e851e45a5f67da18b05de22769917814d5fbf602719ef9b72",
+      "my_turn": "bbf40d88fcd1da8e46e3e0c5b9ebfe4e20cf1c08220a801ad1e35aac4c102bf4",
+      "qc": "1e8255b738042494592577fd93f0688c7e99d01d1140ded46073fb9646739e56",
+      "qd": "e4177014545c4d68e1d785c75d1c3c9e42b1392a8eb14d363481c76d9fbbd683",
+      "qh": "0fa11165faae4adae8683a1121b93bd4fef5a2b8304e12441004806885a8fc14",
+      "qs": "e3ae8a532fd2978e8b4c7d73b2024213e3df47cf0e22c6f7b52c51656425c980",
+      "raise_button": "ff913e8e5c4bbc5617e71d4ace6fd0d7a982b3b0ccbd09ce2d4484704c22ad54",
+      "resume_hand": "11460eaeef6512a8fcdd0e345db4d448d765e746ca62cf01eb6977ebea1a4e65",
+      "tc": "b474550ee134e03a80345b6ccdf402db26f8817231eb270eb49410fb329f7839",
+      "td": "b151f30c61ee00e55b133070646e2812dea03bc93c36fab18ce3e29a04d68aaa",
+      "th": "d36e005b11403f2e5bd7db2eb5e5b563346bfc63cebd4565aeb97dca62694b71",
+      "topleft_corner": "8f59b4e30beb8fc0ed9b11de012637d010a7f61f5b524f68987d32aa6a8b3017",
+      "ts": "ca8b915ed7302ba241b87c705a6f7946ce7839df064f0c8cf536c9e16e2d1a1c"
+    },
+    "hash": "6c03cb9d3944100065962297cef3f9582a5bbe6cf4f2479bc310c906fafabab9",
+    "site_key": "v191"
+  },
+  "identity": {
+    "cash_or_tournament": "cash",
+    "hero_seat": "bottom-right",
+    "max_players": 6,
+    "network": "!!!!!!!!!!!!!!!!!!!!v191",
+    "real_or_play": "real",
+    "site": "v191",
+    "skin": "!!!!!!!!!!!!!!!!!!!!v191",
+    "table_size": "default",
+    "theme": "",
+    "variant": ""
+  },
+  "lifecycle": {
+    "created_at": "2026-04-11T11:52:10+00:00",
+    "parent_version_id": null,
+    "published_at": "2026-04-11T11:52:10+00:00",
+    "rollback_target": null,
+    "status": "published",
+    "updated_at": "2026-04-11T11:52:10+00:00",
+    "version_id": "v0001-20260411T115210Z"
+  },
+  "nn": {
+    "class_mapping": {
+      "0": "2C",
+      "1": "2D",
+      "10": "4H",
+      "11": "4S",
+      "12": "5C",
+      "13": "5D",
+      "14": "5H",
+      "15": "5S",
+      "16": "6C",
+      "17": "6D",
+      "18": "6H",
+      "19": "6S",
+      "2": "2H",
+      "20": "7C",
+      "21": "7D",
+      "22": "7H",
+      "23": "7S",
+      "24": "8C",
+      "25": "8D",
+      "26": "8H",
+      "27": "8S",
+      "28": "9C",
+      "29": "9D",
+      "3": "2S",
+      "30": "9H",
+      "31": "9S",
+      "32": "AC",
+      "33": "AD",
+      "34": "AH",
+      "35": "AS",
+      "36": "JC",
+      "37": "JD",
+      "38": "JH",
+      "39": "JS",
+      "4": "3C",
+      "40": "KC",
+      "41": "KD",
+      "42": "KH",
+      "43": "KS",
+      "44": "QC",
+      "45": "QD",
+      "46": "QH",
+      "47": "QS",
+      "48": "TC",
+      "49": "TD",
+      "5": "3D",
+      "50": "TH",
+      "51": "TS",
+      "6": "3H",
+      "7": "3S",
+      "8": "4C",
+      "9": "4D"
+    },
+    "model_json": "{\"class_name\": \"Sequential\", \"config\": {\"name\": \"sequential\", \"layers\": [{\"class_name\": \"InputLayer\", \"config\": {\"batch_input_shape\": [null, 50, 15, 3], \"dtype\": \"float32\", \"sparse\": false, \"ragged\": false, \"name\": \"conv2d_input\"}}, {\"class_name\": \"Conv2D\", \"config\": {\"name\": \"conv2d\", \"trainable\": true, \"dtype\": \"float32\", \"batch_input_shape\": [null, 50, 15, 3], \"filters\": 64, \"kernel_size\": [3, 3], \"strides\": [1, 1], \"padding\": \"same\", \"data_format\": \"channels_last\", \"dilation_rate\": [1, 1], \"groups\": 1, \"activation\": \"relu\", \"use_bias\": true, \"kernel_initializer\": {\"class_name\": \"GlorotUniform\", \"config\": {\"seed\": null}}, \"bias_initializer\": {\"class_name\": \"Zeros\", \"config\": {}}, \"kernel_regularizer\": null, \"bias_regularizer\": null, \"activity_regularizer\": null, \"kernel_constraint\": null, \"bias_constraint\": null}}, {\"class_name\": \"Conv2D\", \"config\": {\"name\": \"conv2d_1\", \"trainable\": true, \"dtype\": \"float32\", \"filters\": 64, \"kernel_size\": [3, 3], \"strides\": [1, 1], \"padding\": \"same\", \"data_format\": \"channels_last\", \"dilation_rate\": [1, 1], \"groups\": 1, \"activation\": \"relu\", \"use_bias\": true, \"kernel_initializer\": {\"class_name\": \"GlorotUniform\", \"config\": {\"seed\": null}}, \"bias_initializer\": {\"class_name\": \"Zeros\", \"config\": {}}, \"kernel_regularizer\": null, \"bias_regularizer\": null, \"activity_regularizer\": null, \"kernel_constraint\": null, \"bias_constraint\": null}}, {\"class_name\": \"MaxPooling2D\", \"config\": {\"name\": \"max_pooling2d\", \"trainable\": true, \"dtype\": \"float32\", \"pool_size\": [2, 2], \"padding\": \"valid\", \"strides\": [2, 2], \"data_format\": \"channels_last\"}}, {\"class_name\": \"Dropout\", \"config\": {\"name\": \"dropout\", \"trainable\": true, \"dtype\": \"float32\", \"rate\": 0.3, \"noise_shape\": null, \"seed\": null}}, {\"class_name\": \"Conv2D\", \"config\": {\"name\": \"conv2d_2\", \"trainable\": true, \"dtype\": \"float32\", \"filters\": 128, \"kernel_size\": [3, 3], \"strides\": [1, 1], \"padding\": \"same\", \"data_format\": \"channels_last\", \"dilation_rate\": [1, 1], \"groups\": 1, \"activation\": \"relu\", \"use_bias\": true, \"kernel_initializer\": {\"class_name\": \"GlorotUniform\", \"config\": {\"seed\": null}}, \"bias_initializer\": {\"class_name\": \"Zeros\", \"config\": {}}, \"kernel_regularizer\": null, \"bias_regularizer\": null, \"activity_regularizer\": null, \"kernel_constraint\": null, \"bias_constraint\": null}}, {\"class_name\": \"Conv2D\", \"config\": {\"name\": \"conv2d_3\", \"trainable\": true, \"dtype\": \"float32\", \"filters\": 128, \"kernel_size\": [3, 3], \"strides\": [1, 1], \"padding\": \"same\", \"data_format\": \"channels_last\", \"dilation_rate\": [1, 1], \"groups\": 1, \"activation\": \"relu\", \"use_bias\": true, \"kernel_initializer\": {\"class_name\": \"GlorotUniform\", \"config\": {\"seed\": null}}, \"bias_initializer\": {\"class_name\": \"Zeros\", \"config\": {}}, \"kernel_regularizer\": null, \"bias_regularizer\": null, \"activity_regularizer\": null, \"kernel_constraint\": null, \"bias_constraint\": null}}, {\"class_name\": \"MaxPooling2D\", \"config\": {\"name\": \"max_pooling2d_1\", \"trainable\": true, \"dtype\": \"float32\", \"pool_size\": [2, 2], \"padding\": \"valid\", \"strides\": [2, 2], \"data_format\": \"channels_last\"}}, {\"class_name\": \"Dropout\", \"config\": {\"name\": \"dropout_1\", \"trainable\": true, \"dtype\": \"float32\", \"rate\": 0.4, \"noise_shape\": null, \"seed\": null}}, {\"class_name\": \"Conv2D\", \"config\": {\"name\": \"conv2d_4\", \"trainable\": true, \"dtype\": \"float32\", \"filters\": 256, \"kernel_size\": [3, 3], \"strides\": [1, 1], \"padding\": \"same\", \"data_format\": \"channels_last\", \"dilation_rate\": [1, 1], \"groups\": 1, \"activation\": \"relu\", \"use_bias\": true, \"kernel_initializer\": {\"class_name\": \"GlorotUniform\", \"config\": {\"seed\": null}}, \"bias_initializer\": {\"class_name\": \"Zeros\", \"config\": {}}, \"kernel_regularizer\": null, \"bias_regularizer\": null, \"activity_regularizer\": null, \"kernel_constraint\": null, \"bias_constraint\": null}}, {\"class_name\": \"Conv2D\", \"config\": {\"name\": \"conv2d_5\", \"trainable\": true, \"dtype\": \"float32\", \"filters\": 256, \"kernel_size\": [3, 3], \"strides\": [1, 1], \"padding\": \"same\", \"data_format\": \"channels_last\", \"dilation_rate\": [1, 1], \"groups\": 1, \"activation\": \"relu\", \"use_bias\": true, \"kernel_initializer\": {\"class_name\": \"GlorotUniform\", \"config\": {\"seed\": null}}, \"bias_initializer\": {\"class_name\": \"Zeros\", \"config\": {}}, \"kernel_regularizer\": null, \"bias_regularizer\": null, \"activity_regularizer\": null, \"kernel_constraint\": null, \"bias_constraint\": null}}, {\"class_name\": \"MaxPooling2D\", \"config\": {\"name\": \"max_pooling2d_2\", \"trainable\": true, \"dtype\": \"float32\", \"pool_size\": [2, 2], \"padding\": \"valid\", \"strides\": [2, 2], \"data_format\": \"channels_last\"}}, {\"class_name\": \"Dropout\", \"config\": {\"name\": \"dropout_2\", \"trainable\": true, \"dtype\": \"float32\", \"rate\": 0.5, \"noise_shape\": null, \"seed\": null}}, {\"class_name\": \"Flatten\", \"config\": {\"name\": \"flatten\", \"trainable\": true, \"dtype\": \"float32\", \"data_format\": \"channels_last\"}}, {\"class_name\": \"Dense\", \"config\": {\"name\": \"dense\", \"trainable\": true, \"dtype\": \"float32\", \"units\": 2048, \"activation\": \"relu\", \"use_bias\": true, \"kernel_initializer\": {\"class_name\": \"GlorotUniform\", \"config\": {\"seed\": null}}, \"bias_initializer\": {\"class_name\": \"Zeros\", \"config\": {}}, \"kernel_regularizer\": null, \"bias_regularizer\": null, \"activity_regularizer\": null, \"kernel_constraint\": {\"class_name\": \"MaxNorm\", \"config\": {\"max_value\": 3, \"axis\": 0}}, \"bias_constraint\": null}}, {\"class_name\": \"Dropout\", \"config\": {\"name\": \"dropout_3\", \"trainable\": true, \"dtype\": \"float32\", \"rate\": 0.5, \"noise_shape\": null, \"seed\": null}}, {\"class_name\": \"Dense\", \"config\": {\"name\": \"dense_1\", \"trainable\": true, \"dtype\": \"float32\", \"units\": 1024, \"activation\": \"relu\", \"use_bias\": true, \"kernel_initializer\": {\"class_name\": \"GlorotUniform\", \"config\": {\"seed\": null}}, \"bias_initializer\": {\"class_name\": \"Zeros\", \"config\": {}}, \"kernel_regularizer\": null, \"bias_regularizer\": null, \"activity_regularizer\": null, \"kernel_constraint\": {\"class_name\": \"MaxNorm\", \"config\": {\"max_value\": 3, \"axis\": 0}}, \"bias_constraint\": null}}, {\"class_name\": \"Dropout\", \"config\": {\"name\": \"dropout_4\", \"trainable\": true, \"dtype\": \"float32\", \"rate\": 0.5, \"noise_shape\": null, \"seed\": null}}, {\"class_name\": \"Dense\", \"config\": {\"name\": \"dense_2\", \"trainable\": true, \"dtype\": \"float32\", \"units\": 52, \"activation\": \"softmax\", \"use_bias\": true, \"kernel_initializer\": {\"class_name\": \"GlorotUniform\", \"config\": {\"seed\": null}}, \"bias_initializer\": {\"class_name\": \"Zeros\", \"config\": {}}, \"kernel_regularizer\": null, \"bias_regularizer\": null, \"activity_regularizer\": null, \"kernel_constraint\": null, \"bias_constraint\": null}}]}, \"keras_version\": \"2.12.0\", \"backend\": \"tensorflow\"}"
+  },
+  "owner": "Jarkkos-MacBook-Air.local",
+  "reference_samples": [],
+  "schema_version": 1,
+  "table_data": {
+    "_last_play": "2026-03-21T23:17:12.786000",
+    "_owner": "Jarkkos-MacBook-Air.local",
+    "_plays": 1926,
+    "_visible": false,
+    "all_in_call_value": {
+      "x1": 799,
+      "x2": 925,
+      "y1": 645,
+      "y2": 669
+    },
+    "button_search_area": {
+      "0": {
+        "x1": 358,
+        "x2": 403,
+        "y1": 376,
+        "y2": 424
+      },
+      "1": {
+        "x1": 177,
+        "x2": 214,
+        "y1": 278,
+        "y2": 320
+      },
+      "2": {
+        "x1": 186,
+        "x2": 229,
+        "y1": 202,
+        "y2": 236
+      },
+      "3": {
+        "x1": 494,
+        "x2": 533,
+        "y1": 132,
+        "y2": 178
+      },
+      "4": {
+        "x1": 725,
+        "x2": 773,
+        "y1": 193,
+        "y2": 229
+      },
+      "5": {
+        "x1": 680,
+        "x2": 722,
+        "y1": 348,
+        "y2": 394
+      }
+    },
+    "buttons_search_area": {
+      "x1": 458,
+      "x2": 947,
+      "y1": 581,
+      "y2": 652
+    },
+    "call_value": {
+      "x1": 663,
+      "x2": 746,
+      "y1": 620,
+      "y2": 646
+    },
+    "covered_card_area": {
+      "0": {
+        "x1": 437,
+        "x2": 521,
+        "y1": 404,
+        "y2": 424
+      },
+      "1": {
+        "x1": 34,
+        "x2": 183,
+        "y1": 286,
+        "y2": 319
+      },
+      "2": {
+        "x1": 74,
+        "x2": 220,
+        "y1": 91,
+        "y2": 115
+      },
+      "3": {
+        "x1": 397,
+        "x2": 543,
+        "y1": 20,
+        "y2": 47
+      },
+      "4": {
+        "x1": 732,
+        "x2": 876,
+        "y1": 83,
+        "y2": 115
+      },
+      "5": {
+        "x1": 763,
+        "x2": 912,
+        "y1": 287,
+        "y2": 323
+      }
+    },
+    "current_round_pot": {
+      "x1": 446,
+      "x2": 534,
+      "y1": 209,
+      "y2": 236
+    },
+    "game_number": {
+      "x1": 88,
+      "x2": 145,
+      "y1": 606,
+      "y2": 621
+    },
+    "left_card_area": {
+      "x1": 407,
+      "x2": 463,
+      "y1": 423,
+      "y2": 472
+    },
+    "lost_everything_search_area": {
+      "x1": 357,
+      "x2": 735,
+      "y1": 247,
+      "y2": 599
+    },
+    "max_players": {
+      "value": 6
+    },
+    "mouse_all_in": {
+      "x1": 674,
+      "x2": 908,
+      "y1": 233,
+      "y2": 643
+    },
+    "mouse_call": {
+      "x1": 687,
+      "x2": 730,
+      "y1": 597,
+      "y2": 617
+    },
+    "mouse_call2": {
+      "x1": 679,
+      "x2": 734,
+      "y1": 598,
+      "y2": 624
+    },
+    "mouse_check": {
+      "x1": 674,
+      "x2": 739,
+      "y1": 634,
+      "y2": 665
+    },
+    "mouse_fast_fold": {
+      "x1": 821,
+      "x2": 882,
+      "y1": 480,
+      "y2": 499
+    },
+    "mouse_fold": {
+      "x1": 518,
+      "x2": 569,
+      "y1": 604,
+      "y2": 633
+    },
+    "mouse_full_pot": {
+      "x1": 808,
+      "x2": 833,
+      "y1": 547,
+      "y2": 563
+    },
+    "mouse_half_pot": {
+      "x1": 720,
+      "x2": 756,
+      "y1": 546,
+      "y2": 565
+    },
+    "mouse_imback": {
+      "x1": 663,
+      "x2": 755,
+      "y1": 623,
+      "y2": 651
+    },
+    "mouse_increase": {
+      "x1": 919,
+      "x2": 929,
+      "y1": 587,
+      "y2": 599
+    },
+    "mouse_raise": {
+      "x1": 820,
+      "x2": 878,
+      "y1": 594,
+      "y2": 617
+    },
+    "mouse_resume_hand": {
+      "x1": 500,
+      "x2": 575,
+      "y1": 621,
+      "y2": 668
+    },
+    "my_cards_area": {
+      "x1": 402,
+      "x2": 545,
+      "y1": 389,
+      "y2": 465
+    },
+    "my_turn_search_area": {
+      "x1": 460,
+      "x2": 788,
+      "y1": 573,
+      "y2": 633
+    },
+    "player_funds_area": {
+      "0": {
+        "x1": 454,
+        "x2": 546,
+        "y1": 482,
+        "y2": 503
+      },
+      "1": {
+        "x1": 32,
+        "x2": 124,
+        "y1": 360,
+        "y2": 381
+      },
+      "2": {
+        "x1": 58,
+        "x2": 170,
+        "y1": 156,
+        "y2": 179
+      },
+      "3": {
+        "x1": 402,
+        "x2": 494,
+        "y1": 93,
+        "y2": 115
+      },
+      "4": {
+        "x1": 786,
+        "x2": 882,
+        "y1": 157,
+        "y2": 180
+      },
+      "5": {
+        "x1": 822,
+        "x2": 906,
+        "y1": 362,
+        "y2": 383
+      }
+    },
+    "player_name_area": {
+      "0": {
+        "x1": 464,
+        "x2": 540,
+        "y1": 453,
+        "y2": 474
+      },
+      "1": {
+        "x1": 27,
+        "x2": 137,
+        "y1": 328,
+        "y2": 354
+      },
+      "2": {
+        "x1": 59,
+        "x2": 172,
+        "y1": 128,
+        "y2": 149
+      },
+      "3": {
+        "x1": 401,
+        "x2": 501,
+        "y1": 65,
+        "y2": 87
+      },
+      "4": {
+        "x1": 793,
+        "x2": 881,
+        "y1": 125,
+        "y2": 148
+      },
+      "5": {
+        "x1": 810,
+        "x2": 913,
+        "y1": 333,
+        "y2": 354
+      }
+    },
+    "player_pot_area": {
+      "0": {
+        "x1": 404,
+        "x2": 520,
+        "y1": 352,
+        "y2": 393
+      },
+      "1": {
+        "x1": 196,
+        "x2": 318,
+        "y1": 330,
+        "y2": 355
+      },
+      "2": {
+        "x1": 226,
+        "x2": 361,
+        "y1": 183,
+        "y2": 213
+      },
+      "3": {
+        "x1": 490,
+        "x2": 606,
+        "y1": 124,
+        "y2": 150
+      },
+      "4": {
+        "x1": 582,
+        "x2": 710,
+        "y1": 158,
+        "y2": 193
+      },
+      "5": {
+        "x1": 559,
+        "x2": 734,
+        "y1": 312,
+        "y2": 357
+      }
+    },
+    "raise_value": {
+      "x1": 802,
+      "x2": 928,
+      "y1": 622,
+      "y2": 648
+    },
+    "right_card_area": {
+      "x1": 470,
+      "x2": 524,
+      "y1": 425,
+      "y2": 470
+    },
+    "table_cards_area": {
+      "x1": 311,
+      "x2": 653,
+      "y1": 213,
+      "y2": 263
+    },
+    "total_pot_area": {
+      "x1": 463,
+      "x2": 517,
+      "y1": 211,
+      "y2": 235
+    },
+    "use_neural_network": "CheckState.Unchecked"
+  },
+  "validation": {
+    "critical_anchor_score": 1.0,
+    "evaluated_samples": 0,
+    "golden_pass_rate": 1.0,
+    "issues": [],
+    "live_pass_rate": 1.0,
+    "status": "green"
+  }
+}

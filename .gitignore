@@ -1,0 +1,23 @@
+/target
+/gto_server/target
+/python_bindings/target
+/website/src-tauri/target
+/website/node_modules
+/website/dist
+/portable/build
+/portable/dist
+/portable/PokerMaster-portable
+/wheelhouse
+/POKERSTAR CAPTURE
+/smoke-test-logs
+/log
+/launch_pokermaster_v2.log
+/dist
+
+/.venv
+/.venv-smoke
+/.pytest_cache
+/.tools
+
+__pycache__/
+*.py[cod]

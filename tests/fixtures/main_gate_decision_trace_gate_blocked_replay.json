@@ -1,0 +1,83 @@
+{
+  "canonical_state": {
+    "spot_id": "live:TURN:2c-7d-Jh-Qs",
+    "street": "TURN",
+    "pot": 18.5,
+    "board": ["2c", "7d", "Jh", "Qs"],
+    "hero_cards": ["Ah", "Kd"],
+    "legal_actions": ["FOLD", "CALL", "BET"],
+    "action_buttons": ["fold_button", "call_button", "bet_button"],
+    "state_confidence": 0.92,
+    "metadata": {
+      "hero_seat_id": "seat_2"
+    },
+    "players": [
+      {
+        "seat_id": "seat_1",
+        "seat_index": 1,
+        "name": "VillainBTN",
+        "stack": 120.0,
+        "is_active": true,
+        "has_folded": false,
+        "is_hero": false,
+        "has_button": true,
+        "confidence": 0.88
+      },
+      {
+        "seat_id": "seat_2",
+        "seat_index": 2,
+        "name": "Hero",
+        "stack": 88.0,
+        "is_active": true,
+        "has_folded": false,
+        "is_hero": true,
+        "has_button": false,
+        "confidence": 0.99
+      }
+    ]
+  },
+  "tracker_snapshot": {
+    "street": "TURN",
+    "board": ["2c", "7d", "Jh", "Qs"],
+    "pot": 18.5,
+    "hero_cards": ["Ah", "Kd"],
+    "action_history": [
+      {"player": "VillainBTN", "action": "BET", "amount": 6.0}
+    ],
+    "in_hand": true,
+    "legal_actions": ["FOLD", "CALL", "BET"],
+    "hero_seat_id": "seat_2",
+    "state_confidence": 0.92
+  },
+  "decision": {
+    "action": "BET",
+    "bet_size": 13.88,
+    "source": "GTO_RUST",
+    "confidence": 0.84,
+    "fallback_used": false,
+    "fallback_reason": null,
+    "warnings": [],
+    "incidents": [],
+    "backend": "fixture_solver",
+    "elapsed_ms": 7,
+    "profile": {
+      "observed_hands": 24
+    }
+  },
+  "dynamic_coords": {
+    "FOLD": [100, 200],
+    "CALL": [220, 200],
+    "BET_BOX": [340, 200]
+  },
+  "expected": {
+    "gate_reason": "MISSING_COORDINATES",
+    "gate_allowed": false,
+    "trace_chosen_action": "BET",
+    "trace_source": "GTO_RUST",
+    "trace_incidents": ["gate_blocked"],
+    "trace_gate_reason": "MISSING_COORDINATES",
+    "runtime_event_messages": ["decision_ready", "action_blocked"],
+    "incident_ids": ["gate_blocked"],
+    "executed_action": "BET"
+  }
+}

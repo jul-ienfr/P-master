@@ -1,0 +1,320 @@
+{
+  "best_response": {
+    "average_gap": 0.0178,
+    "evaluated_records": 9,
+    "lbr_gap": 0.16,
+    "policy": "baseline_trace",
+    "records": 10
+  },
+  "challenger_smoke": [
+    {
+      "available": false,
+      "capabilities": [
+        "simulation_env",
+        "replay_bridge"
+      ],
+      "challenger_id": "pokerkit",
+      "entry_points": [],
+      "factory_hint": "pokerkit.State / Automation",
+      "kind": "simulation_env",
+      "loaded": false,
+      "reason": "module_unavailable",
+      "sample_payload_keys": [
+        "action_history",
+        "board",
+        "hero_cards",
+        "hero_position",
+        "hero_range",
+        "legal_actions",
+        "pot",
+        "spot_id",
+        "stack",
+        "state_confidence",
+        "street",
+        "villain_ranges"
+      ],
+      "status": "unavailable"
+    },
+    {
+      "available": false,
+      "capabilities": [
+        "simulation_env",
+        "replay_bridge"
+      ],
+      "challenger_id": "pypokerengine",
+      "entry_points": [],
+      "factory_hint": "pypokerengine.api.game.setup_config",
+      "kind": "simulation_env",
+      "loaded": false,
+      "reason": "module_unavailable",
+      "sample_payload_keys": [
+        "hole_card",
+        "metadata",
+        "round_state",
+        "uuid"
+      ],
+      "status": "unavailable"
+    },
+    {
+      "available": false,
+      "capabilities": [
+        "offline_challenger",
+        "evaluation",
+        "self_play"
+      ],
+      "challenger_id": "rlcard",
+      "entry_points": [],
+      "factory_hint": "rlcard.make('no-limit-holdem')",
+      "kind": "rl_challenger",
+      "loaded": false,
+      "reason": "module_unavailable",
+      "sample_payload_keys": [
+        "legal_actions",
+        "obs",
+        "raw_legal_actions",
+        "raw_obs"
+      ],
+      "status": "unavailable"
+    },
+    {
+      "available": false,
+      "capabilities": [
+        "offline_challenger",
+        "evaluation",
+        "self_play",
+        "best_response"
+      ],
+      "challenger_id": "pokerrl",
+      "entry_points": [],
+      "factory_hint": "TrainingProfileBase / AgentTournament",
+      "kind": "rl_challenger",
+      "loaded": false,
+      "reason": "module_unavailable",
+      "sample_payload_keys": [
+        "board_cards",
+        "hero_cards",
+        "legal_actions",
+        "metadata",
+        "pot",
+        "spot_id",
+        "stack",
+        "street"
+      ],
+      "status": "unavailable"
+    },
+    {
+      "available": false,
+      "capabilities": [
+        "offline_challenger",
+        "gym_env",
+        "self_play"
+      ],
+      "challenger_id": "neuron_poker",
+      "entry_points": [],
+      "factory_hint": "gym.make('neuron_poker-v0')",
+      "kind": "rl_challenger",
+      "loaded": false,
+      "reason": "module_unavailable",
+      "sample_payload_keys": [
+        "legal_actions",
+        "obs",
+        "raw_legal_actions",
+        "raw_obs"
+      ],
+      "status": "unavailable"
+    },
+    {
+      "available": false,
+      "capabilities": [
+        "offline_challenger",
+        "engine",
+        "self_play"
+      ],
+      "challenger_id": "poker_ai",
+      "entry_points": [],
+      "factory_hint": "poker_ai.poker.engine.PokerEngine",
+      "kind": "rl_challenger",
+      "loaded": false,
+      "reason": "module_unavailable",
+      "sample_payload_keys": [
+        "legal_actions",
+        "obs",
+        "raw_legal_actions",
+        "raw_obs"
+      ],
+      "status": "unavailable"
+    }
+  ],
+  "champion": "best_alt",
+  "kind": "rl_lab",
+  "policy_lineup": [
+    "baseline_trace",
+    "best_alt",
+    "always_check",
+    "always_bet_50",
+    "always_jam"
+  ],
+  "ready_challengers": [],
+  "records": 10,
+  "tournament": {
+    "champion": "best_alt",
+    "kind": "round_robin",
+    "lineup": [
+      "baseline_trace",
+      "best_alt",
+      "always_check",
+      "always_bet_50",
+      "always_jam"
+    ],
+    "matchups": [
+      {
+        "baseline_ev_sum": 1.62,
+        "baseline_policy": "baseline_trace",
+        "challenger_beats_baseline": true,
+        "challenger_ev_sum": 1.78,
+        "challenger_policy": "best_alt",
+        "decisive_records": 9,
+        "records": 10,
+        "winner": "best_alt"
+      },
+      {
+        "baseline_ev_sum": 1.62,
+        "baseline_policy": "baseline_trace",
+        "challenger_beats_baseline": false,
+        "challenger_ev_sum": 1.56,
+        "challenger_policy": "always_check",
+        "decisive_records": 9,
+        "records": 10,
+        "winner": "baseline_trace"
+      },
+      {
+        "baseline_ev_sum": 1.62,
+        "baseline_policy": "baseline_trace",
+        "challenger_beats_baseline": false,
+        "challenger_ev_sum": 0.74,
+        "challenger_policy": "always_bet_50",
+        "decisive_records": 9,
+        "records": 10,
+        "winner": "baseline_trace"
+      },
+      {
+        "baseline_ev_sum": 1.62,
+        "baseline_policy": "baseline_trace",
+        "challenger_beats_baseline": false,
+        "challenger_ev_sum": 0.62,
+        "challenger_policy": "always_jam",
+        "decisive_records": 9,
+        "records": 10,
+        "winner": "baseline_trace"
+      },
+      {
+        "baseline_ev_sum": 1.78,
+        "baseline_policy": "best_alt",
+        "challenger_beats_baseline": false,
+        "challenger_ev_sum": 1.56,
+        "challenger_policy": "always_check",
+        "decisive_records": 9,
+        "records": 10,
+        "winner": "best_alt"
+      },
+      {
+        "baseline_ev_sum": 1.78,
+        "baseline_policy": "best_alt",
+        "challenger_beats_baseline": false,
+        "challenger_ev_sum": 0.74,
+        "challenger_policy": "always_bet_50",
+        "decisive_records": 9,
+        "records": 10,
+        "winner": "best_alt"
+      },
+      {
+        "baseline_ev_sum": 1.78,
+        "baseline_policy": "best_alt",
+        "challenger_beats_baseline": false,
+        "challenger_ev_sum": 0.62,
+        "challenger_policy": "always_jam",
+        "decisive_records": 9,
+        "records": 10,
+        "winner": "best_alt"
+      },
+      {
+        "baseline_ev_sum": 1.56,
+        "baseline_policy": "always_check",
+        "challenger_beats_baseline": false,
+        "challenger_ev_sum": 0.74,
+        "challenger_policy": "always_bet_50",
+        "decisive_records": 9,
+        "records": 10,
+        "winner": "always_check"
+      },
+      {
+        "baseline_ev_sum": 1.56,
+        "baseline_policy": "always_check",
+        "challenger_beats_baseline": false,
+        "challenger_ev_sum": 0.62,
+        "challenger_policy": "always_jam",
+        "decisive_records": 9,
+        "records": 10,
+        "winner": "always_check"
+      },
+      {
+        "baseline_ev_sum": 0.74,
+        "baseline_policy": "always_bet_50",
+        "challenger_beats_baseline": false,
+        "challenger_ev_sum": 0.62,
+        "challenger_policy": "always_jam",
+        "decisive_records": 9,
+        "records": 10,
+        "winner": "always_bet_50"
+      }
+    ],
+    "records": 10,
+    "standings": [
+      {
+        "draws": 0,
+        "ev_sum": 7.12,
+        "losses": 0,
+        "matches": 4,
+        "points": 12,
+        "policy": "best_alt",
+        "wins": 4
+      },
+      {
+        "draws": 0,
+        "ev_sum": 6.48,
+        "losses": 1,
+        "matches": 4,
+        "points": 9,
+        "policy": "baseline_trace",
+        "wins": 3
+      },
+      {
+        "draws": 0,
+        "ev_sum": 6.24,
+        "losses": 2,
+        "matches": 4,
+        "points": 6,
+        "policy": "always_check",
+        "wins": 2
+      },
+      {
+        "draws": 0,
+        "ev_sum": 2.96,
+        "losses": 3,
+        "matches": 4,
+        "points": 3,
+        "policy": "always_bet_50",
+        "wins": 1
+      },
+      {
+        "draws": 0,
+        "ev_sum": 2.48,
+        "losses": 4,
+        "matches": 4,
+        "points": 0,
+        "policy": "always_jam",
+        "wins": 0
+      }
+    ]
+  }
+}

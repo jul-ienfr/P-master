@@ -1,0 +1,139 @@
+{
+  "frames": [
+    {
+      "spot_id": "street_progression_001",
+      "street": "PREFLOP",
+      "hero_cards": ["Ah", "Kd"],
+      "pot": 1.5,
+      "state_confidence": 0.91,
+      "legal_actions": ["FOLD", "CALL", "RAISE"],
+      "action_buttons": ["fold_button", "call_button", "raise_button"],
+      "players": [
+        {"seat_id": "hero", "seat_index": 0, "name": "Hero", "stack": 100.0, "is_hero": true},
+        {"seat_id": "villain", "seat_index": 1, "name": "Villain", "stack": 100.0, "has_button": true}
+      ]
+    },
+    {
+      "spot_id": "street_progression_002",
+      "street": "FLOP",
+      "board": ["2c", "7d", "Jh"],
+      "hero_cards": ["Ah", "Kd"],
+      "pot": 5.5,
+      "state_confidence": 0.92,
+      "legal_actions": ["CHECK", "BET"],
+      "action_buttons": ["check_button", "bet_button"],
+      "players": [
+        {"seat_id": "hero", "seat_index": 0, "name": "Hero", "stack": 96.0, "is_hero": true},
+        {"seat_id": "villain", "seat_index": 1, "name": "Villain", "stack": 100.0, "has_button": true}
+      ]
+    },
+    {
+      "spot_id": "street_progression_003",
+      "street": "TURN",
+      "board": ["2c", "7d", "Jh", "Qs"],
+      "hero_cards": ["Ah", "Kd"],
+      "pot": 6.0,
+      "state_confidence": 0.93,
+      "legal_actions": ["CHECK", "BET"],
+      "action_buttons": ["check_button", "bet_button"],
+      "players": [
+        {"seat_id": "hero", "seat_index": 0, "name": "Hero", "stack": 96.0, "is_hero": true},
+        {"seat_id": "villain", "seat_index": 1, "name": "Villain", "stack": 97.0, "has_button": true}
+      ]
+    },
+    {
+      "spot_id": "street_progression_003b",
+      "street": "TURN",
+      "board": ["2c", "7d", "Jh", "Qs"],
+      "hero_cards": ["Ah", "Kd"],
+      "pot": 6.0,
+      "state_confidence": 0.94,
+      "legal_actions": ["CHECK", "BET"],
+      "action_buttons": ["check_button", "bet_button"],
+      "players": [
+        {"seat_id": "hero", "seat_index": 0, "name": "Hero", "stack": 96.0, "is_hero": true},
+        {"seat_id": "villain", "seat_index": 1, "name": "Villain", "stack": 97.0, "has_button": true}
+      ]
+    },
+    {
+      "spot_id": "street_progression_004",
+      "street": "RIVER",
+      "board": ["2c", "7d", "Jh", "Qs", "Ac"],
+      "hero_cards": ["Ah", "Kd"],
+      "pot": 6.0,
+      "state_confidence": 0.95,
+      "legal_actions": ["CHECK"],
+      "action_buttons": ["check_button"],
+      "players": [
+        {"seat_id": "hero", "seat_index": 0, "name": "Hero", "stack": 96.0, "is_hero": true},
+        {"seat_id": "villain", "seat_index": 1, "name": "Villain", "stack": 97.0, "has_button": true}
+      ]
+    },
+    {
+      "spot_id": "street_progression_004b",
+      "street": "RIVER",
+      "board": ["2c", "7d", "Jh", "Qs", "Ac"],
+      "hero_cards": ["Ah", "Kd"],
+      "pot": 6.0,
+      "state_confidence": 0.96,
+      "legal_actions": ["CHECK"],
+      "action_buttons": ["check_button"],
+      "players": [
+        {"seat_id": "hero", "seat_index": 0, "name": "Hero", "stack": 96.0, "is_hero": true},
+        {"seat_id": "villain", "seat_index": 1, "name": "Villain", "stack": 97.0, "has_button": true}
+      ]
+    }
+  ],
+  "expected": {
+    "tracker": {
+      "state": "RIVER",
+      "current_board": ["2c", "7d", "Jh", "Qs", "Ac"],
+      "pot_total": 6.0,
+      "last_pot": 6.0,
+      "hero_cards": ["Ah", "Kd"],
+      "legal_actions": ["CHECK"],
+      "action_buttons": ["check_button"],
+      "spot_id": "street_progression_004b",
+      "state_confidence": 0.96,
+      "current_hand_actions": [
+        {"player": "Hero", "action": "RAISE/BET", "amount": 4.0, "pot_size": 1.5, "street": "FLOP"},
+        {"player": "Villain", "action": "RAISE/BET", "amount": 3.0, "pot_size": 5.5, "street": "FLOP"}
+      ],
+      "observed_players_this_hand": ["hero", "villain"],
+      "players": [
+        {
+          "seat_id": "hero",
+          "seat_index": 0,
+          "name": "Hero",
+          "starting_stack": 100.0,
+          "current_stack": 96.0,
+          "bet": 4.0,
+          "is_active": true,
+          "has_folded": false,
+          "is_hero": true,
+          "has_button": false
+        },
+        {
+          "seat_id": "villain",
+          "seat_index": 1,
+          "name": "Villain",
+          "starting_stack": 100.0,
+          "current_stack": 97.0,
+          "bet": 3.0,
+          "is_active": true,
+          "has_folded": false,
+          "is_hero": false,
+          "has_button": true
+        }
+      ]
+    },
+    "db": {
+      "observed_calls": [["Hero", "PREFLOP"], ["Villain", "PREFLOP"]],
+      "action_updates": [
+        ["Hero", {"player": "Hero", "action": "RAISE/BET", "amount": 4.0, "pot_size": 1.5, "street": "FLOP"}],
+        ["Villain", {"player": "Villain", "action": "RAISE/BET", "amount": 3.0, "pot_size": 5.5, "street": "FLOP"}]
+      ],
+      "hand_history_calls": []
+    }
+  }
+}

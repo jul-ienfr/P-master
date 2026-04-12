@@ -1,0 +1,26 @@
+{
+  "kind": "native_latency",
+  "warm": {
+    "samples_ms": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "p95_ms": 0,
+    "cache_hits": 5,
+    "prime_elapsed_ms": 25
+  },
+  "cold": {
+    "samples_ms": [
+      26,
+      23,
+      21,
+      16,
+      29
+    ],
+    "p95_ms": 29,
+    "cache_hits": 0
+  }
+}

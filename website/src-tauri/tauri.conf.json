@@ -1,0 +1,28 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "PokerMaster",
+  "version": "0.1.0",
+  "identifier": "com.pokermaster.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "PokerMaster",
+        "width": 1440,
+        "height": 960,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true
+      }
+    ]
+  },
+  "bundle": {
+    "active": false
+  }
+}

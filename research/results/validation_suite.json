@@ -1,0 +1,187 @@
+{
+  "oracle_randomized": {
+    "cases": 500,
+    "failure_samples": [],
+    "failures": 0,
+    "kind": "oracle_randomized",
+    "mismatches": [],
+    "oracles": [
+      {
+        "available": true,
+        "metadata": {
+          "module": "phevaluator"
+        },
+        "name": "phevaluator",
+        "reason": "python_module"
+      },
+      {
+        "available": true,
+        "metadata": {
+          "node": "/home/julien/.local/bin/node",
+          "runner": "/mnt/c/Users/julie/Desktop/Poker-master/research/node_oracle_runner.js"
+        },
+        "name": "pokersolver",
+        "reason": "node_runner"
+      },
+      {
+        "available": true,
+        "metadata": {
+          "node": "/home/julien/.local/bin/node",
+          "runner": "/mnt/c/Users/julie/Desktop/Poker-master/research/node_oracle_runner.js"
+        },
+        "name": "poker_evaluator",
+        "reason": "node_runner"
+      },
+      {
+        "available": false,
+        "metadata": {
+          "dotnet": ""
+        },
+        "name": "skpokereval",
+        "reason": "dotnet_missing"
+      }
+    ],
+    "phevaluator_success_rate": 1.0,
+    "poker_evaluator_vs_pokersolver_agreement_rate": 1.0,
+    "poker_evaluator_vs_pokersolver_agreements": 500,
+    "successful": 500
+  },
+  "replay_validation": {
+    "consistency_rate": 1.0,
+    "consistent_records": 10,
+    "gated_records": 1,
+    "illegal_actions": 0,
+    "kind": "replay_validation",
+    "records": 10,
+    "samples": [
+      {
+        "chosen_action": "bet",
+        "decision_confidence": 0.91,
+        "gate_allowed": true,
+        "legal_actions": [
+          "check",
+          "bet",
+          "fold",
+          "call"
+        ],
+        "replay_id": "mock-replay-001",
+        "spot_id": "mock-spot-001"
+      },
+      {
+        "chosen_action": "check",
+        "decision_confidence": 0.9,
+        "gate_allowed": true,
+        "legal_actions": [
+          "check",
+          "bet_33",
+          "bet_50",
+          "bet_100"
+        ],
+        "replay_id": "representative-001",
+        "spot_id": "preset:srp_hu_100bb"
+      },
+      {
+        "chosen_action": "check",
+        "decision_confidence": 0.9,
+        "gate_allowed": true,
+        "legal_actions": [
+          "check",
+          "bet_50",
+          "bet_75",
+          "bet_125"
+        ],
+        "replay_id": "representative-002",
+        "spot_id": "preset:srp_hu_texture_wet"
+      },
+      {
+        "chosen_action": "check",
+        "decision_confidence": 0.9,
+        "gate_allowed": true,
+        "legal_actions": [
+          "check",
+          "bet_25",
+          "bet_50",
+          "jam"
+        ],
+        "replay_id": "representative-003",
+        "spot_id": "preset:3bp_hu_100bb"
+      },
+      {
+        "chosen_action": "check",
+        "decision_confidence": 0.9,
+        "gate_allowed": true,
+        "legal_actions": [
+          "check",
+          "bet_25",
+          "bet_50",
+          "jam"
+        ],
+        "replay_id": "representative-004",
+        "spot_id": "preset:4bp_hu_100bb"
+      },
+      {
+        "chosen_action": "check",
+        "decision_confidence": 0.9,
+        "gate_allowed": true,
+        "legal_actions": [
+          "check",
+          "bet_50",
+          "bet_75",
+          "jam"
+        ],
+        "replay_id": "representative-005",
+        "spot_id": "preset:turn_probe_hu"
+      },
+      {
+        "chosen_action": "check",
+        "decision_confidence": 0.9,
+        "gate_allowed": true,
+        "legal_actions": [
+          "check",
+          "bet_33",
+          "bet_66",
+          "bet_100"
+        ],
+        "replay_id": "representative-006",
+        "spot_id": "preset:turn_delayed_cbet_hu"
+      },
+      {
+        "chosen_action": "check",
+        "decision_confidence": 0.9,
+        "gate_allowed": true,
+        "legal_actions": [
+          "check",
+          "bet_75",
+          "jam"
+        ],
+        "replay_id": "representative-007",
+        "spot_id": "preset:river_jam_low_spr"
+      },
+      {
+        "chosen_action": "check",
+        "decision_confidence": 0.9,
+        "gate_allowed": true,
+        "legal_actions": [
+          "check",
+          "bet_75",
+          "bet_150",
+          "jam"
+        ],
+        "replay_id": "representative-008",
+        "spot_id": "preset:river_overbet_polar_hu"
+      },
+      {
+        "chosen_action": "NoAction",
+        "decision_confidence": 0.2,
+        "gate_allowed": false,
+        "legal_actions": [
+          "check",
+          "bet_33"
+        ],
+        "replay_id": "representative-blocked",
+        "spot_id": "representative-blocked"
+      }
+    ],
+    "zero_illegal_actions": true
+  }
+}

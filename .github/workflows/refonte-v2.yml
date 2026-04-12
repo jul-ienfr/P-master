@@ -1,0 +1,39 @@
+name: Refonte V2
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  refonte-v2:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Set up Node 20
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install pytest fastapi requests phevaluator
+
+    - name: Install Node dependencies
+      run: |
+        npm install --prefix .tools/npm
+        npm install --prefix website
+
+    - name: Run unified refonte validation
+      run: |
+        python scripts/run_refonte_ci.py

@@ -1,0 +1,15 @@
+{
+  "format_version": "postflop_bridge_v1",
+  "generated_by": "PokerMaster",
+  "target": "desktop-postflop",
+  "presets": [
+    { "preset_id": "srp_hu_100bb", "target_profile": "desktop-postflop", "street_focus": "flop", "desktop_profile": "desktop-postflop", "wasm_profile": "wasm-postflop" },
+    { "preset_id": "srp_hu_texture_wet", "target_profile": "desktop-postflop", "street_focus": "flop", "desktop_profile": "desktop-postflop", "wasm_profile": "wasm-postflop" },
+    { "preset_id": "3bp_hu_100bb", "target_profile": "desktop-postflop", "street_focus": "flop", "desktop_profile": "desktop-postflop", "wasm_profile": "wasm-postflop" },
+    { "preset_id": "4bp_hu_100bb", "target_profile": "desktop-postflop", "street_focus": "flop", "desktop_profile": "desktop-postflop", "wasm_profile": "wasm-postflop" },
+    { "preset_id": "turn_probe_hu", "target_profile": "desktop-postflop", "street_focus": "turn", "desktop_profile": "desktop-postflop", "wasm_profile": "wasm-postflop" },
+    { "preset_id": "turn_delayed_cbet_hu", "target_profile": "desktop-postflop", "street_focus": "turn", "desktop_profile": "desktop-postflop", "wasm_profile": "wasm-postflop" },
+    { "preset_id": "river_jam_low_spr", "target_profile": "desktop-postflop", "street_focus": "river", "desktop_profile": "desktop-postflop", "wasm_profile": "wasm-postflop" },
+    { "preset_id": "river_overbet_polar_hu", "target_profile": "desktop-postflop", "street_focus": "river", "desktop_profile": "desktop-postflop", "wasm_profile": "wasm-postflop" }
+  ]
+}

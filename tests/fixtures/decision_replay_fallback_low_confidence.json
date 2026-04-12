@@ -1,0 +1,61 @@
+{
+  "profile": null,
+  "enable_validated_rl": false,
+  "solver_response": null,
+  "rl_action_idx": 2,
+  "request": {
+    "hero_hand": "AhKd",
+    "board": ["2c", "7d", "Jh"],
+    "pot": 5.5,
+    "effective_stack": 96.0,
+    "villain_name": "Villain",
+    "legal_actions": ["FOLD", "CALL", "BET"],
+    "state_confidence": 0.42
+  },
+  "expected": {
+    "action": "FOLD",
+    "bet_size": null,
+    "ev": 0.0,
+    "exploitability": 0.0,
+    "details": [],
+    "source": "GTO_RUST",
+    "profile": {
+      "style": "Unknown",
+      "hands_played": 0,
+      "observed_hands": 0,
+      "reliability": 0.0,
+      "vpip": 0.0,
+      "pfr": 0.0,
+      "gap": 0.0,
+      "aggression_frequency": 0.0,
+      "exploit_confidence": 0.0,
+      "range_hint": "55+, A2s+, K5s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, ATo+, KJo+, QJo",
+      "pressure_bias": 0.0,
+      "call_bias": 0.0,
+      "fold_bias": 0.0,
+      "deviation_cap": 0.0,
+      "rl_ready": false
+    },
+    "confidence": 0.231,
+    "cache_hit": false,
+    "fallback_used": true,
+    "fallback_reason": "rust_solver_unavailable",
+    "warnings": ["fallback_used", "ocr_low_confidence"],
+    "incidents": [
+      {
+        "id": "solver_fallback",
+        "severity": "warning",
+        "kind": "fallback",
+        "label": "rust_solver_unavailable"
+      },
+      {
+        "id": "low_state_confidence",
+        "severity": "warning",
+        "kind": "runtime",
+        "label": "state_confidence=0.42"
+      }
+    ],
+    "backend": "fallback",
+    "elapsed_ms": 0
+  }
+}
