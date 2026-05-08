@@ -1,8 +1,13 @@
 import argparse
 import json
 from pathlib import Path
+import sys
 
 import cv2
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from src.vision.ocr import PokerOCR
 
@@ -11,7 +16,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run OCR probe on a local image")
     parser.add_argument("--image", required=True, help="Path to the image file")
     parser.add_argument("--field", choices=["text", "amount"], default="amount")
-    parser.add_argument("--engines", default="doctr", help="Comma-separated OCR engines")
+    parser.add_argument("--engines", default="rapidocr,easyocr,tesseract", help="Comma-separated OCR engines")
     parser.add_argument("--mode", default="consensus_amounts")
     parser.add_argument("--parallel", action="store_true")
     args = parser.parse_args()

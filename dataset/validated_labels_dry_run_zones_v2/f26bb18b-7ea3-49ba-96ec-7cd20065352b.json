@@ -1,0 +1,21 @@
+{
+  "counts": {
+    "check_button": 1,
+    "hero_card": 2,
+    "player_name_area": 6,
+    "pot_area": 1,
+    "stack_area": 6
+  },
+  "dropped_generic_card_labels": 2,
+  "empty": false,
+  "hard_negative": false,
+  "image": "f26bb18b-7ea3-49ba-96ec-7cd20065352b.jpg",
+  "image_size": {
+    "height": 657,
+    "width": 953
+  },
+  "requires_card_identity_review": false,
+  "source": "template_bootstrap",
+  "source_label": "f26bb18b-7ea3-49ba-96ec-7cd20065352b.txt",
+  "status": "validated_zones_only"
+}

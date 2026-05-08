@@ -2,6 +2,11 @@
   "auto_annotator": {
     "providers": [
       {
+        "api_key": "pwd",
+        "base_url": "http://127.0.0.1:8080/v1",
+        "model": "gpt-5.4"
+      },
+      {
         "api_key": "",
         "base_url": "https://api.groq.com/openai/v1",
         "model": "llama-3.2-90b-vision-preview"
@@ -15,37 +20,81 @@
   },
   "bot": {
     "target_fps": 30,
+    "prefer_window_capture": false,
     "time_budget_ms": 1000,
-    "window_title_keywords": "VirtualBox"
+    "pot_ocr_refresh_interval_s": 0.12,
+    "pot_crop_change_threshold": 0.85,
+    "live_debounce_reset_sleep_s": 0.03,
+    "live_debounce_stable_window_s": 0.12,
+    "live_debounce_poll_sleep_s": 0.02,
+    "window_title_keywords": "NLHE|Hold'em No Limit|Connecté en tant que|PokerStars",
+    "go_live_gate": {
+      "min_decision_count": 20,
+      "max_block_rate": 0.5,
+      "max_fallback_rate": 0.5,
+      "max_rolling_latency_ms": 2500.0,
+      "max_incident_count": 10,
+      "min_readiness_score": 0.6,
+      "max_non_actionable_readiness_rate": 0.5,
+      "max_invalid_validation_rate": 0.5
+    },
+    "site_profiles": {
+      "PokerStars": {
+        "default_bb": 200,
+        "stake_regex": "\\d+[/,](\\d+)\\b"
+      },
+      "Winamax": {
+        "default_bb": 100,
+        "stake_regex": "\\d+[/,](\\d+)\\b"
+      }
+    }
   },
+  "vision_pipeline": [
+    "yolo",
+    "llm",
+    "opencv"
+  ],
   "database": {
-    "dsn": "postgresql://poker_bot:supersecretpassword@localhost:5432/poker_db"
+    "dsn": "postgresql://poker_bot:supersecretpassword@localhost:5432/poker_db",
+    "mode": "auto",
+    "observation_persistence_enabled": true,
+    "observation_persistence_path": "log/observation_store.json"
   },
   "fallback_coordinates": {
     "BET_BOX": [
-      750,
-      750
+      874,
+      660
     ],
     "BET_BTN": [
-      800,
-      800
+      879,
+      649
     ],
     "CALL": [
-      650,
-      800
+      718,
+      649
     ],
     "FOLD": [
-      500,
-      800
+      556,
+      649
     ]
   },
   "ocr": {
     "enabled_engines": [
-      "doctr"
+      "rapidocr"
     ],
-    "mode": "consensus_amounts",
-    "parallel": true,
-    "use_gpu": true
+    "mode": "fallback",
+    "parallel": false,
+    "use_gpu": true,
+    "amount_format": {
+      "allow_decimals": true,
+      "thousands_separators": [
+        "space"
+      ],
+      "decimal_separators": [
+        ",",
+        "."
+      ]
+    }
   },
   "rl": {
     "autoload_model": true,
@@ -54,6 +103,14 @@
   },
   "yolo": {
     "confidence_threshold": 0.6,
-    "model_path": "models/poker_yolo_v11.engine"
+    "model_path": "models/poker_yolo_finetune5.onnx",
+    "live_enabled": true,
+    "observation_capture": {
+      "enabled": false,
+      "capture_interval_s": 6.0,
+      "require_visual_change": true,
+      "max_samples_per_session": 500,
+      "dataset_dir": "dataset/runtime_observation"
+    }
   }
 }

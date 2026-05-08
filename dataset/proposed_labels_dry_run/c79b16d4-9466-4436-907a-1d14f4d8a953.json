@@ -1,0 +1,14 @@
+{
+  "counts": {
+    "hero_card": 1
+  },
+  "empty": false,
+  "hard_negative": false,
+  "image": "c79b16d4-9466-4436-907a-1d14f4d8a953.png",
+  "image_size": {
+    "height": 641,
+    "width": 986
+  },
+  "source": "template_bootstrap",
+  "status": "proposed"
+}

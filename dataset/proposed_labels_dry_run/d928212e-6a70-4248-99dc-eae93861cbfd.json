@@ -1,0 +1,17 @@
+{
+  "counts": {
+    "board_card": 4,
+    "player_name_area": 6,
+    "pot_area": 1,
+    "stack_area": 6
+  },
+  "empty": false,
+  "hard_negative": false,
+  "image": "d928212e-6a70-4248-99dc-eae93861cbfd.jpg",
+  "image_size": {
+    "height": 657,
+    "width": 953
+  },
+  "source": "template_bootstrap",
+  "status": "proposed"
+}

@@ -1,0 +1,22 @@
+{
+  "counts": {
+    "call_button": 1,
+    "player_name_area": 6,
+    "pot_area": 1,
+    "stack_area": 6
+  },
+  "curation_source": "dataset/validated_labels_dry_run_zones",
+  "curation_status": "cleaned_keep",
+  "dropped_generic_card_labels": 0,
+  "empty": false,
+  "hard_negative": false,
+  "image": "9f02b55e-e8eb-456b-a50a-7d674bdea12a.jpg",
+  "image_size": {
+    "height": 657,
+    "width": 953
+  },
+  "requires_card_identity_review": false,
+  "source": "template_bootstrap",
+  "source_label": "9f02b55e-e8eb-456b-a50a-7d674bdea12a.txt",
+  "status": "validated_zones_only"
+}

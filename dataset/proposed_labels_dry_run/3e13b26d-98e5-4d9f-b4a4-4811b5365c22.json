@@ -1,0 +1,18 @@
+{
+  "counts": {
+    "call_button": 1,
+    "hero_card": 2,
+    "player_name_area": 6,
+    "pot_area": 1,
+    "stack_area": 6
+  },
+  "empty": false,
+  "hard_negative": false,
+  "image": "3e13b26d-98e5-4d9f-b4a4-4811b5365c22.jpg",
+  "image_size": {
+    "height": 657,
+    "width": 953
+  },
+  "source": "template_bootstrap",
+  "status": "proposed"
+}

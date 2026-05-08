@@ -1,0 +1,16 @@
+{
+  "counts": {
+    "player_name_area": 6,
+    "pot_area": 1,
+    "stack_area": 6
+  },
+  "empty": false,
+  "hard_negative": false,
+  "image": "9a3a8675-8082-4dd7-8cf9-9536dbf5b5d3.jpg",
+  "image_size": {
+    "height": 657,
+    "width": 953
+  },
+  "source": "template_bootstrap",
+  "status": "proposed"
+}

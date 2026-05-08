@@ -1,0 +1,17 @@
+{
+  "counts": {
+    "call_button": 1,
+    "player_name_area": 6,
+    "pot_area": 1,
+    "stack_area": 6
+  },
+  "empty": false,
+  "hard_negative": false,
+  "image": "52fbf369-7d2d-4a37-bbfb-e79c7dc2ceba.jpg",
+  "image_size": {
+    "height": 657,
+    "width": 953
+  },
+  "source": "template_bootstrap",
+  "status": "proposed"
+}

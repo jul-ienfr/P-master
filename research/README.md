@@ -39,6 +39,20 @@ Validation notes:
 - `cargo run --example native_latency` writes the native latency summary used for p95 checks.
 - `python3 scripts/run_refonte_ci.py` runs the full phase-2 stack and writes `research/results/refonte_ci_summary.json`.
 
+TimesFM offline experiment notes:
+
+- Vendored upstream snapshot lives under `research/vendor/timesfm/` and is frozen to the SHA documented in `research/vendor/timesfm/UPSTREAM.md`.
+- Upstream `master` was re-resolved once at implementation start with `git ls-remote https://github.com/google-research/timesfm.git refs/heads/master`, then frozen to `d720daa6786539c2566a44464fbda1019c0a82c0`.
+- This POC is research-only and does not change the live runtime path in `src/main.py` or `src/runtime/loop.py`.
+- Runtime metric extraction is implemented in `research/timesfm_runtime_dataset.py` and reads `log/runtime_history.jsonl`, keeping only `stream == "metrics"` records.
+- Invalid values are ignored, including unparsable payloads and non-finite numbers such as `NaN` and `Infinity`.
+- The thin wrapper in `research/timesfm_adapter.py` exposes `load_timesfm_model()`, `forecast_series()`, `forecast_runtime_metric()`, and `forecast_runtime_metrics()` while keeping the vendored model API close to upstream.
+- Install requirements from `requirements_2026.txt` so `torch`, `huggingface_hub`, and `safetensors` are available before first run.
+- Example command: `python .\research\run_timesfm_experiment.py --metric fallback_rate --horizon 12 --max-context 256`
+- The runner prints the chosen metric, series length, holdout horizon, TimesFM forecast, two simple baselines, and MAE on the holdout tail.
+- Runtime API exposure is optional behind `timesfm.enabled=true` in `config.json` or `POKER_ENABLE_TIMESFM=1`, then available at `GET /runtime-forecast/timesfm` without altering the live decision path by default.
+- To resnapshot later, re-resolve `master` once, copy only the approved files from that frozen SHA into `research/vendor/timesfm/`, then update `UPSTREAM.md` without mixing local project code into the vendored tree.
+
 Runtime review contract notes:
 
 - `runtime_review` is now the explicit canonical wrapper shared by review/export/compare artifacts. It is versioned (`name="runtime_review"`, `version="v1"`) and carries a strict `artifact_type` plus a normalized `artifact` payload.

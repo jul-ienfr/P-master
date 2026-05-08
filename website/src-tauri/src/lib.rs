@@ -93,7 +93,10 @@ pub struct OcrProbeResponse {
 impl Default for OcrConfig {
     fn default() -> Self {
         Self {
-            enabled_engines: vec!["doctr".to_string()],
+            enabled_engines: vec![
+                "surya".to_string(),
+                "easyocr".to_string(),
+            ],
             mode: "consensus_amounts".to_string(),
             parallel: true,
             use_gpu: true,
@@ -748,6 +751,27 @@ fn runtime_endpoint_available() -> bool {
     })
 }
 
+fn common_windows_python_candidates(project_root: &PathBuf) -> Vec<(String, Vec<String>)> {
+    let normalized = project_root.to_string_lossy().replace('\\', "/");
+    let parts: Vec<&str> = normalized.split('/').collect();
+    if parts.len() < 5 || parts.get(1) != Some(&"mnt") || parts.get(3) != Some(&"Users") {
+        return Vec::new();
+    }
+
+    let windows_user_root = format!("/mnt/{}/Users/{}", parts[2], parts[4]);
+    let mut candidates = Vec::new();
+    for version in ["312", "311", "310", "313"] {
+        let candidate = PathBuf::from(format!(
+            "{windows_user_root}/AppData/Local/Programs/Python/Python{version}/python.exe"
+        ));
+        if candidate.is_file() {
+            candidates.push((candidate.to_string_lossy().to_string(), Vec::new()));
+        }
+    }
+
+    candidates
+}
+
 fn python_launch_candidates(project_root: &PathBuf) -> Vec<(String, Vec<String>)> {
     let mut candidates = Vec::new();
 
@@ -770,6 +794,8 @@ fn python_launch_candidates(project_root: &PathBuf) -> Vec<(String, Vec<String>)
         }
     }
 
+    candidates.extend(common_windows_python_candidates(project_root));
+
     if cfg!(target_os = "windows") {
         candidates.push(("python".to_string(), Vec::new()));
         candidates.push(("py".to_string(), vec!["-3".to_string()]));
@@ -781,12 +807,44 @@ fn python_launch_candidates(project_root: &PathBuf) -> Vec<(String, Vec<String>)
     candidates
 }
 
+fn python_command_supports_opencv(
+    project_root: &PathBuf,
+    program: &str,
+    base_args: &[String],
+) -> bool {
+    let probe = Command::new(program)
+        .current_dir(project_root)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .args(base_args)
+        .arg("-c")
+        .arg("import cv2, numpy")
+        .output();
+
+    matches!(probe, Ok(output) if output.status.success())
+}
+
+fn preferred_python_command(project_root: &PathBuf) -> Result<(String, Vec<String>), String> {
+    let candidates = python_launch_candidates(project_root);
+    let fallback = candidates.first().cloned();
+
+    for (program, base_args) in &candidates {
+        if python_command_supports_opencv(project_root, program, base_args) {
+            return Ok((program.clone(), base_args.clone()));
+        }
+    }
+
+    fallback.ok_or_else(|| "no python launcher candidate available".to_string())
+}
+
 fn spawn_python_runtime(
     project_root: &PathBuf,
     program: &str,
     base_args: &[String],
 ) -> Result<ManagedRuntimeProcess, String> {
-    let entrypoint = project_root.join("src").join("main.py");
+    let entrypoint_relative = PathBuf::from("src").join("main.py");
+    let entrypoint = project_root.join(&entrypoint_relative);
     if !entrypoint.is_file() {
         return Err(format!(
             "runtime entrypoint not found at {}",
@@ -798,16 +856,24 @@ fn spawn_python_runtime(
     command
         .current_dir(project_root)
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
         .args(base_args)
-        .arg(entrypoint.as_os_str());
+        .arg(entrypoint_relative.as_os_str());
 
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
-        command.creation_flags(CREATE_NO_WINDOW);
+        let hide_runtime_console = std::env::var("POKERMASTER_RUNTIME_HIDE_CONSOLE")
+            .map(|value| {
+                let normalized = value.trim().to_ascii_lowercase();
+                matches!(normalized.as_str(), "1" | "true" | "yes" | "on")
+            })
+            .unwrap_or(false);
+        if hide_runtime_console {
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
     }
 
     let mut child = command
@@ -1608,24 +1674,30 @@ fn get_ocr_status(state: tauri::State<'_, AppState>) -> OcrStatusResponse {
         .lock()
         .expect("ocr config lock poisoned")
         .clone();
+    let enabled_engines_json = serde_json::to_string(&config.enabled_engines)
+        .unwrap_or_else(|_| "[\"surya\", \"easyocr\"]".to_string());
+    let mode_json = serde_json::to_string(&config.mode)
+        .unwrap_or_else(|_| "\"consensus_amounts\"".to_string());
+    let parallel_literal = if config.parallel { "True" } else { "False" };
 
-    let python_cmd = if cfg!(target_os = "windows") {
-        "python"
-    } else {
-        "python3"
-    };
-    let args = vec![
-    "-c".to_string(),
-    "from src.vision.ocr import PokerOCR; import json; print(json.dumps(PokerOCR.from_config({'enabled_engines':['doctr','tesseract','easyocr'],'mode':'consensus_amounts','parallel':True}).get_metadata(), ensure_ascii=True))".to_string(),
-  ];
+    let script_args = vec![
+        "-c".to_string(),
+        format!(
+            "from src.vision.ocr import PokerOCR; import json; print(json.dumps(PokerOCR.from_config({{'enabled_engines': {enabled_engines_json}, 'mode': {mode_json}, 'parallel': {parallel_literal}}}).get_metadata(), ensure_ascii=True))"
+        ),
+    ];
 
-    let output = std::process::Command::new(python_cmd)
-        .current_dir("../../")
-        .args(&args)
-        .output();
+    let output = resolve_project_root().ok().and_then(|project_root| {
+        let (python_cmd, mut python_args) = preferred_python_command(&project_root).ok()?;
+        python_args.extend(script_args.clone());
+        std::process::Command::new(&python_cmd)
+            .current_dir(project_root)
+            .args(&python_args)
+            .output()
+            .ok()
+    });
 
     let parsed = output
-        .ok()
         .and_then(|result| serde_json::from_slice::<serde_json::Value>(&result.stdout).ok())
         .unwrap_or_else(|| serde_json::json!({}));
 
@@ -1640,9 +1712,10 @@ fn get_ocr_status(state: tauri::State<'_, AppState>) -> OcrStatusResponse {
         })
         .unwrap_or_else(|| {
             vec![
-                "doctr".to_string(),
-                "tesseract".to_string(),
+                "surya".to_string(),
                 "easyocr".to_string(),
+                "tesseract".to_string(),
+                "doctr".to_string(),
             ]
         });
     let loaded_engines = parsed
@@ -1699,12 +1772,9 @@ fn run_ocr_probe(request: OcrProbeRequest) -> Result<OcrProbeResponse, String> {
     fs::write(&temp_path, image_bytes)
         .map_err(|e| format!("Failed to write temp OCR image: {}", e))?;
 
-    let python_cmd = if cfg!(target_os = "windows") {
-        "python"
-    } else {
-        "python3"
-    };
-    let args = vec![
+    let project_root = resolve_project_root()?;
+    let (python_cmd, mut python_args) = preferred_python_command(&project_root)?;
+    let script_args = vec![
         "src/vision/ocr_probe.py".to_string(),
         "--image".to_string(),
         temp_path.to_string_lossy().to_string(),
@@ -1715,9 +1785,10 @@ fn run_ocr_probe(request: OcrProbeRequest) -> Result<OcrProbeResponse, String> {
         "--mode".to_string(),
         request.mode.clone(),
     ];
+    python_args.extend(script_args);
 
-    let mut command = std::process::Command::new(python_cmd);
-    command.current_dir("../../").args(&args);
+    let mut command = std::process::Command::new(&python_cmd);
+    command.current_dir(project_root).args(&python_args);
     if request.parallel {
         command.arg("--parallel");
     }
@@ -1950,23 +2021,20 @@ async fn run_auto_annotator(
     let providers_json = serde_json::to_string(&runnable_providers)
         .map_err(|e| format!("Failed to serialize providers: {}", e))?;
 
-    let args = vec![
+    let project_root = resolve_project_root()?;
+    let (python_cmd, mut python_args) = preferred_python_command(&project_root)?;
+    let script_args = vec![
         "src/vision/auto_annotator.py".to_string(),
         "--providers-json".to_string(),
         providers_json,
     ];
-
-    let python_cmd = if cfg!(target_os = "windows") {
-        "python"
-    } else {
-        "python3"
-    };
+    python_args.extend(script_args);
 
     println!("Running auto-annotator with dynamic providers list.");
 
-    let output = std::process::Command::new(python_cmd)
-        .current_dir("../../")
-        .args(&args)
+    let output = std::process::Command::new(&python_cmd)
+        .current_dir(project_root)
+        .args(&python_args)
         .output()
         .map_err(|e| format!("Failed to execute python script: {}", e))?;
 

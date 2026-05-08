@@ -1,0 +1,20 @@
+{
+  "counts": {
+    "bet_button": 1,
+    "board_card": 2,
+    "check_button": 1,
+    "hero_card": 2,
+    "player_name_area": 6,
+    "pot_area": 1,
+    "stack_area": 6
+  },
+  "empty": false,
+  "hard_negative": false,
+  "image": "8af487e9-febb-487c-ac4b-b630cd1ac333.png",
+  "image_size": {
+    "height": 657,
+    "width": 953
+  },
+  "source": "template_bootstrap",
+  "status": "proposed"
+}

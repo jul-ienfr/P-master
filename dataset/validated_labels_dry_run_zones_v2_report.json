@@ -1,0 +1,21 @@
+{
+  "class_counts": {
+    "bet_button": 27,
+    "call_button": 123,
+    "check_button": 74,
+    "fold_button": 19,
+    "player_name_area": 1488,
+    "pot_area": 252,
+    "raise_button": 12,
+    "stack_area": 1488
+  },
+  "empty_files": 12,
+  "files": 264,
+  "generic_card_files": [],
+  "generic_card_labels": 0,
+  "invalid_labels": [],
+  "labels_dir": "C:/Users/julie/Desktop/Poker-master/dataset/validated_labels_dry_run_zones_v2",
+  "metadata_files": 268,
+  "nonempty_files": 252,
+  "total_labels": 3483
+}

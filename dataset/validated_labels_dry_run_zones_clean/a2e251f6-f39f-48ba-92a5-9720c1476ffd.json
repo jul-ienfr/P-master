@@ -1,0 +1,17 @@
+{
+  "counts": {},
+  "curation_source": "dataset/validated_labels_dry_run_zones",
+  "curation_status": "cleaned_keep",
+  "dropped_generic_card_labels": 0,
+  "empty": true,
+  "hard_negative": true,
+  "image": "a2e251f6-f39f-48ba-92a5-9720c1476ffd.png",
+  "image_size": {
+    "height": 761,
+    "width": 1282
+  },
+  "requires_card_identity_review": false,
+  "source": "template_bootstrap",
+  "source_label": "a2e251f6-f39f-48ba-92a5-9720c1476ffd.txt",
+  "status": "validated_zones_only"
+}

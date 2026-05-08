@@ -146,11 +146,35 @@ export interface BotCockpitSignal {
   note?: string;
 }
 
+export interface BotCockpitObservationProfile {
+  playerName: string;
+  playerType: string;
+  observedHands: number;
+  vpipRate: number;
+  pfrRate: number;
+  aggressionFrequency: number;
+  reliability: number;
+  lastSeen: string | null;
+}
+
+export interface BotCockpitObservationSnapshot {
+  modeEnabled: boolean;
+  collecting: boolean;
+  backend: string;
+  playerCount: number;
+  observedHands: number;
+  handsRecorded: number;
+  lastSeen: string | null;
+  topProfiles: BotCockpitObservationProfile[];
+}
+
 export interface BotCockpitOperatorSnapshot {
   profileName: string;
   surface: string;
   captureSource: string;
   autoRefreshEnabled: boolean;
+  assistedModeEnabled: boolean;
+  observationModeEnabled: boolean;
   shadowModeEnabled: boolean;
   manualOverrideEnabled: boolean;
   paused: boolean;
@@ -166,6 +190,7 @@ export interface BotCockpitPayload {
   decision: BotCockpitDecisionSnapshot;
   ocr: BotCockpitOcrSnapshot;
   operator: BotCockpitOperatorSnapshot;
+  observation: BotCockpitObservationSnapshot;
   signals: BotCockpitSignal[];
   warnings: BotCockpitWarning[];
   transport: BotCockpitTransportMeta;
@@ -183,6 +208,7 @@ export interface BotCockpitPayloadOverrides {
   decision?: Partial<BotCockpitDecisionSnapshot>;
   ocr?: Partial<BotCockpitOcrSnapshot>;
   operator?: Partial<BotCockpitOperatorSnapshot>;
+  observation?: Partial<BotCockpitObservationSnapshot>;
   signals?: BotCockpitSignal[];
   warnings?: BotCockpitWarning[];
   transport?: Partial<BotCockpitTransportMeta>;
@@ -200,6 +226,8 @@ export interface BotCockpitLoadOptions {
 
 export interface BotCockpitOperatorControlPatch {
   paused?: boolean;
+  assistedModeEnabled?: boolean;
+  observationModeEnabled?: boolean;
   shadowModeEnabled?: boolean;
   manualOverrideEnabled?: boolean;
   autoRefreshEnabled?: boolean;
@@ -222,6 +250,7 @@ interface BotCockpitWirePayload {
   current_decision?: UnknownRecord;
   ocr?: UnknownRecord;
   operator?: UnknownRecord;
+  observation?: UnknownRecord;
   notes?: unknown[];
   payload?: UnknownRecord;
   signals?: unknown[];
@@ -581,6 +610,39 @@ function normalizeOcrSnapshot(value: unknown, spot: BotCockpitSpotSnapshot): Bot
   };
 }
 
+function normalizeObservationSnapshot(value: unknown): BotCockpitObservationSnapshot {
+  const raw = asRecord(value);
+  const rawTopProfiles = raw.top_profiles ?? raw.topProfiles;
+  const topProfiles = Array.isArray(rawTopProfiles)
+    ? rawTopProfiles
+        .map((entry) => asRecord(entry))
+        .map((entry) => ({
+          playerName: asString(entry.player_name ?? entry.playerName),
+          playerType: asString(entry.player_type ?? entry.playerType, "Unknown"),
+          observedHands: asNumber(entry.observed_hands ?? entry.observedHands, 0),
+          vpipRate: asNumber(entry.vpip_rate ?? entry.vpipRate, 0),
+          pfrRate: asNumber(entry.pfr_rate ?? entry.pfrRate, 0),
+          aggressionFrequency: asNumber(
+            entry.aggression_frequency ?? entry.aggressionFrequency,
+            0
+          ),
+          reliability: asNumber(entry.reliability, 0),
+          lastSeen: asString(entry.last_seen ?? entry.lastSeen) || null,
+        }))
+        .filter((entry) => entry.playerName.length > 0)
+    : [];
+  return {
+    modeEnabled: asBoolean(raw.mode_enabled ?? raw.modeEnabled, false),
+    collecting: asBoolean(raw.collecting, false),
+    backend: asString(raw.backend, "unknown"),
+    playerCount: asNumber(raw.player_count ?? raw.playerCount, 0),
+    observedHands: asNumber(raw.observed_hands ?? raw.observedHands, 0),
+    handsRecorded: asNumber(raw.hands_recorded ?? raw.handsRecorded, 0),
+    lastSeen: asString(raw.last_seen ?? raw.lastSeen) || null,
+    topProfiles,
+  };
+}
+
 function normalizeOperatorSnapshot(value: unknown): BotCockpitOperatorSnapshot {
   const raw = asRecord(value);
   const status = asString(raw.status, "ready");
@@ -589,6 +651,14 @@ function normalizeOperatorSnapshot(value: unknown): BotCockpitOperatorSnapshot {
     surface: asString(raw.surface, "bot_cockpit"),
     captureSource: asString(raw.capture_source ?? raw.captureSource, "runtime"),
     autoRefreshEnabled: asBoolean(raw.auto_refresh_enabled ?? raw.autoRefreshEnabled, true),
+    assistedModeEnabled: asBoolean(
+      raw.assisted_mode_enabled ?? raw.assistedModeEnabled,
+      status === "assisted"
+    ),
+    observationModeEnabled: asBoolean(
+      raw.observation_mode_enabled ?? raw.observationModeEnabled,
+      status === "observation"
+    ),
     shadowModeEnabled: asBoolean(raw.shadow_mode_enabled ?? raw.shadowModeEnabled, false),
     manualOverrideEnabled: asBoolean(raw.manual_override_enabled ?? raw.manualOverrideEnabled, false),
     paused: status === "paused" || asBoolean(raw.paused),
@@ -727,6 +797,24 @@ function buildDefaultOcrSnapshot(overrides: Partial<BotCockpitOcrSnapshot> = {})
   };
 }
 
+function buildDefaultObservationSnapshot(
+  overrides: Partial<BotCockpitObservationSnapshot> = {}
+): BotCockpitObservationSnapshot {
+  const topProfiles =
+    overrides.topProfiles !== undefined ? overrides.topProfiles.map((profile) => ({ ...profile })) : [];
+  return {
+    modeEnabled: false,
+    collecting: false,
+    backend: "unknown",
+    playerCount: 0,
+    observedHands: 0,
+    handsRecorded: 0,
+    lastSeen: null,
+    ...overrides,
+    topProfiles,
+  };
+}
+
 function buildDefaultOperatorSnapshot(
   overrides: Partial<BotCockpitOperatorSnapshot> = {}
 ): BotCockpitOperatorSnapshot {
@@ -735,6 +823,8 @@ function buildDefaultOperatorSnapshot(
     surface: "bot_cockpit",
     captureSource: "fallback",
     autoRefreshEnabled: true,
+    assistedModeEnabled: false,
+    observationModeEnabled: false,
     shadowModeEnabled: false,
     manualOverrideEnabled: false,
     paused: false,
@@ -799,6 +889,21 @@ function deriveState(
 }
 
 function buildMessage(payload: BotCockpitPayload): string {
+  if (payload.operator.status === "assisted" || payload.operator.assistedModeEnabled) {
+    return "Assisted mode is active. The runtime executes only when confidence and live data are sufficient.";
+  }
+  if (payload.operator.status === "observation" || payload.operator.observationModeEnabled) {
+    return "Observation mode is active. The runtime keeps collecting player behavior without auto-executing.";
+  }
+  if (payload.operator.status === "shadow") {
+    return "Shadow mode is active. The runtime stays observational without auto-executing.";
+  }
+  if (payload.operator.status === "manual_override") {
+    return "Manual override is active. The operator keeps control of execution.";
+  }
+  if (payload.operator.status === "paused") {
+    return "Live capture is paused for operator review.";
+  }
   if (payload.state === "live") {
     return `Bot cockpit live on ${payload.runtime.runtime}.`;
   }
@@ -831,6 +936,7 @@ export function createDefaultBotCockpitPayload(
     decision: buildDefaultDecisionSnapshot(overrides.decision),
     ocr: buildDefaultOcrSnapshot(overrides.ocr),
     operator: buildDefaultOperatorSnapshot(overrides.operator),
+    observation: buildDefaultObservationSnapshot(overrides.observation),
     signals: overrides.signals ? overrides.signals.map((signal) => ({ ...signal })) : [],
     warnings: overrides.warnings ? [...overrides.warnings] : ["fallback_used"],
     transport,
@@ -872,6 +978,7 @@ function normalizeBotCockpitPayload(
     spot
   );
   const operator = normalizeOperatorSnapshot(raw.operator);
+  const observation = normalizeObservationSnapshot(raw.observation ?? root.observation);
   const runtimeMetrics = normalizeRuntimeMetrics(
     runtimeContainer.metrics ?? asRecord(spot.metadata).metrics ?? asRecord(decision.metadata).metrics
   );
@@ -904,6 +1011,7 @@ function normalizeBotCockpitPayload(
     decision,
     ocr,
     operator,
+    observation,
     signals: [],
     warnings,
     transport,
@@ -1080,6 +1188,12 @@ function buildOperatorControlWirePatch(
   const wirePatch: Record<string, boolean> = {};
   if (typeof patch.paused === "boolean") {
     wirePatch.paused = patch.paused;
+  }
+  if (typeof patch.assistedModeEnabled === "boolean") {
+    wirePatch.assisted_mode_enabled = patch.assistedModeEnabled;
+  }
+  if (typeof patch.observationModeEnabled === "boolean") {
+    wirePatch.observation_mode_enabled = patch.observationModeEnabled;
   }
   if (typeof patch.shadowModeEnabled === "boolean") {
     wirePatch.shadow_mode_enabled = patch.shadowModeEnabled;

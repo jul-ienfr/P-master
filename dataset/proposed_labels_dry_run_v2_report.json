@@ -1,0 +1,756 @@
+{
+  "class_counts": {
+    "bet_button": 27,
+    "board_card": 157,
+    "call_button": 123,
+    "check_button": 74,
+    "fold_button": 19,
+    "hero_card": 298,
+    "player_name_area": 1488,
+    "pot_area": 252,
+    "raise_button": 12,
+    "stack_area": 1488
+  },
+  "empty_files": 12,
+  "files": 268,
+  "generic_card_files": [
+    {
+      "count": 2,
+      "file": "01248bac-e219-41a4-839a-c715d4e8515d.txt"
+    },
+    {
+      "count": 1,
+      "file": "0229ecfa-9b2c-4993-a31f-7e43efd6f2f3.txt"
+    },
+    {
+      "count": 2,
+      "file": "03a5cb16-14a8-4d86-b779-10f1456ebedf.txt"
+    },
+    {
+      "count": 2,
+      "file": "05673349-d1c3-4309-9215-fd73f4d62dcc.txt"
+    },
+    {
+      "count": 2,
+      "file": "0710c119-c4b1-4a4d-bb94-082e3f79891f.txt"
+    },
+    {
+      "count": 3,
+      "file": "08d7fe02-2ec6-47e2-b396-71449042c04b.txt"
+    },
+    {
+      "count": 1,
+      "file": "0b07fe9c-3972-44c2-9d15-1f61c856e4c1.txt"
+    },
+    {
+      "count": 2,
+      "file": "0e95e4ba-1943-4fbd-abbe-2310abc18f7b.txt"
+    },
+    {
+      "count": 5,
+      "file": "0f6e1217-be6e-4d20-ac0b-b026d03e8a11.txt"
+    },
+    {
+      "count": 2,
+      "file": "0fbf50d3-8c2d-4eda-896e-768e3167e945.txt"
+    },
+    {
+      "count": 4,
+      "file": "10d84b30-f2bb-4418-9743-7fe89d09e35f.txt"
+    },
+    {
+      "count": 4,
+      "file": "1165c285-7cb4-41e6-b422-3e89ffc77e82.txt"
+    },
+    {
+      "count": 2,
+      "file": "11846e2c-325e-4f51-a501-da36344b09dd.txt"
+    },
+    {
+      "count": 2,
+      "file": "132d254b-4999-4977-bf04-d9a10463aa58.txt"
+    },
+    {
+      "count": 2,
+      "file": "1353c5f8-8c34-4a28-8838-7e54b1ff6e0f.txt"
+    },
+    {
+      "count": 2,
+      "file": "15430227-adeb-49cb-a29e-db8a5543d71b.txt"
+    },
+    {
+      "count": 4,
+      "file": "16c1435f-eedb-4586-9f67-3d544e970a31.txt"
+    },
+    {
+      "count": 2,
+      "file": "177e63b5-6a0a-4a4e-b67a-d21b006799ba.txt"
+    },
+    {
+      "count": 2,
+      "file": "1c8c3f36-7c1c-4f75-aa6d-5e55b3cec5d9.txt"
+    },
+    {
+      "count": 1,
+      "file": "1f1f18d4-30b8-4349-82f9-204745fc662d.txt"
+    },
+    {
+      "count": 3,
+      "file": "24833e38-03ea-4052-86c5-17f7f28c49b1.txt"
+    },
+    {
+      "count": 2,
+      "file": "264fb178-988a-4857-bc31-e135d95c404f.txt"
+    },
+    {
+      "count": 3,
+      "file": "277bdefa-653a-4460-96dd-14063c12e20c.txt"
+    },
+    {
+      "count": 1,
+      "file": "291c70b7-9744-4f3c-b24c-dc8fe2f520ff.txt"
+    },
+    {
+      "count": 2,
+      "file": "32d4bf8f-bbfc-46d5-a78e-e73f9b45b23e.txt"
+    },
+    {
+      "count": 2,
+      "file": "33c538ce-af3a-47e0-b632-57bef9aebdfc.txt"
+    },
+    {
+      "count": 1,
+      "file": "34782d6a-b4bd-437b-9920-2f92daecdd84.txt"
+    },
+    {
+      "count": 2,
+      "file": "351faac0-f340-4e40-bb7f-acdef2ecb420.txt"
+    },
+    {
+      "count": 2,
+      "file": "363ddee7-36ff-465b-969e-9d731a0276ae.txt"
+    },
+    {
+      "count": 2,
+      "file": "36a11967-4023-45b4-a237-66e095cb58df.txt"
+    },
+    {
+      "count": 3,
+      "file": "391b5123-75e7-42c4-8e99-1970d6f64141.txt"
+    },
+    {
+      "count": 3,
+      "file": "39394953-f135-42f6-91e2-644a989b11bc.txt"
+    },
+    {
+      "count": 3,
+      "file": "3caea869-576a-4efc-a00b-83194b12d390.txt"
+    },
+    {
+      "count": 3,
+      "file": "3d6cc260-62df-47a6-82bc-f44cdb8fe7dc.txt"
+    },
+    {
+      "count": 1,
+      "file": "3dc2b58c-f0aa-4a41-a16a-bd0baec31cff.txt"
+    },
+    {
+      "count": 2,
+      "file": "3dc545f0-1219-488b-82bb-e2ca2f99afbe.txt"
+    },
+    {
+      "count": 2,
+      "file": "3e13b26d-98e5-4d9f-b4a4-4811b5365c22.txt"
+    },
+    {
+      "count": 5,
+      "file": "3e5a35a0-03b8-47a2-944b-0d95d7b8dc74.txt"
+    },
+    {
+      "count": 4,
+      "file": "40e8050d-e238-4e46-b142-eec1b8f48ab3.txt"
+    },
+    {
+      "count": 2,
+      "file": "4501b40b-26db-4421-b7dc-5878820344e9.txt"
+    },
+    {
+      "count": 1,
+      "file": "4521f575-9647-4a0a-a932-e54d2b151e55.txt"
+    },
+    {
+      "count": 2,
+      "file": "45450920-d08d-4a36-b54d-d5e7c40c08be.txt"
+    },
+    {
+      "count": 3,
+      "file": "45a096dd-2b22-4287-b0e8-8c5c53d1efa6.txt"
+    },
+    {
+      "count": 2,
+      "file": "4655fd93-93f1-4fe6-a2e2-cf9957e1e4d7.txt"
+    },
+    {
+      "count": 3,
+      "file": "46a9f42e-b218-446d-a841-12ed34fa4084.txt"
+    },
+    {
+      "count": 1,
+      "file": "485236a1-5aae-4ec4-8be3-c45427f515e2.txt"
+    },
+    {
+      "count": 5,
+      "file": "4aa8922b-c872-44b2-9e14-ce2e7a57e2b3.txt"
+    },
+    {
+      "count": 2,
+      "file": "4cdbaffa-583f-4f9c-9e71-0f7161dee3a9.txt"
+    },
+    {
+      "count": 4,
+      "file": "4d6e9302-44b4-4094-b21e-e186dd5293e0.txt"
+    },
+    {
+      "count": 2,
+      "file": "4f1c3d5f-5992-4df4-a89a-2cbacab1737f.txt"
+    },
+    {
+      "count": 2,
+      "file": "4fb78ba0-a09c-45db-bf82-06df798b4367.txt"
+    },
+    {
+      "count": 2,
+      "file": "50f3d299-f19c-465f-bac6-4c071db0f7a8.txt"
+    },
+    {
+      "count": 2,
+      "file": "51af2e48-dedd-4367-8641-32344764576f.txt"
+    },
+    {
+      "count": 3,
+      "file": "51cc83dd-017f-4a39-ab0d-7b855e579736.txt"
+    },
+    {
+      "count": 2,
+      "file": "544152c7-4969-437a-9849-c7d1293514c0.txt"
+    },
+    {
+      "count": 2,
+      "file": "554f4f93-f5d2-456c-97bc-9d8e95d86794.txt"
+    },
+    {
+      "count": 2,
+      "file": "55bcfbb1-fc54-4f2e-bbe8-3cbbb538527a.txt"
+    },
+    {
+      "count": 2,
+      "file": "5606de58-3454-421a-bbcb-915a4c45363e.txt"
+    },
+    {
+      "count": 2,
+      "file": "5692b200-7317-4844-bddf-f24513cb89eb.txt"
+    },
+    {
+      "count": 2,
+      "file": "5872a5f6-286c-47c9-8419-9d4642328f22.txt"
+    },
+    {
+      "count": 2,
+      "file": "58eae532-6a7d-4988-ab4d-fd58f6bb163e.txt"
+    },
+    {
+      "count": 2,
+      "file": "59a9c6a3-33b9-478e-9455-c1ac6e69a8bf.txt"
+    },
+    {
+      "count": 3,
+      "file": "5a0b6c52-53da-4f35-9b04-785295ecd18f.txt"
+    },
+    {
+      "count": 4,
+      "file": "5a1162f2-e57f-4e59-bb77-539507adaebc.txt"
+    },
+    {
+      "count": 1,
+      "file": "5a6314ca-3409-45c8-871a-e0faeaa8ebb2.txt"
+    },
+    {
+      "count": 4,
+      "file": "5bcd6adc-37b0-4a8d-8b0a-57150f7141ac.txt"
+    },
+    {
+      "count": 3,
+      "file": "5c9c1807-a6da-49ce-953a-6de9f357d6ef.txt"
+    },
+    {
+      "count": 4,
+      "file": "5fd6b85e-6d70-4209-8500-935a74fafb4e.txt"
+    },
+    {
+      "count": 2,
+      "file": "61296d41-4e8e-4ad7-84a5-9a1d9da08025.txt"
+    },
+    {
+      "count": 2,
+      "file": "63a20996-d0a5-4ff8-8bc5-edb3ed68b76c.txt"
+    },
+    {
+      "count": 4,
+      "file": "63b98a69-e0cf-49b1-90a1-e6fc6110d0e4.txt"
+    },
+    {
+      "count": 3,
+      "file": "63e977e5-45f6-44f3-815d-99f6622295da.txt"
+    },
+    {
+      "count": 2,
+      "file": "65676c5f-815c-45cb-af97-94a560d3b7b8.txt"
+    },
+    {
+      "count": 2,
+      "file": "67e7457b-1236-4402-9c46-876145c7ea28.txt"
+    },
+    {
+      "count": 2,
+      "file": "694e04e8-e9ca-4b74-9683-85f24a145d2f.txt"
+    },
+    {
+      "count": 1,
+      "file": "697f2a6b-82ab-4826-972a-885bebc2189c.txt"
+    },
+    {
+      "count": 4,
+      "file": "6ae8a729-3077-4458-97ae-eb9698670e83.txt"
+    },
+    {
+      "count": 2,
+      "file": "6ca1a1a1-55d6-4936-9369-a435e6e37f51.txt"
+    },
+    {
+      "count": 2,
+      "file": "6debceb1-5bdc-4082-9f26-36fac0451fd4.txt"
+    },
+    {
+      "count": 3,
+      "file": "6e3921eb-8430-4df8-9580-ee489f0c1a46.txt"
+    },
+    {
+      "count": 3,
+      "file": "7389bcdd-0a17-46cb-a680-db4030880c1c.txt"
+    },
+    {
+      "count": 2,
+      "file": "74152e9e-6684-4914-a1f2-c2ae0dd69e1e.txt"
+    },
+    {
+      "count": 3,
+      "file": "760d3dca-e016-46dc-a78f-b2496b71a7ec.txt"
+    },
+    {
+      "count": 2,
+      "file": "78dbac2a-8e6e-4025-9895-707ff9ac7bef.txt"
+    },
+    {
+      "count": 5,
+      "file": "7c31b107-f0d6-439b-ba36-6718bb56ec5a.txt"
+    },
+    {
+      "count": 2,
+      "file": "7d90f6ef-a1bc-4cea-83a5-ba400dfde244.txt"
+    },
+    {
+      "count": 2,
+      "file": "7f48fbf0-8f6e-4384-a2a0-7cd56c6ee87a.txt"
+    },
+    {
+      "count": 3,
+      "file": "80fd105d-51f9-48a0-8bb7-2f3f9de7f681.txt"
+    },
+    {
+      "count": 3,
+      "file": "814f96f7-2c59-445e-b80e-4f539a9e16fe.txt"
+    },
+    {
+      "count": 2,
+      "file": "81d3abb5-5b0e-4ebe-acf6-f627110d9dca.txt"
+    },
+    {
+      "count": 2,
+      "file": "84214095-7100-4b07-b056-afe2ee154ca8.txt"
+    },
+    {
+      "count": 2,
+      "file": "85b960b8-f2f7-408f-ac27-83d4a6c040d9.txt"
+    },
+    {
+      "count": 2,
+      "file": "85f25d68-564d-47e2-95bd-65919cd70357.txt"
+    },
+    {
+      "count": 5,
+      "file": "888b47c8-210d-4dc8-bfd5-389b09e4aeba.txt"
+    },
+    {
+      "count": 3,
+      "file": "889fa6d6-66ae-4214-8fe0-e2f17bd58834.txt"
+    },
+    {
+      "count": 2,
+      "file": "8a5936e3-a2bd-4938-b008-c3f168be38db.txt"
+    },
+    {
+      "count": 1,
+      "file": "8ab49665-0eaa-4b5c-ba35-f15774928d50.txt"
+    },
+    {
+      "count": 4,
+      "file": "8af487e9-febb-487c-ac4b-b630cd1ac333.txt"
+    },
+    {
+      "count": 2,
+      "file": "8b192270-2cc4-47b7-a407-fae436b86886.txt"
+    },
+    {
+      "count": 2,
+      "file": "8cd73f58-c7ac-4f5d-a8c1-96e1275acc08.txt"
+    },
+    {
+      "count": 2,
+      "file": "8d1d7de5-272d-4198-91c6-6c50f8a2562c.txt"
+    },
+    {
+      "count": 3,
+      "file": "8e81c8ee-40a0-4c03-bb44-4216bfd8bdf3.txt"
+    },
+    {
+      "count": 2,
+      "file": "8fd32f7e-1310-4514-ab65-927dcdd3fa58.txt"
+    },
+    {
+      "count": 4,
+      "file": "9144e88f-602a-4110-bac7-503b65c38af3.txt"
+    },
+    {
+      "count": 1,
+      "file": "9149b2d2-2c70-4be0-9c20-6e1c608b2703.txt"
+    },
+    {
+      "count": 1,
+      "file": "920b4808-e5f6-40da-a0f1-d40834393559.txt"
+    },
+    {
+      "count": 2,
+      "file": "928be788-963b-4fe1-98a8-f26c0e008d1f.txt"
+    },
+    {
+      "count": 1,
+      "file": "928c3a3d-979a-414b-ba86-25e745bd4ce0.txt"
+    },
+    {
+      "count": 1,
+      "file": "930116ae-3d70-49d0-801e-891388fbceb1.txt"
+    },
+    {
+      "count": 1,
+      "file": "9462ac11-27d2-4578-9c37-318b5e6f6fc0.txt"
+    },
+    {
+      "count": 3,
+      "file": "96284707-fda3-4c25-a409-d5067edd9fd6.txt"
+    },
+    {
+      "count": 2,
+      "file": "970fe8ec-8d23-42a2-9758-6a01d4bcc4d8.txt"
+    },
+    {
+      "count": 3,
+      "file": "9854be6e-663e-4ffd-a1fe-0c83dc98c20a.txt"
+    },
+    {
+      "count": 2,
+      "file": "98990e29-7a06-4d45-aa07-bd2a61094837.txt"
+    },
+    {
+      "count": 4,
+      "file": "992c9f38-7fa2-4557-8680-d4e83f72d343.txt"
+    },
+    {
+      "count": 3,
+      "file": "99572d89-ef20-4949-b3e7-71a8ff6ee851.txt"
+    },
+    {
+      "count": 2,
+      "file": "9a1e5e04-4181-4aa2-a4b1-19b0cee702e8.txt"
+    },
+    {
+      "count": 2,
+      "file": "9d9ae835-a002-497c-9ba2-ccbae45868bb.txt"
+    },
+    {
+      "count": 3,
+      "file": "9f75a4f9-1f81-45b5-9a76-f76e20b969f9.txt"
+    },
+    {
+      "count": 2,
+      "file": "9fe87b5c-a57a-4543-a4a4-b19310269fc1.txt"
+    },
+    {
+      "count": 2,
+      "file": "a1968665-7e5f-45e8-8c52-357cd900b29e.txt"
+    },
+    {
+      "count": 2,
+      "file": "a21d56de-4eb6-44d0-95e7-bdf04f228d09.txt"
+    },
+    {
+      "count": 2,
+      "file": "a51de754-e8ab-452a-a09c-feb8c67e036a.txt"
+    },
+    {
+      "count": 4,
+      "file": "a80dd0cf-7246-44bf-b7fb-1af4a7e2dc6f.txt"
+    },
+    {
+      "count": 5,
+      "file": "a9077955-5711-47e7-a0d1-0e4d2b91667a.txt"
+    },
+    {
+      "count": 2,
+      "file": "abf3a471-a1d4-4cdc-a5d0-922e1086a533.txt"
+    },
+    {
+      "count": 2,
+      "file": "ac4fd69b-37f8-4193-b7e0-93eae61c8f07.txt"
+    },
+    {
+      "count": 3,
+      "file": "ad7a3b38-3a3b-4cc3-ae86-790120da70e2.txt"
+    },
+    {
+      "count": 4,
+      "file": "ae6a815b-b9a7-4cb1-997c-e1316c354abd.txt"
+    },
+    {
+      "count": 2,
+      "file": "aee229b5-be48-426c-819a-841ad516b3ae.txt"
+    },
+    {
+      "count": 4,
+      "file": "af670082-54df-47f2-875a-77bae87ddaaf.txt"
+    },
+    {
+      "count": 2,
+      "file": "b163b18a-a293-4f1f-b752-6e1b01845fef.txt"
+    },
+    {
+      "count": 5,
+      "file": "b1f774ce-b5da-4632-837e-d522433e4a80.txt"
+    },
+    {
+      "count": 1,
+      "file": "be79838d-0635-4097-b0c4-1ec93446303f.txt"
+    },
+    {
+      "count": 2,
+      "file": "bfc8b093-ad7c-45f9-a716-773d84a21073.txt"
+    },
+    {
+      "count": 2,
+      "file": "c419305d-9947-4eab-9d67-b0634a527e06.txt"
+    },
+    {
+      "count": 5,
+      "file": "c621472b-cb75-4b48-b1e2-21d8fe61f86c.txt"
+    },
+    {
+      "count": 2,
+      "file": "c6b66bc0-2427-4c90-bcda-5fe947c138a7.txt"
+    },
+    {
+      "count": 1,
+      "file": "c79b16d4-9466-4436-907a-1d14f4d8a953.txt"
+    },
+    {
+      "count": 5,
+      "file": "c7f7332b-2382-487a-878c-9b0cbe1be226.txt"
+    },
+    {
+      "count": 1,
+      "file": "c8fc8599-3434-438c-a53b-4b58f683cea6.txt"
+    },
+    {
+      "count": 3,
+      "file": "caff9bdf-4313-4f5c-87c1-a5cf69aede68.txt"
+    },
+    {
+      "count": 4,
+      "file": "ce1707d4-c307-4dbd-9047-e5597de67010.txt"
+    },
+    {
+      "count": 5,
+      "file": "ce79268f-30b1-4134-95bf-5f5b08e43320.txt"
+    },
+    {
+      "count": 2,
+      "file": "cea96102-e1ef-46c3-aa8c-4fc3445d458f.txt"
+    },
+    {
+      "count": 2,
+      "file": "cecbbaa7-ed0a-4e8d-b091-8289dfa7aaf2.txt"
+    },
+    {
+      "count": 2,
+      "file": "d16c989d-b983-490e-bb48-dfe104b04be7.txt"
+    },
+    {
+      "count": 3,
+      "file": "d5346604-bf9c-4c9c-b912-b691b42d53f2.txt"
+    },
+    {
+      "count": 2,
+      "file": "d6ea536d-e23f-4a5c-8a22-6bb57ea8b4ca.txt"
+    },
+    {
+      "count": 5,
+      "file": "d6fbc65e-5859-46aa-aeef-433e40ddb4b8.txt"
+    },
+    {
+      "count": 2,
+      "file": "d793690d-1741-4bd6-aa5a-b523815ef3a9.txt"
+    },
+    {
+      "count": 2,
+      "file": "d8096341-330a-44d3-9f39-71264604922a.txt"
+    },
+    {
+      "count": 4,
+      "file": "d928212e-6a70-4248-99dc-eae93861cbfd.txt"
+    },
+    {
+      "count": 2,
+      "file": "da3b4317-af53-4454-9b1b-f9c59d1302a2.txt"
+    },
+    {
+      "count": 5,
+      "file": "de1a7123-aecb-4b4c-9e00-831b32a004a2.txt"
+    },
+    {
+      "count": 2,
+      "file": "e160f09d-e2cb-4e42-9595-06c1460dffb9.txt"
+    },
+    {
+      "count": 2,
+      "file": "e27740bb-0d90-4b09-90e5-dcbf0f13bd15.txt"
+    },
+    {
+      "count": 2,
+      "file": "e70abf37-973c-4a86-abbe-3fa4dec017a0.txt"
+    },
+    {
+      "count": 1,
+      "file": "e71dce80-118e-42e9-bbe5-552a6b9b200d.txt"
+    },
+    {
+      "count": 3,
+      "file": "e795e2e7-1d94-4561-a1f8-cfa81ff64c31.txt"
+    },
+    {
+      "count": 4,
+      "file": "e8d790a4-4d7c-412c-ba68-2cb6e31608c7.txt"
+    },
+    {
+      "count": 2,
+      "file": "ebca6608-4bce-4132-8146-5d848af091b4.txt"
+    },
+    {
+      "count": 1,
+      "file": "ebfdc8e7-0b46-4d6b-98d3-b7973e34d763.txt"
+    },
+    {
+      "count": 2,
+      "file": "ed34da7f-cd99-45a8-b6b1-4117e90f5aa7.txt"
+    },
+    {
+      "count": 1,
+      "file": "ed625f03-c376-4a7c-9faf-ca21e237a767.txt"
+    },
+    {
+      "count": 2,
+      "file": "ed7d34fa-44ee-41d1-b0e9-9221187ed672.txt"
+    },
+    {
+      "count": 2,
+      "file": "ee501a49-010f-4a7e-a1f3-be902bbabbbe.txt"
+    },
+    {
+      "count": 2,
+      "file": "eeab241a-cc5e-43f9-b763-67167aef8cf1.txt"
+    },
+    {
+      "count": 1,
+      "file": "ef5e57b2-f74b-4e0e-8c89-08f2ebc3cf33.txt"
+    },
+    {
+      "count": 5,
+      "file": "ef8ea734-c6a8-4041-bb23-e9f2371f00d2.txt"
+    },
+    {
+      "count": 3,
+      "file": "eff0e552-5ba9-473e-9f43-6c53b7571b63.txt"
+    },
+    {
+      "count": 1,
+      "file": "f0c1d129-9c4f-48f9-a294-ed9d2e26e9e9.txt"
+    },
+    {
+      "count": 2,
+      "file": "f180c4ea-b398-443a-81f4-15b5efdb71a6.txt"
+    },
+    {
+      "count": 2,
+      "file": "f26bb18b-7ea3-49ba-96ec-7cd20065352b.txt"
+    },
+    {
+      "count": 2,
+      "file": "f28b4c47-5d02-4087-8c4c-aa372dfc4c7c.txt"
+    },
+    {
+      "count": 2,
+      "file": "f413df9d-d72e-452b-9f15-dfcde2410c8f.txt"
+    },
+    {
+      "count": 2,
+      "file": "f4eca6d5-c145-444a-bc7a-77184f077bdd.txt"
+    },
+    {
+      "count": 2,
+      "file": "f8577b33-0061-44b9-8add-4b7e4e8a61cf.txt"
+    },
+    {
+      "count": 5,
+      "file": "f8da7dfb-9d10-4ce7-9f12-44a83b2e11e0.txt"
+    },
+    {
+      "count": 3,
+      "file": "fb16c84b-4dae-4cbf-b0ee-c8857ae2e2be.txt"
+    },
+    {
+      "count": 3,
+      "file": "fb34923a-5171-4054-8f87-115e7ba1dd45.txt"
+    },
+    {
+      "count": 4,
+      "file": "fe2a40d5-97f9-4316-8ffb-634d8e82f8e8.txt"
+    },
+    {
+      "count": 2,
+      "file": "fe32e925-71d3-4b78-9553-5dc394a08f15.txt"
+    }
+  ],
+  "generic_card_labels": 455,
+  "invalid_labels": [],
+  "labels_dir": "C:/Users/julie/Desktop/Poker-master/dataset/proposed_labels_dry_run",
+  "metadata_files": 268,
+  "nonempty_files": 256,
+  "total_labels": 3938
+}

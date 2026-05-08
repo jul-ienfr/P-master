@@ -9,6 +9,7 @@ if str(ROOT) not in sys.path:
 
 
 from src.bot.decision_maker import DecisionMaker
+from src.solver.provider import SolverProvider
 
 
 def run(coro):
@@ -19,8 +20,10 @@ class FakeDB:
     def __init__(self, profile=None):
         self.profile = profile
         self.is_available = True
+        self.calls = []
 
     async def get_player_profile(self, villain_name):
+        self.calls.append(villain_name)
         return self.profile
 
 
@@ -65,6 +68,15 @@ class FakeRLLoaderAgent(FakeRLAgent):
 class RaisingRLAgent:
     def __init__(self, *args, **kwargs):
         raise AssertionError("RL agent should not be instantiated")
+
+
+class FakeHTTPResponse:
+    def __init__(self, payload, status_code=200):
+        self._payload = payload
+        self.status_code = status_code
+
+    def json(self):
+        return self._payload
 
 
 def test_normalize_runtime_actions_collapses_variants_and_deduplicates():
@@ -231,6 +243,70 @@ def test_get_best_action_uses_injected_solver_backend_and_returns_backend_name()
     assert solver.calls[0]["legal_actions"] == ["FOLD", "CALL", "BET"]
 
 
+def test_get_best_action_uses_http_solver_provider_when_native_backend_fails():
+    solver = FakeSolver(response=None)
+
+    def fake_post(url, json, timeout):
+        return FakeHTTPResponse(
+            {
+                "chosen_action": "CHECK",
+                "backend": "gto_server",
+                "decision_confidence": 0.81,
+                "elapsed_ms": 9,
+                "metadata": {"transport": "local_http"},
+            }
+        )
+
+    provider = SolverProvider(native_backend=solver, request_post=fake_post)
+    decision_maker = DecisionMaker(FakeDB(), solver_backend=solver, solver_provider=provider, rl_agent=None)
+
+    decision = run(
+        decision_maker.get_best_action(
+            hero_hand="AhKd",
+            board=["2c", "7d", "Jh"],
+            pot=10.0,
+            effective_stack=80.0,
+            villain_name="Villain",
+            legal_actions=["CHECK", "BET"],
+        )
+    )
+
+    assert decision["action"] == "CHECK"
+    assert decision["backend"] == "gto_server"
+    assert decision["fallback_used"] is False
+    assert decision["metadata"]["solver"]["backend"] == "gto_server"
+
+
+def test_get_best_action_uses_provider_fallback_reason_when_native_and_http_fail():
+    class RaisingNativeSolver:
+        backend_name = "raising_native"
+
+        def solve_spot_v2(self, **kwargs):
+            raise RuntimeError("native_solver_down")
+
+    def fake_post(url, json, timeout):
+        raise RuntimeError("http_down")
+
+    provider = SolverProvider(native_backend=RaisingNativeSolver(), request_post=fake_post)
+    decision_maker = DecisionMaker(FakeDB(), solver_provider=provider, rl_agent=None)
+
+    decision = run(
+        decision_maker.get_best_action(
+            hero_hand="AhKd",
+            board=["2c", "7d", "Jh"],
+            pot=10.0,
+            effective_stack=80.0,
+            villain_name="Villain",
+            legal_actions=["FOLD", "CHECK"],
+        )
+    )
+
+    assert decision["action"] == "FOLD"
+    assert decision["backend"] == "fallback"
+    assert decision["fallback_used"] is True
+    assert decision["fallback_reason"] == "native_solver_down"
+
+
 def test_get_best_action_enriches_metadata_with_solver_profile_and_confidence_details():
     solver = FakeSolver(
         {
@@ -370,6 +446,72 @@ def test_get_best_action_without_solver_uses_fallback_even_if_rl_stub_exists():
     assert decision["metadata"]["solver"]["alternatives_complete"] == []
     assert len(rl_agent.calls) == 1
     assert rl_agent.calls[0]["valid_mask"].tolist() == [1.0, 1.0, 1.0, 0.0, 0.0]
+
+
+def test_get_best_action_uses_preflop_fast_path_without_solver_or_db_fetch():
+    solver = FakeSolver(
+        {
+            "chosen_action": "FOLD",
+            "hero_ev": -1.0,
+            "exploitability": 1.0,
+            "decision_confidence": 0.1,
+            "actions": [{"action": "FOLD", "freq": 1.0}],
+            "elapsed_ms": 99,
+        }
+    )
+    db = FakeDB(profile={"player_type": "Nit"})
+    decision_maker = DecisionMaker(db, solver_backend=solver, rl_agent=None)
+
+    decision = run(
+        decision_maker.get_best_action(
+            hero_hand="AsKh",
+            board=[],
+            pot=3.0,
+            effective_stack=100.0,
+            villain_name="Villain",
+            legal_actions=["FOLD", "CALL", "BET"],
+            hero_position="BTN",
+            action_history=[],
+        )
+    )
+
+    assert decision["action"] == "BET"
+    assert decision["source"] == "GTO_PREFLOP_FAST"
+    assert decision["backend"] == "preflop_fast_path"
+    assert decision["elapsed_ms"] == 0
+    assert decision["fallback_used"] is False
+    assert solver.calls == []
+    assert db.calls == []
+
+
+def test_get_best_action_uses_dynamic_villain_position_from_history():
+    solver = FakeSolver(
+        {
+            "chosen_action": "CHECK",
+            "hero_ev": 0.4,
+            "exploitability": 0.02,
+            "decision_confidence": 0.9,
+            "actions": [{"action": "CHECK", "freq": 1.0}],
+            "elapsed_ms": 5,
+        }
+    )
+    decision_maker = DecisionMaker(FakeDB(), solver_backend=solver, rl_agent=None)
+
+    run(
+        decision_maker.get_best_action(
+            hero_hand="AhKd",
+            board=["2c", "7d", "Jh"],
+            pot=10.0,
+            effective_stack=80.0,
+            villain_name="Villain",
+            legal_actions=["CHECK", "BET"],
+            hero_position="BTN",
+            action_history=[{"player": "Villain", "action": "OPEN", "position": "CO"}],
+        )
+    )
+
+    assert solver.calls
+    assert solver.calls[0]["villain_ranges"] == [decision_maker.preflop_manager.get_villain_range("CO")]
 
 
 def test_get_best_action_keeps_optional_solver_backend_cache_and_warning_details_when_present():

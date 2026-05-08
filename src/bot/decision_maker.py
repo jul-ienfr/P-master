@@ -1,9 +1,14 @@
+import json
 import logging
+import time
+import asyncio
+from functools import lru_cache
 from typing import List, Dict, Optional, Any
 import numpy as np
 
 from .icm_calculator import ICMCalculator
 from .preflop_ranges import PreflopManager
+from src.solver.provider import SolverProvider
 
 _DEFAULT_DEPENDENCY = object()
 
@@ -29,6 +34,9 @@ logger = logging.getLogger(__name__)
 ACTION_MAP = {"FOLD": 0, "CHECK": 1, "CALL": 1, "BET": 2, "RAISE": 2, "BET_50": 2, "BET_75": 3, "ALL_IN": 4}
 REVERSE_ACTION_MAP = {0: "FOLD", 1: "CHECK", 2: "BET", 3: "BET_75", 4: "ALL_IN"}
 BASE_GTO_RANGE = "55+, A2s+, K5s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, ATo+, KJo+, QJo"
+CARD_RANK_ORDER = {rank: index for index, rank in enumerate("23456789TJQKA")}
+PREFLOP_POSITION_ORDER = ("UTG", "HJ", "CO", "BTN", "SB", "BB")
+PREFLOP_FAST_3BET_RANGE = "TT+, AQs+, AKo"
 
 PROFILE_RANGES = {
     "LoosePassive": "22+, A2s+, K2s+, Q4s+, J5s+, T6s+, 96s+, 86s+, 75s+, 64s+, 54s, A2o+, K7o+, Q8o+, J8o+, T8o+",
@@ -70,6 +78,197 @@ def _normalize_action_name(action: Optional[str]) -> Optional[str]:
     if not action:
         return None
     return str(action).strip().upper()
+
+def _normalize_hero_hand_string(hero_hand: str) -> str:
+    raw_value = str(hero_hand or "").strip()
+    compact = raw_value.replace(" ", "")
+    if len(compact) != 4:
+        return raw_value
+
+    cards = [compact[:2], compact[2:4]]
+    if any(len(card) != 2 for card in cards):
+        return raw_value
+
+    normalized_cards: List[str] = []
+    for card in cards:
+        rank = card[0].upper()
+        suit = card[1].lower()
+        if rank not in CARD_RANK_ORDER or suit not in {"s", "h", "d", "c"}:
+            return raw_value
+        normalized_cards.append(f"{rank}{suit}")
+
+    normalized_cards.sort(
+        key=lambda card: (CARD_RANK_ORDER[card[0]], card[1]),
+        reverse=True,
+    )
+    return "".join(normalized_cards)
+
+
+def _normalize_preflop_position(value: Optional[str]) -> Optional[str]:
+    normalized = str(value or "").strip().upper()
+    return normalized if normalized in PREFLOP_POSITION_ORDER else None
+
+
+def _hero_combo_notation(hero_hand: str) -> str:
+    normalized_hand = _normalize_hero_hand_string(hero_hand)
+    if len(normalized_hand) != 4:
+        return ""
+
+    card_one = normalized_hand[:2]
+    card_two = normalized_hand[2:4]
+    if len(card_one) != 2 or len(card_two) != 2:
+        return ""
+
+    rank_one, suit_one = card_one[0], card_one[1]
+    rank_two, suit_two = card_two[0], card_two[1]
+    if rank_one == rank_two:
+        return f"{rank_one}{rank_two}"
+
+    suited_flag = "s" if suit_one == suit_two else "o"
+    return f"{rank_one}{rank_two}{suited_flag}"
+
+
+@lru_cache(maxsize=256)
+def _cached_range_items(range_text: str) -> tuple[str, ...]:
+    return tuple(item.strip() for item in str(range_text or "").split(",") if item and item.strip())
+
+
+def _combo_matches_range_token(combo: str, token: str) -> bool:
+    combo = str(combo or "").strip()
+    token = str(token or "").strip()
+    if not combo or not token:
+        return False
+
+    if len(combo) == 2:
+        if len(token) < 2 or token[0] != token[1]:
+            return False
+        threshold_rank = token[0]
+        if threshold_rank not in CARD_RANK_ORDER or combo[0] not in CARD_RANK_ORDER:
+            return False
+        if token.endswith("+"):
+            return CARD_RANK_ORDER[combo[0]] >= CARD_RANK_ORDER[threshold_rank]
+        return combo == token[:2]
+
+    if len(combo) != 3:
+        return False
+
+    suited_flag = combo[2].lower()
+    raw_token = token.rstrip("+")
+    if len(raw_token) != 3:
+        return False
+
+    token_high, token_low, token_suited_flag = raw_token[0], raw_token[1], raw_token[2].lower()
+    if (
+        token_high not in CARD_RANK_ORDER
+        or token_low not in CARD_RANK_ORDER
+        or combo[0] not in CARD_RANK_ORDER
+        or combo[1] not in CARD_RANK_ORDER
+    ):
+        return False
+    if combo[2].lower() != token_suited_flag:
+        return False
+
+    if token.endswith("+"):
+        return (
+            combo[0] == token_high
+            and CARD_RANK_ORDER[combo[1]] >= CARD_RANK_ORDER[token_low]
+            and CARD_RANK_ORDER[combo[1]] < CARD_RANK_ORDER[combo[0]]
+        )
+
+    return combo == raw_token
+
+
+@lru_cache(maxsize=512)
+def _combo_in_range(combo: str, range_text: str) -> bool:
+    if not combo or not range_text:
+        return False
+    return any(_combo_matches_range_token(combo, token) for token in _cached_range_items(range_text))
+
+
+@lru_cache(maxsize=256)
+def _build_structured_profile_cached(profile_blob: str) -> dict:
+    profile = json.loads(profile_blob) if profile_blob else None
+    if not profile:
+        return {
+            "style": "Unknown",
+            "hands_played": 0,
+            "observed_hands": 0,
+            "reliability": 0.0,
+            "vpip": 0.0,
+            "pfr": 0.0,
+            "gap": 0.0,
+            "aggression_frequency": 0.0,
+            "exploit_confidence": 0.0,
+            "range_hint": BASE_GTO_RANGE,
+            "pressure_bias": 0.0,
+            "call_bias": 0.0,
+            "fold_bias": 0.0,
+            "deviation_cap": 0.0,
+            "rl_ready": False,
+        }
+
+    derived = profile.get("derived_profile") or {}
+    hands_played = int(derived.get("hands_played", profile.get("hands_played", 0)) or 0)
+    observed_hands = int(derived.get("observed_hands", profile.get("observed_hands", 0)) or 0)
+    vpip = _rate_from_profile(profile, "vpip_count", "vpip_rate")
+    pfr = _rate_from_profile(profile, "pfr_count", "pfr_rate")
+    aggression_frequency = float(derived.get("aggression_frequency", profile.get("af", 0.0)) or 0.0)
+    reliability = float(derived.get("reliability", min(1.0, observed_hands / 120.0)) or 0.0)
+    style = str(derived.get("style") or profile.get("player_type") or "Balanced")
+    gap = round(max(0.0, vpip - pfr), 4)
+
+    pressure_bias = 0.0
+    call_bias = 0.0
+    fold_bias = 0.0
+
+    if style == "LoosePassive" or style == "Whale":
+        call_bias = 0.22
+        pressure_bias = 0.18
+        fold_bias = -0.08
+    elif style == "LooseAggressive" or style == "Maniac":
+        call_bias = -0.06
+        pressure_bias = -0.14
+        fold_bias = 0.16
+    elif style == "TightPassive" or style == "Nit":
+        call_bias = -0.18
+        pressure_bias = 0.12
+        fold_bias = 0.18
+    elif style == "TightAggressive":
+        call_bias = -0.08
+        pressure_bias = -0.06
+        fold_bias = 0.1
+    elif style == "RegPassive":
+        call_bias = 0.08
+        pressure_bias = 0.06
+        fold_bias = 0.05
+    elif style == "RegAggressive":
+        call_bias = -0.04
+        pressure_bias = -0.04
+        fold_bias = 0.04
+
+    exploit_confidence = round(
+        _clamp(reliability * (0.55 + min(gap, 0.2) + abs(aggression_frequency - 0.33)), 0.0, 1.0),
+        3,
+    )
+    deviation_cap = round(_clamp(0.05 + (exploit_confidence * 0.2), 0.0, 0.25), 3)
+
+    return {
+        "style": style,
+        "hands_played": hands_played,
+        "observed_hands": observed_hands,
+        "reliability": reliability,
+        "vpip": vpip,
+        "pfr": pfr,
+        "gap": gap,
+        "aggression_frequency": aggression_frequency,
+        "exploit_confidence": exploit_confidence,
+        "range_hint": PROFILE_RANGES.get(style, BASE_GTO_RANGE),
+        "pressure_bias": pressure_bias,
+        "call_bias": call_bias,
+        "fold_bias": fold_bias,
+        "deviation_cap": deviation_cap,
+        "rl_ready": bool(derived.get("rl_ready", False)),
+    }
 
 def _analyze_board_texture(board: List[str]) -> str:
     """Analyse la texture des cartes communes (board) pour ajuster le bet sizing."""
@@ -178,6 +377,7 @@ class DecisionMaker:
         self,
         db_manager,
         solver_backend: Any = _DEFAULT_DEPENDENCY,
+        solver_provider: Optional[SolverProvider] = None,
         rl_agent: Any = _DEFAULT_DEPENDENCY,
         create_rl_agent: bool = True,
         enable_validated_rl: bool = False,
@@ -186,9 +386,24 @@ class DecisionMaker:
         self.db = db_manager
         self.icm_calculator = ICMCalculator()
         self.preflop_manager = PreflopManager()
-        self.solver_backend = postflop_solver_py if solver_backend is _DEFAULT_DEPENDENCY and RUST_SOLVER_AVAILABLE else None if solver_backend is _DEFAULT_DEPENDENCY else solver_backend
+        resolved_solver_backend = (
+            postflop_solver_py
+            if solver_backend is _DEFAULT_DEPENDENCY and RUST_SOLVER_AVAILABLE
+            else None
+            if solver_backend is _DEFAULT_DEPENDENCY
+            else solver_backend
+        )
+        self.solver_backend = resolved_solver_backend
+        self.solver_provider = solver_provider
+        if self.solver_provider is None and resolved_solver_backend is not None:
+            self.solver_provider = SolverProvider(native_backend=resolved_solver_backend)
         
         self.hero_base_range = BASE_GTO_RANGE
+        
+        # Circuit Breaker variables
+        self._consecutive_solver_timeouts = 0
+        self._solver_cooldown_until = 0.0
+
         
         if rl_agent is _DEFAULT_DEPENDENCY:
             self.rl_agent = RLAdapterAgent() if create_rl_agent and RL_AVAILABLE else None
@@ -198,14 +413,20 @@ class DecisionMaker:
         self.create_rl_agent = create_rl_agent
         self.enable_validated_rl = enable_validated_rl
         self.autoload_rl_model = autoload_rl_model
+        self.enable_llm_assist = False # Par défaut, le LLM est désactivé (100% local)
         
         # Configuration de la Rake (Commission du Casino) - NL2 à NL10 = 5%
         self.rake_percentage = 0.05
+        self._profile_cache: Dict[str, tuple[float, Optional[dict]]] = {}
+        self._profile_cache_ttl_s = 30.0
         
         if self.rl_agent and rl_agent is _DEFAULT_DEPENDENCY and self.create_rl_agent and self.autoload_rl_model:
             self.rl_agent.load_model()
 
     def _solver_backend_name(self) -> str:
+        provider_backend = self.solver_provider.active_backend() if self.solver_provider else ""
+        if provider_backend and provider_backend != "fallback":
+            return provider_backend
         if not self.solver_backend:
             return "fallback"
         if self.solver_backend is postflop_solver_py:
@@ -225,13 +446,13 @@ class DecisionMaker:
         state_confidence: float,
         action_history: Optional[List[Dict[str, Any]]],
     ) -> dict:
-        if not self.solver_backend:
-            raise RuntimeError("rust_solver_unavailable")
-            
         # Ajustement du pot pour simuler la Rake (5%)
         net_pot = pot * (1.0 - self.rake_percentage) if pot > 0 else pot
 
-        return self.solver_backend.solve_spot_v2(
+        if not self.solver_provider:
+            raise RuntimeError("rust_solver_unavailable")
+
+        return self.solver_provider.solve_spot_v2(
             hero_range=hero_hand,
             villain_ranges=[villain_range],
             board=board,
@@ -265,87 +486,155 @@ class DecisionMaker:
         return state
 
     def _build_structured_profile(self, profile: Optional[dict]) -> dict:
-        if not profile:
-            return {
-                "style": "Unknown",
-                "hands_played": 0,
-                "observed_hands": 0,
-                "reliability": 0.0,
-                "vpip": 0.0,
-                "pfr": 0.0,
-                "gap": 0.0,
-                "aggression_frequency": 0.0,
-                "exploit_confidence": 0.0,
-                "range_hint": BASE_GTO_RANGE,
-                "pressure_bias": 0.0,
-                "call_bias": 0.0,
-                "fold_bias": 0.0,
-                "deviation_cap": 0.0,
-                "rl_ready": False,
-            }
+        profile_blob = ""
+        if profile:
+            try:
+                profile_blob = json.dumps(profile, sort_keys=True, default=str)
+            except TypeError:
+                profile_blob = json.dumps(dict(profile), sort_keys=True, default=str)
+        return dict(_build_structured_profile_cached(profile_blob))
 
-        derived = profile.get("derived_profile") or {}
-        hands_played = int(derived.get("hands_played", profile.get("hands_played", 0)) or 0)
-        observed_hands = int(derived.get("observed_hands", profile.get("observed_hands", 0)) or 0)
-        vpip = _rate_from_profile(profile, "vpip_count", "vpip_rate")
-        pfr = _rate_from_profile(profile, "pfr_count", "pfr_rate")
-        aggression_frequency = float(derived.get("aggression_frequency", profile.get("af", 0.0)) or 0.0)
-        reliability = float(derived.get("reliability", min(1.0, observed_hands / 120.0)) or 0.0)
-        style = str(derived.get("style") or profile.get("player_type") or "Balanced")
-        gap = round(max(0.0, vpip - pfr), 4)
+    async def _get_cached_profile(self, villain_name: str, *, allow_fetch: bool) -> Optional[dict]:
+        cache_key = str(villain_name or "").strip()
+        if not cache_key:
+            return None
 
-        pressure_bias = 0.0
-        call_bias = 0.0
-        fold_bias = 0.0
+        cached_entry = self._profile_cache.get(cache_key)
+        now = time.monotonic()
+        if cached_entry is not None:
+            cached_at, cached_profile = cached_entry
+            if (now - cached_at) <= self._profile_cache_ttl_s:
+                return dict(cached_profile) if isinstance(cached_profile, dict) else None
 
-        if style == "LoosePassive" or style == "Whale":
-            call_bias = 0.22
-            pressure_bias = 0.18
-            fold_bias = -0.08
-        elif style == "LooseAggressive" or style == "Maniac":
-            call_bias = -0.06
-            pressure_bias = -0.14
-            fold_bias = 0.16
-        elif style == "TightPassive" or style == "Nit":
-            call_bias = -0.18
-            pressure_bias = 0.12
-            fold_bias = 0.18
-        elif style == "TightAggressive":
-            call_bias = -0.08
-            pressure_bias = -0.06
-            fold_bias = 0.1
-        elif style == "RegPassive":
-            call_bias = 0.08
-            pressure_bias = 0.06
-            fold_bias = 0.05
-        elif style == "RegAggressive":
-            call_bias = -0.04
-            pressure_bias = -0.04
-            fold_bias = 0.04
+        if (
+            not allow_fetch
+            or not self.db
+            or not getattr(self.db, "is_available", bool(getattr(self.db, "pool", None)))
+        ):
+            return dict(cached_entry[1]) if cached_entry and isinstance(cached_entry[1], dict) else None
 
-        exploit_confidence = round(
-            _clamp(reliability * (0.55 + min(gap, 0.2) + abs(aggression_frequency - 0.33)), 0.0, 1.0),
-            3,
+        profile = await self.db.get_player_profile(villain_name)
+        stored_profile = dict(profile) if isinstance(profile, dict) else None
+        self._profile_cache[cache_key] = (now, stored_profile)
+        return dict(stored_profile) if isinstance(stored_profile, dict) else None
+
+    def _infer_villain_position(
+        self,
+        villain_name: str,
+        hero_position: str,
+        action_history: Optional[List[Dict[str, Any]]],
+    ) -> str:
+        normalized_villain_name = str(villain_name or "").strip().lower()
+        for item in reversed(action_history or []):
+            if not isinstance(item, dict):
+                continue
+            actor_name = str(item.get("player") or item.get("name") or "").strip().lower()
+            if normalized_villain_name and actor_name and actor_name != normalized_villain_name:
+                continue
+            for key in ("position", "player_position", "villain_position", "seat_position"):
+                inferred = _normalize_preflop_position(item.get(key))
+                if inferred:
+                    return inferred
+        return _normalize_preflop_position(hero_position) or "HJ"
+
+    @staticmethod
+    def _has_aggressive_preflop_history(action_history: Optional[List[Dict[str, Any]]]) -> bool:
+        for item in action_history or []:
+            if not isinstance(item, dict):
+                continue
+            action_name = _normalize_action_name(item.get("action"))
+            if not action_name:
+                continue
+            if action_name.startswith("BET") or action_name.startswith("RAISE") or action_name in {"OPEN", "3BET"}:
+                return True
+        return False
+
+    @staticmethod
+    def _preferred_aggressive_action(legal_actions: List[str]) -> Optional[str]:
+        normalized_legal_actions = [_normalize_action_name(action) for action in legal_actions]
+        if "RAISE" in normalized_legal_actions:
+            return "RAISE"
+        if "BET" in normalized_legal_actions:
+            return "BET"
+        if "ALL_IN" in normalized_legal_actions:
+            return "ALL_IN"
+        return None
+
+    def _run_preflop_fast_path(
+        self,
+        *,
+        hero_hand: str,
+        legal_actions: List[str],
+        hero_position: str,
+        action_history: Optional[List[Dict[str, Any]]],
+        effective_stack: float = 0.0,
+        pot: float = 0.0,
+    ) -> tuple[str, dict]:
+        normalized_hero_position = _normalize_preflop_position(hero_position) or "BTN"
+        hero_combo = _hero_combo_notation(hero_hand)
+        facing_raise = (
+            ("CALL" in legal_actions and "CHECK" not in legal_actions)
+            or self._has_aggressive_preflop_history(action_history)
         )
-        deviation_cap = round(_clamp(0.05 + (exploit_confidence * 0.2), 0.0, 0.25), 3)
+        hero_range = self.preflop_manager.get_hero_range(normalized_hero_position, facing_raise=facing_raise)
+        in_range = _combo_in_range(hero_combo, hero_range)
+        aggressive_action = self._preferred_aggressive_action(legal_actions)
 
-        return {
-            "style": style,
-            "hands_played": hands_played,
-            "observed_hands": observed_hands,
-            "reliability": reliability,
-            "vpip": vpip,
-            "pfr": pfr,
-            "gap": gap,
-            "aggression_frequency": aggression_frequency,
-            "exploit_confidence": exploit_confidence,
-            "range_hint": PROFILE_RANGES.get(style, BASE_GTO_RANGE),
-            "pressure_bias": pressure_bias,
-            "call_bias": call_bias,
-            "fold_bias": fold_bias,
-            "deviation_cap": deviation_cap,
-            "rl_ready": bool(derived.get("rl_ready", False)),
+        chosen_action = "CHECK" if "CHECK" in legal_actions else "FOLD"
+        dynamic_amount = None
+
+        if in_range:
+            if facing_raise:
+                if aggressive_action and _combo_in_range(hero_combo, PREFLOP_FAST_3BET_RANGE):
+                    chosen_action = aggressive_action
+                    dynamic_amount = pot * 3.2 if normalized_hero_position in ["SB", "BB"] else pot * 2.8
+                elif "CALL" in legal_actions:
+                    chosen_action = "CALL"
+                elif "CHECK" in legal_actions:
+                    chosen_action = "CHECK"
+                elif "FOLD" in legal_actions:
+                    chosen_action = "FOLD"
+            else:
+                if aggressive_action:
+                    chosen_action = aggressive_action
+                    if effective_stack > pot * 50:
+                        dynamic_amount = pot * 1.5
+                    elif effective_stack < pot * 15 and effective_stack > 0:
+                        dynamic_amount = effective_stack
+                    else:
+                        dynamic_amount = pot * 1.8
+                elif "CHECK" in legal_actions:
+                    chosen_action = "CHECK"
+                elif "CALL" in legal_actions:
+                    chosen_action = "CALL"
+        else:
+            if "CHECK" in legal_actions:
+                chosen_action = "CHECK"
+            elif facing_raise and "FOLD" in legal_actions:
+                chosen_action = "FOLD"
+            elif legal_actions:
+                chosen_action = legal_actions[0]
+
+        confidence = 0.94 if in_range else 0.78
+        response = {
+            "chosen_action": chosen_action,
+            "hero_ev": 0.0,
+            "exploitability": 0.0,
+            "decision_confidence": confidence,
+            "dynamic_amount": dynamic_amount,
+            "actions": [{"action": chosen_action, "freq": 1.0, "source": "preflop_fast_path"}],
+            "elapsed_ms": 0,
+            "backend": "preflop_fast_path",
+            "cache_hit": True,
+            "solve_mode": "preflop_fast_path",
+            "backend_details": {
+                "name": "preflop_fast_path",
+                "hero_position": normalized_hero_position,
+                "facing_raise": facing_raise,
+                "hero_combo": hero_combo,
+            },
         }
+        return chosen_action, response
 
     def _should_allow_rl_override(self, structured_profile: dict) -> bool:
         if not self.rl_agent or not self.enable_validated_rl:
@@ -634,6 +923,7 @@ class DecisionMaker:
     ) -> dict:
         source_slug = {
             "GTO_RUST": "gto_solver",
+            "GTO_PREFLOP_FAST": "preflop_fast_path",
             "EXPLOIT_PROFILE": "profile_exploit",
             "RL_VALIDATED": "validated_rl",
             "ICM_SURVIVAL": "icm_survival",
@@ -817,7 +1107,7 @@ class DecisionMaker:
             
         player_type = profile.get("player_type", "Balanced")
         
-        range_items = [item.strip() for item in base_villain_range.split(",")]
+        range_items = list(_cached_range_items(base_villain_range))
         locked_range = []
 
         if player_type == "Nit" or player_type == "TightPassive":
@@ -854,25 +1144,42 @@ class DecisionMaker:
         Reinforcement Learning (Agent RL), Node-Locking, et ICM.
         """
         logger.info(f"Calcul de décision contre {villain_name}. Board: {board}, Pot: {pot}")
+        hero_hand = _normalize_hero_hand_string(hero_hand)
         legal_actions = self._normalize_runtime_actions(legal_actions)
         if not legal_actions:
             return self._fallback_action([])
-        
+            
+        # CIRCUIT BREAKER CHECK
+        if time.monotonic() < self._solver_cooldown_until:
+            logger.error("🛑 CIRCUIT BREAKER ACTIF: Solver en cooldown. Auto-Fallback.")
+            return self._fallback_action(legal_actions)
+
+
+        is_preflop = len(board or []) == 0
+        use_preflop_fast_path = bool(
+            is_preflop
+            and self.solver_backend is not None
+            and not self.enable_validated_rl
+        )
+         
         # 1. Profilage & Node-Locking GTO
-        profile = None
-        if self.db and getattr(self.db, "is_available", bool(getattr(self.db, "pool", None))):
-            profile = await self.db.get_player_profile(villain_name)
+        profile = await self._get_cached_profile(
+            villain_name,
+            allow_fetch=not use_preflop_fast_path,
+        )
         structured_profile = self._build_structured_profile(profile)
+        villain_position = self._infer_villain_position(villain_name, hero_position, action_history)
         
         # Obtenir la range théorique via le PreflopManager
-        base_villain_range = self.preflop_manager.get_villain_range("UTG")
+        base_villain_range = self.preflop_manager.get_villain_range(villain_position)
         
         # Appliquer le Node-Locking
         villain_range = self._apply_node_locking(base_villain_range, profile, board)
         
         # 2. Utilisation du Deep Reinforcement Learning pour dévier de la GTO
         rl_action_name = None
-        if self.rl_agent:
+        preflop_fast_used = False
+        if self.rl_agent and not use_preflop_fast_path:
             state_vector = self._state_to_vector(hero_hand, board, pot, effective_stack, profile or {})
             
             valid_mask = np.zeros(self.rl_agent.action_dim)
@@ -895,23 +1202,49 @@ class DecisionMaker:
         gto_details = {}
         fallback_used = False
         fallback_reason = None
-        if self.solver_backend:
+        if use_preflop_fast_path:
+            gto_action, gto_details = self._run_preflop_fast_path(
+                hero_hand=hero_hand,
+                legal_actions=legal_actions,
+                hero_position=hero_position,
+                action_history=action_history,
+                effective_stack=effective_stack,
+                pot=pot,
+            )
+            preflop_fast_used = True
+            logger.info("Réponse préflop fast-path immédiate : %s", gto_action)
+        elif self.solver_provider:
             try:
-                response = self._call_solver_backend(
-                    hero_hand=hero_hand,
-                    villain_range=villain_range,
-                    board=board,
-                    pot=pot,
-                    effective_stack=effective_stack,
-                    legal_actions=legal_actions,
-                    spot_id=spot_id,
-                    hero_position=hero_position,
-                    state_confidence=state_confidence,
-                    action_history=action_history,
+                response = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        self._call_solver_backend,
+                        hero_hand=hero_hand,
+                        villain_range=villain_range,
+                        board=board,
+                        pot=pot,
+                        effective_stack=effective_stack,
+                        legal_actions=legal_actions,
+                        spot_id=spot_id,
+                        hero_position=hero_position,
+                        state_confidence=state_confidence,
+                        action_history=action_history,
+                    ),
+                    timeout=10.0,
                 )
+                fallback_used = bool(response.get("fallback_used", False))
+                fallback_reason = str(response.get("fallback_reason") or "") or None
                 gto_action = self._normalize_solver_action(response.get("chosen_action", "FOLD"), legal_actions)
                 gto_details = response
                 logger.info(f"Réponse GTO Rust reçue en {response.get('elapsed_ms')}ms : {gto_action}")
+            except asyncio.TimeoutError:
+                logger.error("Solver Rust timeout (>10s). Fail-safe to FOLD/CHECK.")
+                self._consecutive_solver_timeouts += 1
+                if self._consecutive_solver_timeouts >= 3:
+                    logger.critical("🛑 CIRCUIT BREAKER DÉCLENCHÉ : Trop de timeouts Rust consécutifs. Mise en cooldown 60s.")
+                    self._solver_cooldown_until = time.monotonic() + 60.0
+                fallback_used = True
+                fallback_reason = "solver_timeout"
+                gto_action = "CHECK" if "CHECK" in legal_actions else "FOLD"
             except Exception as e:
                 logger.error(f"Erreur lors de l'appel au Solver Rust: {e}")
                 fallback_used = True
@@ -919,6 +1252,11 @@ class DecisionMaker:
         else:
             fallback_used = True
             fallback_reason = "rust_solver_unavailable"
+            
+        # Résilience: si la requête réussit, on reset le circuit breaker
+        if not fallback_used:
+            self._consecutive_solver_timeouts = 0
+
                 
         # 4. Orchestration exploitative bornée
         final_action, decision_source = self._select_exploit_action(
@@ -935,8 +1273,36 @@ class DecisionMaker:
                 structured_profile.get("exploit_confidence", 0.0),
                 structured_profile.get("deviation_cap", 0.0),
             )
+        elif preflop_fast_used:
+            decision_source = "GTO_PREFLOP_FAST"
 
         final_action = self._normalize_solver_action(final_action, legal_actions)
+
+        # 4.5 Assistance LLM (Optionnelle et asynchrone)
+        llm_advice = None
+        if self.enable_llm_assist and self.solver_backend and hasattr(self.solver_backend, "llm_assist_stub"):
+            try:
+                # On utilise l'API LLM embarquée dans le bridge Rust pour demander une explication de la décision
+                prompt_context = f"Hero: {hero_hand}, Board: {board}, Pot: {pot}. L'adversaire est classé '{structured_profile.get('style')}'. Le solver GTO propose {gto_action}, mais le bot d'exploitation a choisi {final_action}. Peux-tu expliquer pourquoi en une phrase ?"
+
+                def _llm_call():
+                    try:
+                        llm_res = self.solver_backend.llm_assist_stub(
+                            task="decision_rationale",
+                            prompt=prompt_context,
+                            enabled=True,
+                            provider_mode="openai_compatible_remote",
+                            spot_summary=f"Decision: {final_action} vs GTO: {gto_action}"
+                        )
+                        if isinstance(llm_res, dict):
+                            advice = llm_res.get("summary")
+                            logger.info(f"🤖 Conseil LLM : {advice}")
+                    except Exception as e:
+                        logger.error(f"Erreur trace appel LLM de fond: {e}")
+
+                asyncio.create_task(asyncio.to_thread(_llm_call))
+            except Exception as e:
+                logger.error(f"Erreur lors de l'appel LLM: {e}")
 
         # 5. Application de l'ICM (Tournois uniquement)
         if tournament_data:
@@ -960,7 +1326,9 @@ class DecisionMaker:
                     logger.info(f"Action finale modifiée par l'ICM : {final_action}")
 
         # Geometric Sizing + SPR Optimization
-        bet_size = _bet_size_from_action(gto_details.get("chosen_action", final_action), pot, effective_stack, board)
+        bet_size = gto_details.get("dynamic_amount")
+        if bet_size is None:
+            bet_size = _bet_size_from_action(gto_details.get("chosen_action", final_action), pot, effective_stack, board)
         
         if final_action not in {"BET", "RAISE", "ALL_IN"}:
             bet_size = None
@@ -1024,6 +1392,12 @@ class DecisionMaker:
                 final_action=final_action,
                 structured_profile=structured_profile,
             ),
+            "preflop": {
+                "fast_path": preflop_fast_used,
+                "hero_position": _normalize_preflop_position(hero_position) or str(hero_position or "").strip().upper(),
+                "villain_position": villain_position,
+                "hero_combo": _hero_combo_notation(hero_hand),
+            },
         }
         if rl_ab_metadata:
             metadata["rl_ab"] = rl_ab_metadata
@@ -1068,6 +1442,7 @@ class DecisionMaker:
             "elapsed_ms": gto_details.get("elapsed_ms", 0),
             "metadata": metadata,
             "ab_decision": rl_ab_metadata or None,
+            "llm_advice": llm_advice,
         }
 
     def _fallback_action(self, legal_actions: List[str]) -> dict:

@@ -1,0 +1,12 @@
+{
+  "counts": {},
+  "empty": true,
+  "hard_negative": true,
+  "image": "5d9ad3b1-1838-4b81-a531-25de4bd9dce2.png",
+  "image_size": {
+    "height": 761,
+    "width": 1282
+  },
+  "source": "template_bootstrap",
+  "status": "proposed"
+}

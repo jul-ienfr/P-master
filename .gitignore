@@ -21,3 +21,8 @@
 
 __pycache__/
 *.py[cod]
+/dataset/yolo_pokerstars
+/models/yolo_runs
+/models/poker_yolo_v11.pt
+/models/poker_yolo_v11.onnx
+/models/poker_yolo_v11.engine

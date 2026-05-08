@@ -10,7 +10,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import UploadFileRoundedIcon from "@mui/icons-material/UploadFileRounded";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { LlmWorkspace } from "../features/llm";
+import { LlmSettingsPanel, LlmWorkspace } from "../features/llm";
 import type { LlmAssistTask } from "../features/llm";
 import { createDefaultLlmConfig } from "../features/llm/config";
 import {
@@ -240,6 +240,7 @@ const BOT_COCKPIT_HISTORY_VIEW_STORAGE_KEY = "pokermaster:v2:bot-cockpit-history
 const BOT_COCKPIT_HISTORY_BUNDLE_STORAGE_KEY = "pokermaster:v2:bot-cockpit-history-bundle";
 const BOT_COCKPIT_DISPLAY_MODE_STORAGE_KEY = "pokermaster:v2:bot-cockpit-display-mode";
 const BOT_COCKPIT_AUTO_REFRESH_MS = 1_500;
+const DEFAULT_OCR_ENGINES = ["surya", "easyocr"];
 
 type WorkstationI18nValue = {
   locale: WorkstationLocale;
@@ -1380,6 +1381,12 @@ function mapBotCockpitOperatorMode(
   if (operator.manualOverrideEnabled) {
     return "manual_override";
   }
+  if (operator.assistedModeEnabled) {
+    return "assisted";
+  }
+  if (operator.observationModeEnabled) {
+    return "observation";
+  }
   if (operator.shadowModeEnabled) {
     return "shadow";
   }
@@ -1401,17 +1408,28 @@ function buildBotCockpitAlerts(payload: BotCockpitPayload, locale: WorkstationLo
   }));
 
   if (alerts.length === 0) {
+    const assisted = asRawRecord(payload.decision.metadata.assisted);
+    const assistedActive = payload.operator.assistedModeEnabled;
+    const assistedReady = assistedActive && Boolean(assisted.auto_execute);
     alerts.push({
-      id: "runtime-ok",
+      id: assistedActive ? "assisted" : payload.operator.observationModeEnabled ? "observation" : "runtime-ok",
       label:
-        payload.state === "live"
+        assistedActive
+          ? locale === "fr"
+            ? "assisté"
+            : "assisted"
+        : payload.operator.observationModeEnabled
+          ? locale === "fr"
+            ? "observation"
+            : "observation"
+          : payload.state === "live"
           ? locale === "fr"
             ? "runtime actif"
             : "runtime live"
           : locale === "fr"
             ? "surveillance"
             : "monitoring",
-      tone: payload.state === "live" ? "success" : "info",
+      tone: assistedActive ? (assistedReady ? "success" : "warning") : payload.operator.observationModeEnabled ? "info" : payload.state === "live" ? "success" : "info",
       detail: summary,
     });
   }
@@ -1425,23 +1443,27 @@ function buildBotCockpitOperatorMetrics(
 ): OperatorMetric[] {
   const labels =
     locale === "fr"
-      ? {
-          runtime: "Exécution locale",
-          uptime: "Uptime",
-          ocr: "OCR",
-          llm: "Assistant",
-          enabled: "Activé",
-          disabled: "Désactivé",
-        }
+        ? {
+            runtime: "Exécution locale",
+            uptime: "Uptime",
+            ocr: "OCR",
+            llm: "Assistant",
+            observationPlayers: "Profils vus",
+            observationHands: "Mains observées",
+            enabled: "Activé",
+            disabled: "Désactivé",
+          }
       : {
           runtime: "Exécution locale",
           uptime: "Uptime",
           ocr: "OCR",
           llm: "LLM",
+          observationPlayers: "Profiles seen",
+          observationHands: "Hands observed",
           enabled: "Enabled",
           disabled: "Disabled",
         };
-  return [
+  const metrics = [
     {
       label: labels.runtime,
       value: payload.runtime.runtime,
@@ -1463,6 +1485,21 @@ function buildBotCockpitOperatorMetrics(
       helper: localizeProviderModeLabel(payload.runtime.llm.providerMode, locale),
     },
   ];
+  if (payload.operator.observationModeEnabled || payload.observation.playerCount > 0) {
+    metrics.push(
+      {
+        label: labels.observationPlayers,
+        value: String(payload.observation.playerCount),
+        helper: payload.observation.backend,
+      },
+      {
+        label: labels.observationHands,
+        value: String(payload.observation.observedHands),
+        helper: String(payload.observation.handsRecorded),
+      }
+    );
+  }
+  return metrics;
 }
 
 function isRawRecord(value: unknown): value is RawRecord {
@@ -2915,12 +2952,39 @@ function describeSolverStudioResult(
 function describeBotCockpitPayload(payload: BotCockpitPayload, locale: WorkstationLocale) {
   const runtime = payload.runtime.runtime;
   const operatorStatus = payload.operator.status;
+  const assisted = asRawRecord(payload.decision.metadata.assisted);
+  const assistedReason = readRawString(assisted.reason, "manual_review_required");
+  const assistedReady = typeof assisted.auto_execute === "boolean" ? assisted.auto_execute : false;
   if (locale === "fr") {
     if (operatorStatus === "paused") {
       return "Capture live en pause pour revue opérateur.";
     }
     if (operatorStatus === "manual_override") {
       return "Override manuel actif. L’opérateur garde la main sur l’exécution.";
+    }
+    if (operatorStatus === "assisted" || payload.operator.assistedModeEnabled) {
+      if (assistedReady) {
+        return "Mode assisté actif. Confiance suffisante: le bot clique lui-même quand l’action est prête.";
+      }
+      if (assistedReason === "insufficient_profile_data") {
+        return "Mode assisté actif. Pas encore assez de données adverses fiables: clique toi-même pour cette décision.";
+      }
+      if (assistedReason === "low_state_confidence") {
+        return "Mode assisté actif. La lecture écran est encore trop incertaine: clique toi-même.";
+      }
+      if (assistedReason === "low_gate_confidence" || assistedReason === "gate_blocked") {
+        return "Mode assisté actif. La sécurité bloque ou doute encore du spot: clique toi-même.";
+      }
+      if (assistedReason === "solver_fallback") {
+        return "Mode assisté actif. Le solver est en mode repli sur ce spot: clique toi-même.";
+      }
+      if (assistedReason === "low_decision_confidence") {
+        return "Mode assisté actif. La décision n’est pas encore assez fiable: clique toi-même.";
+      }
+      return "Mode assisté actif. Le bot continue d’apprendre en live, mais il attend ton clic pour ce spot.";
+    }
+    if (operatorStatus === "observation") {
+      return `Mode observation actif. ${payload.observation.playerCount} profils et ${payload.observation.observedHands} mains observées.`;
     }
     if (operatorStatus === "shadow") {
       return "Mode shadow actif. Le runtime observe sans exécuter d’action automatique.";
@@ -2942,6 +3006,30 @@ function describeBotCockpitPayload(payload: BotCockpitPayload, locale: Workstati
   }
   if (operatorStatus === "manual_override") {
     return "Manual override is active. The operator keeps control of execution.";
+  }
+  if (operatorStatus === "assisted" || payload.operator.assistedModeEnabled) {
+    if (assistedReady) {
+      return "Assisted mode is active. Confidence is high enough, so the bot can click on its own.";
+    }
+    if (assistedReason === "insufficient_profile_data") {
+      return "Assisted mode is active. There is not enough reliable opponent data yet, so you should click this spot yourself.";
+    }
+    if (assistedReason === "low_state_confidence") {
+      return "Assisted mode is active. Screen reading is still too uncertain, so you should click yourself.";
+    }
+    if (assistedReason === "low_gate_confidence" || assistedReason === "gate_blocked") {
+      return "Assisted mode is active. The safety gate is still blocking or doubting this spot, so you should click yourself.";
+    }
+    if (assistedReason === "solver_fallback") {
+      return "Assisted mode is active. The solver is falling back on this spot, so you should click yourself.";
+    }
+    if (assistedReason === "low_decision_confidence") {
+      return "Assisted mode is active. The decision is still not reliable enough, so you should click yourself.";
+    }
+    return "Assisted mode is active. The bot keeps learning live, but it is still waiting for you to click this spot.";
+  }
+  if (operatorStatus === "observation") {
+    return `Observation mode is active. ${payload.observation.playerCount} profiles and ${payload.observation.observedHands} hands observed.`;
   }
   if (operatorStatus === "shadow") {
     return "Shadow mode is active. The runtime stays observational without auto-executing.";
@@ -3875,6 +3963,20 @@ export function BotCockpitPage() {
     });
   }, [cockpitPayload.operator.shadowModeEnabled, commitOperatorPatch]);
 
+  const handleToggleAssistedMode = useCallback(async () => {
+    const nextValue = !cockpitPayload.operator.assistedModeEnabled;
+    await commitOperatorPatch({
+      assistedModeEnabled: nextValue,
+    });
+  }, [cockpitPayload.operator.assistedModeEnabled, commitOperatorPatch]);
+
+  const handleToggleObservationMode = useCallback(async () => {
+    const nextValue = !cockpitPayload.operator.observationModeEnabled;
+    await commitOperatorPatch({
+      observationModeEnabled: nextValue,
+    });
+  }, [cockpitPayload.operator.observationModeEnabled, commitOperatorPatch]);
+
   const handleToggleManualOverride = useCallback(async () => {
     const nextValue = !cockpitPayload.operator.manualOverrideEnabled;
     await commitOperatorPatch({
@@ -4079,6 +4181,8 @@ export function BotCockpitPage() {
     if (enabled) {
       await commitOperatorPatch({
         paused: false,
+        assistedModeEnabled: false,
+        observationModeEnabled: false,
         shadowModeEnabled: false,
         manualOverrideEnabled: false,
       });
@@ -4150,6 +4254,8 @@ export function BotCockpitPage() {
         refreshLabel={botCopy.refreshButton}
         refreshingLabel={botCopy.refreshingButton}
         captureLabel={botCopy.captureButton}
+        assistedLabel={botCopy.assistedLabel}
+        observationLabel={botCopy.observationLabel}
         shadowLabel={botCopy.shadowLabel}
         manualOverrideLabel={botCopy.manualLabel}
         pauseLabel={botCopy.pauseLabel}
@@ -4158,6 +4264,8 @@ export function BotCockpitPage() {
           void handleRefresh();
         }}
         onCaptureSpot={handleCaptureSpot}
+        onToggleAssistedMode={handleToggleAssistedMode}
+        onToggleObservationMode={handleToggleObservationMode}
         onToggleShadowMode={handleToggleShadowMode}
         onToggleManualOverride={handleToggleManualOverride}
         onTogglePaused={handleTogglePaused}
@@ -4683,6 +4791,7 @@ export function ConfigLabPage() {
   const [statusMessage, setStatusMessage] = useState<string>(configCopy.loading);
   const [activePresetId, setActivePresetId] = useState("");
   const [benchmarkProfile, setBenchmarkProfile] = useState("balanced");
+  const llmPersistRequestIdRef = useRef(0);
 
   useEffect(() => {
     let isActive = true;
@@ -4851,6 +4960,7 @@ export function ConfigLabPage() {
     if (!configPayload) {
       return;
     }
+
     const nextProviderMode =
       overrides.enabled === false
         ? "disabled"
@@ -4861,11 +4971,22 @@ export function ConfigLabPage() {
       ...overrides,
       providerMode: nextProviderMode,
     });
+    const requestId = llmPersistRequestIdRef.current + 1;
+    llmPersistRequestIdRef.current = requestId;
+
+    setConfigPayload((currentPayload) =>
+      currentPayload ? applyPersistedConfigLabLlm(currentPayload, desiredConfig) : currentPayload
+    );
+    setStatusMessage(successMessage);
+
     const persisted = await persistLlmConfig(desiredConfig).catch(() => desiredConfig);
+    if (requestId !== llmPersistRequestIdRef.current) {
+      return;
+    }
+
     setConfigPayload((currentPayload) =>
       currentPayload ? applyPersistedConfigLabLlm(currentPayload, persisted) : currentPayload
     );
-    setStatusMessage(successMessage);
   };
 
   const updateConfigOcr = async (
@@ -4882,7 +5003,7 @@ export function ConfigLabPage() {
     };
 
     if (desiredConfig.enabledEngines.length === 0) {
-      desiredConfig.enabledEngines = ["doctr"];
+      desiredConfig.enabledEngines = [...DEFAULT_OCR_ENGINES];
     }
 
     setConfigPayload((currentPayload) =>
@@ -5025,25 +5146,25 @@ export function ConfigLabPage() {
         />
         <OcrSettingsPanel
           locale={locale}
-          enabledEngines={configPayload?.ocr.enabledEngines ?? ["doctr"]}
+          enabledEngines={configPayload?.ocr.enabledEngines ?? DEFAULT_OCR_ENGINES}
           mode={configPayload?.ocr.mode ?? "consensus_amounts"}
           parallel={configPayload?.ocr.parallel ?? true}
           useGpu={configPayload?.ocr.useGpu ?? true}
           status={ocrStatus}
           onToggleEngine={(engine) => {
-            const current = configPayload?.ocr.enabledEngines ?? ["doctr"];
+            const current = configPayload?.ocr.enabledEngines ?? DEFAULT_OCR_ENGINES;
             const next = current.includes(engine)
               ? current.filter((value) => value !== engine)
               : [...current, engine];
             void updateConfigOcr(
               { enabledEngines: next },
               locale === "fr"
-                ? `Moteurs OCR: ${next.join(", ") || "doctr"}`
-                : `OCR engines: ${next.join(", ") || "doctr"}`
+                ? `Moteurs OCR: ${next.join(", ") || DEFAULT_OCR_ENGINES.join(", ")}`
+                : `OCR engines: ${next.join(", ") || DEFAULT_OCR_ENGINES.join(", ")}`
             );
           }}
           onMoveEngine={(engine, direction) => {
-            const current = [...(configPayload?.ocr.enabledEngines ?? ["doctr"])];
+            const current = [...(configPayload?.ocr.enabledEngines ?? DEFAULT_OCR_ENGINES)];
             const index = current.indexOf(engine);
             if (index === -1) {
               return;
@@ -5088,12 +5209,22 @@ export function ConfigLabPage() {
           onReset={() => {
             void updateConfigOcr(
               {
-                enabledEngines: ["doctr"],
+                enabledEngines: [...DEFAULT_OCR_ENGINES],
                 mode: "consensus_amounts",
                 parallel: true,
                 useGpu: true,
               },
               locale === "fr" ? "OCR réinitialisé" : "OCR reset"
+            );
+          }}
+        />
+        <LlmSettingsPanel
+          value={configPayload ? toPersistableConfigLabLlm(configPayload) : createDefaultLlmConfig()}
+          disabled={!configPayload || isRefreshing}
+          onChange={(nextConfig) => {
+            void updateConfigLlm(
+              nextConfig,
+              locale === "fr" ? "Réglages LLM mis à jour" : "LLM settings updated"
             );
           }}
         />
@@ -5155,6 +5286,8 @@ export function ConfigLabPage() {
           }}
         />
       </Box>
+
+      <AutoAnnotatorPanel />
     </div>
   );
 }

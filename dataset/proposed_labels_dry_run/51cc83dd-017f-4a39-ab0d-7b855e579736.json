@@ -1,0 +1,19 @@
+{
+  "counts": {
+    "board_card": 1,
+    "check_button": 1,
+    "hero_card": 2,
+    "player_name_area": 6,
+    "pot_area": 1,
+    "stack_area": 6
+  },
+  "empty": false,
+  "hard_negative": false,
+  "image": "51cc83dd-017f-4a39-ab0d-7b855e579736.jpg",
+  "image_size": {
+    "height": 657,
+    "width": 953
+  },
+  "source": "template_bootstrap",
+  "status": "proposed"
+}

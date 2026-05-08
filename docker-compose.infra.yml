@@ -2,7 +2,8 @@ version: "3.8"
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # Upgrade vers PostgreSQL 17 avec TimescaleDB + PGVector (Le standard IA 2026)
+    image: timescale/timescaledb-ha:pg16-latest # Image Haute Dispo incluant pgvector par défaut
     container_name: poker_postgres
     environment:
       POSTGRES_USER: poker_bot
@@ -13,10 +14,12 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
+    command: postgres -c shared_buffers=1GB -c work_mem=128MB # Optimisation RAM pour le Clustering IA
 
   redis:
-    image: redis:7-alpine
-    container_name: poker_redis
+    # Upgrade vers Valkey 8 (Le successeur ultra-rapide et Open Source de Redis)
+    image: valkey/valkey:8-alpine
+    container_name: poker_valkey
     ports:
       - "6379:6379"
     volumes:

@@ -1,0 +1,15 @@
+{
+  "counts": {},
+  "dropped_generic_card_labels": 0,
+  "empty": true,
+  "hard_negative": true,
+  "image": "2a7fba61-7c1b-4963-b373-7b6c9524c2f6.png",
+  "image_size": {
+    "height": 641,
+    "width": 986
+  },
+  "requires_card_identity_review": false,
+  "source": "template_bootstrap",
+  "source_label": "2a7fba61-7c1b-4963-b373-7b6c9524c2f6.txt",
+  "status": "validated_zones_only"
+}

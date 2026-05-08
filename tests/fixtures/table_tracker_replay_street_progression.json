@@ -96,8 +96,8 @@
       "spot_id": "street_progression_004b",
       "state_confidence": 0.96,
       "current_hand_actions": [
-        {"player": "Hero", "action": "RAISE/BET", "amount": 4.0, "pot_size": 1.5, "street": "FLOP"},
-        {"player": "Villain", "action": "RAISE/BET", "amount": 3.0, "pot_size": 5.5, "street": "FLOP"}
+        {"player": "Hero", "action": "RAISE/BET", "amount": 4.0, "pot_size": 1.5, "street": "FLOP", "counts_towards_vpip": 0, "counts_towards_pfr": 0},
+        {"player": "Villain", "action": "RAISE/BET", "amount": 3.0, "pot_size": 5.5, "street": "FLOP", "counts_towards_vpip": 0, "counts_towards_pfr": 0}
       ],
       "observed_players_this_hand": ["hero", "villain"],
       "players": [
@@ -130,8 +130,8 @@
     "db": {
       "observed_calls": [["Hero", "PREFLOP"], ["Villain", "PREFLOP"]],
       "action_updates": [
-        ["Hero", {"player": "Hero", "action": "RAISE/BET", "amount": 4.0, "pot_size": 1.5, "street": "FLOP"}],
-        ["Villain", {"player": "Villain", "action": "RAISE/BET", "amount": 3.0, "pot_size": 5.5, "street": "FLOP"}]
+        ["Hero", {"player": "Hero", "action": "RAISE/BET", "amount": 4.0, "pot_size": 1.5, "street": "FLOP", "counts_towards_vpip": 0, "counts_towards_pfr": 0}],
+        ["Villain", {"player": "Villain", "action": "RAISE/BET", "amount": 3.0, "pot_size": 5.5, "street": "FLOP", "counts_towards_vpip": 0, "counts_towards_pfr": 0}]
       ],
       "hand_history_calls": []
     }

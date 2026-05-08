@@ -1,0 +1,20 @@
+{
+  "counts": {
+    "board_card": 3,
+    "player_name_area": 6,
+    "pot_area": 1,
+    "stack_area": 6
+  },
+  "dropped_generic_card_labels": 3,
+  "empty": false,
+  "hard_negative": false,
+  "image": "08d7fe02-2ec6-47e2-b396-71449042c04b.png",
+  "image_size": {
+    "height": 689,
+    "width": 955
+  },
+  "requires_card_identity_review": false,
+  "source": "template_bootstrap",
+  "source_label": "08d7fe02-2ec6-47e2-b396-71449042c04b.txt",
+  "status": "validated_zones_only"
+}

@@ -68,6 +68,8 @@
     "td": "assets/td.png",
     "th": "assets/th.png",
     "topleft_corner": "assets/topleft_corner.png",
+    "topleft_corner_compact": "assets/topleft_corner_compact.png",
+    "topleft_corner_live": "assets/topleft_corner_live.png",
     "ts": "assets/ts.png"
   },
   "display_name": "PokerStars 7 FR 6-max",
@@ -92,7 +94,7 @@
       "6c": "28dc365de7405221d21cbf116684ca4c8b43c31162ac15e7d0ff9e9953d53ad9",
       "6d": "90b4252350a764321fa702490df33754d422cd304c1c2a71feb8144b6adb9af0",
       "6h": "b8ba42a6a0e2630240960656ea690d8d4150503326cda1f8ce64505b4410c8a1",
-      "6s": "edaf63650873b8bf873ece4087f6d66089dd918c661e303f77f1303589cd4281",
+      "6s": "c11c40f7a68b2a5dcb3429cf3b3fd41e4f4f22491d491373b634aff20a48f362",
       "7c": "cee85d3bf776a9289478c45dce55fcd32d68bfe4696f82cab7235ca5d2a3df20",
       "7d": "0132bc35fdba1c5bbf5c0a45dea5db6a638d5ef0f4998b45943888f67fa338b6",
       "7h": "1a137752c240975aab465bef979127079d96823a1da9cc6e0891b14f542e8409",
@@ -119,10 +121,10 @@
       "fold_button": "6ec2af5b8c92602f81e8701ecd864824b5eca9052d79b1c1fac8c7c9b3d01546",
       "im_back": "5255f557094c6eb10b5bebc1122ce264801aae036254c8673a0fec1d7082b017",
       "jc": "373f99c55eef157122bdeb00209502a2dece08bf27338939886abd8360b0c7a4",
-      "jd": "c07b6f012e8797d38fc8f06cded0b9521b21d5c5f56a659b0c24c44b57a39af7",
+      "jd": "dc01dcbda7ed4efeb0ad91fc1f59881bd22cba6449621b14cb7e095437e81dfc",
       "jh": "7c1ae03ddc6d1c2329bec89f03f8484ba41d5a5081463854949f4ca22ea818df",
       "js": "675a2854d69a6ac35e64de84f4820796ffeb5ae01788399002696a59ce526114",
-      "kc": "c990a800a3eacf507eeb975c1ebe706eaac2788bf04390c4123c1834fc8be145",
+      "kc": "7e7db2129cad3d96a4269588d9d8ff3c2a4cf18a91965e6b94d3737a968f95c5",
       "kd": "72f90fe7ab3b79e037c82bda806f96893b11e9895d8dd868146d6bbe04f58cdb",
       "kh": "96da13b325707f95ba45df06d065b6c11ad100dc0955630ec23486bf04adf354",
       "ks": "ed664d03a3199332b388d43a391e1ba18edaa89f029507dd9b4141d7b25f3fa8",
@@ -135,9 +137,11 @@
       "raise_button": "129d03d9eb8d3585e53cdbafa504e3ad23566a24308464c589e882dd4d15aa68",
       "resume_hand": "d33becf15487177b3589a5bb4b93dfa9c447328330f477d02a37f97d410a6e35",
       "tc": "6d089561c5c2762752bae161f38a5774b04189e8114b0e6c28fcb126480105fc",
-      "td": "8e4887d3d2d5e20c5fed68f149eb328ca4ee15a60880904dc7282777f31943de",
-      "th": "61216c054d2562a4b557de31ac87a696bfe3017244f0d6a81ec6507e6c811995",
+      "td": "bc0460fd82a8e8c4c11ce5e4dae2de58e3c91962ec89742b00023c8e530b9c06",
+      "th": "a73f391052c6c66701fb3eb66e2f5b00678d8a7615631a73621843b691cd3e7c",
       "topleft_corner": "d76750a5b99e8eba04624ebe5207913e5971619459a10d2a518eca44a4e74eeb",
+      "topleft_corner_compact": "4bae19673dbf1f79048bccee53584f55a62985cf9fbdc4386bc1cedc9e226e88",
+      "topleft_corner_live": "c3b6ab29961a438394d4676fd04a0d9746dfbc75b673a37be2a6f54849485e2c",
       "ts": "e428e1fec3c7dc9d50497cb52ea0c1680f60d02e8c6a54e2a7093438bc2c0aba"
     },
     "hash": "01fde16e93a6c19b2046c83d7ccf54b0647d4e53b4d76362187ca3aee9fcc931",
@@ -173,6 +177,30 @@
     "_owner": "julie-local",
     "_plays": 0,
     "_visible": true,
+    "anchor_offset": {
+      "x": 0,
+      "y": 30
+    },
+    "anchor_offsets": {
+      "topleft_corner": {
+        "x": 0,
+        "y": 30
+      },
+      "topleft_corner_live": {
+        "x": 0,
+        "y": 30
+      },
+      "topleft_corner_compact": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "anchor_match_bounds": {
+      "topleft_corner_compact": {
+        "max_x": 4,
+        "max_y": 4
+      }
+    },
     "all_in_call_value": {
       "x1": 691,
       "y1": 646,
@@ -357,6 +385,18 @@
       "x2": 541,
       "y2": 479
     },
+    "left_card_area": {
+      "x1": 410,
+      "y1": 433,
+      "x2": 451,
+      "y2": 481
+    },
+    "right_card_area": {
+      "x1": 471,
+      "y1": 433,
+      "x2": 512,
+      "y2": 481
+    },
     "my_turn_search_area": {
       "x1": 470,
       "y1": 543,
@@ -482,6 +522,38 @@
       "y1": 646,
       "x2": 902,
       "y2": 674
+    },
+    "board_card_areas": {
+      "0": {
+        "x1": 316,
+        "y1": 243,
+        "x2": 351,
+        "y2": 288
+      },
+      "1": {
+        "x1": 381,
+        "y1": 243,
+        "x2": 416,
+        "y2": 288
+      },
+      "2": {
+        "x1": 445,
+        "y1": 243,
+        "x2": 480,
+        "y2": 288
+      },
+      "3": {
+        "x1": 509,
+        "y1": 243,
+        "x2": 544,
+        "y2": 288
+      },
+      "4": {
+        "x1": 573,
+        "y1": 243,
+        "x2": 608,
+        "y2": 288
+      }
     },
     "table_cards_area": {
       "x1": 318,

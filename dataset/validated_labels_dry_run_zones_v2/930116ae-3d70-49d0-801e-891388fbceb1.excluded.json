@@ -1,0 +1,19 @@
+{
+  "counts": {
+    "hero_card": 1
+  },
+  "dropped_generic_card_labels": 1,
+  "empty": false,
+  "excluded": true,
+  "exclusion_reason": "only_generic_card_labels_after_filtering",
+  "hard_negative": false,
+  "image": "930116ae-3d70-49d0-801e-891388fbceb1.png",
+  "image_size": {
+    "height": 641,
+    "width": 986
+  },
+  "requires_card_identity_review": true,
+  "source": "template_bootstrap",
+  "source_label": "930116ae-3d70-49d0-801e-891388fbceb1.txt",
+  "status": "excluded_generic_only"
+}

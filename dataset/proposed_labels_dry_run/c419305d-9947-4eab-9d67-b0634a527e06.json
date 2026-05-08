@@ -1,0 +1,18 @@
+{
+  "counts": {
+    "fold_button": 1,
+    "hero_card": 2,
+    "player_name_area": 6,
+    "pot_area": 2,
+    "stack_area": 6
+  },
+  "empty": false,
+  "hard_negative": false,
+  "image": "c419305d-9947-4eab-9d67-b0634a527e06.jpg",
+  "image_size": {
+    "height": 657,
+    "width": 953
+  },
+  "source": "template_bootstrap",
+  "status": "proposed"
+}

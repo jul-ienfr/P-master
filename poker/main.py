@@ -6,6 +6,7 @@ import threading
 import time
 import warnings
 from sys import platform
+from pathlib import Path
 
 import matplotlib
 import numpy as np
@@ -43,6 +44,11 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 version = 6.76
 ui = None
+ROOT = Path(__file__).resolve().parents[1]
+LEGACY_ARCHIVED_MESSAGE = (
+    "Le runtime V1 sous poker/ est archive. Le chemin canonique est maintenant src/main.py. "
+    "Definis POKER_USE_LEGACY=1 uniquement pour forcer le mode heritage."
+)
 
 
 class ThreadManager(threading.Thread):
@@ -611,4 +617,14 @@ def run_poker():
 
 
 if __name__ == '__main__':
-    run_poker()
+    use_v2_runtime = str(os.getenv("POKER_USE_LEGACY", "0") or "0").strip().lower() not in {"1", "true", "yes", "on"}
+    if use_v2_runtime:
+        if str(ROOT) not in sys.path:
+            sys.path.insert(0, str(ROOT))
+        from src.main import run_bot
+
+        logging.getLogger("").info(LEGACY_ARCHIVED_MESSAGE)
+        run_bot()
+    else:
+        logging.getLogger("").warning(LEGACY_ARCHIVED_MESSAGE)
+        run_poker()

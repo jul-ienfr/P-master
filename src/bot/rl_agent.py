@@ -151,7 +151,10 @@ class RLAdapterAgent:
 
     def load_model(self, filepath="models/rl/exploit_model.pth"):
         if os.path.exists(filepath):
-            self.q_network.load_state_dict(torch.load(filepath, map_location=self.device))
+            try:
+                self.q_network.load_state_dict(torch.load(filepath, map_location=self.device, weights_only=True))
+            except Exception:
+                self.q_network.load_state_dict(torch.load(filepath, map_location=self.device, weights_only=False))
             self.target_network.load_state_dict(self.q_network.state_dict())
             logger.info(f"Modèle RL chargé depuis {filepath}")
             self.epsilon = self.epsilon_min # Une fois chargé, on explore moins

@@ -5,17 +5,12 @@ import logging
 import argparse
 from openai import OpenAI
 import cv2
+import numpy as np
+
+from src.vision.yolo_schema import YOLO_CLASS_MAP, YOLO_CLASS_NAMES
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("AutoAnnotator")
-
-CLASS_MAP = {
-    "board_card": 0,
-    "hero_card": 1,
-    "pot_area": 2,
-    "stack_area": 3,
-    "dealer_button": 4
-}
 
 class AutoAnnotator:
     def __init__(self, providers: list):
@@ -27,11 +22,22 @@ class AutoAnnotator:
         if not self.providers:
             logger.warning("Aucun fournisseur d'IA configuré. Impossible d'annoter.")
 
+    @staticmethod
+    def _is_local_base_url(base_url: str | None) -> bool:
+        if not base_url:
+            return False
+        lowered = str(base_url).strip().lower()
+        return "127.0.0.1" in lowered or "localhost" in lowered
+
     def encode_image(self, image_path: str) -> str:
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode('utf-8')
+            
+    def encode_image_frame(self, frame: np.ndarray) -> str:
+        _, buffer = cv2.imencode('.jpg', frame)
+        return base64.b64encode(buffer).decode('utf-8')
 
-    def ask_ai_with_fallbacks(self, image_path: str, width: int, height: int) -> list:
+    def ask_ai_with_fallbacks(self, image_path: str, width: int, height: int, frame: np.ndarray = None) -> list:
         """Boucle sur les fournisseurs jusqu'à trouver un résultat valide (Fallback)."""
         for i, provider in enumerate(self.providers):
             api_key = provider.get("api_key", "")
@@ -41,12 +47,20 @@ class AutoAnnotator:
             # Formatage propre de l'URL
             if not base_url or base_url.strip() == "":
                 base_url = None
+
+            if not api_key and not self._is_local_base_url(base_url):
+                logger.warning(
+                    "Fournisseur %s ignoré: aucune clé API configurée pour la cible distante %s.",
+                    model,
+                    base_url or "default_openai",
+                )
+                continue
                 
             try:
                 logger.info(f"Tentative {i+1}/{len(self.providers)} avec le modèle {model}...")
                 client = OpenAI(api_key=api_key or "local", base_url=base_url)
                 
-                boxes = self._ask_single_ai(client, model, image_path, width, height)
+                boxes = self._ask_single_ai(client, model, image_path, width, height, frame=frame)
                 
                 if boxes and len(boxes) > 0:
                     return boxes # Succès, on quitte la boucle
@@ -59,13 +73,18 @@ class AutoAnnotator:
         logger.error(f"Tous les fournisseurs ({len(self.providers)}) ont échoué sur {image_path}.")
         return []
 
-    def _ask_single_ai(self, client: OpenAI, model: str, image_path: str, width: int, height: int) -> list:
-        base64_image = self.encode_image(image_path)
+    def _ask_single_ai(self, client: OpenAI, model: str, image_path: str, width: int, height: int, frame: np.ndarray = None) -> list:
+        if frame is not None:
+            base64_image = self.encode_image_frame(frame)
+        else:
+            base64_image = self.encode_image(image_path)
+            
+        class_list = ", ".join(f'"{name}"' for name in YOLO_CLASS_NAMES)
         prompt = f"""
 Tu es un expert en Computer Vision pour des tables de Poker.
 L'image fournie fait {width}x{height} pixels.
 Détecte les éléments suivants et retourne leurs Bounding Boxes au format JSON strict.
-Les classes possibles sont : "board_card", "hero_card", "pot_area", "stack_area", "dealer_button".
+Les classes possibles sont : {class_list}.
 Format attendu (réponds UNIQUEMENT avec ce JSON) :
 {{
   "boxes": [
@@ -112,8 +131,9 @@ Si tu ne vois rien, retourne {{"boxes": []}}.
         yolo_lines = []
         for box in boxes:
             cls_name = box.get("class")
-            if cls_name not in CLASS_MAP: continue
-            cls_id = CLASS_MAP[cls_name]
+            if cls_name not in YOLO_CLASS_MAP:
+                continue
+            cls_id = YOLO_CLASS_MAP[cls_name]
             try:
                 xmin, ymin, xmax, ymax = float(box["xmin"]), float(box["ymin"]), float(box["xmax"]), float(box["ymax"])
             except (ValueError, TypeError, KeyError): continue

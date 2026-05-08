@@ -1,3 +1,4 @@
+import logging
 import sys
 from pathlib import Path
 
@@ -7,6 +8,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
+from src.bot import sanity_checker as sanity_module
 from src.bot.sanity_checker import ActionIntent, SanityChecker
 
 
@@ -92,6 +94,29 @@ def test_evaluate_action_gate_marks_soft_runtime_uncertainty():
     assert reason_codes == {"LOW_STATE_CONFIDENCE", "BET_SIZE_MISSING"}
 
 
+def test_evaluate_action_gate_calls_failure_callback_when_blocked():
+    checker = SanityChecker()
+    recorded = []
+
+    result = checker.evaluate_action_gate(
+        action_intent=ActionIntent(action="CALL", source="unit-test"),
+        tracker_state={
+            "hero_cards": [],
+            "board": ["2c", "7d", "Jh"],
+            "pot": 42.0,
+            "street": "TURN",
+            "legal_actions": ["FOLD"],
+            "in_hand": False,
+            "state_confidence": 0.8,
+        },
+        coords_mapping={"CALL": (10, 10)},
+        on_failure=lambda gate_result: recorded.append(gate_result.reason),
+    )
+
+    assert result.allowed is False
+    assert recorded == [result.reason]
+
+
 def test_validate_board_cards_trims_unstable_turn_frame():
     checker = SanityChecker()
 
@@ -118,10 +143,28 @@ def test_validate_pot_evolution_blocks_only_upward_ocr_hallucinations():
     assert checker.validate_pot_evolution(5.5, 6.0, 3.0) == 6.0
 
 
+def test_validate_pot_evolution_accepts_zero_reset_for_plausible_new_hand():
+    checker = SanityChecker()
+
+    assert checker.validate_pot_evolution(8.0, 0.0, 0.0) == 0.0
+
+
+def test_reset_pot_reconciliation_clears_buffered_state():
+    checker = SanityChecker()
+    checker._pot_discrepancy_count = 2
+    checker._last_ocr_pot = 8.0
+
+    checker.reset_pot_reconciliation()
+
+    assert checker._pot_discrepancy_count == 0
+    assert checker._last_ocr_pot == -1.0
+
+
 def test_is_possible_new_hand_pot_only_flags_small_downward_reset_like_pots():
     checker = SanityChecker()
 
     assert checker.is_possible_new_hand_pot(12.0, 1.5) is True
+    assert checker.is_possible_new_hand_pot(12.0, 0.0) is True
     assert checker.is_possible_new_hand_pot(12.0, 6.0) is False
     assert checker.is_possible_new_hand_pot(0.0, 1.5) is False
 
@@ -170,3 +213,28 @@ def test_requires_multiframe_street_confirmation_only_for_ambiguous_turn_and_riv
         current_board=["2c", "7d", "Jh"],
         new_board=["2c", "7d", "Jh"],
     ) is False
+
+
+def test_validate_stack_read_rate_limits_duplicate_warnings_per_seat(monkeypatch, caplog):
+    checker = SanityChecker()
+    fake_now = {"value": 100.0}
+    monkeypatch.setattr(sanity_module.time, "monotonic", lambda: fake_now["value"])
+
+    with caplog.at_level(logging.WARNING, logger="SanityChecker"):
+        assert checker.validate_stack_read(100.0, 570.0, 100.0, 0.0, seat_id="seat_1") == 100.0
+        assert checker.is_stack_read_quarantined("seat_1") is True
+
+        fake_now["value"] = 100.2
+        assert checker.validate_stack_read(100.0, 45507.0, 100.0, 0.0, seat_id="seat_1") == 100.0
+
+    warning_messages = [record.getMessage() for record in caplog.records if "Anomalie Stack bloquée" in record.getMessage()]
+    assert len(warning_messages) == 1
+
+    fake_now["value"] = 101.3
+    assert checker.is_stack_read_quarantined("seat_1") is False
+
+
+def test_validate_stack_read_keeps_previous_stack_when_ocr_temporarily_reads_zero():
+    checker = SanityChecker()
+
+    assert checker.validate_stack_read(100.0, 0.0, 87.5, 0.0, seat_id="seat_1") == 87.5

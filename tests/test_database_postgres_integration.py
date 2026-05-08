@@ -42,7 +42,7 @@ def test_postgres_database_manager_persists_profiles_and_history(postgres_databa
         assert profile["vpip_count"] == 2
         assert profile["pfr_count"] == 1
         assert profile["derived_profile"]["observed_hands"] == 1
-        assert profile["derived_profile"]["vpip_rate"] == 2.0
+        assert profile["derived_profile"]["vpip_rate"] == 1.0
         assert profile["derived_profile"]["pfr_rate"] == 1.0
         assert profile["derived_profile"]["last_action"] == "CALL"
         assert profile["derived_profile"]["last_street"] == "FLOP"

@@ -1,0 +1,15 @@
+{
+  "counts": {
+    "call_button": 1,
+    "hero_card": 1
+  },
+  "empty": false,
+  "hard_negative": false,
+  "image": "9149b2d2-2c70-4be0-9c20-6e1c608b2703.png",
+  "image_size": {
+    "height": 657,
+    "width": 953
+  },
+  "source": "template_bootstrap",
+  "status": "proposed"
+}

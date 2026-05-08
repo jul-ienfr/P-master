@@ -1,0 +1,20 @@
+{
+  "counts": {
+    "call_button": 1,
+    "hero_card": 1
+  },
+  "curation_reason": "table image has only action button after dropping generic card labels; core zones are visible but unlabeled",
+  "curation_status": "excluded_partial_table_label",
+  "dropped_generic_card_labels": 1,
+  "empty": false,
+  "hard_negative": false,
+  "image": "920b4808-e5f6-40da-a0f1-d40834393559.png",
+  "image_size": {
+    "height": 657,
+    "width": 953
+  },
+  "requires_card_identity_review": false,
+  "source": "template_bootstrap",
+  "source_label": "920b4808-e5f6-40da-a0f1-d40834393559.txt",
+  "status": "validated_zones_only"
+}

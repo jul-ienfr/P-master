@@ -1,0 +1,75 @@
+path: C:/Users/julie/Desktop/Poker-master/dataset/yolo_dry_run_zones
+train: images/train
+val: images/val
+test: images/test
+nc: 69
+names:
+  0: 2h
+  1: 3h
+  2: 4h
+  3: 5h
+  4: 6h
+  5: 7h
+  6: 8h
+  7: 9h
+  8: Th
+  9: Jh
+  10: Qh
+  11: Kh
+  12: Ah
+  13: 2s
+  14: 3s
+  15: 4s
+  16: 5s
+  17: 6s
+  18: 7s
+  19: 8s
+  20: 9s
+  21: Ts
+  22: Js
+  23: Qs
+  24: Ks
+  25: As
+  26: 2c
+  27: 3c
+  28: 4c
+  29: 5c
+  30: 6c
+  31: 7c
+  32: 8c
+  33: 9c
+  34: Tc
+  35: Jc
+  36: Qc
+  37: Kc
+  38: Ac
+  39: 2d
+  40: 3d
+  41: 4d
+  42: 5d
+  43: 6d
+  44: 7d
+  45: 8d
+  46: 9d
+  47: Td
+  48: Jd
+  49: Qd
+  50: Kd
+  51: Ad
+  52: card_facedown
+  53: board_card
+  54: hero_card
+  55: pot_area
+  56: stack_area
+  57: player_name_area
+  58: dealer_button
+  59: fold_button
+  60: call_button
+  61: check_button
+  62: bet_button
+  63: raise_button
+  64: chip_stack_red
+  65: chip_stack_blue
+  66: chip_stack_green
+  67: chip_stack_black
+  68: chip_stack_gold

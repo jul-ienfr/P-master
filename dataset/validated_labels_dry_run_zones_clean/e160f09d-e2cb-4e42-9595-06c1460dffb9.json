@@ -1,0 +1,24 @@
+{
+  "counts": {
+    "board_card": 1,
+    "call_button": 1,
+    "hero_card": 1,
+    "player_name_area": 6,
+    "pot_area": 1,
+    "stack_area": 6
+  },
+  "curation_source": "dataset/validated_labels_dry_run_zones",
+  "curation_status": "cleaned_keep",
+  "dropped_generic_card_labels": 2,
+  "empty": false,
+  "hard_negative": false,
+  "image": "e160f09d-e2cb-4e42-9595-06c1460dffb9.png",
+  "image_size": {
+    "height": 689,
+    "width": 955
+  },
+  "requires_card_identity_review": false,
+  "source": "template_bootstrap",
+  "source_label": "e160f09d-e2cb-4e42-9595-06c1460dffb9.txt",
+  "status": "validated_zones_only"
+}

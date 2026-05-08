@@ -1,0 +1,23 @@
+{
+  "counts": {
+    "bet_button": 1,
+    "board_card": 4,
+    "check_button": 1,
+    "hero_card": 1,
+    "player_name_area": 6,
+    "pot_area": 1,
+    "stack_area": 6
+  },
+  "dropped_generic_card_labels": 5,
+  "empty": false,
+  "hard_negative": false,
+  "image": "888b47c8-210d-4dc8-bfd5-389b09e4aeba.jpg",
+  "image_size": {
+    "height": 657,
+    "width": 953
+  },
+  "requires_card_identity_review": false,
+  "source": "template_bootstrap",
+  "source_label": "888b47c8-210d-4dc8-bfd5-389b09e4aeba.txt",
+  "status": "validated_zones_only"
+}

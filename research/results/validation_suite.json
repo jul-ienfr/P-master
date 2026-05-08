@@ -1,24 +1,284 @@
 {
+  "decision_observability": {
+    "gate_decisions": {
+      "allow_rate": 0.9,
+      "allowed": 9,
+      "avg_cache_hit_latency_ms": 12.0,
+      "avg_confidence": 0.874,
+      "avg_fallback_latency_ms": 0.0,
+      "avg_latency_ms": 11.4,
+      "block_rate": 0.1,
+      "blocked": 1,
+      "cache_hit_rate": 0.4,
+      "cache_hits": 4,
+      "fallback": 1,
+      "fallback_rate": 0.1,
+      "incident_counts": {
+        "ocr_low_confidence": 2
+      },
+      "max_latency_ms": 18.0,
+      "min_latency_ms": 0.0,
+      "p95_latency_ms": 18.0,
+      "reason_counts": {
+        "ocr_low_confidence": 1,
+        "ready": 9
+      },
+      "top_gate_reasons": [
+        [
+          "ready",
+          9
+        ],
+        [
+          "ocr_low_confidence",
+          1
+        ]
+      ],
+      "top_incidents": [
+        [
+          "ocr_low_confidence",
+          2
+        ]
+      ],
+      "total": 10
+    },
+    "gate_reason_counts": {
+      "ocr_low_confidence": 1,
+      "ready": 9
+    },
+    "incident_counts": {
+      "ocr_low_confidence": 2
+    },
+    "suite_ready": true
+  },
   "oracle_randomized": {
     "cases": 500,
-    "failure_samples": [],
-    "failures": 0,
+    "failure_samples": [
+      {
+        "cards": [
+          "3c",
+          "Qh",
+          "Js",
+          "Qd",
+          "7s",
+          "Jh",
+          "Ad"
+        ],
+        "case": 0,
+        "error": "requested oracle backend is unavailable: phevaluator"
+      },
+      {
+        "cards": [
+          "Jh",
+          "2s",
+          "4d",
+          "5h",
+          "8c",
+          "4h",
+          "7d"
+        ],
+        "case": 1,
+        "error": "requested oracle backend is unavailable: phevaluator"
+      },
+      {
+        "cards": [
+          "Jd",
+          "Js",
+          "4d",
+          "Ts",
+          "6c",
+          "5h",
+          "Th"
+        ],
+        "case": 2,
+        "error": "requested oracle backend is unavailable: phevaluator"
+      },
+      {
+        "cards": [
+          "5s",
+          "5d",
+          "8d",
+          "Ah",
+          "4h",
+          "4d",
+          "6h"
+        ],
+        "case": 3,
+        "error": "requested oracle backend is unavailable: phevaluator"
+      },
+      {
+        "cards": [
+          "2c",
+          "3d",
+          "5s",
+          "6d",
+          "4h",
+          "5d",
+          "Qc"
+        ],
+        "case": 4,
+        "error": "requested oracle backend is unavailable: phevaluator"
+      },
+      {
+        "cards": [
+          "Qs",
+          "8d",
+          "3c",
+          "9h",
+          "Jd",
+          "Kh",
+          "2s"
+        ],
+        "case": 5,
+        "error": "requested oracle backend is unavailable: phevaluator"
+      },
+      {
+        "cards": [
+          "5h",
+          "Kh",
+          "4s",
+          "2c",
+          "Td",
+          "8s",
+          "Ks"
+        ],
+        "case": 6,
+        "error": "requested oracle backend is unavailable: phevaluator"
+      },
+      {
+        "cards": [
+          "6c",
+          "Td",
+          "3h",
+          "7s",
+          "9h",
+          "3s",
+          "5d"
+        ],
+        "case": 7,
+        "error": "requested oracle backend is unavailable: phevaluator"
+      },
+      {
+        "cards": [
+          "2s",
+          "4s",
+          "Qc",
+          "Ah",
+          "Ks",
+          "4d",
+          "3s"
+        ],
+        "case": 8,
+        "error": "requested oracle backend is unavailable: phevaluator"
+      },
+      {
+        "cards": [
+          "Kh",
+          "Qh",
+          "Js",
+          "8d",
+          "7h",
+          "Ah",
+          "Th"
+        ],
+        "case": 9,
+        "error": "requested oracle backend is unavailable: phevaluator"
+      },
+      {
+        "cards": [
+          "3h",
+          "7d",
+          "5c",
+          "2c",
+          "Th",
+          "5d",
+          "4s"
+        ],
+        "case": 10,
+        "error": "requested oracle backend is unavailable: phevaluator"
+      },
+      {
+        "cards": [
+          "3s",
+          "Qc",
+          "Th",
+          "3d",
+          "9c",
+          "Kh",
+          "2c"
+        ],
+        "case": 11,
+        "error": "requested oracle backend is unavailable: phevaluator"
+      },
+      {
+        "cards": [
+          "8s",
+          "6c",
+          "3h",
+          "Jd",
+          "Qh",
+          "7h",
+          "8h"
+        ],
+        "case": 12,
+        "error": "requested oracle backend is unavailable: phevaluator"
+      },
+      {
+        "cards": [
+          "7d",
+          "8h",
+          "3s",
+          "3c",
+          "Qs",
+          "5h",
+          "7s"
+        ],
+        "case": 13,
+        "error": "requested oracle backend is unavailable: phevaluator"
+      },
+      {
+        "cards": [
+          "Kd",
+          "4s",
+          "5h",
+          "4d",
+          "5d",
+          "Qs",
+          "8c"
+        ],
+        "case": 14,
+        "error": "requested oracle backend is unavailable: phevaluator"
+      },
+      {
+        "cards": [
+          "3d",
+          "9s",
+          "Qs",
+          "5c",
+          "3h",
+          "Qd",
+          "As"
+        ],
+        "case": 15,
+        "error": "requested oracle backend is unavailable: phevaluator"
+      }
+    ],
+    "failures": 500,
     "kind": "oracle_randomized",
     "mismatches": [],
     "oracles": [
       {
-        "available": true,
+        "available": false,
         "metadata": {
           "module": "phevaluator"
         },
         "name": "phevaluator",
-        "reason": "python_module"
+        "reason": "python_module_missing"
       },
       {
         "available": true,
         "metadata": {
-          "node": "/home/julien/.local/bin/node",
-          "runner": "/mnt/c/Users/julie/Desktop/Poker-master/research/node_oracle_runner.js"
+          "node": "C:\\Program Files\\nodejs\\node.EXE",
+          "runner": "C:\\Users\\julie\\Desktop\\Poker-master\\research\\node_oracle_runner.js"
         },
         "name": "pokersolver",
         "reason": "node_runner"
@@ -26,8 +286,8 @@
       {
         "available": true,
         "metadata": {
-          "node": "/home/julien/.local/bin/node",
-          "runner": "/mnt/c/Users/julie/Desktop/Poker-master/research/node_oracle_runner.js"
+          "node": "C:\\Program Files\\nodejs\\node.EXE",
+          "runner": "C:\\Users\\julie\\Desktop\\Poker-master\\research\\node_oracle_runner.js"
         },
         "name": "poker_evaluator",
         "reason": "node_runner"
@@ -41,23 +301,81 @@
         "reason": "dotnet_missing"
       }
     ],
-    "phevaluator_success_rate": 1.0,
+    "phevaluator_success_rate": 0.0,
     "poker_evaluator_vs_pokersolver_agreement_rate": 1.0,
     "poker_evaluator_vs_pokersolver_agreements": 500,
-    "successful": 500
+    "successful": 0
   },
   "replay_validation": {
+    "cache_hit_rate": 0.4,
+    "cache_hit_records": 4,
     "consistency_rate": 1.0,
     "consistent_records": 10,
+    "fallback_rate": 0.1,
+    "fallback_records": 1,
+    "gate_decisions": {
+      "allow_rate": 0.9,
+      "allowed": 9,
+      "avg_cache_hit_latency_ms": 12.0,
+      "avg_confidence": 0.874,
+      "avg_fallback_latency_ms": 0.0,
+      "avg_latency_ms": 11.4,
+      "block_rate": 0.1,
+      "blocked": 1,
+      "cache_hit_rate": 0.4,
+      "cache_hits": 4,
+      "fallback": 1,
+      "fallback_rate": 0.1,
+      "incident_counts": {
+        "ocr_low_confidence": 2
+      },
+      "max_latency_ms": 18.0,
+      "min_latency_ms": 0.0,
+      "p95_latency_ms": 18.0,
+      "reason_counts": {
+        "ocr_low_confidence": 1,
+        "ready": 9
+      },
+      "top_gate_reasons": [
+        [
+          "ready",
+          9
+        ],
+        [
+          "ocr_low_confidence",
+          1
+        ]
+      ],
+      "top_incidents": [
+        [
+          "ocr_low_confidence",
+          2
+        ]
+      ],
+      "total": 10
+    },
+    "gate_reason_counts": {
+      "ocr_low_confidence": 1,
+      "ready": 9
+    },
+    "gated_rate": 0.1,
     "gated_records": 1,
+    "illegal_action_rate": 0.0,
     "illegal_actions": 0,
+    "incident_counts": {
+      "ocr_low_confidence": 2
+    },
     "kind": "replay_validation",
     "records": 10,
     "samples": [
       {
+        "cache_hit": false,
         "chosen_action": "bet",
         "decision_confidence": 0.91,
+        "fallback_used": false,
         "gate_allowed": true,
+        "gate_reason": "ready",
+        "incidents": [],
         "legal_actions": [
           "check",
           "bet",
@@ -68,9 +386,13 @@
         "spot_id": "mock-spot-001"
       },
       {
+        "cache_hit": false,
         "chosen_action": "check",
         "decision_confidence": 0.9,
+        "fallback_used": false,
         "gate_allowed": true,
+        "gate_reason": "ready",
+        "incidents": [],
         "legal_actions": [
           "check",
           "bet_33",
@@ -81,9 +403,13 @@
         "spot_id": "preset:srp_hu_100bb"
       },
       {
+        "cache_hit": true,
         "chosen_action": "check",
         "decision_confidence": 0.9,
+        "fallback_used": false,
         "gate_allowed": true,
+        "gate_reason": "ready",
+        "incidents": [],
         "legal_actions": [
           "check",
           "bet_50",
@@ -94,9 +420,13 @@
         "spot_id": "preset:srp_hu_texture_wet"
       },
       {
+        "cache_hit": false,
         "chosen_action": "check",
         "decision_confidence": 0.9,
+        "fallback_used": false,
         "gate_allowed": true,
+        "gate_reason": "ready",
+        "incidents": [],
         "legal_actions": [
           "check",
           "bet_25",
@@ -107,9 +437,13 @@
         "spot_id": "preset:3bp_hu_100bb"
       },
       {
+        "cache_hit": true,
         "chosen_action": "check",
         "decision_confidence": 0.9,
+        "fallback_used": false,
         "gate_allowed": true,
+        "gate_reason": "ready",
+        "incidents": [],
         "legal_actions": [
           "check",
           "bet_25",
@@ -120,9 +454,13 @@
         "spot_id": "preset:4bp_hu_100bb"
       },
       {
+        "cache_hit": false,
         "chosen_action": "check",
         "decision_confidence": 0.9,
+        "fallback_used": false,
         "gate_allowed": true,
+        "gate_reason": "ready",
+        "incidents": [],
         "legal_actions": [
           "check",
           "bet_50",
@@ -133,9 +471,13 @@
         "spot_id": "preset:turn_probe_hu"
       },
       {
+        "cache_hit": true,
         "chosen_action": "check",
         "decision_confidence": 0.9,
+        "fallback_used": false,
         "gate_allowed": true,
+        "gate_reason": "ready",
+        "incidents": [],
         "legal_actions": [
           "check",
           "bet_33",
@@ -146,9 +488,13 @@
         "spot_id": "preset:turn_delayed_cbet_hu"
       },
       {
+        "cache_hit": false,
         "chosen_action": "check",
         "decision_confidence": 0.9,
+        "fallback_used": false,
         "gate_allowed": true,
+        "gate_reason": "ready",
+        "incidents": [],
         "legal_actions": [
           "check",
           "bet_75",
@@ -158,9 +504,13 @@
         "spot_id": "preset:river_jam_low_spr"
       },
       {
+        "cache_hit": true,
         "chosen_action": "check",
         "decision_confidence": 0.9,
+        "fallback_used": false,
         "gate_allowed": true,
+        "gate_reason": "ready",
+        "incidents": [],
         "legal_actions": [
           "check",
           "bet_75",
@@ -171,9 +521,15 @@
         "spot_id": "preset:river_overbet_polar_hu"
       },
       {
+        "cache_hit": false,
         "chosen_action": "NoAction",
         "decision_confidence": 0.2,
+        "fallback_used": true,
         "gate_allowed": false,
+        "gate_reason": "ocr_low_confidence",
+        "incidents": [
+          "ocr_low_confidence"
+        ],
         "legal_actions": [
           "check",
           "bet_33"

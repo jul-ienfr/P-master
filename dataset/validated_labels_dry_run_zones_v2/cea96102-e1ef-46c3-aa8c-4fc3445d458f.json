@@ -1,0 +1,21 @@
+{
+  "counts": {
+    "call_button": 1,
+    "hero_card": 2,
+    "player_name_area": 6,
+    "pot_area": 1,
+    "stack_area": 6
+  },
+  "dropped_generic_card_labels": 2,
+  "empty": false,
+  "hard_negative": false,
+  "image": "cea96102-e1ef-46c3-aa8c-4fc3445d458f.png",
+  "image_size": {
+    "height": 689,
+    "width": 955
+  },
+  "requires_card_identity_review": false,
+  "source": "template_bootstrap",
+  "source_label": "cea96102-e1ef-46c3-aa8c-4fc3445d458f.txt",
+  "status": "validated_zones_only"
+}

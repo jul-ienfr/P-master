@@ -2,9 +2,11 @@
 
 This repository has three user-facing pieces:
 
-- `poker/`: the original desktop poker bot GUI and OCR pipeline
+- `poker/`: the archived V1 desktop poker bot GUI and OCR pipeline kept for compatibility
 - `gto_server/`: the current Rust HTTP wrapper around the postflop solver
 - `website/`: an optional Vite/React frontend
+
+The canonical runtime path is now V2 under `src/`. The original `poker/` runtime is archived and should be treated as compatibility-only.
 
 Recent architecture additions in this tree:
 
@@ -107,6 +109,21 @@ Notes:
 
 ## 4. Start the desktop bot
 
+Preferred V2 launcher from the repository root:
+
+```powershell
+python .\main.py
+```
+
+Archived legacy launcher:
+
+```powershell
+$env:POKER_USE_LEGACY=1
+python .\poker\main.py
+```
+
+The legacy launcher delegates to V2 by default unless `POKER_USE_LEGACY=1` is set.
+
 Open a second terminal:
 
 ```powershell
@@ -127,6 +144,7 @@ Notes:
 - `start_direct.ps1` sets `control = Direct mouse control` in `poker/config.ini` before launch.
 - `start_vbox.ps1` sets `control = <VmName>` in `poker/config.ini` before launch.
 - If VirtualBox is unavailable at runtime, the bot now falls back to direct mouse control instead of failing during startup.
+- `poker/` is archived legacy code and should only receive compatibility fixes.
 
 ## 5. Optional website
 

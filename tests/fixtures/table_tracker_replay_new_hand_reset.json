@@ -44,15 +44,15 @@
   ],
   "expected": {
     "tracker": {
-      "state": "IDLE",
+      "state": "PREFLOP",
       "current_board": [],
-      "pot_total": 0.0,
-      "last_pot": 0.0,
-      "hero_cards": [],
+      "pot_total": 1.0,
+      "last_pot": 1.0,
+      "hero_cards": ["Ah", "Ad"],
       "legal_actions": [],
       "action_buttons": [],
-      "spot_id": "",
-      "state_confidence": 0.0,
+      "spot_id": "new_hand_reset_004",
+      "state_confidence": 0.97,
       "current_hand_actions": [],
       "observed_players_this_hand": [],
       "players": [
@@ -85,10 +85,10 @@
     "db": {
       "observed_calls": [["Hero", "PREFLOP"], ["Villain", "PREFLOP"]],
       "action_updates": [
-        ["Villain", {"player": "Villain", "action": "FOLD", "amount": 0, "pot_size": 1.5, "street": "FLOP"}]
+        ["Villain", {"player": "Villain", "action": "FOLD", "amount": 0, "pot_size": 1.5, "street": "FLOP", "counts_towards_vpip": 0, "counts_towards_pfr": 0}]
       ],
       "hand_history_calls": [
-        ["Table_1", ["2c", "7d", "Jh"], [{"player": "Villain", "action": "FOLD", "amount": 0, "pot_size": 1.5, "street": "FLOP"}]]
+        ["Table_1", ["2c", "7d", "Jh"], [{"player": "Villain", "action": "FOLD", "amount": 0, "pot_size": 1.5, "street": "FLOP", "counts_towards_vpip": 0, "counts_towards_pfr": 0}]]
       ]
     }
   }

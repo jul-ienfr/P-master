@@ -1,0 +1,25 @@
+{
+  "counts": {
+    "bet_button": 1,
+    "board_card": 4,
+    "check_button": 1,
+    "hero_card": 1,
+    "player_name_area": 6,
+    "pot_area": 1,
+    "stack_area": 6
+  },
+  "curation_source": "dataset/validated_labels_dry_run_zones",
+  "curation_status": "cleaned_keep",
+  "dropped_generic_card_labels": 5,
+  "empty": false,
+  "hard_negative": false,
+  "image": "f8da7dfb-9d10-4ce7-9f12-44a83b2e11e0.jpg",
+  "image_size": {
+    "height": 657,
+    "width": 953
+  },
+  "requires_card_identity_review": false,
+  "source": "template_bootstrap",
+  "source_label": "f8da7dfb-9d10-4ce7-9f12-44a83b2e11e0.txt",
+  "status": "validated_zones_only"
+}

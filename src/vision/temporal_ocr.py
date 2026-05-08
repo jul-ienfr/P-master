@@ -20,17 +20,23 @@ class TemporalOCRFilter:
         
         # Instance sous-jacente du moteur OCR multi-engines
         self.ocr_engine = PokerOCR(
-            enabled_engines=enabled_engines or ["doctr", "tesseract"],
+            enabled_engines=enabled_engines,
             mode=engine_mode,
             parallel=True
         )
 
-    def read_stable_amount(self, image_crop: np.ndarray, tolerance: float = 0.05) -> Optional[float]:
+    def read_stable_amount(self, image_crop: np.ndarray, tolerance: float = 0.05, chip_count: Optional[int] = None) -> Optional[float]:
         """
         Lit un montant et le lisse temporellement.
         tolérance: Différence acceptable (en %) pour considérer que deux lectures sont "les mêmes".
+        chip_count: Nombre de piles de jetons (YOLO) détectées dans la même zone (Sanity Check visuel).
         """
         raw_amount = self.ocr_engine.read_and_parse_amount(image_crop)
+        
+        # --- Sanity Check YOLO vs OCR ---
+        if raw_amount is not None and chip_count is not None:
+            if chip_count == 0 and raw_amount > 0.0:
+                logger.warning(f"Sanity Check Echoue: L'OCR lit {raw_amount} mais YOLO ne voit AUCUN jeton (chip_count=0).")
         
         if raw_amount is None:
             # Si on ne lit rien, on ne casse pas l'historique tout de suite

@@ -1,4 +1,7 @@
+import asyncio
 import logging
+import re
+import time
 from collections import deque
 from typing import List, Dict, Optional, Any
 from pydantic import BaseModel
@@ -59,6 +62,7 @@ class TableTracker:
     def __init__(self, db_manager):
         self.db = db_manager
         self.sanity = SanityChecker()
+        self._update_lock = asyncio.Lock()
         
         # --- 1. Machine à États Stricte (Transitions) ---
         machine_cls = Machine or _FallbackMachine
@@ -73,9 +77,11 @@ class TableTracker:
         
         # État courant de la table
         self.current_board: List[str] = []
+        self.confirmed_board: List[str] = []
         self.pot_total: float = 0.0
         self.players: Dict[str, PlayerState] = {}
         self.hero_cards: List[str] = []
+        self._cached_hero_cards: List[str] = []
         self.legal_actions: List[str] = []
         self.action_buttons: List[str] = []
         self.spot_id: str = ""
@@ -91,6 +97,11 @@ class TableTracker:
         self.pending_street_promotion: Optional[str] = None
         self.pending_street_promotion_board: Optional[List[str]] = None
         self.pending_street_promotion_frames: int = 0
+        self.strict_state_freeze_seconds: float = 0.5
+        self.state_freeze_until_monotonic: float = 0.0
+        self.state_freeze_reason: str = ""
+        self._vpip_players_this_hand: set[str] = set()
+        self._pfr_players_this_hand: set[str] = set()
         self._recent_state_confidences = deque(maxlen=3)
         self._recent_hero_seat_ids = deque(maxlen=3)
 
@@ -100,7 +111,9 @@ class TableTracker:
             self.end_hand()
             
         self.current_board = []
+        self.confirmed_board = []
         self.hero_cards = []
+        self._cached_hero_cards = []
         self.pot_total = 0.0
         self.last_pot = 0.0
         self.legal_actions = []
@@ -116,6 +129,10 @@ class TableTracker:
         self.pending_street_promotion = None
         self.pending_street_promotion_board = None
         self.pending_street_promotion_frames = 0
+        self.state_freeze_until_monotonic = 0.0
+        self.state_freeze_reason = ""
+        self._vpip_players_this_hand = set()
+        self._pfr_players_this_hand = set()
         self._recent_state_confidences.clear()
         self._recent_hero_seat_ids.clear()
         
@@ -126,6 +143,116 @@ class TableTracker:
             p.starting_stack = p.current_stack # Snapshot du stack en début de main
             
         logger.info(f"--- Nouvelle Main Détectée (État: {self.state}) ---")
+
+    def _safe_fire_and_forget(self, coro, task_name: str = "background_task"):
+        task = asyncio.create_task(coro)
+
+        def _log_failure(done_task: asyncio.Task) -> None:
+            try:
+                done_task.result()
+            except Exception as exc:
+                logger.error("Tache async %s en erreur: %s", task_name, exc)
+
+        task.add_done_callback(_log_failure)
+        return task
+
+    def _is_state_frozen(self) -> bool:
+        return time.monotonic() < float(self.state_freeze_until_monotonic or 0.0)
+
+    def _freeze_state(self, reason: str) -> None:
+        self.state_freeze_until_monotonic = time.monotonic() + float(self.strict_state_freeze_seconds or 0.5)
+        self.state_freeze_reason = str(reason or "strict_state_violation")
+        logger.warning("State freeze active %.2fs: %s", self.strict_state_freeze_seconds, self.state_freeze_reason)
+
+    def _clear_state_freeze(self) -> None:
+        self.state_freeze_until_monotonic = 0.0
+        self.state_freeze_reason = ""
+
+    def _reference_board(self) -> List[str]:
+        if self.confirmed_board:
+            return list(self.confirmed_board)
+        return list(self.current_board)
+
+    def _commit_confirmed_board(self, board: List[str]) -> None:
+        self.confirmed_board = list(board or [])
+
+    def _is_recovered_frozen_frame(self, incoming_street: str, raw_board: List[str]) -> bool:
+        reference_board = self._reference_board()
+        return str(incoming_street or self.state) == self.state and list(raw_board or []) == reference_board
+
+    def _detect_strict_state_violation(self, incoming_street: str, raw_board: List[str]) -> Optional[str]:
+        if self.state == 'IDLE':
+            return None
+
+        reference_board = self._reference_board()
+        incoming_street = str(incoming_street or self.state)
+        raw_board = list(raw_board or [])
+        current_order = self._STREET_ORDER.get(self.state, -1)
+        incoming_order = self._STREET_ORDER.get(incoming_street, current_order)
+
+        coherent_catchup = (
+            len(raw_board) in (3, 4, 5)
+            and (not reference_board or raw_board[:len(reference_board)] == reference_board)
+        )
+        if incoming_order > current_order + 1 and not coherent_catchup:
+            return f"street_jump:{self.state}->{incoming_street}"
+
+        if reference_board and len(raw_board) > len(reference_board) and raw_board[:len(reference_board)] != reference_board:
+            return f"board_prefix_mismatch:{reference_board}->{raw_board}"
+
+        if reference_board and incoming_order < current_order and len(raw_board) >= len(reference_board):
+            return f"street_regression:{self.state}->{incoming_street}"
+
+        return None
+
+    @staticmethod
+    def _sanitize_player_name(name: str) -> str:
+        cleaned = re.sub(r"<[^>]+>", "", str(name or "")).strip()
+        cleaned = cleaned.lstrip(".:-_ ")
+        return cleaned or str(name or "").strip()
+
+    @staticmethod
+    def _board_mismatch_count(left: List[str], right: List[str]) -> int:
+        return sum(1 for left_card, right_card in zip(list(left or []), list(right or [])) if left_card != right_card)
+
+    def _is_distinct_board_rollover(self, new_board: List[str]) -> bool:
+        reference_board = self._reference_board()
+        if len(reference_board) < 3 or len(new_board) != len(reference_board):
+            return False
+        return self._board_mismatch_count(reference_board, new_board) >= 2
+
+    def _is_distinct_hero_rollover(
+        self,
+        previous_hero_cards: List[str],
+        hero_cards: List[str],
+        new_board: List[str],
+        incoming_street: str,
+    ) -> bool:
+        return (
+            str(incoming_street or self.state) == 'PREFLOP'
+            and not list(new_board or [])
+            and len(previous_hero_cards) == 2
+            and len(hero_cards) == 2
+            and list(hero_cards) != list(previous_hero_cards)
+        )
+
+    async def _restart_hand_from_current_frame(self, vision_state: dict) -> None:
+        await self._save_hand_history()
+        self.reset_for_new_hand()
+        await self._update_from_vision_unlocked(vision_state)
+
+    async def _start_new_preflop_hand(self, hero_cards: List[str], pot_value: float) -> None:
+        await self._save_hand_history()
+        self.reset_for_new_hand()
+        self.pending_board_reset = None
+        self.pending_board_reset_frames = 0
+        self.pending_new_hand_pot = None
+        self.pending_new_hand_frames = 0
+        self.hero_cards = list(hero_cards)
+        self._cached_hero_cards = list(hero_cards)
+        self.pot_total = float(pot_value or 0.0)
+        self.last_pot = 0.0
+        self.deal_hole_cards()
 
     def _advance_to_street(self, target_street: str):
         while self.state != target_street:
@@ -151,14 +278,16 @@ class TableTracker:
         hinted_stage = self._BOARD_STREET_BY_SIZE.get(board_size)
         if hinted_stage is None:
             return None
-        if board_size == 0 or board_size <= len(self.current_board):
+        reference_board = self._reference_board()
+        if board_size == 0 or board_size <= len(reference_board):
             return hinted_stage
-        if raw_board[:len(self.current_board)] == self.current_board:
+        if raw_board[:len(reference_board)] == reference_board:
             return hinted_stage
         return None
 
     def _resolve_confirmed_target_street(self, incoming_street: str, board_stage_hint: Optional[str], new_board: List[str]) -> str:
         target_street = self.state
+        reference_board = self._reference_board()
         for street_hint in (incoming_street, board_stage_hint):
             if street_hint not in TableTracker.states:
                 continue
@@ -177,7 +306,7 @@ class TableTracker:
         if not self.sanity.requires_multiframe_street_confirmation(
             self.state,
             target_street,
-            self.current_board,
+            reference_board,
             new_board,
         ):
             self.pending_street_promotion = None
@@ -213,7 +342,7 @@ class TableTracker:
             and not incoming_action_buttons
             and bool(self.legal_actions)
             and incoming_street == self.state
-            and list(raw_board) == self.current_board
+            and list(raw_board) == self._reference_board()
             and len(hero_cards) == 2
             and hero_cards == self.hero_cards
         )
@@ -227,7 +356,7 @@ class TableTracker:
     ) -> float:
         same_runtime_context = (
             incoming_street == self.state
-            and list(raw_board) == self.current_board
+            and list(raw_board) == self._reference_board()
             and hero_cards == self.hero_cards
         )
         if not same_runtime_context:
@@ -281,18 +410,81 @@ class TableTracker:
         return smoothed_players
 
     async def update_from_vision(self, vision_state: dict):
+        async with self._update_lock:
+            return await self._update_from_vision_unlocked(vision_state)
+
+    def _resolve_clean_stack(
+        self,
+        player: PlayerState,
+        ocr_stack: float,
+        seat_id: str,
+        stack_ocr_metadata: Optional[Dict[str, Any]] = None,
+    ) -> float:
+        stack_ocr_metadata = dict(stack_ocr_metadata or {})
+        if stack_ocr_metadata.get("skipped_due_to_quarantine"):
+            return player.current_stack
+        return self.sanity.validate_stack_read(
+            current_stack=player.current_stack,
+            new_ocr_stack=ocr_stack,
+            starting_stack=player.starting_stack,
+            current_bet=player.bet,
+            seat_id=seat_id,
+        )
+
+    async def _update_from_vision_unlocked(self, vision_state: dict):
+        metadata = vision_state.get("metadata", {})
+        if not isinstance(metadata, dict):
+            metadata = {}
+        observation_mode = bool(metadata.get("observation_mode", False))
+        hero_participation = str(metadata.get("hero_participation") or "")
+        observation_street = str(metadata.get("observation_street") or "")
+        raw_board_count = int(((metadata.get("vision", {}) or {}).get("raw_board_count", 0) or 0)) if isinstance(metadata.get("vision", {}), dict) else 0
         smoothed_players = self._smooth_hero_flags(list(vision_state.get("players", [])))
         self.spot_id = str(vision_state.get("spot_id", self.spot_id or ""))
         new_ocr_pot = vision_state.get("pot", 0.0)
         raw_board = vision_state.get("board", [])
         hero_cards = list(vision_state.get("hero_cards", []))
         incoming_street = str(vision_state.get("street", self.state) or self.state)
+        tracking_street = incoming_street
+        if (
+            observation_mode
+            and hero_participation in {"waiting_next_hand", "sitting_out", "observing_hand"}
+            and observation_street in TableTracker.states
+            and len(hero_cards) < 2
+        ):
+            tracking_street = observation_street
+
+        if self._is_state_frozen():
+            if self._is_recovered_frozen_frame(tracking_street, list(raw_board)):
+                self._clear_state_freeze()
+            else:
+                logger.debug("Frame ignoree pendant state freeze: %s", self.state_freeze_reason or "strict_state_violation")
+                return
+
+        violation_reason = None if observation_mode else self._detect_strict_state_violation(tracking_street, list(raw_board))
+        if violation_reason:
+            self._freeze_state(violation_reason)
+            return
+
+        if self.state == 'IDLE' and not hero_cards and not raw_board and incoming_street == 'IDLE':
+            for v_player in smoothed_players:
+                seat_id = str(v_player.get("seat_id") or v_player.get("name") or "")
+                if not seat_id or seat_id not in self.players:
+                    continue
+                ocr_stack = float(v_player.get("stack", 0.0) or 0.0)
+                if ocr_stack > 0.0:
+                    tracked = self.players[seat_id]
+                    tracked.starting_stack = ocr_stack
+                    tracked.current_stack = ocr_stack
+                    self.sanity.mark_stack_read_recovered(seat_id)
+
         incoming_legal_actions = list(vision_state.get("legal_actions", []))
         incoming_action_buttons = list(vision_state.get("action_buttons", []))
         incoming_state_confidence = float(vision_state.get("state_confidence", self.state_confidence or 0.0))
+        previous_hero_cards = list(self.hero_cards)
 
         if self._should_reuse_previous_legal_actions(
-            incoming_street,
+            tracking_street,
             list(raw_board),
             hero_cards,
             incoming_legal_actions,
@@ -306,12 +498,21 @@ class TableTracker:
 
         self.state_confidence = self._smooth_state_confidence(
             incoming_state_confidence,
-            incoming_street,
+            tracking_street,
             list(raw_board),
             hero_cards,
         )
         self._recent_state_confidences.append(self.state_confidence)
-        self.hero_cards = hero_cards
+        
+        valides = [c for c in hero_cards if c != "hero_card"]
+        if len(valides) >= 2:
+            self._cached_hero_cards = list(valides)
+            self.hero_cards = list(valides)
+        elif not observation_mode and self.state != 'IDLE' and len(self._cached_hero_cards) >= 2:
+            self.hero_cards = list(self._cached_hero_cards)
+        else:
+            self.hero_cards = [] if observation_mode and len(valides) < 2 else hero_cards
+            
         hero_seat_id = next((str(player.get("seat_id") or player.get("name") or "") for player in smoothed_players if player.get("is_hero")), "")
         if hero_seat_id:
             self._recent_hero_seat_ids.append(hero_seat_id)
@@ -320,24 +521,41 @@ class TableTracker:
         validation_stage = self.state
         if board_stage_hint and self._STREET_ORDER[board_stage_hint] > self._STREET_ORDER[self.state]:
             validation_stage = board_stage_hint
-        elif incoming_street in TableTracker.states:
-            validation_stage = incoming_street
+        elif tracking_street in TableTracker.states:
+            validation_stage = tracking_street
 
         # 1. Filtre anti-animations (Sanity Checker)
         new_board = self.sanity.validate_board_cards(validation_stage, raw_board)
-        hand_is_observable = self.state != 'IDLE' or len(hero_cards) == 2 or len(new_board) > 0
-        same_hand_board_transition = self.sanity.is_same_hand_board_transition(self.current_board, new_board)
+        reference_board = self._reference_board()
+        if self._is_distinct_board_rollover(new_board):
+            await self._restart_hand_from_current_frame(vision_state)
+            return
+        hand_is_observable = (
+            self.state != 'IDLE'
+            or len(hero_cards) == 2
+            or len(new_board) > 0
+            or (observation_mode and tracking_street in {'PREFLOP', 'FLOP', 'TURN', 'RIVER', 'SHOWDOWN'})
+        )
+        same_hand_board_transition = self.sanity.is_same_hand_board_transition(reference_board, new_board)
 
-        target_street = self._resolve_confirmed_target_street(incoming_street, board_stage_hint, new_board)
+        target_street = self._resolve_confirmed_target_street(tracking_street, board_stage_hint, new_board)
         street_advanced_this_frame = target_street != self.state
 
         if street_advanced_this_frame:
             self._advance_to_street(target_street)
 
         previous_pot = self.pot_total
+        preflop_new_hand_rollover = (
+            self.state != 'IDLE'
+            and str(incoming_street or self.state) == 'PREFLOP'
+            and not new_board
+            and len(previous_hero_cards) == 2
+            and len(hero_cards) == 2
+            and list(hero_cards) != list(previous_hero_cards)
+        )
 
         # 2. Détection de Nouvelle Main (chute du board ou du pot verifiee sur plusieurs frames)
-        board_reset_candidate = self.sanity.is_possible_board_reset(self.current_board, new_board)
+        board_reset_candidate = self.sanity.is_possible_board_reset(reference_board, new_board)
         ignored_board_reset_during_transition = board_reset_candidate and same_hand_board_transition
         if ignored_board_reset_during_transition:
             board_reset_candidate = False
@@ -355,6 +573,10 @@ class TableTracker:
         else:
             self.pending_board_reset = None
             self.pending_board_reset_frames = 0
+
+        if preflop_new_hand_rollover:
+            await self._start_new_preflop_hand(hero_cards, new_ocr_pot)
+            return
 
         pot_reset_candidate = self.sanity.is_possible_new_hand_pot(previous_pot, new_ocr_pot)
         ignored_pot_reset_during_transition = pot_reset_candidate and (
@@ -410,11 +632,19 @@ class TableTracker:
 
             p = self.players[seat_id]
             was_active = p.is_active
+            previous_name = p.name
             p.name = name
             if seat_index is not None:
                 p.seat_index = seat_index
             p.is_hero = is_hero
             p.has_button = has_button
+
+            sanitized_previous_name = self._sanitize_player_name(previous_name)
+            sanitized_name = self._sanitize_player_name(name)
+            if sanitized_previous_name and sanitized_name and sanitized_previous_name != sanitized_name:
+                if sanitized_previous_name == seat_id or not previous_name.strip():
+                    await self.db.merge_player_profiles(sanitized_previous_name, sanitized_name)
+                p.name = sanitized_name
 
             if hand_is_observable and seat_id not in self.observed_players_this_hand:
                 self.observed_players_this_hand.add(seat_id)
@@ -431,7 +661,17 @@ class TableTracker:
             p.has_folded = has_folded
 
             # Validation du stack lu par l'OCR
-            clean_stack = self.sanity.validate_stack_read(p.starting_stack, ocr_stack, p.bet)
+            stack_ocr_metadata = dict(((v_player.get("metadata") or {}).get("ocr") or {}).get("stack", {}) or {}) if isinstance(v_player.get("metadata"), dict) else {}
+            if p.starting_stack <= 0.0 and ocr_stack > 0.0:
+                p.starting_stack = ocr_stack
+            if p.current_stack <= 0.0 and ocr_stack > 0.0:
+                p.current_stack = ocr_stack
+            clean_stack = self._resolve_clean_stack(
+                player=p,
+                ocr_stack=ocr_stack,
+                seat_id=p.seat_id,
+                stack_ocr_metadata=stack_ocr_metadata,
+            )
             
             # Détection de Mise
             if p.is_active and clean_stack < p.current_stack:
@@ -442,9 +682,23 @@ class TableTracker:
                 
                 action_type = "RAISE/BET" if amount_invested > self.pot_total * 0.1 else "CALL"
                 await self._record_action(name, action_type, amount_invested)
+            else:
+                p.current_stack = clean_stack
 
         # 4. Validation Mathématique du Pot
-        verified_pot = self.sanity.validate_pot_evolution(previous_pot, new_ocr_pot, total_bets_this_frame)
+        postflop_visible = bool(new_board) or raw_board_count >= 3
+        allow_unbacked_observed_pot = postflop_visible and (
+            (observation_mode and len(hero_cards) < 2)
+            or (target_street in {"FLOP", "TURN", "RIVER", "SHOWDOWN"} and previous_pot <= 0.0)
+        )
+        if postflop_visible and previous_pot <= 0.0 and target_street in {"FLOP", "TURN", "RIVER", "SHOWDOWN"} and new_ocr_pot > 0.0:
+            allow_unbacked_observed_pot = True
+        verified_pot = self.sanity.validate_pot_evolution(
+            previous_pot,
+            new_ocr_pot,
+            total_bets_this_frame,
+            allow_unbacked_observed_pot=allow_unbacked_observed_pot,
+        )
         if ignored_pot_reset_during_transition:
             verified_pot = previous_pot
         elif pot_reset_candidate and self.pending_new_hand_frames == 1:
@@ -455,35 +709,19 @@ class TableTracker:
         # Mise à jour des positions
         self._calculate_positions()
 
-        # 5. Gestion stricte de la State Machine (Street par Street)
-        if len(new_board) == 3 and self.state == 'PREFLOP':
-            self.deal_flop()
-            logger.info(f"🃏 FLOP Détecté: {new_board}. Nouvel état: {self.state}")
-            self.current_board = new_board
-            
-        elif (
-            len(new_board) == 4 and self.state == 'FLOP'
-            and self.pending_street_promotion != 'TURN'
-        ):
-            self.deal_turn()
-            logger.info(f"🃏 TURN Détectée: {new_board}. Nouvel état: {self.state}")
-            self.current_board = new_board
-            
-        elif (
-            len(new_board) == 5 and self.state == 'TURN'
-            and self.pending_street_promotion != 'RIVER'
-        ):
-            self.deal_river()
-            logger.info(f"🃏 RIVER Détectée: {new_board}. Nouvel état: {self.state}")
-            self.current_board = new_board
-            
-        # Si le bot a ses cartes en main et qu'on était inactifs
-        elif len(hero_cards) == 2 and self.state == 'IDLE':
+        # 5. Gestion stricte de la State Machine (street confirme uniquement)
+        if len(hero_cards) == 2 and self.state == 'IDLE':
             self.deal_hole_cards()
             logger.info(f"🃏 Cartes en main. Nouvel état: {self.state}")
 
         if not board_reset_candidate and not ignored_board_reset_during_transition and len(new_board) in (0, 3, 4, 5):
-            self.current_board = new_board
+            self.current_board = list(new_board)
+
+        if street_advanced_this_frame:
+            logger.info("🃏 Street confirmée: %s | board=%s", self.state, new_board)
+            self._commit_confirmed_board(new_board)
+        elif not self.pending_street_promotion and not board_reset_candidate and len(new_board) in (0, 3, 4, 5):
+            self._commit_confirmed_board(new_board)
 
     def get_primary_villain(self) -> Optional[PlayerState]:
         active_villains = [
@@ -577,19 +815,55 @@ class TableTracker:
             ordered_from_sb[-1].position = "BTN"
 
     async def _record_action(self, player_name: str, action: str, amount: float):
+        normalized_action = str(action or "").upper()
+        counts_towards_vpip = 0
+        counts_towards_pfr = 0
+        if self.state == "PREFLOP" and normalized_action in {"CALL", "RAISE/BET"}:
+            if player_name not in self._vpip_players_this_hand:
+                self._vpip_players_this_hand.add(player_name)
+                counts_towards_vpip = 1
+        if self.state == "PREFLOP" and normalized_action == "RAISE/BET":
+            if player_name not in self._pfr_players_this_hand:
+                self._pfr_players_this_hand.add(player_name)
+                counts_towards_pfr = 1
+
         action_data = {
             "player": player_name,
             "action": action,
             "amount": amount,
             "pot_size": self.pot_total,
-            "street": self.state
+            "street": self.state,
+            "counts_towards_vpip": counts_towards_vpip,
+            "counts_towards_pfr": counts_towards_pfr,
         }
         self.current_hand_actions.append(action_data)
         logger.info(f"Action détectée -> {player_name}: {action} ({amount})")
         await self.db.update_player_action(player_name, action_data)
 
     async def _save_hand_history(self):
-        if not self.current_hand_actions:
+        board_snapshot = self._reference_board()
+        if not self.current_hand_actions and not self.observed_players_this_hand:
             return
+        seen_actions: set[tuple] = set()
+        folded_players: set[str] = set()
+        sanitized_actions: List[Dict[str, Any]] = []
+        for action in self.current_hand_actions:
+            normalized = dict(action)
+            normalized_player = self._sanitize_player_name(str(normalized.get("player", "") or ""))
+            normalized["player"] = normalized_player
+            action_key = (
+                normalized_player,
+                str(normalized.get("action", "") or ""),
+                float(normalized.get("amount", 0.0) or 0.0),
+                str(normalized.get("street", "") or ""),
+            )
+            if action_key in seen_actions:
+                continue
+            if normalized_player in folded_players:
+                continue
+            seen_actions.add(action_key)
+            sanitized_actions.append(normalized)
+            if str(normalized.get("action", "") or "").upper() == "FOLD":
+                folded_players.add(normalized_player)
         logger.info("Sauvegarde de l'historique de la main en base de données.")
-        await self.db.insert_hand_history("Table_1", self.current_board, self.current_hand_actions)
+        await self.db.insert_hand_history("Table_1", board_snapshot, sanitized_actions)

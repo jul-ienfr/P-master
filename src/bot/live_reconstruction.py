@@ -24,6 +24,8 @@ def derive_legal_actions(action_button_names: Iterable[str]) -> tuple[tuple[str,
         action_buttons.append(class_name)
         if class_name == "fold_button":
             legal_actions.append("FOLD")
+        elif class_name in {"resume_hand", "im_back", "fast_fold_button"}:
+            continue
         elif class_name == "check_button":
             has_check = True
         elif class_name in {"call_button", "all_in_call_button"}:
@@ -72,8 +74,8 @@ def smooth_state_confidence_window(
     history: Sequence[float],
     incoming_confidence: float,
     *,
-    decay_floor: float = 0.85,
-    average_floor: float = 0.8,
+    decay_floor: float = 0.75,
+    average_floor: float = 0.65,
 ) -> float:
     incoming = max(0.0, min(float(incoming_confidence or 0.0), 1.0))
     if not history:
@@ -125,14 +127,27 @@ def ordered_stacks_by_table_geometry(
     frame_h, frame_w = frame_shape
     center_x = frame_w / 2.0
     center_y = frame_h / 2.0
+    
+    # We use a slight static offset because the pot isn't perfectly the center of the seat ellipse
     if pot_bbox is not None:
         center_x, center_y = center_from_bbox(pot_bbox)
+        center_y -= frame_h * 0.05 # L'ellipse des joueurs est souvent un peu plus haute
+
+    # Elliptical projection mapping rather than raw polar
+    # Tables are generally wider than they are tall
+    rx = frame_w * 0.4
+    ry = frame_h * 0.3
 
     angular_entries: list[tuple[float, float, tuple[int, int, int, int]]] = []
     for stack_bbox in stack_bboxes:
         sx, sy = center_from_bbox(stack_bbox)
-        angle = (math.atan2(sy - center_y, sx - center_x) + 2.5 * math.pi) % (2.0 * math.pi)
-        distance = math.hypot(sx - center_x, sy - center_y)
+        
+        # Normalize coordinates relative to our ellipse anchor
+        dx = (sx - center_x) / rx
+        dy = (sy - center_y) / ry
+        
+        angle = (math.atan2(dy, dx) + 2.5 * math.pi) % (2.0 * math.pi)
+        distance = math.hypot(dx, dy)
         angular_entries.append((angle, distance, stack_bbox))
 
     angular_entries.sort(key=lambda item: (item[0], item[1]))
@@ -153,6 +168,12 @@ def infer_hero_seat_id(
     if not hero_card_bboxes:
         return last_hero_seat_id if last_hero_seat_id in available_seat_ids else None
 
+    # Ellipse parameters for hero tracking relative to overall screen
+    center_x = frame_w / 2.0
+    center_y = frame_h / 2.0
+    rx = frame_w * 0.4
+    ry = frame_h * 0.3
+
     hero_centers = [center_from_bbox(card_bbox) for card_bbox in hero_card_bboxes]
     hx = sum(center[0] for center in hero_centers) / len(hero_centers)
     hy = sum(center[1] for center in hero_centers) / len(hero_centers)
@@ -160,14 +181,19 @@ def infer_hero_seat_id(
     candidates: list[tuple[float, str]] = []
     for seat_id, stack_bbox in ordered_stacks:
         sx, sy = center_from_bbox(stack_bbox)
-        score = abs(sx - hx) * 0.8 + abs(sy - hy) * 1.4
-
-        if sy >= frame_h * 0.68:
-            score -= frame_h * 0.2
-        if abs(sx - (frame_w / 2.0)) <= frame_w * 0.22:
-            score -= frame_w * 0.04
+        
+        # We calculate euclidean distance in normalized ellipse space rather than raw pixels
+        # This makes it resilient to window stretching!
+        dx = (sx - hx) / rx
+        dy = (sy - hy) / ry
+        score = math.hypot(dx, dy)
 
         candidates.append((score, seat_id))
+
+    candidates.sort(key=lambda item: item[0])
+    best_score, best_seat_id = candidates[0]
+
+    # ... keep the rest of the switch logic
 
     candidates.sort(key=lambda item: item[0])
     best_score, best_seat_id = candidates[0]

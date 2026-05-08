@@ -30,6 +30,14 @@ PYTEST_TARGETS = (
     "poker/tests/test_restapi_local_v2.py",
 )
 
+RUNTIME_V2_SMOKE_TARGETS = (
+    "tests/test_preflight.py",
+    "tests/test_runtime_loop.py",
+    "tests/test_main_decision_gate_replay.py",
+    "tests/test_operator_bridge.py",
+    "tests/test_frame_pipeline.py",
+)
+
 
 def _command_env() -> dict[str, str]:
     env = dict(os.environ)
@@ -103,6 +111,24 @@ def _maybe_node_step(name: str, command: list[str], *, cwd: Path) -> dict[str, A
     return _run_step(name, command, cwd=cwd, optional=True)
 
 
+def _is_windows() -> bool:
+    return sys.platform.startswith("win")
+
+
+def _runtime_v2_smoke_step(python_bin: str) -> dict[str, Any]:
+    optional = not _is_windows()
+    command = [python_bin, "-m", "pytest", *RUNTIME_V2_SMOKE_TARGETS, "-q"]
+    step = _run_step(
+        "runtime_v2_smoke_windows" if _is_windows() else "runtime_v2_smoke_best_effort",
+        command,
+        optional=optional,
+    )
+    step["gate"] = "runtime_v2"
+    step["platform_policy"] = "required" if _is_windows() else "best_effort"
+    step["targets"] = list(RUNTIME_V2_SMOKE_TARGETS)
+    return step
+
+
 def main() -> None:
     python_bin = os.environ.get("POKERMASTER_PYTHON", sys.executable)
     cargo_bin = os.environ.get("POKERMASTER_CARGO", shutil.which("cargo") or "cargo")
@@ -110,6 +136,7 @@ def main() -> None:
     website_dir = ROOT / "website"
 
     steps = [
+        _runtime_v2_smoke_step(python_bin),
         _run_step(
             "python_v2_tests",
             [python_bin, "-m", "pytest", *PYTEST_TARGETS, "-q"],
@@ -145,12 +172,23 @@ def main() -> None:
     passed = [step for step in steps if step["status"] == "passed"]
     failed = [step for step in steps if step["status"] == "failed"]
     skipped = [step for step in steps if step["status"] == "skipped"]
+    runtime_steps = [step for step in steps if step.get("gate") == "runtime_v2"]
+    runtime_failed = [step for step in runtime_steps if step["status"] == "failed"]
+    runtime_skipped = [step for step in runtime_steps if step["status"] == "skipped"]
     payload = {
         "kind": "refonte_ci_summary",
         "python_bin": python_bin,
         "cargo_bin": cargo_bin,
         "node_bin": node_bin,
+        "platform": sys.platform,
         "steps": steps,
+        "runtime_v2": {
+            "status": "ok" if not runtime_failed else "failed",
+            "required": _is_windows(),
+            "failed": len(runtime_failed),
+            "skipped": len(runtime_skipped),
+            "steps": [step["name"] for step in runtime_steps],
+        },
         "summary": {
             "passed": len(passed),
             "failed": len(failed),

@@ -1,9 +1,18 @@
 import logging
 import asyncio
 import json
+import time
 from aiohttp import web
-import aiohttp_cors
-from datetime import UTC, datetime
+try:
+    import aiohttp_cors
+except ImportError:
+    aiohttp_cors = None
+try:
+    from datetime import UTC, datetime
+except ImportError:  # Python 3.10 compatibility
+    from datetime import datetime, timezone
+
+    UTC = timezone.utc
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -22,6 +31,9 @@ class BotAPI:
         hitl_module,
         runtime_status_provider: Optional[Callable[[], dict]] = None,
         runtime_operator_handler: Optional[Callable[[dict], dict]] = None,
+        runtime_observation_provider: Optional[Callable[[], dict]] = None,
+        runtime_observation_exporter: Optional[Callable[..., dict]] = None,
+        runtime_timesfm_provider: Optional[Callable[..., dict]] = None,
         host: str = "127.0.0.1",
         port: int = 8080,
         runtime_history_store=None,
@@ -33,12 +45,19 @@ class BotAPI:
         self.hitl = hitl_module
         self.runtime_status_provider = runtime_status_provider
         self.runtime_operator_handler = runtime_operator_handler
+        self.runtime_observation_provider = runtime_observation_provider
+        self.runtime_observation_exporter = runtime_observation_exporter
+        self.runtime_timesfm_provider = runtime_timesfm_provider
         self.runtime_history_store = runtime_history_store
         self.host = host
         self.port = port
         self.app = web.Application()
         self.runner: Optional[web.AppRunner] = None
         self.site: Optional[web.TCPSite] = None
+        self._runtime_snapshot_cache: Optional[dict] = None
+        self._runtime_snapshot_cached_at: float = 0.0
+        self._runtime_snapshot_ttl_seconds = 0.9
+        self._runtime_snapshot_lock = asyncio.Lock()
         
         self._setup_routes()
         self._setup_cors()
@@ -47,6 +66,9 @@ class BotAPI:
         self.app.router.add_get('/api/hitl/status', self.handle_get_status)
         self.app.router.add_post('/api/hitl/resolve', self.handle_resolve)
         self.app.router.add_get('/runtime-snapshot', self.handle_runtime_snapshot)
+        self.app.router.add_get('/runtime-observation', self.handle_runtime_observation)
+        self.app.router.add_get('/runtime-observation/export', self.handle_runtime_observation_export)
+        self.app.router.add_get('/runtime-forecast/timesfm', self.handle_runtime_timesfm_forecast)
         self.app.router.add_get('/runtime-history', self.handle_runtime_history)
         self.app.router.add_get('/runtime-history/export', self.handle_runtime_history_export)
         self.app.router.add_post('/runtime-history/import', self.handle_runtime_history_import)
@@ -69,6 +91,29 @@ class BotAPI:
     @staticmethod
     def _slice_history_entries(entries, limit: int) -> list:
         return list(entries[:limit]) if isinstance(entries, list) else []
+
+    def _build_runtime_observation_payload(self, limit: int = 5) -> dict:
+        observation = {}
+        if self.runtime_observation_provider is not None:
+            observation = self.runtime_observation_provider() or {}
+        elif self.runtime_status_provider is not None:
+            runtime = self.runtime_status_provider() or {}
+            observation = runtime.get("observation", {}) or {}
+
+        top_profiles = observation.get("top_profiles", []) if isinstance(observation, dict) else []
+        if not isinstance(top_profiles, list):
+            top_profiles = []
+        return {
+            "mode_enabled": bool((observation or {}).get("mode_enabled", False)),
+            "collecting": bool((observation or {}).get("collecting", False)),
+            "backend": str((observation or {}).get("backend") or "unknown"),
+            "persistence": dict((observation or {}).get("persistence") or {}),
+            "player_count": int((observation or {}).get("player_count", 0) or 0),
+            "observed_hands": int((observation or {}).get("observed_hands", 0) or 0),
+            "hands_recorded": int((observation or {}).get("hands_recorded", 0) or 0),
+            "last_seen": (observation or {}).get("last_seen"),
+            "top_profiles": list(top_profiles[:limit]),
+        }
 
     @staticmethod
     def _history_bucket_payload(entries: dict, limit: int) -> dict:
@@ -1370,11 +1415,16 @@ class BotAPI:
         canonical_spot = runtime.get("canonical_spot") if isinstance(runtime.get("canonical_spot"), dict) else {}
         gate = runtime.get("gate", {}) or {}
         decision = runtime.get("decision", {}) or {}
+        readiness = runtime.get("readiness", {}) or {}
+        go_live_gate = runtime.get("go_live_gate", {}) or {}
         metrics = runtime.get("metrics", {}) or {}
         history = runtime.get("history", {}) or {}
         history_summary = runtime.get("history_summary", {}) or {}
         persistence = history_summary.get("persistence", {}) or {}
         operator = runtime.get("operator", {}) or {}
+        observation = runtime.get("observation", {}) or {}
+        if not isinstance(observation, dict) or not observation:
+            observation = self._build_runtime_observation_payload(limit=5)
         hero_player, villains = self._runtime_hero_and_villains(canonical_spot)
         active_players = [
             player for player in self._runtime_players(canonical_spot)
@@ -1432,10 +1482,17 @@ class BotAPI:
                 "healthy": state == "live",
                 "status": "ok" if state == "live" else "offline",
                 "http_fallback_enabled": True,
+                "session_id": str(runtime.get("session_id") or ""),
                 "metrics": metrics,
+                "canonical_spot": canonical_spot if canonical_spot else None,
+                "readiness": readiness,
+                "go_live_gate": go_live_gate,
             },
             "tracker": tracker,
+            "canonical_spot": canonical_spot if canonical_spot else None,
             "gate": gate,
+            "readiness": readiness,
+            "go_live_gate": go_live_gate,
             "decision": {
                 **decision,
                 "chosen_action": decision.get("action", ""),
@@ -1471,6 +1528,10 @@ class BotAPI:
                     "gate_allowed": decision.get("gate_allowed", gate.get("allowed", True)),
                     "gate_confidence": decision.get("gate_confidence", gate.get("confidence", 0.0)),
                     "observed_hands": decision.get("observed_hands", 0),
+                    "assisted": dict(decision.get("assisted", {}) or {}),
+                    "profile": dict(decision.get("profile", {}) or {}),
+                    "confidence_details": dict(decision.get("confidence_details", {}) or {}),
+                    "execution": dict(decision.get("execution", {}) or {}),
                     "cache_hit": decision.get("cache_hit", False),
                     "fallback_used": fallback_used,
                     "fallback_history": fallback_history,
@@ -1531,19 +1592,53 @@ class BotAPI:
                 "surface": str(operator.get("surface") or "bot_cockpit"),
                 "capture_source": str(operator.get("capture_source") or "ocr"),
                 "auto_refresh_enabled": bool(operator.get("auto_refresh_enabled", True)),
+                "assisted_mode_enabled": bool(operator.get("assisted_mode_enabled", False)),
+                "observation_mode_enabled": bool(operator.get("observation_mode_enabled", False)),
                 "shadow_mode_enabled": bool(operator.get("shadow_mode_enabled", False)),
                 "manual_override_enabled": bool(operator.get("manual_override_enabled", False)),
                 "paused": bool(operator.get("paused", False)),
                 "status": str(operator.get("status") or ("ready" if runtime.get("is_running") else "offline")),
             },
+            "observation": observation,
             "warnings": warnings,
             "notes": [event.get("message", "") for event in history.get("events", [])[:5] if isinstance(event, dict)],
             "history": self._build_runtime_history_payload(limit=5),
             "refreshed_at": self._now_iso(),
         }
 
+    def _invalidate_runtime_snapshot_cache(self) -> None:
+        self._runtime_snapshot_cache = None
+        self._runtime_snapshot_cached_at = 0.0
+
+    async def _build_runtime_snapshot_payload_async(self, force: bool = False) -> dict:
+        now = time.monotonic()
+        if (
+            not force
+            and self._runtime_snapshot_cache is not None
+            and (now - self._runtime_snapshot_cached_at) <= self._runtime_snapshot_ttl_seconds
+        ):
+            return dict(self._runtime_snapshot_cache)
+
+        async with self._runtime_snapshot_lock:
+            now = time.monotonic()
+            if (
+                not force
+                and self._runtime_snapshot_cache is not None
+                and (now - self._runtime_snapshot_cached_at) <= self._runtime_snapshot_ttl_seconds
+            ):
+                return dict(self._runtime_snapshot_cache)
+
+            payload = await asyncio.to_thread(self._build_runtime_snapshot_payload)
+            self._runtime_snapshot_cache = dict(payload)
+            self._runtime_snapshot_cached_at = time.monotonic()
+            return payload
+
     def _setup_cors(self):
         # Configuration CORS très permissive pour autoriser le frontend Tauri/React local
+        if aiohttp_cors is None:
+            logger.warning("aiohttp_cors n'est pas installe. Configuration CORS desactivee.")
+            return
+
         cors = aiohttp_cors.setup(self.app, defaults={
             "*": aiohttp_cors.ResourceOptions(
                 allow_credentials=True,
@@ -1568,12 +1663,17 @@ class BotAPI:
 
         if self.runtime_status_provider:
             try:
-                runtime = self.runtime_status_provider() or {}
+                runtime = await asyncio.to_thread(self.runtime_status_provider)
+                runtime = runtime or {}
                 response_data["runtime"] = runtime
                 response_data["tracker"] = runtime.get("tracker", {}) or {}
                 response_data["gate"] = runtime.get("gate", {}) or {}
                 response_data["decision"] = runtime.get("decision", {}) or {}
                 response_data["operator"] = runtime.get("operator", {}) or {}
+                response_data["health"] = runtime.get("health", {}) or {}
+                response_data["active_solver_backend"] = runtime.get("active_solver_backend", "fallback")
+                response_data["degraded_reasons"] = runtime.get("degraded_reasons", []) or []
+                response_data["last_success_at"] = runtime.get("last_success_at")
             except Exception as e:
                 logger.error(f"Erreur lors de la lecture du runtime status: {e}")
                 response_data["runtime"] = {
@@ -1588,6 +1688,10 @@ class BotAPI:
                 response_data["gate"] = response_data["runtime"]["gate"]
                 response_data["decision"] = {}
                 response_data["operator"] = {}
+                response_data["health"] = {}
+                response_data["active_solver_backend"] = "fallback"
+                response_data["degraded_reasons"] = ["api:runtime_status_error"]
+                response_data["last_success_at"] = None
 
         if self.hitl.is_waiting_for_human and self.hitl.current_issue:
             response_data["status"] = "waiting_for_human"
@@ -1603,9 +1707,42 @@ class BotAPI:
 
     async def handle_runtime_snapshot(self, request):
         try:
-            return web.json_response(self._build_runtime_snapshot_payload())
+            payload = await self._build_runtime_snapshot_payload_async()
+            return web.json_response(payload)
         except Exception as e:
             logger.error(f"Erreur lors de la construction du runtime snapshot: {e}")
+            return web.json_response({"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=500)
+
+    async def handle_runtime_observation(self, request):
+        try:
+            limit = self._parse_limit(request.query.get("limit"), default=5, maximum=20)
+            payload = await asyncio.to_thread(self._build_runtime_observation_payload, limit)
+            payload["refreshed_at"] = self._now_iso()
+            return web.json_response(payload)
+        except Exception as e:
+            logger.error(f"Erreur lors de la construction du runtime observation snapshot: {e}")
+            return web.json_response({"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=500)
+
+    async def handle_runtime_observation_export(self, request):
+        if self.runtime_observation_exporter is None:
+            return web.json_response(
+                {"state": "error", "message": "Observation export is unavailable.", "refreshed_at": self._now_iso()},
+                status=503,
+            )
+
+        try:
+            player_limit = self._parse_limit(request.query.get("players"), default=50, maximum=500)
+            hand_limit = self._parse_limit(request.query.get("hands"), default=100, maximum=1000)
+            payload = self.runtime_observation_exporter(player_limit=player_limit, hand_limit=hand_limit) or {}
+            return web.Response(
+                text=json.dumps(payload, ensure_ascii=True),
+                content_type="application/json",
+                headers={
+                    "Content-Disposition": 'attachment; filename="runtime_observation.json"',
+                },
+            )
+        except Exception as e:
+            logger.error(f"Erreur lors de l'export observation: {e}")
             return web.json_response({"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=500)
 
     async def handle_operator_control(self, request):
@@ -1631,8 +1768,10 @@ class BotAPI:
 
         operator_patch = payload.get("operator") if isinstance(payload.get("operator"), dict) else payload
         try:
-            self.runtime_operator_handler(dict(operator_patch))
-            return web.json_response(self._build_runtime_snapshot_payload())
+            await asyncio.to_thread(self.runtime_operator_handler, dict(operator_patch))
+            self._invalidate_runtime_snapshot_cache()
+            snapshot_payload = await self._build_runtime_snapshot_payload_async(force=True)
+            return web.json_response(snapshot_payload)
         except Exception as e:
             logger.error(f"Erreur lors de la mise à jour des contrôles opérateur: {e}")
             return web.json_response(
@@ -1647,9 +1786,42 @@ class BotAPI:
                 kind = 'all'
             limit = self._parse_limit(request.query.get('limit'), default=10, maximum=50)
             source = self._parse_history_source(request.query.get('source') or request.query.get('mode'))
-            return web.json_response(self._build_runtime_history_payload(kind=kind, limit=limit, source=source))
+            payload = await asyncio.to_thread(self._build_runtime_history_payload, kind, limit, source)
+            return web.json_response(payload)
         except Exception as e:
             logger.error(f"Erreur lors de la construction du runtime history: {e}")
+            return web.json_response({"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=500)
+
+    async def handle_runtime_timesfm_forecast(self, request):
+        if self.runtime_timesfm_provider is None:
+            return web.json_response(
+                {"state": "error", "message": "TimesFM runtime forecasts are disabled.", "refreshed_at": self._now_iso()},
+                status=404,
+            )
+
+        try:
+            metric = str(request.query.get('metric') or '').strip() or None
+            raw_horizon = request.query.get('horizon')
+            raw_max_context = request.query.get('max_context') or request.query.get('max-context')
+            horizon = int(raw_horizon) if raw_horizon not in (None, '') else None
+            max_context = int(raw_max_context) if raw_max_context not in (None, '') else None
+            history_path = str(request.query.get('history_path') or request.query.get('history-path') or '').strip() or None
+            payload = await asyncio.to_thread(
+                self.runtime_timesfm_provider,
+                metric=metric,
+                horizon=horizon,
+                max_context=max_context,
+                history_path=history_path,
+            )
+            payload = dict(payload or {})
+            payload.setdefault('refreshed_at', self._now_iso())
+            return web.json_response(payload)
+        except ValueError as e:
+            return web.json_response({"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=400)
+        except RuntimeError as e:
+            return web.json_response({"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=503)
+        except Exception as e:
+            logger.error(f"Erreur lors du forecast runtime TimesFM: {e}")
             return web.json_response({"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=500)
 
     async def handle_runtime_history_export(self, request):

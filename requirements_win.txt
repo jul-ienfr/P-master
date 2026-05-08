@@ -30,3 +30,8 @@ fastapi_auth
 uvicorn==0.23.2
 rapidocr
 onnxruntime
+surya-ocr
+pygetwindow
+keyboard
+huggingface_hub[cli]>=0.23.0
+safetensors>=0.5.3

@@ -25,7 +25,9 @@ import { getOperatorConsoleCopy } from "../../../lib/workstationI18n";
 
 export type OperatorConsoleMode =
   | "live"
+  | "assisted"
   | "paused"
+  | "observation"
   | "shadow"
   | "manual_override"
   | "monitoring";
@@ -52,6 +54,8 @@ export interface OperatorConsolePanelProps {
   locale?: "en" | "fr";
   mode?: OperatorConsoleMode;
   paused?: boolean;
+  assistedModeActive?: boolean;
+  observationModeActive?: boolean;
   shadowModeActive?: boolean;
   manualOverrideActive?: boolean;
   alerts?: OperatorAlert[];
@@ -61,11 +65,15 @@ export interface OperatorConsolePanelProps {
   operatorLabel?: string;
   onRefresh?: () => void;
   onCaptureSpot?: () => void;
+  onToggleAssistedMode?: () => void;
+  onToggleObservationMode?: () => void;
   onToggleShadowMode?: () => void;
   onToggleManualOverride?: () => void;
   onTogglePaused?: () => void;
   refreshLabel?: string;
   captureLabel?: string;
+  assistedLabel?: string;
+  observationLabel?: string;
   shadowLabel?: string;
   manualOverrideLabel?: string;
   pauseLabel?: string;
@@ -88,6 +96,8 @@ const DEFAULT_SUBTITLE =
 function getModeTone(
   mode: OperatorConsoleMode,
   paused: boolean,
+  assistedModeActive: boolean,
+  observationModeActive: boolean,
   shadowModeActive: boolean,
   manualOverrideActive: boolean,
   locale: "en" | "fr"
@@ -108,6 +118,24 @@ function getModeTone(
       color: "secondary",
       icon: <EditRoundedIcon fontSize="small" />,
       description: copy.manualOverrideDescription,
+    };
+  }
+
+  if (assistedModeActive || mode === "assisted") {
+    return {
+      label: copy.assistedMode,
+      color: "success",
+      icon: <SecurityRoundedIcon fontSize="small" />,
+      description: copy.assistedModeDescription,
+    };
+  }
+
+  if (observationModeActive || mode === "observation") {
+    return {
+      label: copy.observationMode,
+      color: "primary",
+      icon: <SecurityRoundedIcon fontSize="small" />,
+      description: copy.observationModeDescription,
     };
   }
 
@@ -205,6 +233,8 @@ export function OperatorConsolePanel({
   locale = "en",
   mode = "live",
   paused = false,
+  assistedModeActive = false,
+  observationModeActive = false,
   shadowModeActive = false,
   manualOverrideActive = false,
   alerts = [],
@@ -214,11 +244,15 @@ export function OperatorConsolePanel({
   operatorLabel = "Operator",
   onRefresh,
   onCaptureSpot,
+  onToggleAssistedMode,
+  onToggleObservationMode,
   onToggleShadowMode,
   onToggleManualOverride,
   onTogglePaused,
   refreshLabel = "Refresh",
   captureLabel = "Capture",
+  assistedLabel = "Assisted",
+  observationLabel = "Observation",
   shadowLabel = "Shadow",
   manualOverrideLabel = "Manual override",
   pauseLabel = "Pause",
@@ -229,19 +263,30 @@ export function OperatorConsolePanel({
   const copy = getOperatorConsoleCopy(locale);
   const resolvedTitle = title ?? copy.defaultTitle;
   const resolvedSubtitle = subtitle ?? copy.defaultSubtitle;
-  const tone = getModeTone(mode, paused, shadowModeActive, manualOverrideActive, locale);
-  const liveStateLabel = paused || mode === "paused" ? copy.paused : copy.live;
+  const tone = getModeTone(mode, paused, assistedModeActive, observationModeActive, shadowModeActive, manualOverrideActive, locale);
+  const liveStateLabel =
+    paused || mode === "paused"
+      ? copy.paused
+      : assistedModeActive || mode === "assisted"
+        ? copy.assistedMode
+      : observationModeActive || mode === "observation"
+        ? copy.observationMode
+        : copy.live;
   const actionStateLabel =
     statusLabel ||
     (manualOverrideActive || mode === "manual_override"
       ? copy.manualActive
+      : assistedModeActive || mode === "assisted"
+        ? copy.assistedActive
+      : observationModeActive || mode === "observation"
+        ? copy.observationActive
       : shadowModeActive || mode === "shadow"
         ? copy.shadowActive
         : paused || mode === "paused"
           ? copy.capturePaused
           : copy.cockpitLive);
   const showPrimaryActions = Boolean(
-    onRefresh || onCaptureSpot || onToggleShadowMode || onToggleManualOverride || onTogglePaused
+    onRefresh || onCaptureSpot || onToggleAssistedMode || onToggleObservationMode || onToggleShadowMode || onToggleManualOverride || onTogglePaused
   );
 
   return (
@@ -332,10 +377,10 @@ export function OperatorConsolePanel({
           </Stack>
 
           {paused || mode === "paused" ? null : (
-            <LinearProgress
-              color={manualOverrideActive || mode === "manual_override" ? "secondary" : shadowModeActive || mode === "shadow" ? "primary" : "success"}
-              sx={{
-                height: 8,
+              <LinearProgress
+               color={manualOverrideActive || mode === "manual_override" ? "secondary" : observationModeActive || mode === "observation" || shadowModeActive || mode === "shadow" ? "primary" : "success"}
+               sx={{
+                 height: 8,
                 borderRadius: 99,
                 bgcolor: "rgba(255,255,255,0.06)",
               }}
@@ -386,6 +431,24 @@ export function OperatorConsolePanel({
                   disabled={disabled || !onCaptureSpot}
                 >
                   {captureLabel}
+                </Button>
+               <Button
+                  variant={assistedModeActive || mode === "assisted" ? "contained" : "outlined"}
+                  color={assistedModeActive || mode === "assisted" ? "success" : "inherit"}
+                  startIcon={<SecurityRoundedIcon />}
+                  onClick={onToggleAssistedMode}
+                  disabled={disabled || !onToggleAssistedMode}
+                >
+                  {assistedLabel}
+                </Button>
+                <Button
+                  variant={observationModeActive || mode === "observation" ? "contained" : "outlined"}
+                  color={observationModeActive || mode === "observation" ? "primary" : "inherit"}
+                  startIcon={<SecurityRoundedIcon />}
+                  onClick={onToggleObservationMode}
+                  disabled={disabled || !onToggleObservationMode}
+                >
+                  {observationLabel}
                 </Button>
                 <Button
                   variant={shadowModeActive || mode === "shadow" ? "contained" : "outlined"}

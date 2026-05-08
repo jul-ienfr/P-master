@@ -1,0 +1,18 @@
+{
+  "counts": {
+    "call_button": 1,
+    "hero_card": 1
+  },
+  "dropped_generic_card_labels": 1,
+  "empty": false,
+  "hard_negative": false,
+  "image": "920b4808-e5f6-40da-a0f1-d40834393559.png",
+  "image_size": {
+    "height": 657,
+    "width": 953
+  },
+  "requires_card_identity_review": false,
+  "source": "template_bootstrap",
+  "source_label": "920b4808-e5f6-40da-a0f1-d40834393559.txt",
+  "status": "validated_zones_only"
+}

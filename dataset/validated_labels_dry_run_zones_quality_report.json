@@ -1,0 +1,133 @@
+{
+  "class_distribution": {
+    "bet_button": 27,
+    "call_button": 123,
+    "check_button": 74,
+    "fold_button": 19,
+    "player_name_area": 1488,
+    "pot_area": 252,
+    "raise_button": 12,
+    "stack_area": 1488
+  },
+  "files": 268,
+  "hard_negatives": [
+    {
+      "image": "0229ecfa-9b2c-4993-a31f-7e43efd6f2f3.png",
+      "label": "0229ecfa-9b2c-4993-a31f-7e43efd6f2f3.txt"
+    },
+    {
+      "image": "042c70ea-4e3d-44bb-a0b7-d9a7d9e96e2a.png",
+      "label": "042c70ea-4e3d-44bb-a0b7-d9a7d9e96e2a.txt"
+    },
+    {
+      "image": "2a7fba61-7c1b-4963-b373-7b6c9524c2f6.png",
+      "label": "2a7fba61-7c1b-4963-b373-7b6c9524c2f6.txt"
+    },
+    {
+      "image": "34476e92-56c0-4d9e-96c5-264525bc8892.png",
+      "label": "34476e92-56c0-4d9e-96c5-264525bc8892.txt"
+    },
+    {
+      "image": "53eb2e33-8c38-4d86-ac3a-95a8ec95abac.png",
+      "label": "53eb2e33-8c38-4d86-ac3a-95a8ec95abac.txt"
+    },
+    {
+      "image": "5d9ad3b1-1838-4b81-a531-25de4bd9dce2.png",
+      "label": "5d9ad3b1-1838-4b81-a531-25de4bd9dce2.txt"
+    },
+    {
+      "image": "774c9b14-6c2f-42a4-a038-0cddeb347e0e.png",
+      "label": "774c9b14-6c2f-42a4-a038-0cddeb347e0e.txt"
+    },
+    {
+      "image": "860f827d-aca2-43dd-88f5-07b59fa1c763.png",
+      "label": "860f827d-aca2-43dd-88f5-07b59fa1c763.txt"
+    },
+    {
+      "image": "930116ae-3d70-49d0-801e-891388fbceb1.png",
+      "label": "930116ae-3d70-49d0-801e-891388fbceb1.txt"
+    },
+    {
+      "image": "9c634b2a-d189-45bd-8995-e46cddaa6aea.png",
+      "label": "9c634b2a-d189-45bd-8995-e46cddaa6aea.txt"
+    },
+    {
+      "image": "a2e251f6-f39f-48ba-92a5-9720c1476ffd.png",
+      "label": "a2e251f6-f39f-48ba-92a5-9720c1476ffd.txt"
+    },
+    {
+      "image": "be79838d-0635-4097-b0c4-1ec93446303f.png",
+      "label": "be79838d-0635-4097-b0c4-1ec93446303f.txt"
+    },
+    {
+      "image": "bf9ca5b3-0ab0-4373-b578-08deea34494a.png",
+      "label": "bf9ca5b3-0ab0-4373-b578-08deea34494a.txt"
+    },
+    {
+      "image": "c79b16d4-9466-4436-907a-1d14f4d8a953.png",
+      "label": "c79b16d4-9466-4436-907a-1d14f4d8a953.txt"
+    },
+    {
+      "image": "db726802-bfc4-4b1a-9449-a10a23a8a8ac.png",
+      "label": "db726802-bfc4-4b1a-9449-a10a23a8a8ac.txt"
+    },
+    {
+      "image": "e89e7f73-ec76-4033-9c47-e8472dc08e1e.png",
+      "label": "e89e7f73-ec76-4033-9c47-e8472dc08e1e.txt"
+    }
+  ],
+  "high_label_count": [],
+  "labels_dir": "dataset/validated_labels_dry_run_zones",
+  "missing_expected_core_classes": [
+    {
+      "counts": {
+        "call_button": 1
+      },
+      "image": "3dc2b58c-f0aa-4a41-a16a-bd0baec31cff.png",
+      "label": "3dc2b58c-f0aa-4a41-a16a-bd0baec31cff.txt",
+      "missing": [
+        "stack_area",
+        "player_name_area",
+        "pot_area"
+      ]
+    },
+    {
+      "counts": {
+        "call_button": 1
+      },
+      "image": "5a6314ca-3409-45c8-871a-e0faeaa8ebb2.png",
+      "label": "5a6314ca-3409-45c8-871a-e0faeaa8ebb2.txt",
+      "missing": [
+        "stack_area",
+        "player_name_area",
+        "pot_area"
+      ]
+    },
+    {
+      "counts": {
+        "call_button": 1
+      },
+      "image": "9149b2d2-2c70-4be0-9c20-6e1c608b2703.png",
+      "label": "9149b2d2-2c70-4be0-9c20-6e1c608b2703.txt",
+      "missing": [
+        "stack_area",
+        "player_name_area",
+        "pot_area"
+      ]
+    },
+    {
+      "counts": {
+        "call_button": 1
+      },
+      "image": "920b4808-e5f6-40da-a0f1-d40834393559.png",
+      "label": "920b4808-e5f6-40da-a0f1-d40834393559.txt",
+      "missing": [
+        "stack_area",
+        "player_name_area",
+        "pot_area"
+      ]
+    }
+  ],
+  "small_or_large_boxes": [],
+  "unbalanced_stack_name_counts": []
+}

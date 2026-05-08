@@ -1,0 +1,19 @@
+{
+  "counts": {
+    "player_name_area": 6,
+    "pot_area": 1,
+    "stack_area": 6
+  },
+  "dropped_generic_card_labels": 0,
+  "empty": false,
+  "hard_negative": false,
+  "image": "dd1604fe-7c13-4b70-bcdf-19d3d43ae65b.jpg",
+  "image_size": {
+    "height": 657,
+    "width": 953
+  },
+  "requires_card_identity_review": false,
+  "source": "template_bootstrap",
+  "source_label": "dd1604fe-7c13-4b70-bcdf-19d3d43ae65b.txt",
+  "status": "validated_zones_only"
+}

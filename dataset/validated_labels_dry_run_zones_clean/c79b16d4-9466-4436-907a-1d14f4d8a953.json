@@ -1,0 +1,19 @@
+{
+  "counts": {
+    "hero_card": 1
+  },
+  "curation_source": "dataset/validated_labels_dry_run_zones",
+  "curation_status": "cleaned_keep",
+  "dropped_generic_card_labels": 1,
+  "empty": true,
+  "hard_negative": true,
+  "image": "c79b16d4-9466-4436-907a-1d14f4d8a953.png",
+  "image_size": {
+    "height": 641,
+    "width": 986
+  },
+  "requires_card_identity_review": false,
+  "source": "template_bootstrap",
+  "source_label": "c79b16d4-9466-4436-907a-1d14f4d8a953.txt",
+  "status": "validated_zones_only"
+}

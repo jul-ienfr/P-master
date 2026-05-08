@@ -27,12 +27,16 @@ export interface BotCockpitControlDeskProps {
   refreshLabel?: string;
   refreshingLabel?: string;
   captureLabel?: string;
+  assistedLabel?: string;
+  observationLabel?: string;
   shadowLabel?: string;
   manualOverrideLabel?: string;
   pauseLabel?: string;
   resumeLabel?: string;
   onRefresh?: () => void;
   onCaptureSpot?: () => void;
+  onToggleAssistedMode?: () => void;
+  onToggleObservationMode?: () => void;
   onToggleShadowMode?: () => void;
   onToggleManualOverride?: () => void;
   onTogglePaused?: () => void;
@@ -69,6 +73,10 @@ type DeskCopy = {
   runtimeHealthy: string;
   runtimeDegraded: string;
   runtimeOffline: string;
+  assistedOn: string;
+  assistedOff: string;
+  observationOn: string;
+  observationOff: string;
   shadowOn: string;
   shadowOff: string;
   manualOn: string;
@@ -101,6 +109,12 @@ type DeskCopy = {
   noBoard: string;
   noCards: string;
   noLegal: string;
+  observationState: string;
+  observationPlayers: string;
+  observationHands: string;
+  observationStored: string;
+  observationTopProfile: string;
+  noObservation: string;
 };
 
 const COPY: Record<BotDeskLocale, DeskCopy> = {
@@ -128,6 +142,10 @@ const COPY: Record<BotDeskLocale, DeskCopy> = {
     runtimeHealthy: "Moteur local prêt",
     runtimeDegraded: "Moteur local dégradé",
     runtimeOffline: "Moteur local hors ligne",
+    assistedOn: "Mode assisté actif",
+    assistedOff: "Mode assisté inactif",
+    observationOn: "Observation active",
+    observationOff: "Observation inactive",
     shadowOn: "Mode shadow actif",
     shadowOff: "Mode shadow inactif",
     manualOn: "Override manuel actif",
@@ -160,6 +178,12 @@ const COPY: Record<BotDeskLocale, DeskCopy> = {
     noBoard: "aucun tableau",
     noCards: "cartes masquées",
     noLegal: "aucune",
+    observationState: "Observation",
+    observationPlayers: "Profils vus",
+    observationHands: "Mains observées",
+    observationStored: "Mains stockées",
+    observationTopProfile: "Profil fort",
+    noObservation: "aucune observation",
   },
   en: {
     title: "Bot status",
@@ -185,6 +209,10 @@ const COPY: Record<BotDeskLocale, DeskCopy> = {
     runtimeHealthy: "Local engine ready",
     runtimeDegraded: "Local engine degraded",
     runtimeOffline: "Local engine offline",
+    assistedOn: "Assisted mode on",
+    assistedOff: "Assisted mode off",
+    observationOn: "Observation on",
+    observationOff: "Observation off",
     shadowOn: "Shadow on",
     shadowOff: "Shadow off",
     manualOn: "Override on",
@@ -217,6 +245,12 @@ const COPY: Record<BotDeskLocale, DeskCopy> = {
     noBoard: "no board",
     noCards: "cards hidden",
     noLegal: "none",
+    observationState: "Observation",
+    observationPlayers: "Profiles seen",
+    observationHands: "Hands observed",
+    observationStored: "Hands stored",
+    observationTopProfile: "Top profile",
+    noObservation: "no observation yet",
   },
 };
 
@@ -226,6 +260,10 @@ function formatBb(value: number) {
 
 function formatMs(value: number) {
   return `${Math.round(value)} ms`;
+}
+
+function formatRate(value: number) {
+  return `${Math.round(value * 100)}%`;
 }
 
 function formatUptime(ms: number) {
@@ -320,6 +358,19 @@ function buildRuntimeMetrics(payload: BotCockpitPayload, copy: DeskCopy): DenseM
     { label: copy.gateDecision, value: prettify(gateReason, copy.unknown) },
     { label: copy.incidents, value: incidents.length > 0 ? String(incidents.length) : copy.noAlerts },
     { label: copy.source, value: payload.spot.source || copy.unknown },
+  ];
+}
+
+function buildObservationMetrics(payload: BotCockpitPayload, copy: DeskCopy): DenseMetric[] {
+  const topProfile = payload.observation.topProfiles[0];
+  const topProfileLabel = topProfile
+    ? `${topProfile.playerName} · ${topProfile.playerType} · ${topProfile.observedHands} · VPIP ${formatRate(topProfile.vpipRate)}`
+    : copy.noObservation;
+  return [
+    { label: copy.observationPlayers, value: String(payload.observation.playerCount) },
+    { label: copy.observationHands, value: String(payload.observation.observedHands) },
+    { label: copy.observationStored, value: String(payload.observation.handsRecorded) },
+    { label: copy.observationTopProfile, value: topProfileLabel },
   ];
 }
 
@@ -449,12 +500,16 @@ export function BotCockpitControlDesk({
   refreshLabel = "Refresh",
   refreshingLabel = "Refreshing...",
   captureLabel = "Capture",
+  assistedLabel = "Assisted",
+  observationLabel = "Observation",
   shadowLabel = "Shadow",
   manualOverrideLabel = "Override",
   pauseLabel = "Pause",
   resumeLabel = "Resume",
   onRefresh,
   onCaptureSpot,
+  onToggleAssistedMode,
+  onToggleObservationMode,
   onToggleShadowMode,
   onToggleManualOverride,
   onTogglePaused,
@@ -464,6 +519,7 @@ export function BotCockpitControlDesk({
   const copy = COPY[locale];
   const automationActive =
     !payload.operator.paused &&
+    !payload.operator.observationModeEnabled &&
     !payload.operator.manualOverrideEnabled &&
     !payload.operator.shadowModeEnabled;
   const runtimeStateLabel =
@@ -471,10 +527,11 @@ export function BotCockpitControlDesk({
       ? copy.fallbackVisible
       : payload.state === "offline"
         ? copy.runtimeOffline
-        : payload.state === "degraded"
-          ? copy.runtimeDegraded
-          : copy.runtimeHealthy;
+          : payload.state === "degraded"
+            ? copy.runtimeDegraded
+            : copy.runtimeHealthy;
   const spotMetrics = buildSpotMetrics(payload, copy);
+  const observationMetrics = buildObservationMetrics(payload, copy);
 
   return (
     <Card
@@ -621,7 +678,25 @@ export function BotCockpitControlDesk({
                     {copy.controlsHelp}
                   </Typography>
                 </Box>
-                <ModeChip label={payload.operator.paused ? copy.pausedOn : copy.pausedOff} active={payload.operator.paused} />
+                <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                  <ModeChip
+                    label={
+                      payload.operator.assistedModeEnabled
+                        ? copy.assistedOn
+                        : copy.assistedOff
+                    }
+                    active={payload.operator.assistedModeEnabled}
+                  />
+                  <ModeChip
+                    label={
+                      payload.operator.observationModeEnabled
+                        ? copy.observationOn
+                        : copy.observationOff
+                    }
+                    active={payload.operator.observationModeEnabled}
+                  />
+                  <ModeChip label={payload.operator.paused ? copy.pausedOn : copy.pausedOff} active={payload.operator.paused} />
+                </Stack>
               </Stack>
 
               <Stack direction={{ xs: "column", md: "row" }} spacing={1} useFlexGap flexWrap="wrap">
@@ -630,6 +705,22 @@ export function BotCockpitControlDesk({
                 </Button>
                 <Button variant="outlined" onClick={onCaptureSpot} disabled={!onCaptureSpot || loading}>
                   {captureLabel}
+                </Button>
+                <Button
+                  variant={payload.operator.assistedModeEnabled ? "contained" : "outlined"}
+                  color={payload.operator.assistedModeEnabled ? "success" : "inherit"}
+                  onClick={onToggleAssistedMode}
+                  disabled={!onToggleAssistedMode || loading}
+                >
+                  {assistedLabel}
+                </Button>
+                <Button
+                  variant={payload.operator.observationModeEnabled ? "contained" : "outlined"}
+                  color={payload.operator.observationModeEnabled ? "primary" : "inherit"}
+                  onClick={onToggleObservationMode}
+                  disabled={!onToggleObservationMode || loading}
+                >
+                  {observationLabel}
                 </Button>
                 <Button
                   variant={payload.operator.shadowModeEnabled ? "contained" : "outlined"}
@@ -713,6 +804,9 @@ export function BotCockpitControlDesk({
             }}
           >
             <DetailSection title={copy.spotState} rows={spotMetrics} />
+            {(payload.operator.observationModeEnabled || payload.observation.playerCount > 0 || payload.observation.handsRecorded > 0) ? (
+              <DetailSection title={copy.observationState} rows={observationMetrics} />
+            ) : null}
           </Box>
         </Stack>
       </CardContent>

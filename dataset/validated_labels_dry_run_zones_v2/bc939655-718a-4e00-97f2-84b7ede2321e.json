@@ -1,0 +1,20 @@
+{
+  "counts": {
+    "call_button": 1,
+    "player_name_area": 6,
+    "pot_area": 1,
+    "stack_area": 6
+  },
+  "dropped_generic_card_labels": 0,
+  "empty": false,
+  "hard_negative": false,
+  "image": "bc939655-718a-4e00-97f2-84b7ede2321e.jpg",
+  "image_size": {
+    "height": 657,
+    "width": 953
+  },
+  "requires_card_identity_review": false,
+  "source": "template_bootstrap",
+  "source_label": "bc939655-718a-4e00-97f2-84b7ede2321e.txt",
+  "status": "validated_zones_only"
+}

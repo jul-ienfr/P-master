@@ -1,0 +1,76 @@
+--- src/bot/sanity_checker.py
++++ src/bot/sanity_checker.py
+@@ -84,7 +84,7 @@
+     Vérifie que les données lues sur l'écran respectent les règles mathématiques du Poker.
+     """
+     def __init__(self):
+-        self.max_pot_allowed = 2000.0  # Sécurité hardcodée (ex: NL100, pot max théorique)
++        self.max_pot_allowed = 200000.0  # Sécurité repoussée pour le High Stakes
+ 
+     def is_possible_new_hand_pot(self, old_pot: float, new_ocr_pot: float) -> bool:
+         try:
+@@ -212,12 +212,23 @@
+                 context={"board_count": len(board), "pot": pot}
+             ))
+ 
+-        if legal_actions and action_intent.action not in legal_actions:
+-            reasons.append(GateReason(
+-                code="ILLEGAL_ACTION",
+-                message="L'action demandee n'appartient pas aux actions autorisees.",
+-                context={"action": action_intent.action, "legal_actions": legal_actions}
+-            ))
++        # Fuzzy action assignment
++        if legal_actions:
++            base_actions = {
++                "RAISE_HALF": "RAISE",
++                "RAISE_POT": "RAISE",
++                "BET": "BET",
++                "ALL_IN": "ALL_IN",
++                "CALL": "CALL",
++                "CHECK": "CHECK",
++                "FOLD": "FOLD",
++                "RAISE": "RAISE",
++            }
++            action_base = base_actions.get(action_intent.action, action_intent.action)
++            is_legal = any(action_base in legal for legal in legal_actions) or action_intent.action in legal_actions
++            if not is_legal:
++                reasons.append(GateReason(
++                    code="ILLEGAL_ACTION",
++                    message="L'action demandee n'appartient pas aux actions autorisees.",
++                    context={"action": action_intent.action, "legal_actions": legal_actions}
++                ))
+ 
+         if action_intent.action in {"BET", "RAISE", "RAISE_HALF", "RAISE_POT", "ALL_IN"} and action_intent.bet_size is None:
+             reasons.append(GateReason(
+@@ -310,6 +321,11 @@
+             # On force la valeur mathématique pour sauver la main
+             return expected_pot
+ 
++        # Anti-deflation protect (Pot drops mysteriously but hand continues)
++        if expected_pot > 0 and new_ocr_pot < expected_pot and (new_ocr_pot / expected_pot) < 0.5:
++            logger.warning(f"⚠️ Anomalie OCR bloquée ! Pot lu ({new_ocr_pot}) trop bas par rapport au pot mathématique ({expected_pot}).")
++            return expected_pot
++            
+         # Un pot OCR trop bas est souvent un retard de lecture ou une mise partiellement observée.
+         # On conserve la valeur OCR pour éviter d'inventer des jetons et de déclencher des resets parasites.
+         return new_ocr_pot
+@@ -339,7 +355,7 @@
+ 
+             # Si le stack chute brutalement de plus de 85% de sa valeur ET qu'il reste très peu de jetons
+             # ou si on voit une baisse minuscule (moins de la petite blinde, souvent erreur virgule OCR)
+-            if (drop_ratio < 0.15 and amount_dropped > 5.0) or (0 < amount_dropped < 0.02):
++            if (drop_ratio < 0.15 and amount_dropped > max(5.0, (current_stack + amount_dropped) * 0.05)) or (0 < amount_dropped < 0.02):
+                 logger.warning(f"⚠️ Chute de stack bloquée (Drop suspect lu OCR) ! Ancien: {current_stack} -> Lu: {new_ocr_stack}")
+                 return current_stack
+ 
+--- src/bot/table_tracker.py
++++ src/bot/table_tracker.py
+@@ -578,7 +578,7 @@
+                 # Check if this drop is suspect (too large for a single frame)
+                 if self.sanity.is_suspect_stack_drop(p.current_stack, clean_stack, self.pot_total):
+                     pending = self._pending_stack_drops.get(seat_id)
+-                    if pending is not None and abs(pending - clean_stack) < 0.1:
++                    if pending is not None and abs(pending - clean_stack) < max(p.current_stack * 0.05, 0.5):
+                         # Second consecutive frame confirms the drop — accept it
+                         del self._pending_stack_drops[seat_id]
+                     else:
