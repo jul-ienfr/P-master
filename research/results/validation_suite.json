@@ -293,12 +293,12 @@
         "reason": "node_runner"
       },
       {
-        "available": false,
+        "available": true,
         "metadata": {
-          "dotnet": ""
+          "dotnet": "C:\\Program Files\\dotnet\\dotnet.EXE"
         },
         "name": "skpokereval",
-        "reason": "dotnet_missing"
+        "reason": "dotnet_runtime"
       }
     ],
     "phevaluator_success_rate": 0.0,
