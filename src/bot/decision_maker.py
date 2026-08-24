@@ -1,7 +1,9 @@
+import hashlib
 import json
 import logging
 import time
 import asyncio
+from collections import OrderedDict
 from functools import lru_cache
 from typing import List, Dict, Optional, Any
 import numpy as np
@@ -423,6 +425,11 @@ class DecisionMaker:
         self.autoload_rl_model = autoload_rl_model
         # Phase 3.3 — cache L2 optionnel (no-op sans POKER_REDIS_URL).
         self.redis_cache = redis_cache if redis_cache is not None else AsyncRedisCache()
+        # Phase 3.6 — cache solve en mémoire (LRU + TTL), évite les re-solves
+        # identiques quand les frames se répètent sur un même état de table.
+        self._solve_cache: "OrderedDict[str, tuple[float, dict]]" = OrderedDict()
+        self._solve_cache_ttl_s = 10.0
+        self._solve_cache_max_entries = 256
         self.enable_llm_assist = False # Par défaut, le LLM est désactivé (100% local)
         
         # Configuration de la Rake (Commission du Casino) - NL2 à NL10 = 5%
@@ -462,7 +469,25 @@ class DecisionMaker:
         if not self.solver_provider:
             raise RuntimeError("rust_solver_unavailable")
 
-        return self.solver_provider.solve_spot_v2(
+        cache_key = self._solve_cache_key(
+            hero_hand=hero_hand,
+            villain_range=villain_range,
+            board=board,
+            net_pot=net_pot,
+            effective_stack=effective_stack,
+            legal_actions=legal_actions,
+            spot_id=spot_id,
+            hero_position=hero_position,
+            action_history=[
+                f"{item.get('player', '')}:{item.get('action', '')}:{item.get('amount', 0)}"
+                for item in (action_history or [])
+            ],
+        )
+        cached_response = self._solve_cache_get(cache_key)
+        if cached_response is not None:
+            return cached_response
+
+        response = self.solver_provider.solve_spot_v2(
             hero_range=hero_hand,
             villain_ranges=[villain_range],
             board=board,
@@ -479,6 +504,59 @@ class DecisionMaker:
             use_cache=True,
             time_budget_ms=1000,
         )
+        self._solve_cache_put(cache_key, response)
+        return response
+
+    @staticmethod
+    def _solve_cache_key(
+        *,
+        hero_hand: str,
+        villain_range: str,
+        board: List[str],
+        net_pot: float,
+        effective_stack: float,
+        legal_actions: List[str],
+        spot_id: str,
+        hero_position: str,
+        action_history: List[str],
+    ) -> str:
+        blob = json.dumps(
+            {
+                "hero": hero_hand,
+                "villain": villain_range,
+                "board": list(board or []),
+                "pot": round(float(net_pot), 4),
+                "stack": round(float(effective_stack), 4),
+                "legal": list(legal_actions or []),
+                "spot": spot_id,
+                "pos": hero_position,
+                "hist": action_history,
+            },
+            sort_keys=True,
+            default=str,
+        )
+        return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+    def _solve_cache_get(self, key: str) -> Optional[dict]:
+        entry = self._solve_cache.get(key)
+        if entry is None:
+            return None
+        stored_at, response = entry
+        if (time.monotonic() - stored_at) > self._solve_cache_ttl_s:
+            del self._solve_cache[key]
+            return None
+        self._solve_cache.move_to_end(key)
+        hit = dict(response)
+        hit["cache_hit"] = True
+        hit["solve_cache"] = {"hit": True}
+        return hit
+
+    def _solve_cache_put(self, key: str, response: dict) -> None:
+        if not isinstance(response, dict) or response.get("fallback_used"):
+            return
+        self._solve_cache[key] = (time.monotonic(), dict(response))
+        while len(self._solve_cache) > self._solve_cache_max_entries:
+            self._solve_cache.popitem(last=False)
 
     def _state_to_vector(self, hero_hand: str, board: List[str], pot: float, effective_stack: float, profile: dict) -> np.ndarray:
         derived = profile.get("derived_profile") or {}
