@@ -408,7 +408,19 @@ class ActionController:
             win32api.keybd_event(vk_code & 0xFF, 0, win32con.KEYEVENTF_KEYUP, 0)
             await asyncio.sleep(random.uniform(0.05, 0.15))
 
-    async def execute_action(self, action_request, coords_mapping: dict, **kwargs):
+    async def execute_action(self, action_request, coords_mapping: dict, jit_check=None, update_jit_baseline=None, **kwargs):
+        async def _verify_jit(ignore_action_region: bool = False) -> bool:
+            if jit_check is None:
+                return True
+            if asyncio.iscoroutinefunction(jit_check):
+                allowed = await jit_check(ignore_action_region=ignore_action_region)
+            else:
+                allowed = jit_check(ignore_action_region=ignore_action_region)
+            if not allowed:
+                logger.error("JIT_CHECK | action=%s status=aborted reason=jit_check_failed", action_name)
+                raise RuntimeError("JIT Check Failed")
+            return True
+
         if isinstance(action_request, ActionIntent):
             action_intent = action_request
         else:
@@ -436,6 +448,7 @@ class ActionController:
         if action_name == "FOLD":
             coords = coords_mapping.get("FOLD")
             if coords:
+                await _verify_jit()
                 clicked = await self.click_at(*coords)
                 if clicked:
                     logger.info("-> Action exécutée : FOLD")
@@ -448,6 +461,7 @@ class ActionController:
         elif action_name == "CALL" or action_name == "CHECK":
             coords = coords_mapping.get("CALL")
             if coords:
+                await _verify_jit()
                 clicked = await self.click_at(*coords)
                 if clicked:
                     logger.info(f"-> Action exécutée : {action_name}")
@@ -460,6 +474,7 @@ class ActionController:
         elif action_name == "ALL_IN" or "RAISE" in action_name or "BET" in action_name:
             text_box_coords = coords_mapping.get("BET_BOX")
             if text_box_coords:
+                await _verify_jit()
                 clicked = await self.click_at(*text_box_coords, double_click=True)
                 if not clicked:
                     logger.error("CLICK_RESULT | action=%s status=failed reason=bet_box_click_failed", action_name)
@@ -530,6 +545,9 @@ class ActionController:
                 # ET on clique le bouton physiques BET_BTN pour valider (Indispensable sur PokerStars récent)
                 bet_btn_coords = coords_mapping.get("BET_BTN")
                 if bet_btn_coords:
+                    # La saisie du montant mute légitimement la zone d'action :
+                    # on relâche la vérification sur cette région pour le check final.
+                    await _verify_jit(ignore_action_region=True)
                     logger.info(f"CLICK_ATTEMPT | Clic de sécurité sur le bouton BET_BTN en coords {bet_btn_coords}...")
                     await asyncio.sleep(random.uniform(0.1, 0.3))
                     clicked_btn = await self.click_at(*bet_btn_coords, double_click=False)

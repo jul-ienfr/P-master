@@ -22,6 +22,16 @@ def _load_image(path: Path) -> np.ndarray:
     return image
 
 
+CAPTURES_DIR = ROOT / "POKERSTAR CAPTURE"
+
+
+def _load_local_capture(name: str) -> np.ndarray:
+    path = CAPTURES_DIR / name
+    if not path.exists():
+        pytest.skip(f"capture locale absente (non committée): {path}")
+    return _load_image(path)
+
+
 def _paste(frame: np.ndarray, image: np.ndarray, x: int, y: int) -> None:
     height, width = image.shape[:2]
     frame[y:y + height, x:x + width] = image
@@ -141,7 +151,7 @@ def test_template_fallback_detects_table_hero_cards_and_buttons_without_yolo_mod
 
 def test_template_fallback_reads_real_pokerstars_capture_with_slot_calibration():
     detector = PokerDetector(model_path="models/definitely_missing.engine")
-    frame = _load_image(ROOT / "POKERSTAR CAPTURE" / "2026-04-12_01.08.14,170.png")
+    frame = _load_local_capture("2026-04-12_01.08.14,170.png")
 
     state = detector.analyze_frame(frame)
 
@@ -270,7 +280,7 @@ def test_template_fallback_accepts_strong_compact_anchor_match_inside_fullscreen
 
 def test_template_fallback_keeps_empty_board_slots_empty_on_preflop_capture():
     detector = PokerDetector(model_path="models/definitely_missing.engine")
-    frame = _load_image(ROOT / "POKERSTAR CAPTURE" / "2026-04-12_01.07.20,983.png")
+    frame = _load_local_capture("2026-04-12_01.07.20,983.png")
 
     state = detector.analyze_frame(frame)
 
@@ -282,7 +292,7 @@ def test_template_fallback_keeps_empty_board_slots_empty_on_preflop_capture():
 
 def test_template_fallback_reads_evening_capture_with_updated_native_cards():
     detector = PokerDetector(model_path="models/definitely_missing.engine")
-    frame = _load_image(ROOT / "POKERSTAR CAPTURE" / "2026-04-12_22.54.41,196.png")
+    frame = _load_local_capture("2026-04-12_22.54.41,196.png")
 
     state = detector.analyze_frame(frame)
 

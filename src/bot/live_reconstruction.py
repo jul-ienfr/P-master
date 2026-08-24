@@ -74,7 +74,7 @@ def smooth_state_confidence_window(
     history: Sequence[float],
     incoming_confidence: float,
     *,
-    decay_floor: float = 0.75,
+    decay_floor: float = 0.85,
     average_floor: float = 0.65,
 ) -> float:
     incoming = max(0.0, min(float(incoming_confidence or 0.0), 1.0))

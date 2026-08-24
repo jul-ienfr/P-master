@@ -394,6 +394,7 @@ class DecisionMaker:
             else solver_backend
         )
         self.solver_backend = resolved_solver_backend
+        self._solver_backend_explicit = solver_backend is not _DEFAULT_DEPENDENCY
         self.solver_provider = solver_provider
         if self.solver_provider is None and resolved_solver_backend is not None:
             self.solver_provider = SolverProvider(native_backend=resolved_solver_backend)
@@ -1159,6 +1160,10 @@ class DecisionMaker:
         use_preflop_fast_path = bool(
             is_preflop
             and self.solver_backend is not None
+            and (
+                not self._solver_backend_explicit
+                or _normalize_preflop_position(hero_position)
+            )
             and not self.enable_validated_rl
         )
          

@@ -1000,7 +1000,7 @@ def test_state_confidence_one_frame_drop_is_damped_in_same_context():
     run(tracker.update_from_vision(stable_frame))
     run(tracker.update_from_vision(low_confidence_glitch))
 
-    assert tracker.state_confidence == 0.675
+    assert tracker.state_confidence == 0.765
 
 
 def test_hero_flag_glitch_keeps_previous_hero_seat_for_same_players():

@@ -66,6 +66,7 @@
     "cache_hit": false,
     "fallback_used": false,
     "fallback_reason": null,
+    "llm_advice": null,
     "warnings": [],
     "incidents": [],
     "backend": "solver_stub",

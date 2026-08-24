@@ -276,7 +276,7 @@ class SuperBotController:
         )
         fast_live_ocr = PokerOCR(
             use_gpu=bool(ocr_cfg.get("use_gpu", True)),
-            enabled_engines=["easyocr"],
+            enabled_engines=["rapidocr"],
             mode="priority",
             parallel=False,
         )
@@ -4123,8 +4123,8 @@ class SuperBotController:
             if slot_key
         }
         relabeled_buttons: List[DetectionResult] = []
-        for button in state.action_buttons:
-            generic_index = ordered_buttons.index(button)
+        button_count = len(state.action_buttons)
+        for generic_index, button in enumerate(state.action_buttons):
             slot_key = self._slot_key_for_button(button, slot_boxes)
             if button.class_name in standard_labels and not slot_key:
                 relabeled_buttons.append(button)
@@ -4140,7 +4140,7 @@ class SuperBotController:
                     fallback_label=button.class_name,
                 )
             else:
-                classified = self._classify_action_button_label(crop, generic_index, len(ordered_buttons))
+                classified = self._classify_action_button_label(crop, generic_index, button_count)
             specialized_labels = {"resume_hand", "im_back", "fast_fold_button"}
             if slot_key or button.class_name == "action_button_generic" or classified in specialized_labels:
                 relabeled_buttons.append(
