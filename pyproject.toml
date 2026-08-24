@@ -16,6 +16,7 @@ dependencies = [
     "surya-ocr>=0.9.2",                    # pseudos batch 92→96% (remplace easyocr)
     "onnxruntime-gpu==1.19.2; sys_platform != 'darwin'",  # LTS CC6.1 Pascal (1.3Go); pas de wheel darwin
     "opencv-python==4.11.0.86",            # 4.10→4.11 DPI
+    "windows-capture==2.0.1; sys_platform == 'win32'",  # Phase 2.2 WGC HWND (occlusion-safe)
 
     # Phase 2 : Data & Profiling — Phase 1.7
     "asyncpg==0.31.0",
@@ -66,8 +67,8 @@ dev = [
     "pre-commit>=4.0",
 ]
 vision = [
-    # Phase 2.2 — WGC hybride (Windows only, optionnel en CI CPU)
-    "windows-capture==2.0.1; sys_platform == 'win32'",
+    # Phase 2.2 — WGC promu en deps principales (Windows) ; extra conservé
+    # pour les outils vision additionnels futurs.
 ]
 
 [tool.uv]

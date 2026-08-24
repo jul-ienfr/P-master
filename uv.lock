@@ -1149,6 +1149,7 @@ dependencies = [
     { name = "uiautomation", marker = "sys_platform == 'win32'" },
     { name = "ultralytics", marker = "sys_platform == 'win32'" },
     { name = "uvicorn", marker = "sys_platform == 'win32'" },
+    { name = "windows-capture", marker = "sys_platform == 'win32'" },
 ]
 
 [package.optional-dependencies]
@@ -1161,9 +1162,6 @@ dev = [
     { name = "pytest", marker = "sys_platform == 'win32'" },
     { name = "pytest-cov", marker = "sys_platform == 'win32'" },
     { name = "ruff", marker = "sys_platform == 'win32'" },
-]
-vision = [
-    { name = "windows-capture", marker = "sys_platform == 'win32'" },
 ]
 
 [package.metadata]
@@ -1209,7 +1207,7 @@ requires-dist = [
     { name = "uiautomation", marker = "sys_platform == 'win32'", specifier = "==2.0.29" },
     { name = "ultralytics", specifier = "==8.3.197" },
     { name = "uvicorn", specifier = "==0.34.3" },
-    { name = "windows-capture", marker = "sys_platform == 'win32' and extra == 'vision'", specifier = "==2.0.1" },
+    { name = "windows-capture", marker = "sys_platform == 'win32'", specifier = "==2.0.1" },
 ]
 provides-extras = ["dev", "vision"]
 

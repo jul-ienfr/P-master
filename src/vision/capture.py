@@ -1,5 +1,6 @@
 import ctypes
 import logging
+import threading
 import time
 from typing import Optional, Tuple
 
@@ -10,6 +11,14 @@ try:
     import dxcam
 except ImportError:
     dxcam = None
+
+try:
+    from windows_capture import WindowsCapture
+
+    WINDOWS_CAPTURE_AVAILABLE = True
+except ImportError:
+    WindowsCapture = None
+    WINDOWS_CAPTURE_AVAILABLE = False
 
 try:
     from PIL import ImageGrab
@@ -30,6 +39,56 @@ logger = logging.getLogger(__name__)
 WINDOW_CAPTURE_AVAILABLE = win32gui is not None and win32ui is not None and win32con is not None
 PRINTWINDOW_AVAILABLE = hasattr(ctypes, "windll") and hasattr(getattr(ctypes, "windll"), "user32")
 
+
+class WgcWindowCapture:
+    """Capture Windows Graphics Capture (HWND vrai) — Phase 2.2.
+
+    Avantages vs BitBlt/dxcam : le contenu de la fenêtre est capturé via le
+    DWM même quand elle est occlusée ou minimisée, en DPI natif, sans
+    lecture de pixels écran. Les frames arrivent BGRA sur un thread natif ;
+    on ne garde que la dernière (copie BGR).
+    """
+
+    def __init__(self, hwnd: int):
+        if not WINDOWS_CAPTURE_AVAILABLE:
+            raise RuntimeError("windows-capture indisponible")
+        self._lock = threading.Lock()
+        self._latest: Optional[np.ndarray] = None
+        self._control = None
+        capture = WindowsCapture(window_hwnd=int(hwnd), cursor_capture=False, draw_border=False)
+
+        @capture.event
+        def on_frame_arrived(frame, control):
+            try:
+                bgr = cv2.cvtColor(frame.frame_buffer, cv2.COLOR_BGRA2BGR)
+            except Exception:
+                return
+            with self._lock:
+                self._latest = bgr
+
+        @capture.event
+        def on_closed():
+            pass
+
+        self._control = capture.start_free_threaded()
+
+    def get_frame(self) -> Optional[np.ndarray]:
+        with self._lock:
+            if self._latest is None:
+                return None
+            frame = self._latest
+            self._latest = None  # consommée une seule fois (pipeline frame-driven)
+            return frame
+
+    def stop(self):
+        control = self._control
+        self._control = None
+        if control is not None:
+            try:
+                control.stop()
+            except Exception:
+                pass
+
 class ScreenCapture:
     def __init__(self, target_fps: int = 2, prefer_window_capture: bool = False):
         """
@@ -46,6 +105,8 @@ class ScreenCapture:
         self.window_hwnd: Optional[int] = None
         self.backend = "none"
         self.capture_mode = "none"
+        self._wgc_session = None
+        self._wgc_failures = 0
         try:
             if dxcam is not None:
                 self.camera = dxcam.create(output_color="BGR")
@@ -99,14 +160,21 @@ class ScreenCapture:
             self.region = region
             self.window_hwnd = hwnd
             valid_dxcam_region = self._is_valid_dxcam_region(region)
-            if hwnd and WINDOW_CAPTURE_AVAILABLE and not (self.backend == "dxcam" and valid_dxcam_region and not self.prefer_window_capture):
+            # Phase 2.2 — WGC en priorité pour un HWND : contenu vrai même
+            # occlusé/minimisé, DPI natif. Fallback silencieux sur les
+            # backends existants si la session ne démarre pas.
+            if hwnd and WINDOWS_CAPTURE_AVAILABLE and self._try_start_wgc(hwnd):
+                self.capture_mode = "wgc"
+            elif hwnd and WINDOW_CAPTURE_AVAILABLE and not (self.backend == "dxcam" and valid_dxcam_region and not self.prefer_window_capture):
                 self.capture_mode = "window"
             elif self.backend == "dxcam" and valid_dxcam_region:
                 self.capture_mode = "dxcam"
             else:
                 self.capture_mode = self.backend
             self.is_capturing = True
-            if self.capture_mode == "window":
+            if self.capture_mode == "wgc":
+                area = f"Fenetre HWND (WGC): {hwnd}"
+            elif self.capture_mode == "window":
                 area = f"Fenetre HWND: {hwnd}"
             elif self.capture_mode == "dxcam":
                 area = f"Région: {region}" if region else f"Fenetre HWND: {hwnd}"
@@ -114,6 +182,26 @@ class ScreenCapture:
                 area = f"Région: {region}" if region else "Plein écran"
             logger.info(f"Capture demarree a {self.target_fps} FPS ({area}) via {self.capture_mode}")
         return True
+
+    def _try_start_wgc(self, hwnd: int) -> bool:
+        try:
+            session = WgcWindowCapture(hwnd)
+        except Exception as exc:
+            logger.warning("WGC indisponible pour HWND %s (%s), fallback.", hwnd, exc)
+            return False
+        # Une frame doit arriver rapidement ; sinon on considère la fenêtre
+        # non-rendable et on retombe sur les backends écran.
+        deadline = time.perf_counter() + 1.0
+        while time.perf_counter() < deadline:
+            if session.get_frame() is not None:
+                logger.info("Session WGC active pour HWND %s", hwnd)
+                self._wgc_session = session
+                self._wgc_failures = 0
+                return True
+            time.sleep(0.05)
+        session.stop()
+        logger.warning("WGC: aucune frame pour HWND %s sous 1s, fallback.", hwnd)
+        return False
 
     def _capture_window_frame(self) -> Optional[np.ndarray]:
         if not WINDOW_CAPTURE_AVAILABLE or not self.window_hwnd:
@@ -210,6 +298,23 @@ class ScreenCapture:
         if not self.is_capturing:
             return None
 
+        if self.capture_mode == "wgc":
+            if self._wgc_session is None:
+                return None
+            if self.target_fps > 0:
+                now = time.perf_counter()
+                if not hasattr(self, "_last_capture_time"):
+                    self._last_capture_time = 0.0
+                if now - self._last_capture_time < 1.0 / self.target_fps:
+                    return None
+                self._last_capture_time = now
+            frame = self._wgc_session.get_frame()
+            if frame is None or frame.size == 0:
+                # Comme pour le mode window : une fenêtre non rendue ne produit
+                # rien ; on laisse le pipeline gérer l'absence de frame.
+                return None
+            return frame
+
         if self.capture_mode == "window":
             if self.target_fps > 0:
                 now = time.perf_counter()
@@ -262,6 +367,9 @@ class ScreenCapture:
 
     def stop(self):
         """Arrête la capture."""
+        if self._wgc_session is not None:
+            self._wgc_session.stop()
+            self._wgc_session = None
         if self.is_capturing:
             self.is_capturing = False
             logger.info("Capture ecran arretee.")
