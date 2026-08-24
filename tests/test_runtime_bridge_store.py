@@ -35,6 +35,28 @@ def test_runtime_bridge_store_queues_and_consumes_commands(tmp_path):
     assert store.consume_pending_commands(limit=10) == []
 
 
+def test_runtime_bridge_store_preserves_command_order_in_same_microsecond(tmp_path):
+    """Deux commandes dans la même µs : l'ordre d'émission doit être respecté."""
+    store = RuntimeBridgeStore(str(tmp_path / "bridge"))
+    real_time = __import__("time").time
+    frozen = {"value": 1000.0}
+
+    def constant_time():
+        return frozen["value"]
+
+    kinds = [f"cmd_{i}" for i in range(8)]
+    try:
+        import src.runtime.bridge_store as bridge_module
+        bridge_module.time.time = constant_time
+        for kind in kinds:
+            store.queue_command(kind, {})
+    finally:
+        bridge_module.time.time = real_time
+
+    commands = store.consume_pending_commands(limit=20)
+    assert [command["kind"] for command in commands] == kinds
+
+
 def test_runtime_bridge_store_retries_windows_replace_lock(tmp_path, monkeypatch):
     store = RuntimeBridgeStore(str(tmp_path / "bridge"))
     payload = {"session_id": "runtime-lock", "is_running": True}

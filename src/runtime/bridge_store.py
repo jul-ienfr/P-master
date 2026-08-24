@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import threading
 import time
 import uuid
 from collections import deque
@@ -114,6 +115,10 @@ class RuntimeBridgeStore:
         self.commands_dir.mkdir(parents=True, exist_ok=True)
         self._state_cache_payload: dict = {}
         self._state_cache_mtime_ns: Optional[int] = None
+        # Ordre garanti des commandes : deux queue_command dans la même
+        # microseconde ne doivent pas dépendre du tri des UUID (flaky).
+        self._command_seq_lock = threading.Lock()
+        self._last_command_ts_us: int = 0
 
     @classmethod
     def from_env(cls, default_dir: str = "log/runtime_bridge") -> "RuntimeBridgeStore":
@@ -206,7 +211,12 @@ class RuntimeBridgeStore:
             "created_at": _utc_now(),
             "payload": dict(payload or {}),
         }
-        filename = f"{int(time.time() * 1_000_000)}-{uuid.uuid4().hex}.json"
+        with self._command_seq_lock:
+            ts_us = int(time.time() * 1_000_000)
+            if ts_us <= self._last_command_ts_us:
+                ts_us = self._last_command_ts_us + 1
+            self._last_command_ts_us = ts_us
+        filename = f"{ts_us}-{uuid.uuid4().hex}.json"
         self._atomic_write_json(self.commands_dir / filename, command)
         return command
 
