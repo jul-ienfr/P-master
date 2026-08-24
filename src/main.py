@@ -59,8 +59,10 @@ if str(ROOT) not in sys.path:
 
 # --- PROFIL HARDWARE AUTO (Phase 2.0) : 3G / 12G / CPU, overrides env ---
 from src.runtime.hardware import apply_hardware_profile, get_active_hardware_profile
+from src.utils.seed import seed_everything
 
 apply_hardware_profile(torch)
+seed_everything()
 # -------------------------------------------------
 
 # Imports de nos modules

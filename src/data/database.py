@@ -650,6 +650,49 @@ class DatabaseManager:
                 );
             """)
             logger.info("Schéma PostgreSQL vérifié et initialisé.")
+            await self._apply_migrations(conn)
+
+    # Phase 3.1 — migrations versionnées, appliquées une seule fois chacune.
+    _MIGRATIONS: tuple[tuple[str, str], ...] = (
+        (
+            "0001_indexes_hot_paths",
+            """
+                CREATE INDEX IF NOT EXISTS idx_players_last_seen
+                    ON players(last_seen);
+                CREATE INDEX IF NOT EXISTS idx_hands_history_timestamp
+                    ON hands_history(timestamp);
+                CREATE INDEX IF NOT EXISTS idx_hands_history_table_name
+                    ON hands_history(table_name);
+            """,
+        ),
+    )
+
+    async def _apply_migrations(self, conn) -> None:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                migration_id VARCHAR(255) PRIMARY KEY,
+                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        rows = await conn.fetch(
+            """
+                SELECT migration_id FROM schema_migrations;
+            """
+        )
+        applied = {str(row["migration_id"]) for row in rows}
+
+        pending = [m for m in self._MIGRATIONS if m[0] not in applied]
+        if not pending:
+            return
+
+        for migration_id, sql in pending:
+            async with conn.transaction():
+                await conn.execute(sql)
+                await conn.execute(
+                    "INSERT INTO schema_migrations (migration_id) VALUES ($1);",
+                    migration_id,
+                )
+            logger.info("Migration appliquée : %s", migration_id)
 
     async def record_observed_hand(self, player_name: str, street: str = "UNKNOWN"):
         """Incrémente une seule fois par main la taille d'échantillon du joueur."""
