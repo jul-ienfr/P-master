@@ -19,6 +19,7 @@ from src.runtime.hardware import (
     apply_hardware_profile,
     classify_profile,
     detect_gpu_profile,
+    get_active_hardware_profile,
 )
 
 
@@ -132,3 +133,38 @@ def test_apply_hardware_profile_survives_broken_cuda():
     broken = SimpleNamespace(cuda=None)
     profile = apply_hardware_profile(broken)
     assert profile.name == PROFILES_CPU or profile.vram_total_mib > 0
+
+
+def test_get_active_hardware_profile_reflects_last_apply(monkeypatch):
+    torch, _ = _fake_torch(12 * 1024**3, name="NVIDIA GeForce RTX 3060")
+    monkeypatch.setattr("src.runtime.hardware._read_vram_via_nvidia_smi", lambda: None)
+
+    applied = apply_hardware_profile(torch)
+    active = get_active_hardware_profile()
+
+    assert active is applied
+    assert active.name == PROFILES_12G
+    assert active.observation_capture is True
+
+    torch_3g, _ = _fake_torch(3 * 1024**3, name="NVIDIA GeForce GTX 1060 3GB")
+    downgraded = apply_hardware_profile(torch_3g)
+    assert get_active_hardware_profile() is downgraded
+    assert downgraded.observation_capture is False
+
+
+def test_observation_capture_defaults_by_profile(monkeypatch):
+    """Config explicite prioritaire ; sinon 12G active la capture, 3G la laisse off."""
+    import src.main as main_module
+
+    torch_12g, _ = _fake_torch(12 * 1024**3, name="RTX 3060")
+    profile_12g = detect_gpu_profile(torch_12g)
+    torch_3g, _ = _fake_torch(3 * 1024**3, name="GTX 1060")
+    profile_3g = detect_gpu_profile(torch_3g)
+
+    resolve = main_module.resolve_observation_capture_enabled
+
+    assert resolve({}, profile_12g) is True
+    assert resolve({}, profile_3g) is False
+    assert resolve({"enabled": False}, profile_12g) is False
+    assert resolve({"enabled": True}, profile_3g) is True
+    assert resolve(None, profile_12g) is True

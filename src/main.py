@@ -58,7 +58,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 # --- PROFIL HARDWARE AUTO (Phase 2.0) : 3G / 12G / CPU, overrides env ---
-from src.runtime.hardware import apply_hardware_profile
+from src.runtime.hardware import apply_hardware_profile, get_active_hardware_profile
 
 apply_hardware_profile(torch)
 # -------------------------------------------------
@@ -233,6 +233,14 @@ def _resolve_runtime_api_port(candidates: Tuple[int, ...] = RUNTIME_PORT_CANDIDA
             logger.warning("POKER_RUNTIME_API_PORT invalide (%s), selection automatique.", configured)
     return _select_available_runtime_port(candidates)
 
+def resolve_observation_capture_enabled(observation_capture_cfg: dict, profile) -> bool:
+    """Config explicite prioritaire ; sinon défaut par profil hardware (3G off / 12G on)."""
+    cfg = observation_capture_cfg or {}
+    if "enabled" in cfg:
+        return bool(cfg["enabled"])
+    return bool(getattr(profile, "observation_capture", False))
+
+
 class SuperBotController:
     def __init__(self, config_path: str = "config.json"):
         # 1. Chargement de la Configuration
@@ -245,7 +253,10 @@ class SuperBotController:
             
         bot_cfg = self.config.get("bot", {})
         db_cfg = self.config.get("database", {}) or {}
-        
+
+        # Profil hardware détecté au boot (Phase 2.0) — pilote les défauts vision.
+        self.hardware_profile = get_active_hardware_profile()
+
         # --- 2. Vision ---
         self.camera = ScreenCapture(
             target_fps=bot_cfg.get("target_fps", 30),
@@ -332,7 +343,9 @@ class SuperBotController:
         self.pixel_probe = FastPixelProbe()
         observation_capture_cfg = yolo_cfg.get("observation_capture", {}) or {}
         self.observation_dataset = ObservationDatasetCollector(
-            enabled=bool(observation_capture_cfg.get("enabled", False)),
+            enabled=resolve_observation_capture_enabled(
+                observation_capture_cfg, self.hardware_profile
+            ),
             dataset_dir=str(observation_capture_cfg.get("dataset_dir", "dataset/runtime_observation") or "dataset/runtime_observation"),
             capture_interval_s=float(observation_capture_cfg.get("capture_interval_s", 6.0) or 6.0),
             require_visual_change=bool(observation_capture_cfg.get("require_visual_change", True)),

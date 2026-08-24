@@ -187,6 +187,17 @@ def replace_cap(profile: HardwareProfile, cap: float) -> HardwareProfile:
     )
 
 
+_active_profile: HardwareProfile | None = None
+
+
+def get_active_hardware_profile() -> HardwareProfile:
+    """Profil appliqué au dernier appel apply_hardware_profile (fallback: re-détection)."""
+    global _active_profile
+    if _active_profile is None:
+        _active_profile = detect_gpu_profile()
+    return _active_profile
+
+
 def apply_hardware_profile(torch_module=None) -> HardwareProfile:
     """Applique le profil détecté : alloc conf, memory fraction, cudnn.
 
@@ -200,6 +211,9 @@ def apply_hardware_profile(torch_module=None) -> HardwareProfile:
             torch_module = None
 
     profile = detect_gpu_profile(torch_module)
+
+    global _active_profile
+    _active_profile = profile
 
     if profile.cuda_alloc_conf:
         os.environ["PYTORCH_CUDA_ALLOC_CONF"] = profile.cuda_alloc_conf
