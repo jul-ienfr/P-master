@@ -12,6 +12,11 @@ from src.solver.provider import SolverProvider
 
 _DEFAULT_DEPENDENCY = object()
 
+# Phase 2.6 — circuit breaker solver : seuil, base et cap du backoff exponentiel
+_SOLVER_BREAKER_THRESHOLD = 3
+_SOLVER_BREAKER_BASE_COOLDOWN_S = 60.0
+_SOLVER_BREAKER_MAX_COOLDOWN_S = 300.0
+
 try:
     from .rl_agent import RLAdapterAgent
     RL_AVAILABLE = True
@@ -998,6 +1003,7 @@ class DecisionMaker:
             "backend": gto_details.get("backend", self._solver_backend_name()),
             "gto_action": gto_action,
             "final_action": final_action,
+            "circuit_breaker": self.solver_circuit_breaker_state(),
         }
 
         ev_by_action, freq_by_action, action_metadata = self._build_solver_maps(alternatives)
@@ -1243,10 +1249,7 @@ class DecisionMaker:
                 logger.info(f"Réponse GTO Rust reçue en {response.get('elapsed_ms')}ms : {gto_action}")
             except asyncio.TimeoutError:
                 logger.error("Solver Rust timeout (>10s). Fail-safe to FOLD/CHECK.")
-                self._consecutive_solver_timeouts += 1
-                if self._consecutive_solver_timeouts >= 3:
-                    logger.critical("🛑 CIRCUIT BREAKER DÉCLENCHÉ : Trop de timeouts Rust consécutifs. Mise en cooldown 60s.")
-                    self._solver_cooldown_until = time.monotonic() + 60.0
+                self._register_solver_timeout()
                 fallback_used = True
                 fallback_reason = "solver_timeout"
                 gto_action = "CHECK" if "CHECK" in legal_actions else "FOLD"
@@ -1450,6 +1453,33 @@ class DecisionMaker:
             "llm_advice": llm_advice,
         }
 
+    def _register_solver_timeout(self) -> None:
+        """Phase 2.6 — backoff exponentiel : 60s, 120s, 240s, cap 300s."""
+        self._consecutive_solver_timeouts += 1
+        if self._consecutive_solver_timeouts < _SOLVER_BREAKER_THRESHOLD:
+            return
+        exponent = self._consecutive_solver_timeouts - _SOLVER_BREAKER_THRESHOLD
+        cooldown_s = min(
+            _SOLVER_BREAKER_BASE_COOLDOWN_S * (2**exponent),
+            _SOLVER_BREAKER_MAX_COOLDOWN_S,
+        )
+        self._solver_cooldown_until = time.monotonic() + cooldown_s
+        logger.critical(
+            "CIRCUIT BREAKER DECLENCHE : %d timeouts consecutifs. Cooldown %.0fs.",
+            self._consecutive_solver_timeouts,
+            cooldown_s,
+        )
+
+    def solver_circuit_breaker_state(self) -> dict:
+        now = time.monotonic()
+        active = now < self._solver_cooldown_until
+        return {
+            "active": active,
+            "consecutive_timeouts": self._consecutive_solver_timeouts,
+            "cooldown_remaining_s": round(self._solver_cooldown_until - now, 3) if active else 0.0,
+            "threshold": _SOLVER_BREAKER_THRESHOLD,
+        }
+
     def _fallback_action(self, legal_actions: List[str]) -> dict:
         logger.warning("Utilisation de l'action de Fallback (FOLD).")
         normalized_legal_actions = self._normalize_runtime_actions(legal_actions)
@@ -1488,6 +1518,7 @@ class DecisionMaker:
                     "backend": "fallback",
                     "gto_action": action,
                     "final_action": action,
+                    "circuit_breaker": self.solver_circuit_breaker_state(),
                 },
             },
             "ab_decision": None,
