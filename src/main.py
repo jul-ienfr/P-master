@@ -70,6 +70,13 @@ from src.vision.detector import (
     TableState,
     DetectionResult,
 )
+from src.vision.table_geometry import (
+    build_dynamic_coordinates,
+    copy_table_state,
+    detection_center,
+    is_image_changed,
+    safe_crop,
+)
 from src.vision.ocr import PokerOCR
 from src.vision.button_classifier import (
     ButtonClassifier,
@@ -2520,56 +2527,9 @@ class SuperBotController:
 
         return snapshot
 
+    # Phase 2.7 — géométrie table déléguée à src/vision/table_geometry.py.
     def _get_dynamic_coordinates(self, state: TableState) -> dict:
-        mapping = {}
-        diagnostics: Dict[str, Dict[str, object]] = {}
-        button_map = {
-            "fold_button": "FOLD",
-            "call_button": "CALL",
-            "check_button": "CALL",
-            "bet_button": "BET_BTN",
-            "raise_button": "BET_BTN",
-        }
-        for button in state.action_buttons:
-            center = self._center(button)
-            coord = (int(center[0]), int(center[1]))
-            mapped = button_map.get(button.class_name.lower())
-            if mapped:
-                mapping[mapped] = coord
-                diagnostics[mapped] = {
-                    "source": "detected_button",
-                    "label": str(button.class_name),
-                    "coord": [coord[0], coord[1]],
-                    "bbox": [int(value) for value in button.bbox],
-                    "confidence": round(float(getattr(button, "confidence", 0.0) or 0.0), 3),
-                }
-        slot_boxes = state.metadata.get("button_slot_boxes", {}) if isinstance(state.metadata, dict) else {}
-        if isinstance(slot_boxes, dict):
-            for key in ("FOLD", "CALL", "BET_BTN", "BET_BOX"):
-                bbox = slot_boxes.get(key)
-                if (
-                    key not in mapping
-                    and isinstance(bbox, (list, tuple))
-                    and len(bbox) == 4
-                ):
-                    x1, y1, x2, y2 = [int(value) for value in bbox]
-                    mapping[key] = (int((x1 + x2) / 2), int((y1 + y2) / 2))
-                    diagnostics[key] = {
-                        "source": "slot_box",
-                        "label": key,
-                        "coord": [mapping[key][0], mapping[key][1]],
-                        "bbox": [x1, y1, x2, y2],
-                    }
-        for btn in ["FOLD", "CALL", "BET_BTN", "BET_BOX"]:
-            if btn not in mapping:
-                fallback_coord = self.fallback_coords.get(btn)
-                mapping.setdefault(btn, fallback_coord)
-                if fallback_coord:
-                    diagnostics[btn] = {
-                        "source": "fallback",
-                        "label": btn,
-                        "coord": [int(fallback_coord[0]), int(fallback_coord[1])],
-                    }
+        mapping, diagnostics = build_dynamic_coordinates(state, self.fallback_coords)
         if isinstance(state.metadata, dict):
             state.metadata["dynamic_coord_diagnostics"] = diagnostics
         return mapping
@@ -2583,69 +2543,19 @@ class SuperBotController:
         pad_ratio_x: float = 0.0,
         pad_ratio_y: float = 0.0,
     ) -> Optional[np.ndarray]:
-        x1, y1, x2, y2 = bbox
-        height, width = frame.shape[:2]
-
-        box_width = x2 - x1
-        box_height = y2 - y1
-
-        # Le padding relatif (ratio) prime sur le pixel absolu s'il est spÃ©cifiÃ©
-        actual_pad_x = int(box_width * pad_ratio_x) if pad_ratio_x > 0 else pad_x
-        actual_pad_y = int(box_height * pad_ratio_y) if pad_ratio_y > 0 else pad_y
-
-        x1 = max(0, min(x1 - actual_pad_x, width))
-        x2 = max(0, min(x2 + actual_pad_x, width))
-        y1 = max(0, min(y1 - actual_pad_y, height))
-        y2 = max(0, min(y2 + actual_pad_y, height))
-
-        if x2 <= x1 or y2 <= y1:
-            return None
-        crop = frame[y1:y2, x1:x2]
-        return crop if crop.size > 0 else None
+        return safe_crop(frame, bbox, pad_x=pad_x, pad_y=pad_y,
+                         pad_ratio_x=pad_ratio_x, pad_ratio_y=pad_ratio_y)
 
     @staticmethod
     def _center(det: DetectionResult) -> Tuple[float, float]:
-        x1, y1, x2, y2 = det.bbox
-        return ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
+        return detection_center(det)
 
     def _is_image_changed(self, img1: np.ndarray, img2: np.ndarray, threshold: float = 0.95, mask_edges: bool = True) -> bool:
-        if img1 is None or img2 is None:
-            return True
-        try:
-            # On redimensionne tout Ã  100x30 pour unifier la comparaison
-            i1 = cv2.resize(img1, (100, 30))
-            i2 = cv2.resize(img2, (100, 30))
-
-            # Application d'un masque optionnel sur les bords de l'image.
-            # En effet, les animations externes dÃ©bordent souvent sur les crop de pot/stack (avatar qui bouge, chat).
-            if mask_edges:
-                mask = np.zeros((30, 100), dtype=np.uint8)
-                # On ne compare visuellement que la zone centrale (lÃ  ou se trouve le texte OCR)
-                cv2.rectangle(mask, (15, 5), (85, 25), 255, -1)
-                i1 = cv2.bitwise_and(i1, i1, mask=mask)
-                i2 = cv2.bitwise_and(i2, i2, mask=mask)
-
-            i1 = cv2.GaussianBlur(i1, (3, 3), 0)
-            i2 = cv2.GaussianBlur(i2, (3, 3), 0)
-            diff = cv2.absdiff(i1, i2)
-            gray_diff = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
-
-            # Seuil de binarisation du diff augmentÃ© de 15 Ã  25 pour tolÃ©rer les lueurs
-            _, thresh = cv2.threshold(gray_diff, 25, 255, cv2.THRESH_BINARY)
-            difference_ratio = np.count_nonzero(thresh) / thresh.size
-
-            # threshold: 0.95 (tolÃ¨re max 5% de pixels changÃ©s dans la zone non masquÃ©e)
-            return difference_ratio > (1.0 - threshold)
-        except Exception:
-            return True
+        return is_image_changed(img1, img2, threshold=threshold, mask_edges=mask_edges)
 
     @staticmethod
     def _copy_table_state(state: TableState) -> TableState:
-        if hasattr(state, "model_copy"):
-            return state.model_copy(deep=True)
-        if hasattr(state, "copy"):
-            return state.copy(deep=True)
-        return state
+        return copy_table_state(state)
 
     def _build_visual_preview(self, frame: np.ndarray, bbox: Tuple[int, int, int, int]) -> Optional[np.ndarray]:
         crop = self._safe_crop(frame, bbox)
