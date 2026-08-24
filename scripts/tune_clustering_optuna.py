@@ -306,7 +306,9 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    np.random.seed(args.seed)
+    from src.utils.seed import seed_everything
+
+    seed_everything(args.seed)
 
     # -----------------------------------------------------------------------
     # 1. Data loading

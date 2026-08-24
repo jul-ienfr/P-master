@@ -230,6 +230,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main() -> int:
     _setup_logging()
     args = parse_args()
+    from src.utils.seed import seed_everything
+
+    seed_everything(args.seed if hasattr(args, "seed") else 42)
 
     data_path = Path(args.data).resolve()
     if not data_path.is_file():

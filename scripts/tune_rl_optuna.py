@@ -333,6 +333,9 @@ def main():
         help="Optuna storage URL (default: sqlite:///models/rl/optuna_study.db)",
     )
     args = parser.parse_args()
+    from src.utils.seed import seed_everything
+
+    seed_everything(getattr(args, "seed", 42))
 
     logger.info(
         "Starting Optuna tuning: %d trials, %d episodes per trial",
