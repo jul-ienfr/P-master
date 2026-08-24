@@ -1,0 +1,10 @@
+# Phase 1.6 — pin Rust stable + nightly custom-alloc
+[toolchain]
+# nightly requis uniquement pour feature custom-alloc (single instance heap)
+channel = "nightly-2025-08-01"
+components = ["rustfmt", "clippy"]
+targets = ["x86_64-pc-windows-msvc"]
+
+# Laisser cargo --toolchain stable par défaut en CI light:
+# `cargo +stable build`  sans custom-alloc (prod portable)
+# `cargo +nightly build --features custom-alloc`  pour bench GTO

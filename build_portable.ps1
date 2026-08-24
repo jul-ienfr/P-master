@@ -25,7 +25,7 @@ if (-not (Test-Path -LiteralPath $specPath)) {
 
 & $pythonExe -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('PyInstaller') else 1)"
 if ($LASTEXITCODE -ne 0) {
-    & $pythonExe -m pip install "pyinstaller==5.13.0"
+    & $pythonExe -m pip install "pyinstaller==6.12.0"
 }
 
 & $pythonExe -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('pkg_resources') else 1)"

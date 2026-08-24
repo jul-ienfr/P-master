@@ -7,34 +7,32 @@ from src.vision.temporal_ocr import TemporalOCRFilter
 def test_default_requested_engines_prioritize_rapidocr(monkeypatch):
     monkeypatch.setattr(ocr_module, "RAPIDOCR_AVAILABLE", True)
     monkeypatch.setattr(ocr_module, "SURYA_AVAILABLE", True)
-    monkeypatch.setattr(ocr_module, "EASYOCR_AVAILABLE", True)
     monkeypatch.setattr(ocr_module, "TESSERACT_AVAILABLE", True)
     monkeypatch.setattr(ocr_module, "DOCTR_AVAILABLE", False)
 
     assert ocr_module.PokerOCR._default_requested_engines() == [
         "rapidocr",
-        "easyocr",
         "tesseract",
     ]
 
 
 def test_engine_normalization_keeps_supported_order():
     ocr = ocr_module.PokerOCR(
-        enabled_engines=["rapidocr", "rapidocr", "easyocr", "unknown", "tesseract"],
+        enabled_engines=["rapidocr", "rapidocr", "tesseract", "unknown", "surya"],
         mode="priority",
         parallel=False,
     )
 
-    assert ocr.enabled_engines == ["rapidocr", "easyocr", "tesseract"]
+    assert ocr.enabled_engines == ["rapidocr", "tesseract", "surya"]
 
 
 def test_temporal_filter_defaults_include_rapidocr(monkeypatch):
     monkeypatch.setattr(ocr_module, "RAPIDOCR_AVAILABLE", True)
-    monkeypatch.setattr(ocr_module, "EASYOCR_AVAILABLE", True)
+    monkeypatch.setattr(ocr_module, "TESSERACT_AVAILABLE", True)
     filter_engine = TemporalOCRFilter()
     assert filter_engine.ocr_engine.enabled_engines[:2] == [
         "rapidocr",
-        "easyocr",
+        "tesseract",
     ]
 
 
@@ -117,9 +115,9 @@ def test_read_and_parse_amount_stops_after_first_valid_engine(monkeypatch):
             self.calls += 1
             return self.response
 
-    ocr = ocr_module.PokerOCR(enabled_engines=["rapidocr", "easyocr"], mode="fallback", parallel=True)
+    ocr = ocr_module.PokerOCR(enabled_engines=["rapidocr", "tesseract"], mode="fallback", parallel=True)
     first = FakeAmountEngine("rapidocr", "$42")
-    second = FakeAmountEngine("easyocr", "$99")
+    second = FakeAmountEngine("tesseract", "$99")
     ocr.engines = [first, second]
 
     assert ocr.read_and_parse_amount(np.zeros((2, 2, 3), dtype=np.uint8)) == 42.0

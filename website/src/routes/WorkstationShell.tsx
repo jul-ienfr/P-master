@@ -240,7 +240,7 @@ const BOT_COCKPIT_HISTORY_VIEW_STORAGE_KEY = "pokermaster:v2:bot-cockpit-history
 const BOT_COCKPIT_HISTORY_BUNDLE_STORAGE_KEY = "pokermaster:v2:bot-cockpit-history-bundle";
 const BOT_COCKPIT_DISPLAY_MODE_STORAGE_KEY = "pokermaster:v2:bot-cockpit-display-mode";
 const BOT_COCKPIT_AUTO_REFRESH_MS = 1_500;
-const DEFAULT_OCR_ENGINES = ["surya", "easyocr"];
+const DEFAULT_OCR_ENGINES = ["rapidocr", "surya"];
 
 type WorkstationI18nValue = {
   locale: WorkstationLocale;

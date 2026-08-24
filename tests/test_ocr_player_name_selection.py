@@ -35,7 +35,7 @@ def test_read_player_name_prefers_usable_candidate_over_first_non_empty_noise(mo
 
     ocr = build_test_ocr(
         FakeTextEngine("surya", {(10, 10): "Suivr", (20, 20): "Suivr", (20, 24): "Suivr"}),
-        FakeTextEngine("easyocr", {(10, 10): "", (20, 20): "Nick Deb01", (20, 24): "Nick Deb01"}),
+        FakeTextEngine("tesseract", {(10, 10): "", (20, 20): "Nick Deb01", (20, 24): "Nick Deb01"}),
     )
     monkeypatch.setattr(
         ocr,
@@ -52,7 +52,7 @@ def test_read_player_name_prefers_usable_candidate_over_first_non_empty_noise(mo
 
     assert resolved == "Nick Deb01"
     assert metadata["field"] == "player_name"
-    assert metadata["selected_engine"] == "easyocr"
+    assert metadata["selected_engine"] == "tesseract"
     assert metadata["selected_variant"] == "upscaled_contrast"
     assert any(candidate["text"] == "Suivr" for candidate in metadata["candidates"])
 
@@ -63,7 +63,7 @@ def test_read_player_name_returns_empty_when_only_ui_or_numeric_noise_is_found(m
 
     ocr = build_test_ocr(
         FakeTextEngine("surya", {(10, 10): "Passer", (20, 20): "Passer"}),
-        FakeTextEngine("easyocr", {(10, 10): "150.4", (20, 20): "150.4"}),
+        FakeTextEngine("tesseract", {(10, 10): "150.4", (20, 20): "150.4"}),
     )
     monkeypatch.setattr(
         ocr,

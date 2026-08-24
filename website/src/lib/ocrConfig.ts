@@ -25,7 +25,7 @@ function asStringArray(value: unknown, fallback: string[]): string[] {
 
 export function createDefaultOcrConfig(): OcrConfig {
   return {
-    enabledEngines: ["surya", "easyocr"],
+    enabledEngines: ["rapidocr", "surya"],
     mode: "consensus_amounts",
     parallel: true,
     useGpu: true,

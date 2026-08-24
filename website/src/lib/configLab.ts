@@ -119,7 +119,7 @@ const DEFAULT_CONFIG_LAB_PAYLOAD: ConfigLabPayload = {
     cacheEnabled: true,
   },
   ocr: {
-    enabledEngines: ["surya", "easyocr"],
+    enabledEngines: ["rapidocr", "surya"],
     mode: "consensus_amounts",
     parallel: true,
     useGpu: true,

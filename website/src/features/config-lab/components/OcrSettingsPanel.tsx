@@ -31,7 +31,7 @@ export interface OcrSettingsPanelProps {
   onReset?: () => void;
 }
 
-const ENGINES = ["surya", "easyocr", "tesseract", "doctr"] as const;
+const ENGINES = ["rapidocr", "tesseract", "surya", "doctr"] as const;
 
 export function OcrSettingsPanel({
   locale = "en",

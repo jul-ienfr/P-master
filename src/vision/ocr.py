@@ -67,16 +67,9 @@ try:
 except ImportError:
     TESSERACT_AVAILABLE = False
 
-try:
-    import easyocr
-
-    EASYOCR_AVAILABLE = True
-except ImportError:
-    EASYOCR_AVAILABLE = False
-
 logger = logging.getLogger(__name__)
 
-SUPPORTED_OCR_ENGINES = ("rapidocr", "easyocr", "tesseract", "surya", "doctr")
+SUPPORTED_OCR_ENGINES = ("rapidocr", "tesseract", "surya", "doctr")
 SUPPORTED_OCR_MODES = ("priority", "fallback", "consensus_amounts")
 DEFAULT_AMOUNT_THOUSANDS_SEPARATORS = (" ",)
 DEFAULT_AMOUNT_DECIMAL_SEPARATORS: Tuple[str, ...] = ()
@@ -356,23 +349,6 @@ class TesseractEngine(BaseOCREngine):
         return text.strip()
 
 
-class EasyOCREngine(BaseOCREngine):
-    name = "easyocr"
-
-    def __init__(self):
-        if not EASYOCR_AVAILABLE:
-            raise RuntimeError("easyocr is not installed")
-        self.reader = easyocr.Reader(["en"], gpu=False, verbose=False)
-
-    def read_text(self, image_crop: np.ndarray) -> str:
-        if image_crop is None or image_crop.size == 0:
-            return ""
-
-        rgb_image = cv2.cvtColor(image_crop, cv2.COLOR_BGR2RGB)
-        result = self.reader.readtext(rgb_image, detail=0, paragraph=False)
-        return " ".join(part.strip() for part in result if isinstance(part, str)).strip()
-
-
 class PokerOCR:
     def __init__(
         self,
@@ -435,8 +411,6 @@ class PokerOCR:
         preferred: List[str] = []
         if RAPIDOCR_AVAILABLE:
             preferred.append("rapidocr")
-        if EASYOCR_AVAILABLE:
-            preferred.append("easyocr")
         if TESSERACT_AVAILABLE:
             preferred.append("tesseract")
         if preferred:
@@ -447,7 +421,7 @@ class PokerOCR:
             legacy.append("surya")
         if DOCTR_AVAILABLE:
             legacy.append("doctr")
-        return legacy or ["rapidocr", "easyocr", "tesseract", "surya", "doctr"]
+        return legacy or ["rapidocr", "tesseract", "surya", "doctr"]
 
     def _load_engines(self) -> None:
         engine_factories = {
@@ -455,7 +429,6 @@ class PokerOCR:
             "surya": SuryaEngine,
             "doctr": DocTREngine,
             "tesseract": TesseractEngine,
-            "easyocr": EasyOCREngine,
         }
         available: List[BaseOCREngine] = []
         unavailable: Dict[str, str] = {}
