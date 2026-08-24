@@ -9,6 +9,7 @@ import numpy as np
 from .icm_calculator import ICMCalculator
 from .preflop_ranges import PreflopManager
 from src.solver.provider import SolverProvider
+from src.data.redis_cache import AsyncRedisCache
 
 _DEFAULT_DEPENDENCY = object()
 
@@ -387,6 +388,7 @@ class DecisionMaker:
         create_rl_agent: bool = True,
         enable_validated_rl: bool = False,
         autoload_rl_model: bool = True,
+        redis_cache: Any = None,
     ):
         self.db = db_manager
         self.icm_calculator = ICMCalculator()
@@ -419,6 +421,8 @@ class DecisionMaker:
         self.create_rl_agent = create_rl_agent
         self.enable_validated_rl = enable_validated_rl
         self.autoload_rl_model = autoload_rl_model
+        # Phase 3.3 — cache L2 optionnel (no-op sans POKER_REDIS_URL).
+        self.redis_cache = redis_cache if redis_cache is not None else AsyncRedisCache()
         self.enable_llm_assist = False # Par défaut, le LLM est désactivé (100% local)
         
         # Configuration de la Rake (Commission du Casino) - NL2 à NL10 = 5%
@@ -519,7 +523,21 @@ class DecisionMaker:
         ):
             return dict(cached_entry[1]) if cached_entry and isinstance(cached_entry[1], dict) else None
 
-        profile = await self.db.get_player_profile(villain_name)
+        # Phase 3.3 — L2 Redis (opt-in POKER_REDIS_URL) devant le fetch DB.
+        profile = None
+        redis_cache = getattr(self, "redis_cache", None)
+        if redis_cache is not None:
+            profile = await redis_cache.get_json(f"profile:{cache_key}")
+
+        if profile is None:
+            profile = await self.db.get_player_profile(villain_name)
+            if isinstance(profile, dict) and redis_cache is not None:
+                await redis_cache.set_json(
+                    f"profile:{cache_key}",
+                    profile,
+                    ttl_s=self._profile_cache_ttl_s,
+                )
+
         stored_profile = dict(profile) if isinstance(profile, dict) else None
         self._profile_cache[cache_key] = (now, stored_profile)
         return dict(stored_profile) if isinstance(stored_profile, dict) else None
