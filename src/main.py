@@ -53,19 +53,15 @@ try:
 except ImportError:
     pass
 
-# --- PROTECTION VRAM (GTX 1060 3GB) ---
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
-if torch.cuda.is_available():
-    # On bride le moteur PyTorch pour qu'il n'engloutisse jamais plus de 70% des 3Go (soit ~2.1 Go).
-    # Cela laisse ~900 Mo pour le bureau Windows, la vidéo, et le moteur vision (ONNX/YOLO).
-    torch.cuda.set_per_process_memory_fraction(0.70, device=0)
-    # Désactiver le benchmark cuDNN évite l'allocation de VRAM inutile
-    torch.backends.cudnn.benchmark = False
-# --------------------------------------
-
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+# --- PROFIL HARDWARE AUTO (Phase 2.0) : 3G / 12G / CPU, overrides env ---
+from src.runtime.hardware import apply_hardware_profile
+
+apply_hardware_profile(torch)
+# -------------------------------------------------
 
 # Imports de nos modules
 from src.vision.capture import ScreenCapture
