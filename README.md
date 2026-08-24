@@ -43,7 +43,15 @@ Do not use Python `3.12` for this project as-is: the current dependency set in t
 
 ## 1. Create the Python environment
 
-From the repository root in PowerShell:
+Preferred path — `uv` with the locked environment (`uv.lock`, reproducible):
+
+```powershell
+pip install uv
+uv sync --extra dev
+.\.venv\Scripts\Activate.ps1
+```
+
+Fallback — classic venv:
 
 ```powershell
 py -3.11 -m venv .venv
@@ -54,10 +62,38 @@ pip install -r requirements_win.txt
 
 Notes:
 
-- `PyQt6` and `tensorflow` are still the most fragile packages.
+- `pyproject.toml` is the single dependency source (`uv.lock` pins it); `requirements_win.txt` / `requirements_mac.txt` are legacy mirrors kept in `requirements/legacy/`.
 - Numeric OCR now uses `RapidOCR` with `onnxruntime`, so no separate local Tesseract install is required for the main path.
 - The first OCR run downloads RapidOCR models into the active Python environment.
 - You may also need the Microsoft Visual C++ Redistributable.
+
+## Configuration & secrets
+
+Never commit real credentials. Resolution order (see `src/config.py`):
+
+1. Environment variables (`POKER_DB_DSN`, `OPENAI_API_KEY`, `GROQ_API_KEY`, ...)
+2. `config.local.json` (gitignored — copy from `config.example.json`)
+3. `config.json` (committed, placeholders `${VAR:-default}` only)
+4. `config.example.json` (fallback template)
+
+Key runtime toggles:
+
+| Variable | Rôle |
+|---|---|
+| `POKER_DB_DSN` / `POKER_DB_MODE` | Connexion PostgreSQL (`auto`/`memory`/`postgres`) |
+| `POKER_GTO_SERVER_URL` | URL du solver HTTP (défaut `http://127.0.0.1:8765/v2/solve`) |
+| `POKER_GPU_PROFILE` | `auto` (défaut) / `3g` / `12g` / `cpu` — profil hardware forcé |
+| `POKER_VRAM_CAP` | Fraction VRAM allouable (ex. `0.70`) |
+| `POKER_REDIS_URL` | Cache L2 Redis optionnel pour les profils joueurs |
+| `POKER_ENABLE_RL` / `POKER_ENABLE_VALIDATED_RL` | Toggles RL runtime |
+
+## Hardware auto-adaptatif
+
+Au boot, `src/runtime/hardware.py` détecte la VRAM et applique un profil
+(3G / 12G / CPU) : cap mémoire PyTorch, `PYTORCH_CUDA_ALLOC_CONF`,
+`cudnn.benchmark`, modèle YOLO cible, batch OCR, capture d'observation.
+Aucun flag manuel requis ; `POKER_GPU_PROFILE` force un profil (CI, bench).
+Le profil actif est loggé en `INFO` au démarrage.
 
 ## 2. Start the local GTO server
 
