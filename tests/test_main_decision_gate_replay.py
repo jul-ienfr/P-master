@@ -84,6 +84,10 @@ if "src.vision.detector" not in sys.modules:
         return (0, 0)
 
 
+    def _stub_build_detection_quality_metadata(state, pixel_regions):
+        return {}
+
+
     sys.modules["src.vision.detector"] = types.SimpleNamespace(
         PokerDetector=_StubPokerDetector,
         TableState=_StubTableState,
@@ -91,6 +95,7 @@ if "src.vision.detector" not in sys.modules:
         decode_card_token=_stub_decode_card_token,
         dedupe_nearby_detections=_stub_dedupe_nearby_detections,
         detection_sort_key=_stub_detection_sort_key,
+        build_detection_quality_metadata=_stub_build_detection_quality_metadata,
     )
 
 
