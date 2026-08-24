@@ -19,6 +19,32 @@ except ImportError:  # pragma: no cover - optional in lightweight environments
     pd = None
 import requests
 
+try:
+    from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+    from requests.exceptions import RequestException
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5), retry=retry_if_exception_type(RequestException), reraise=True)
+    def _http_post(*args, **kwargs):
+        resp = requests.post(*args, **kwargs)
+        resp.raise_for_status()
+        return resp
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5), retry=retry_if_exception_type(RequestException), reraise=True)
+    def _http_get(*args, **kwargs):
+        resp = requests.get(*args, **kwargs)
+        resp.raise_for_status()
+        return resp
+except ImportError:
+    def _http_post(*args, **kwargs):
+        resp = requests.post(*args, **kwargs)
+        resp.raise_for_status()
+        return resp
+    def _http_get(*args, **kwargs):
+        resp = requests.get(*args, **kwargs)
+        resp.raise_for_status()
+        return resp
+
+
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
     codebase = os.path.abspath(os.path.join(__file__, '..', '..', '..'))
 else:
@@ -348,6 +374,6 @@ def _keys_to_tuple(args, kwargs):
 def open_payment_link():
     config = get_config()
     URL = config.config.get('main', 'db')
-    c = requests.post(URL + "get_internal").json()[0]
+    c = _http_post(URL + "get_internal", timeout=10).json()[0]
     payment_link = c['payment_link']
     webbrowser.open(payment_link, new=1)

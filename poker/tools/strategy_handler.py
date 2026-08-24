@@ -6,6 +6,32 @@ import time
 
 import requests
 
+try:
+    from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+    from requests.exceptions import RequestException
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5), retry=retry_if_exception_type(RequestException), reraise=True)
+    def _http_post(*args, **kwargs):
+        resp = requests.post(*args, **kwargs)
+        resp.raise_for_status()
+        return resp
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5), retry=retry_if_exception_type(RequestException), reraise=True)
+    def _http_get(*args, **kwargs):
+        resp = requests.get(*args, **kwargs)
+        resp.raise_for_status()
+        return resp
+except ImportError:
+    def _http_post(*args, **kwargs):
+        resp = requests.post(*args, **kwargs)
+        resp.raise_for_status()
+        return resp
+    def _http_get(*args, **kwargs):
+        resp = requests.get(*args, **kwargs)
+        resp.raise_for_status()
+        return resp
+
+
 from poker.tools.helper import COMPUTER_NAME, get_config
 
 config = get_config()
@@ -25,9 +51,9 @@ class StrategyHandler:
         config = get_config()
         login = config.config.get('main', 'login')
         password = config.config.get('main', 'password')
-        lst = requests.post(URL + "get_playable_strategy_list", params={"login": login,
+        lst = _http_post(URL + "get_playable_strategy_list", params={"login": login,
                                                                         "password": password,
-                                                                        "computer_name": COMPUTER_NAME}).json()
+                                                                        "computer_name": COMPUTER_NAME}, timeout=10).json()
         return lst
 
     def check_defaults(self):
@@ -122,17 +148,17 @@ class StrategyHandler:
         last_strategy = config.config.get('main', 'last_strategy')
         self.current_strategy = last_strategy if strategy_override == '' else strategy_override
         try:
-            output = requests.post(
+            output = _http_post(
                 URL + "get_strategy", params={'name': self.current_strategy,
                                               "login": login,
-                                              "password": password}).json()[0]
+                                              "password": password}, timeout=10).json()[0]
         except:
             log.error(f"This Strategy is not available for this user: {login}")
             time.sleep(1)
-            output = requests.post(URL + "get_strategy",
+            output = _http_post(URL + "get_strategy",
                                    params={'name': 'Default',
                                            "login": 'guest',
-                                           "password": 'guest'}).json()[0]
+                                           "password": 'guest'}, timeout=10).json()[0]
         self.selected_strategy = output
 
         self.check_defaults()
@@ -152,9 +178,9 @@ class StrategyHandler:
         self.selected_strategy['Strategy'] = self.new_strategy_name
         self.current_strategy = self.new_strategy_name
         del self.selected_strategy['_id']
-        response = requests.post(
+        response = _http_post(
             URL + "save_strategy", json={'strategy': json.dumps(self.selected_strategy),
-                                         'login': login, 'password': password}).json()
+                                         'login': login, 'password': password}, timeout=10).json()
         if response:
             log.info("Saved")
         else:
@@ -164,9 +190,9 @@ class StrategyHandler:
         config = get_config()
         login = config.config.get('main', 'login')
         password = config.config.get('main', 'password')
-        response = requests.post(
+        response = _http_post(
             URL + "save_strategy", json={'strategy': json.dumps(strategy_dict),
-                                         'login': login, 'password': password}).json()
+                                         'login': login, 'password': password}, timeout=10).json()
         if response:
             log.info("Saved")
             return True
@@ -181,10 +207,10 @@ class StrategyHandler:
             pass
         login = config.config.get('main', 'login')
         password = config.config.get('main', 'password')
-        response = requests.post(
+        response = _http_post(
             URL + "update_strategy", json={'name': strategy['Strategy'],
                                            'strategy': json.dumps(strategy),
-                                           'login': login, 'password': password}).json()
+                                           'login': login, 'password': password}, timeout=10).json()
         if response:
             log.info("Saved")
             return True

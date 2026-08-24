@@ -14,7 +14,7 @@ if str(ROOT) not in sys.path:
 from src.data.database import DatabaseManager
 
 
-DEFAULT_TEST_DSN = "postgresql://poker_bot:supersecretpassword@localhost:5432/poker_db"
+DEFAULT_TEST_DSN = os.getenv("POKER_TEST_DSN") or os.getenv("POKER_DB_DSN") or "postgresql://poker_bot:__CHANGE_ME__@localhost:5432/poker_db"
 
 
 def _env_flag(name: str) -> str | None:

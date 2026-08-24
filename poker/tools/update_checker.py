@@ -3,6 +3,32 @@ import sys
 
 import requests
 
+try:
+    from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+    from requests.exceptions import RequestException
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5), retry=retry_if_exception_type(RequestException), reraise=True)
+    def _http_post(*args, **kwargs):
+        resp = requests.post(*args, **kwargs)
+        resp.raise_for_status()
+        return resp
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5), retry=retry_if_exception_type(RequestException), reraise=True)
+    def _http_get(*args, **kwargs):
+        resp = requests.get(*args, **kwargs)
+        resp.raise_for_status()
+        return resp
+except ImportError:
+    def _http_post(*args, **kwargs):
+        resp = requests.post(*args, **kwargs)
+        resp.raise_for_status()
+        return resp
+    def _http_get(*args, **kwargs):
+        resp = requests.get(*args, **kwargs)
+        resp.raise_for_status()
+        return resp
+
+
 from poker.tools.helper import get_config
 
 # pylint: disable=unused-variable,missing-function-docstring,missing-class-docstring,invalid-name,missing-timeout
@@ -21,7 +47,7 @@ class UpdateChecker:
     def downloader(self):
         with open(self.file_name, "wb") as f:
             print("Downloading %s" % self.file_name)
-            response = requests.get(self.dl_link, stream=True)
+            response = _http_get(self.dl_link, stream=True, timeout=10)
             total_length = response.headers.get('content-length')
 
             if total_length is None:  # no content length header
@@ -38,7 +64,7 @@ class UpdateChecker:
                     sys.stdout.flush()
 
     def check_update(self, version):
-        c = requests.post(URL + "get_internal").json()[0]
+        c = _http_post(URL + "get_internal", timeout=10).json()[0]
         current_version = c['current_version']
         self.dl_link = c['dl']
         latest_updates = c['latest_updates']
@@ -61,6 +87,6 @@ class UpdateChecker:
             sys.exit()
 
     def get_preflop_sheet_url(self):
-        c = requests.post(URL + "get_internal").json()[0]
+        c = _http_post(URL + "get_internal", timeout=10).json()[0]
         self.preflop_url = c['preflop_url']
         return self.preflop_url, self.preflop_url_backup

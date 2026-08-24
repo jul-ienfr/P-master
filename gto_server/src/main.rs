@@ -1,5 +1,5 @@
 use axum::{
-    http::StatusCode,
+    http::{HeaderValue, Method, StatusCode},
     routing::{get, post},
     Json, Router,
 };
@@ -265,7 +265,20 @@ async fn main() {
         .route("/range-strength", post(range_strength_handler))
         .route("/v2/solve", post(solve_v2_handler))
         .route("/v2/llm/assist", post(llm_assist_v2_handler))
-        .layer(CorsLayer::permissive());
+        .layer(
+            CorsLayer::new()
+                .allow_origin([
+                    "http://127.0.0.1:8765".parse::<HeaderValue>().unwrap(),
+                    "http://127.0.0.1:8005".parse::<HeaderValue>().unwrap(),
+                    "http://localhost:8765".parse::<HeaderValue>().unwrap(),
+                    "http://localhost:8005".parse::<HeaderValue>().unwrap(),
+                ])
+                .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+                .allow_headers([
+                    axum::http::header::CONTENT_TYPE,
+                    axum::http::header::AUTHORIZATION,
+                ]),
+        );
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 8765));
     info!("GTO server listening on http://{addr}");

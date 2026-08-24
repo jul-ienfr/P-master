@@ -1,3 +1,4 @@
+import ast
 import datetime
 import json
 import os
@@ -6,6 +7,32 @@ from collections.abc import Iterable
 
 import pandas as pd
 import requests
+
+try:
+    from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+    from requests.exceptions import RequestException
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5), retry=retry_if_exception_type(RequestException), reraise=True)
+    def _http_post(*args, **kwargs):
+        resp = requests.post(*args, **kwargs)
+        resp.raise_for_status()
+        return resp
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5), retry=retry_if_exception_type(RequestException), reraise=True)
+    def _http_get(*args, **kwargs):
+        resp = requests.get(*args, **kwargs)
+        resp.raise_for_status()
+        return resp
+except ImportError:
+    def _http_post(*args, **kwargs):
+        resp = requests.post(*args, **kwargs)
+        resp.raise_for_status()
+        return resp
+    def _http_get(*args, **kwargs):
+        resp = requests.get(*args, **kwargs)
+        resp.raise_for_status()
+        return resp
+
 from fastapi.encoders import jsonable_encoder
 
 from poker.tools.helper import COMPUTER_NAME, get_config
@@ -31,10 +58,10 @@ class GameLogger(metaclass=Singleton):
         config = get_config()
         login = config.config.get('main', 'login')
         password = config.config.get('main', 'password')
-        response = requests.post(
+        response = _http_post(
             URL + "get_played_strategy_list", params={"login": login,
                                                       "password": password,
-                                                      "computer_name": COMPUTER_NAME})
+                                                      "computer_name": COMPUTER_NAME}, timeout=10)
         return response.json()
 
     def write_log_file(self, p, h, t, d):
@@ -66,8 +93,8 @@ class GameLogger(metaclass=Singleton):
         rec['other_players'] = t.other_players
         rec['logging_timestamp'] = datetime.datetime.utcnow()
         del rec['logger']
-        response = requests.post(
-            URL + "insert_round", json={'rec': json.dumps(rec, default=str)})
+        response = _http_post(
+            URL + "insert_round", json={'rec': json.dumps(rec, default=str)}, timeout=10)
 
     def mark_last_game(self, t, h, p):
         # updates the last game after it becomes know if it was won or lost
@@ -118,12 +145,12 @@ class GameLogger(metaclass=Singleton):
                 # result = self.mongodb.games.insert_one(summary_dict)
 
     def insert_log(self, rec):
-        response = requests.post(
-            URL + "insert_games", json={'rec': json.dumps(rec)})
+        response = _http_post(
+            URL + "insert_games", json={'rec': json.dumps(rec)}, timeout=10)
 
     def insert_collusion(self, rec):
-        response = requests.post(
-            URL + "insert_collusion", params=jsonable_encoder(rec))
+        response = _http_post(
+            URL + "insert_collusion", params=jsonable_encoder(rec), timeout=10)
 
     def upload_collusion_data(self, gamenumber, mycards, p, gamestage):
         package = {'gamenumber': gamenumber, 'cards': mycards, 'computername': os.environ['COMPUTERNAME'],
@@ -135,20 +162,28 @@ class GameLogger(metaclass=Singleton):
 
     def get_collusion_cards(self, gamenumber, gamestage):
         computername = os.environ['COMPUTERNAME']
-        response = requests.post(URL + "get_collusion_cards", params={'gamenumber': gamenumber, 'gamestage': gamestage,
-                                                                      'computrname': computername}).json()
+        response = _http_post(URL + "get_collusion_cards", params={'gamenumber': gamenumber, 'gamestage': gamestage,
+                                                                      'computrname': computername}, timeout=10).json()
         return response['collusion_cards'], response['player_dropped_out']
 
     def get_stacked_bar_data(self, p_name, p_value, chartType, last_stage='All', last_action='All'):
 
-        response = requests.post(URL + "get_stacked_bar_data",
+        response = _http_post(URL + "get_stacked_bar_data",
                                  params={'p_value': p_value, 'chartType': chartType,
                                          'last_stage': last_stage,
-                                         'last_action': last_action}).json()
+                                         'last_action': last_action}, timeout=10).json()
         data = json.loads(response['d'])
         k = data.keys()
         v = data.values()
-        k1 = [eval(i) for i in k]  # pylint: disable=eval-used
+        # Phase 0.2 — ast.literal_eval only (no code execution on remote payload)
+        validated_keys: list[object] = []
+        for raw_key in k:
+            try:
+                parsed = ast.literal_eval(raw_key)
+            except (ValueError, SyntaxError):
+                parsed = raw_key
+            validated_keys.append(parsed)
+        k1 = validated_keys
         self.d = dict(zip(*[k1, v]))
 
         return response['final_data']
@@ -158,50 +193,50 @@ class GameLogger(metaclass=Singleton):
 
         computer_name = COMPUTER_NAME if my_computer_only else 'All'
 
-        response = requests.post(URL + "get_stacked_bar_data2",
+        response = _http_post(URL + "get_stacked_bar_data2",
                                  params={'p_value': p_value, 'chartType': chartType,
                                          'last_stage': last_stage,
                                          'last_action': last_action,
-                                         'computer_name': computer_name}).json()
+                                         'computer_name': computer_name}, timeout=10).json()
 
         return pd.DataFrame(json.loads(response))
 
     def get_histrogram_data(self, p_name, p_value, game_stage, decision, my_computer_only=False):
 
-        response = requests.post(URL + "get_histrogram_data", params={'p_value': p_value, 'game_stage': game_stage,
-                                                                      'decision': decision}).json()
+        response = _http_post(URL + "get_histrogram_data", params={'p_value': p_value, 'game_stage': game_stage,
+                                                                      'decision': decision}, timeout=10).json()
 
         return [response['equity_win'], response['equity_loss']]
 
     def get_game_count(self, strategy, my_computer_only=False):
         computer_name = COMPUTER_NAME if my_computer_only else 'All'
-        response = requests.post(
+        response = _http_post(
             URL + "get_game_count", params={'strategy': strategy,
-                                            'computer_name': computer_name}).json()
+                                            'computer_name': computer_name}, timeout=10).json()
         return response
 
     def get_strategy_return(self, strategy, days, my_computer_only=False):
         computer_name = COMPUTER_NAME if my_computer_only else 'All'
-        response = requests.post(URL + "get_strategy_return", params={'strategy': strategy,
+        response = _http_post(URL + "get_strategy_return", params={'strategy': strategy,
                                                                       'days': days,
-                                                                      'computer_name': computer_name}).json()
+                                                                      'computer_name': computer_name}, timeout=10).json()
         return round(float(response), 2)
 
     def get_fundschange_chart(self, strategy, my_computer_only=False):
         computer_name = COMPUTER_NAME if my_computer_only else 'All'
-        response = requests.post(
+        response = _http_post(
             URL + "get_fundschange_chart", params={'strategy': strategy,
-                                                   'computer_name': computer_name}).json()
+                                                   'computer_name': computer_name}, timeout=10).json()
         return response
 
     def get_scatterplot_data(self, p_name, p_value, game_stage, decision):
-        response = requests.post(URL + "get_scatterplot_data", params={'p_name': p_name, 'p_value': p_value,
+        response = _http_post(URL + "get_scatterplot_data", params={'p_name': p_name, 'p_value': p_value,
                                                                        'game_stage': game_stage,
-                                                                       'decision': decision}).json()
+                                                                       'decision': decision}, timeout=10).json()
 
         return [pd.DataFrame(json.loads(response['wins'])), pd.DataFrame(json.loads(response['losses']))]
 
     def get_worst_games(self, strategy):
-        response = requests.post(
-            URL + "get_worst_games", params={'strategy': strategy}).json()
+        response = _http_post(
+            URL + "get_worst_games", params={'strategy': strategy}, timeout=10).json()
         return pd.DataFrame(response)

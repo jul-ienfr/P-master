@@ -5,6 +5,32 @@ import logging
 
 import pandas as pd
 import requests
+
+try:
+    from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+    from requests.exceptions import RequestException
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5), retry=retry_if_exception_type(RequestException), reraise=True)
+    def _http_post(*args, **kwargs):
+        resp = requests.post(*args, **kwargs)
+        resp.raise_for_status()
+        return resp
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5), retry=retry_if_exception_type(RequestException), reraise=True)
+    def _http_get(*args, **kwargs):
+        resp = requests.get(*args, **kwargs)
+        resp.raise_for_status()
+        return resp
+except ImportError:
+    def _http_post(*args, **kwargs):
+        resp = requests.post(*args, **kwargs)
+        resp.raise_for_status()
+        return resp
+    def _http_get(*args, **kwargs):
+        resp = requests.get(*args, **kwargs)
+        resp.raise_for_status()
+        return resp
+
 from PIL import Image
 from requests.exceptions import JSONDecodeError
 
@@ -63,7 +89,7 @@ class MongoManager(metaclass=Singleton):
         weights = self.repository.load_table_nn_weights(table_name)
         if weights is None:
             try:
-                weights_str = requests.post(self.url + "get_tensorflow_weights", params={'table_name': table_name}).json()
+                weights_str = _http_post(self.url + "get_tensorflow_weights", params={'table_name': table_name}, timeout=10).json()
                 weights = base64.b64decode(weights_str)
             except Exception as exc:
                 log.error("No trained neural network found for %s. %s", table_name, exc)
@@ -100,19 +126,19 @@ class MongoManager(metaclass=Singleton):
         owner = self.repository.get_table_owner(table_name)
         if owner is not None:
             return owner
-        return requests.post(self.url + "get_table_owner", params={'table_name': table_name}).json()
+        return _http_post(self.url + "get_table_owner", params={'table_name': table_name}, timeout=10).json()
 
     def get_available_tables(self, computer_name):
         return self.repository.get_available_tables(computer_name)
 
     def increment_plays(self, table_name):
         try:
-            requests.post(self.url + "increment_plays", params={'table_name': table_name})
+            _http_post(self.url + "increment_plays", params={'table_name': table_name}, timeout=10)
         except Exception as exc:
             log.debug("Unable to increment remote play counter for %s: %s", table_name, exc)
 
     def get_rounds(self, game_id):
-        output = requests.post(self.url + "get_rounds", params={'game_id': game_id}).json()
+        output = _http_post(self.url + "get_rounds", params={'game_id': game_id}, timeout=10).json()
         return output
 
     def create_new_table(self, table_name):
@@ -165,5 +191,5 @@ class MongoManager(metaclass=Singleton):
         return self.repository.suggest(table_name, screenshots=screenshots or [])
 
     def get_top_strategies(self):
-        response = requests.post(self.url + "get_top_strategies").json()
+        response = _http_post(self.url + "get_top_strategies", timeout=10).json()
         return pd.DataFrame(json.loads(response))

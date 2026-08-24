@@ -115,12 +115,13 @@ def _is_observation_profile_name_supported(player_name: str) -> bool:
 class DatabaseManager:
     def __init__(
         self,
-        dsn="postgresql://poker_bot:supersecretpassword@localhost:5432/poker_db",
+        dsn: str | None = None,
         mode: str | None = None,
         persistence_path: str | None = None,
         persistence_enabled: bool = False,
     ):
-        self.dsn = dsn
+        # No hard-coded credential — env wins, placeholder forces explicit config
+        self.dsn = dsn or os.getenv("POKER_DB_DSN") or "postgresql://poker_bot:__CHANGE_ME__@localhost:5432/poker_db"
         self.pool = None
         self.mode = _normalize_db_mode(mode or os.getenv("POKER_DB_MODE"))
         self.backend = "uninitialized"

@@ -10,7 +10,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Install nightly
       run: |
         rustup toolchain install nightly
@@ -28,8 +28,8 @@ jobs:
         cargo +nightly test --release --features custom-alloc -- --test-threads 1
     - name: Clippy
       run: |
-        cargo clippy --release --features zstd -- -A clippy::needless_range_loop
-        cargo +nightly clippy --release --features custom-alloc -- -A clippy::needless_range_loop
+        cargo clippy --release --features zstd -- -D warnings
+        cargo +nightly clippy --release --features custom-alloc -- -D warnings
     - name: Check formatting
       run: cargo fmt --all --check
     - name: Check documentation

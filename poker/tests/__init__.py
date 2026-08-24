@@ -13,6 +13,21 @@ sys.path.insert(0, parentdir)
 def init_table(file, round_number=0, strategy='Default1', table_scraper_name='Official GGPoker 6player'):
     import pandas as pd
     import requests
+
+    try:
+        from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+        from requests.exceptions import RequestException
+
+        @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5), retry=retry_if_exception_type(RequestException), reraise=True)
+        def _http_post(*args, **kwargs):
+            resp = requests.post(*args, **kwargs)
+            resp.raise_for_status()
+            return resp
+    except ImportError:
+        def _http_post(*args, **kwargs):
+            resp = requests.post(*args, **kwargs)
+            resp.raise_for_status()
+            return resp
     from PIL import Image
 
     from poker.decisionmaker.current_hand_memory import History
@@ -33,7 +48,7 @@ def init_table(file, round_number=0, strategy='Default1', table_scraper_name='Of
     p.read_strategy(strategy_override=strategy)
     h = History()
     u = UpdateChecker()
-    c = requests.post(url + "get_internal").json()[0]
+    c = _http_post(url + "get_internal", timeout=10).json()[0]
     preflop_url = c['preflop_url']
     # preflop_url = 'decisionmaker/preflop.xlsx'
     h.preflop_sheet = pd.read_excel(

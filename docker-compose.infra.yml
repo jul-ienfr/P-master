@@ -7,7 +7,7 @@ services:
     container_name: poker_postgres
     environment:
       POSTGRES_USER: poker_bot
-      POSTGRES_PASSWORD: supersecretpassword
+      POSTGRES_PASSWORD: ${POKER_DB_PASSWORD:-__CHANGE_ME__}
       POSTGRES_DB: poker_db
     ports:
       - "5432:5432"

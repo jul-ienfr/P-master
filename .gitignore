@@ -22,7 +22,27 @@
 __pycache__/
 *.py[cod]
 /dataset/yolo_pokerstars
+/dataset/runtime_observation
+/dataset/needs_annotation
+/logs
+/models/clustering
 /models/yolo_runs
 /models/poker_yolo_v11.pt
 /models/poker_yolo_v11.onnx
 /models/poker_yolo_v11.engine
+/models/*.engine
+/models/cache/
+
+# Phase 0 — secrets & runtime artefacts (ne jamais committer)
+config.local.json
+.env
+log/runtime_bridge/
+log/runtime_history.jsonl
+log/observation_store.json
+
+# Qualité / coverage
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
