@@ -6,7 +6,7 @@ import time
 
 import numpy as np
 
-from src.vision.detector import decode_card_token
+from src.vision.models import decode_card_token
 from src.vision.table_geometry import DEFAULT_RUNTIME_GEOMETRY, geometry_to_pixel_regions
 
 

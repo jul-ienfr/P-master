@@ -13,7 +13,8 @@ if str(ROOT) not in sys.path:
 
 
 from src.runtime.frame_pipeline import FramePipeline
-from src.vision.detector import DetectionResult, TableState, build_detection_quality_metadata
+from src.vision.models import DetectionResult, TableState
+from src.vision.template_detector import build_detection_quality_metadata
 
 
 def _copy_state_for_test(state):

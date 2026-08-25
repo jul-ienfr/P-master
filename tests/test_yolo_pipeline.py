@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from src.vision.detector import DetectionResult, resolve_model_path
+from src.vision.detector import resolve_model_path
+from src.vision.models import DetectionResult
 from src.vision.yolo_schema import YOLO_CLASS_MAP, YOLO_CLASS_NAMES, validate_dataset_yaml_schema, write_dataset_yaml
 import pytest
 

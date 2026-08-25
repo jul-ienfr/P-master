@@ -11,7 +11,7 @@ from src.bot.live_reconstruction import (
     stable_window_value,
 )
 from src.bot.runtime_types import CanonicalPlayer, CanonicalTableState
-from src.vision.detector import DetectionResult, TableState
+from src.vision.models import DetectionResult, TableState
 from src.vision.numeric_reader import NumericReader
 from src.vision.player_name_reader import PlayerNameReader
 from src.runtime.player_name_resolver import resolve_player_name

@@ -129,7 +129,7 @@ def geometry_to_pixel_regions(
 # --- Phase 2.7 : helpers de géométrie déplacés depuis src/main.py ---
 from typing import Tuple  # noqa: E402
 
-from src.vision.detector import DetectionResult, TableState  # noqa: E402
+from src.vision.models import DetectionResult, TableState  # noqa: E402
 
 
 def safe_crop(

@@ -16,7 +16,7 @@ except ImportError:  # Python 3.10 compatibility
     UTC = timezone.utc
 
 from src.bot.runtime_types import CanonicalTableState
-from src.vision.detector import TableState
+from src.vision.models import TableState
 from src.vision.yolo_schema import write_dataset_yaml
 
 

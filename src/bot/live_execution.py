@@ -9,7 +9,7 @@ from typing import Dict, Iterable, List, Optional
 from src.bot.gate_flow import compact_solver_payload as _compact_solver_payload
 from src.bot.sanity_checker import GateResult
 from src.bot.runtime_types import CanonicalTableState
-from src.vision.detector import TableState
+from src.vision.models import TableState
 
 logger = logging.getLogger("SuperBot2026")
 

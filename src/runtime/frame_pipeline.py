@@ -10,7 +10,8 @@ from src.bot.runtime_types import CanonicalTableState
 from src.runtime.poker_state_validator import PokerStateValidator
 from src.runtime.readiness import build_runtime_readiness
 from src.vision.crop_quality import analyze_crop_quality
-from src.vision.detector import DetectionResult, TableState, build_detection_quality_metadata, decode_card_token
+from src.vision.models import DetectionResult, TableState, decode_card_token
+from src.vision.template_detector import build_detection_quality_metadata
 from src.vision.frame_quality import analyze_frame_quality
 from src.vision.preset_registry import PresetRegistry
 from src.vision.region_proposals import build_region_proposals, resolve_region_proposals

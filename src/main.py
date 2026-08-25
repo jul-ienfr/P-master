@@ -65,11 +65,8 @@ seed_everything()
 
 # Imports de nos modules
 from src.vision.capture import ScreenCapture
-from src.vision.detector import (
-    PokerDetector,
-    TableState,
-    DetectionResult,
-)
+from src.vision.detector import PokerDetector
+from src.vision.models import DetectionResult, TableState
 from src.vision.table_geometry import (
     build_dynamic_coordinates,
     copy_table_state,

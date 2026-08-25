@@ -12,7 +12,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
-from src.vision.detector import PokerDetector, decode_card_token
+from src.vision.detector import PokerDetector
+from src.vision.models import decode_card_token
 
 
 def _load_image(path: Path) -> np.ndarray:

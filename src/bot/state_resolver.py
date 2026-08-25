@@ -15,7 +15,7 @@ from src.bot.live_reconstruction import (
 )
 from src.bot.runtime_types import CanonicalPlayer, CanonicalTableState
 from src.runtime.readiness import build_runtime_readiness
-from src.vision.detector import DetectionResult, TableState
+from src.vision.models import DetectionResult, TableState
 
 logger = logging.getLogger("SuperBot2026")
 

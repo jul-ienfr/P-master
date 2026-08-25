@@ -9,7 +9,7 @@ import numpy as np
 
 from src.bot.runtime_types import CanonicalTableState
 from src.bot.sanity_checker import ActionIntent, GateReason, GateResult
-from src.vision.detector import TableState
+from src.vision.models import TableState
 
 logger = logging.getLogger("SuperBot2026")
 

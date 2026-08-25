@@ -14,7 +14,7 @@ from src.runtime.policy_compare import (
     dedupe_runtime_ab_decisions,
 )
 from src.runtime.session import parse_bool_flag as _parse_bool_flag
-from src.vision.detector import TableState
+from src.vision.models import TableState
 
 logger = logging.getLogger("SuperBot2026")
 

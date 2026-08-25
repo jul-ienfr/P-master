@@ -11,16 +11,18 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
-from src.vision.detector import (
+from src.vision.detector import resolve_model_path
+from src.vision.models import (
     DetectionResult,
+    decode_card_token,
+    dedupe_nearby_detections,
+    detection_sort_key,
+)
+from src.vision.template_detector import (
     _bbox_overlap_ratio,
     _clip_bbox,
     _find_template_candidates,
     _find_template_sqdiff,
-    decode_card_token,
-    dedupe_nearby_detections,
-    detection_sort_key,
-    resolve_model_path,
 )
 
 

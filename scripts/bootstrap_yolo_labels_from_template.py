@@ -11,7 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.vision.detector import PokerDetector, DetectionResult
+from src.vision.detector import PokerDetector
+from src.vision.models import DetectionResult
 from src.vision.yolo_schema import YOLO_CLASS_MAP, YOLO_CLASS_NAMES
 
 

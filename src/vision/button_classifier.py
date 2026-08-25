@@ -13,7 +13,7 @@ from typing import Callable, Dict, List, Optional, Set, Tuple
 import cv2
 import numpy as np
 
-from src.vision.detector import (
+from src.vision.models import (
     DetectionResult,
     TableState,
     dedupe_nearby_detections,

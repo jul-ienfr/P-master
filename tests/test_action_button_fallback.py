@@ -2,7 +2,7 @@ import numpy as np
 
 from src.bot.decision_maker import _normalize_hero_hand_string
 from src.main import SuperBotController
-from src.vision.detector import DetectionResult, TableState
+from src.vision.models import DetectionResult, TableState
 
 
 def _make_controller():

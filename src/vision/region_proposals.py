@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Optional
 
-from src.vision.detector import DetectionResult, TableState
+from src.vision.models import DetectionResult, TableState
 
 
 @dataclass(frozen=True)
