@@ -43,7 +43,8 @@ dependencies = [
 
     # LLM / HTTP — CVE
     "openai==1.97.1",                      # 1.30→1.97
-    "aiohttp==3.12.14",                    # 3.10→3.12.14
+    "aiohttp==3.14.3",                      # 3.12→3.14.3 : fix advisories GHSA/PYSEC (audit lockfile 2026-08-24)
+"postflop-solver-py",                   # extension native locale (python_bindings, build maturin)
     "aiohttp-cors>=0.7.0",
     "pynput==1.8.1",                       # 1.7.6→1.8.1
     "tenacity>=8.2.0",                     # retry raise_for_status
@@ -72,9 +73,16 @@ vision = [
 ]
 
 [tool.uv]
+# Projet non-packagé : uv sync n'installe que les dépendances (les tests
+# s'exécutent depuis la racine du repo, pas depuis un wheel).
+package = false
 # uv doit résoudre uniquement l'environnement réel (Windows 3.11).
 # Sans ça, uv tente de satisfaire darwin/linux qui n'ont pas de wheel torch/ort-gpu/dxcam/uiautomation.
 environments = ["sys_platform == 'win32' and python_full_version >= '3.11'"]
+
+# Extension native Rust locale (solveur postflop) — build maturin, nécessite cargo.
+[tool.uv.sources]
+postflop-solver-py = { path = "python_bindings" }
 
 [build-system]
 requires = ["hatchling"]

@@ -19,7 +19,7 @@ wheels = [
 
 [[package]]
 name = "aiohttp"
-version = "3.12.14"
+version = "3.14.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohappyeyeballs", marker = "sys_platform == 'win32'" },
@@ -28,12 +28,14 @@ dependencies = [
     { name = "frozenlist", marker = "sys_platform == 'win32'" },
     { name = "multidict", marker = "sys_platform == 'win32'" },
     { name = "propcache", marker = "sys_platform == 'win32'" },
+    { name = "typing-extensions", marker = "sys_platform == 'win32'" },
     { name = "yarl", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e6/0b/e39ad954107ebf213a2325038a3e7a506be3d98e1435e1f82086eec4cde2/aiohttp-3.12.14.tar.gz", hash = "sha256:6e06e120e34d93100de448fd941522e11dafa78ef1a893c179901b7d66aa29f2", size = 7822921, upload-time = "2025-07-10T13:05:33.968Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/58/d9/22ce5786ac0c1653ae8b6c23bded02c1686d11f0dbb45b31ce128e0df985/aiohttp-3.14.3.tar.gz", hash = "sha256:9491196535a88924a60afd5b5f434b5b203b6cc616250878dbdb223a8f7844bc", size = 7971213, upload-time = "2026-07-23T01:57:27.037Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/51/e1/7f1c77515d369b7419c5b501196526dad3e72800946c0099594c1f0c20b4/aiohttp-3.12.14-cp311-cp311-win32.whl", hash = "sha256:a289f50bf1bd5be227376c067927f78079a7bdeccf8daa6a9e65c38bae14324b", size = 427907, upload-time = "2025-07-10T13:03:41.801Z" },
-    { url = "https://files.pythonhosted.org/packages/06/24/a6bf915c85b7a5b07beba3d42b3282936b51e4578b64a51e8e875643c276/aiohttp-3.12.14-cp311-cp311-win_amd64.whl", hash = "sha256:0b8a69acaf06b17e9c54151a6c956339cf46db4ff72b3ac28516d0f7068f4ced", size = 452334, upload-time = "2025-07-10T13:03:43.485Z" },
+    { url = "https://files.pythonhosted.org/packages/8a/1d/f854878bbc69b88faefe924b619a34a6f59ec05fd387c77690667eaa75eb/aiohttp-3.14.3-cp311-cp311-win32.whl", hash = "sha256:a4af35c443e0b1a1bd6a8af3f3485d7fda15c142751a00f3ff8090f0b93346fa", size = 456006, upload-time = "2026-07-23T01:53:34.97Z" },
+    { url = "https://files.pythonhosted.org/packages/73/0c/2af9d1674baccd1dbd47282a93d660a22e57ef6167c856deb24b4214fbab/aiohttp-3.14.3-cp311-cp311-win_amd64.whl", hash = "sha256:e1e74298bab6ee0d6e749ed4fd1901c7e604bdda32c03d787a2cc71c46d0433d", size = 481069, upload-time = "2026-07-23T01:53:39.673Z" },
+    { url = "https://files.pythonhosted.org/packages/8e/76/88401ff3fc95e85c5fc38d588f36f55e61ecb64343b2bc8d69326f453cc0/aiohttp-3.14.3-cp311-cp311-win_arm64.whl", hash = "sha256:03cd2bde3d7f085b64e549c985f4bb928cad7e8ecf5323bfca320db548d81b39", size = 453021, upload-time = "2026-07-23T01:53:43.749Z" },
 ]
 
 [[package]]
@@ -1114,7 +1116,7 @@ wheels = [
 [[package]]
 name = "poker-master"
 version = "0.1.0"
-source = { editable = "." }
+source = { virtual = "." }
 dependencies = [
     { name = "aiohttp", marker = "sys_platform == 'win32'" },
     { name = "aiohttp-cors", marker = "sys_platform == 'win32'" },
@@ -1132,6 +1134,7 @@ dependencies = [
     { name = "pgvector", marker = "sys_platform == 'win32'" },
     { name = "pillow", marker = "sys_platform == 'win32'" },
     { name = "pokerkit", marker = "sys_platform == 'win32'" },
+    { name = "postflop-solver-py", marker = "sys_platform == 'win32'" },
     { name = "pydantic", marker = "sys_platform == 'win32'" },
     { name = "pynput", marker = "sys_platform == 'win32'" },
     { name = "python-dotenv", marker = "sys_platform == 'win32'" },
@@ -1166,7 +1169,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiohttp", specifier = "==3.12.14" },
+    { name = "aiohttp", specifier = "==3.14.3" },
     { name = "aiohttp-cors", specifier = ">=0.7.0" },
     { name = "asyncpg", specifier = "==0.31.0" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=24.0" },
@@ -1185,6 +1188,7 @@ requires-dist = [
     { name = "pillow", specifier = ">=10.0.0" },
     { name = "pip-audit", marker = "extra == 'dev'", specifier = ">=2.7" },
     { name = "pokerkit", specifier = "==0.6.2" },
+    { name = "postflop-solver-py", directory = "python_bindings" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0" },
     { name = "pydantic", specifier = "==2.11.7" },
     { name = "pylint", marker = "extra == 'dev'", specifier = ">=3.0" },
@@ -1241,6 +1245,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/a4/03/9b787bc06729cf19d78d0b873e3168e1a4ba497a49180cb05fea63b881b5/polars_runtime_32-1.44.0-cp310-abi3-win_amd64.whl", hash = "sha256:64228c43a24f5cca1ab29ce47187d02d3c41466a1c07ed75d8f7899ba83bc105", size = 53697682, upload-time = "2026-08-24T09:36:50.265Z" },
     { url = "https://files.pythonhosted.org/packages/47/35/74cd099333a1a71cf0a8e61da4a44fbb932471952ae9e633b30345854fff/polars_runtime_32-1.44.0-cp310-abi3-win_arm64.whl", hash = "sha256:059cb0dc30192de28e30d3b5bc6c4206603b11374ee1df1f7380aa85a509bbf0", size = 47275999, upload-time = "2026-08-24T09:36:54.464Z" },
 ]
+
+[[package]]
+name = "postflop-solver-py"
+version = "0.1.0"
+source = { directory = "python_bindings" }
 
 [[package]]
 name = "pre-commit"

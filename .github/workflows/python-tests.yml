@@ -20,6 +20,18 @@ jobs:
           enable-cache: true
           cache-dependency-glob: uv.lock
 
+      # Requis pour builder postflop-solver-py (maturin/pyo3, dépendance locale).
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            python_bindings/target
+          key: cargo-${{ runner.os }}-pyo3-${{ hashFiles('python_bindings/Cargo.lock') }}
+
       - name: Sync dependencies (uv.lock, repro)
         run: uv sync --frozen --extra dev
 
