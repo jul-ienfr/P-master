@@ -820,8 +820,8 @@ mod tests {
         ];
 
         let mut mask = 0b001111;
-        for i in 0..15 {
-            assert_eq!(mask, seq[i]);
+        for expected in seq {
+            assert_eq!(mask, expected);
             mask = next_combination(mask);
         }
     }

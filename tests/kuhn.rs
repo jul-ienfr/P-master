@@ -75,20 +75,20 @@ impl Game for KuhnGame {
             let folded_player = node.player & PLAYER_MASK;
             let sign = [1.0, -1.0][(player == folded_player) as usize];
             let payoff_normalized = amount_normalized * sign;
-            for my_card in 0..NUM_PRIVATE_HANDS {
-                for opp_card in 0..NUM_PRIVATE_HANDS {
+            for (my_card, result_cell) in result.iter_mut().enumerate() {
+                for (opp_card, cfreach_cell) in cfreach.iter().enumerate() {
                     if my_card != opp_card {
-                        result[my_card] += payoff_normalized * cfreach[opp_card];
+                        *result_cell += payoff_normalized * cfreach_cell;
                     }
                 }
             }
         } else {
-            for my_card in 0..NUM_PRIVATE_HANDS {
-                for opp_card in 0..NUM_PRIVATE_HANDS {
+            for (my_card, result_cell) in result.iter_mut().enumerate() {
+                for (opp_card, cfreach_cell) in cfreach.iter().enumerate() {
                     if my_card != opp_card {
                         let sign = [1.0, -1.0][(my_card < opp_card) as usize];
                         let payoff_normalized = amount_normalized * sign;
-                        result[my_card] += payoff_normalized * cfreach[opp_card];
+                        *result_cell += payoff_normalized * cfreach_cell;
                     }
                 }
             }
