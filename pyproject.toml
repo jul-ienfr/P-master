@@ -50,6 +50,7 @@ dependencies = [
     "tenacity>=8.2.0",                     # retry raise_for_status
 
     # Socle conservé (requirements_win.txt harmonisé)
+    "pywin32>=306; sys_platform == 'win32'",  # win32api — ActionController + tests src.main (oubli unification Phase 1.7)
     "pillow>=10.0.0",
     "pyyaml>=6.0",
     "tqdm>=4.66.0",
