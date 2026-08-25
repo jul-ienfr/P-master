@@ -1,0 +1,10 @@
+{
+  "name": "pokermaster-tools",
+  "private": true,
+  "dependencies": {
+    "@ziglang/cli": "^0.0.14",
+    "poker-evaluator": "^2.1.1",
+    "pokersolver": "^2.1.4",
+    "tar": "^7.5.13"
+  }
+}

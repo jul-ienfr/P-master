@@ -477,8 +477,8 @@ impl PostFlopGame {
             board_mask |= 1 << river;
         }
 
-        for player in 0..2 {
-            let (hands, weights) = range[player].get_hands_weights(board_mask);
+        for (player, range) in range.iter().enumerate().take(2) {
+            let (hands, weights) = range.get_hands_weights(board_mask);
             self.initial_weights[player] = weights;
             self.private_cards[player] = hands;
         }

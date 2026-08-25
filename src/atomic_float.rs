@@ -38,9 +38,19 @@ impl AtomicF64 {
     }
 
     pub(crate) fn add(&self, v: f64) {
-        let _ = self.0.fetch_update(Relaxed, Relaxed, |u| {
-            Some((f64::from_bits(u) + v).to_bits())
-        });
+        // Boucle CAS explicite : `fetch_update` est déprécié au profit de
+        // `try_update` (non disponible sur la toolchain épinglée).
+        let mut observed = self.0.load(Relaxed);
+        loop {
+            let updated = (f64::from_bits(observed) + v).to_bits();
+            match self
+                .0
+                .compare_exchange_weak(observed, updated, Relaxed, Relaxed)
+            {
+                Ok(_) => return,
+                Err(actual) => observed = actual,
+            }
+        }
     }
 }
 

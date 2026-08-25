@@ -793,6 +793,7 @@ impl From<&SolveResponseV2> for DecisionSnapshot {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[cfg_attr(feature = "bincode", derive(Decode, Encode))]
 #[serde(default)]
+#[derive(Default)]
 pub struct DecisionSnapshot {
     pub source: DecisionSource,
     pub spot: SpotSnapshot,
@@ -806,45 +807,17 @@ pub struct DecisionSnapshot {
     pub metadata: BTreeMap<String, String>,
 }
 
-impl Default for DecisionSnapshot {
-    fn default() -> Self {
-        Self {
-            source: DecisionSource::default(),
-            spot: SpotSnapshot::default(),
-            chosen_action: None,
-            alternatives: Vec::new(),
-            exploitability: None,
-            warnings: Vec::new(),
-            latency_ms: 0,
-            confidence: None,
-            gate: None,
-            metadata: BTreeMap::new(),
-        }
-    }
-}
-
 /// Replay record derived from a canonical spot and decision.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[cfg_attr(feature = "bincode", derive(Decode, Encode))]
 #[serde(default)]
+#[derive(Default)]
 pub struct ReplayRecord {
     pub replay_id: String,
     pub spot: SpotSnapshot,
     pub decision: DecisionSnapshot,
     pub result_metadata: BTreeMap<String, String>,
     pub tags: Vec<String>,
-}
-
-impl Default for ReplayRecord {
-    fn default() -> Self {
-        Self {
-            replay_id: String::new(),
-            spot: SpotSnapshot::default(),
-            decision: DecisionSnapshot::default(),
-            result_metadata: BTreeMap::new(),
-            tags: Vec::new(),
-        }
-    }
 }
 
 /// Benchmark result for offline parity and performance checks.
