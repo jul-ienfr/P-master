@@ -7,7 +7,7 @@ comportemental — les tests existants font office de garde-fou.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 BASE_GTO_RANGE = "55+, A2s+, K5s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, ATo+, KJo+, QJo"
 CARD_RANK_ORDER: dict[str, int] = {rank: index for index, rank in enumerate("23456789TJQKA")}

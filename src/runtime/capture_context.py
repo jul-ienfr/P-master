@@ -1,7 +1,6 @@
 """Snapshot pot rapide et gestion du contexte de capture (extrait de src/main.py)."""
 import logging
 import time
-from typing import Dict, Optional, Tuple
 
 from src.bot.runtime_types import CanonicalTableState
 

@@ -6,7 +6,7 @@ from copy import deepcopy
 try:
     from datetime import UTC, datetime
 except ImportError:  # Python 3.10 compatibility
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     UTC = UTC
 
@@ -788,7 +788,7 @@ class DatabaseManager:
 
         if not self.pool:
             return
-        
+
         query = """
             INSERT INTO players (player_name, hands_played, observed_hands, vpip_count, pfr_count, raw_stats, last_seen)
             VALUES ($1, 0, 0, $2, $3, $4::jsonb, CURRENT_TIMESTAMP)
@@ -854,7 +854,7 @@ class DatabaseManager:
 
         if not self.pool:
             return
-        
+
         query = """
             INSERT INTO hands_history (table_name, board, actions) 
             VALUES ($1, $2, $3::jsonb)
@@ -878,7 +878,7 @@ class DatabaseManager:
         else:
             async with self.pool.acquire() as conn:
                 row = await conn.fetchrow(
-                    "SELECT * FROM players WHERE player_name = $1", 
+                    "SELECT * FROM players WHERE player_name = $1",
                     player_name
                 )
                 if not row:

@@ -1,6 +1,6 @@
 import math
 from collections import Counter
-from typing import Optional, TypeVar
+from typing import TypeVar
 from collections.abc import Iterable, Sequence
 
 T = TypeVar("T")
@@ -127,7 +127,7 @@ def ordered_stacks_by_table_geometry(
     frame_h, frame_w = frame_shape
     center_x = frame_w / 2.0
     center_y = frame_h / 2.0
-    
+
     # We use a slight static offset because the pot isn't perfectly the center of the seat ellipse
     if pot_bbox is not None:
         center_x, center_y = center_from_bbox(pot_bbox)
@@ -141,11 +141,11 @@ def ordered_stacks_by_table_geometry(
     angular_entries: list[tuple[float, float, tuple[int, int, int, int]]] = []
     for stack_bbox in stack_bboxes:
         sx, sy = center_from_bbox(stack_bbox)
-        
+
         # Normalize coordinates relative to our ellipse anchor
         dx = (sx - center_x) / rx
         dy = (sy - center_y) / ry
-        
+
         angle = (math.atan2(dy, dx) + 2.5 * math.pi) % (2.0 * math.pi)
         distance = math.hypot(dx, dy)
         angular_entries.append((angle, distance, stack_bbox))
@@ -181,7 +181,7 @@ def infer_hero_seat_id(
     candidates: list[tuple[float, str]] = []
     for seat_id, stack_bbox in ordered_stacks:
         sx, sy = center_from_bbox(stack_bbox)
-        
+
         # We calculate euclidean distance in normalized ellipse space rather than raw pixels
         # This makes it resilient to window stretching!
         dx = (sx - hx) / rx

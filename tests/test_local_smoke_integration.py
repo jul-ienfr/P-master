@@ -116,7 +116,7 @@ def test_memory_tracker_and_decisionmaker_smoke_flow():
             "state_confidence": 0.95,
             "players": [],
         }
-        
+
         force_idle_signal = {
             "street": "PREFLOP",
             "hero_cards": [], # Pas de hero_cards = plus en main
@@ -148,7 +148,7 @@ def test_memory_tracker_and_decisionmaker_smoke_flow():
         assert tracker.state == "PREFLOP"
         tracker.state = "IDLE"
         tracker.reset_for_new_hand()
-        
+
         assert tracker.state == "IDLE"
         assert len(db.hands_history_memory) == 1
 

@@ -1,7 +1,6 @@
 """Tests du suivi de ranges villain (ratchet coverage, module V2 legacy)."""
 from types import SimpleNamespace
 
-import pytest
 
 from poker.decisionmaker.range_tracker import (
     DEFAULT_RANGE,

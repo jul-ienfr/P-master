@@ -1,7 +1,6 @@
 """Tests des signatures et gardes de décision live (src/bot/live_execution.py)."""
 import sys
 from pathlib import Path
-from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:

@@ -12,7 +12,6 @@ from poker.decisionmaker.v2_contracts import (
     LlmConfig,
     LlmProviderMode,
     RangeModelVersion,
-    SerializableDataclass,
     SolveRequestV2,
     SpotSnapshot,
     _as_bool,

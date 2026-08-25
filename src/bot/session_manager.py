@@ -1,5 +1,4 @@
 import logging
-import time
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
@@ -12,14 +11,14 @@ class SessionManager:
     def __init__(self, max_session_hours: float = 4.0, stop_loss_buyins: float = 3.0, stop_win_buyins: float = 10.0):
         self.start_time = datetime.now()
         self.max_session_duration = timedelta(hours=max_session_hours)
-        
+
         self.stop_loss_buyins = stop_loss_buyins
         self.stop_win_buyins = stop_win_buyins
-        
+
         self.starting_bankroll = 0.0
         self.current_bankroll = 0.0
         self.big_blind_amount = 1.0 # Sera mis à jour dynamiquement
-        
+
         self.is_active = True
         self.shutdown_reason = ""
 

@@ -5,7 +5,6 @@ from collections import deque
 from itertools import groupby
 from pathlib import Path
 from shutil import move
-from typing import Optional
 from collections.abc import Iterable
 
 logger = logging.getLogger("RuntimeHistoryStore")

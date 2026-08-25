@@ -1,7 +1,7 @@
 """Détecteur template (fallback calibration) : matching par région et scoring (extrait de src/vision/detector.py)."""
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import cv2
 import numpy as np
@@ -17,7 +17,6 @@ from src.vision.models import (
 from src.vision.preset_registry import PresetRegistry
 from src.vision.template_store import (
     TemplatePreset,
-    _estimate_table_bounds,
     _is_area,
     _normalize_area,
     load_presets,

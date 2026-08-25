@@ -3,7 +3,6 @@ import logging
 # for all other modules just use log = logging.getLogger(__name__)
 import os
 import sys
-from logging import handlers  # pylint: disable=unused-import
 
 
 def init_logger(screenlevel, filename):

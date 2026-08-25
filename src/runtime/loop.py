@@ -192,12 +192,12 @@ class RuntimeLoop:
                             self._publish_runtime_bridge_state()
                             await asyncio.sleep(float(getattr(self, "_live_debounce_reset_sleep_s", 0.03) or 0.03))
                             continue
-                             
+
                         # Si l'etat n'a pas change depuis une courte fenetre, il est considere comme stable.
                         if time.monotonic() - _debounce_start_time < float(getattr(self, "_live_debounce_stable_window_s", 0.12) or 0.12):
                             await asyncio.sleep(float(getattr(self, "_live_debounce_poll_sleep_s", 0.02) or 0.02))
                             continue
-                            
+
                         self._set_loop_stage("decision_context", publish=True)
                         decision_context_started_at = time.monotonic()
                         frame_age_s = max(0.0, time.monotonic() - decision_context_started_at)

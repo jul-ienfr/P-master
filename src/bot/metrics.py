@@ -1,10 +1,9 @@
 """Snapshots de métriques runtime (extrait de src/main.py)."""
-from typing import List, Optional
 
 try:
     from datetime import UTC, datetime
 except ImportError:  # Python 3.10 compatibility
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     UTC = UTC
 

@@ -1,9 +1,7 @@
 import asyncio
 import ctypes
 import logging
-import math
 import random
-from typing import List, Optional, Tuple
 
 import win32api
 import win32con
@@ -96,7 +94,7 @@ class ActionController:
     def _find_window(self):
         """Cherche le handle (HWND) de la fenêtre cible."""
         primary_keywords = _parse_window_title_keywords(self.window_title_keywords)
-        
+
         # LOCK HWND: Empêcher de sauter sur une autre fenêtre si celle-ci est toujours valide
         if getattr(self, 'hwnd', None) and win32gui.IsWindow(self.hwnd):
             try:
@@ -297,9 +295,9 @@ class ActionController:
         distance = ((target_x - start_x) ** 2 + (target_y - start_y) ** 2) ** 0.5
         if duration is None:
             duration = min(max(distance / random.uniform(800, 1500), 0.2), 0.8)
-        
+
         steps = max(5, int(duration * 60))
-        
+
         control_x = start_x + (target_x - start_x) * random.uniform(0.3, 0.7) + random.randint(-150, 150)
         control_y = start_y + (target_y - start_y) * random.uniform(0.3, 0.7) + random.randint(-150, 150)
 
@@ -309,11 +307,11 @@ class ActionController:
             y = int((1 - t)**2 * start_y + 2 * (1 - t) * t * control_y + t**2 * target_y)
             win32api.SetCursorPos((x, y))
             await asyncio.sleep(duration / steps)
-            
+
         if random.random() < 0.40:
             ox = target_x + random.randint(-15, 15)
             oy = target_y + random.randint(-15, 15)
-            
+
             o_steps = max(3, int(0.12 * 60))
             for i in range(1, o_steps + 1):
                 t = self._ease_out_quad(i / o_steps)
@@ -321,7 +319,7 @@ class ActionController:
                 y = int(target_y + (oy - target_y) * t)
                 win32api.SetCursorPos((x, y))
                 await asyncio.sleep(0.12 / o_steps)
-                
+
             for i in range(1, o_steps + 1):
                 t = self._ease_out_quad(i / o_steps)
                 x = int(ox + (target_x - ox) * t)
@@ -334,7 +332,7 @@ class ActionController:
         Effectue un clic PHYSIQUE (Hardware simulation) aux coordonnées absolues de l'écran.
         Recommandé si le bot tourne sur l'hôte et cible la fenêtre de la VM.
         """
-        # Si on vise une fenêtre spécifique (VM), on décale les coordonnées relatives 
+        # Si on vise une fenêtre spécifique (VM), on décale les coordonnées relatives
         # par rapport au coin de la fenêtre de la VM.
         if self.hwnd:
             rect_origin = self.get_window_rect()
@@ -362,10 +360,10 @@ class ActionController:
             self.hwnd,
             self.window_title,
         )
-            
+
         # Obtenir la position actuelle pour démarrer le mouvement
         current_x, current_y = win32api.GetCursorPos()
-        
+
         # Mouvement humain
         await self._human_mouse_move(current_x, current_y, target_x, target_y, duration=random.uniform(MIN_MOVE_DURATION_S, MAX_MOVE_DURATION_S))
 
@@ -387,13 +385,13 @@ class ActionController:
         win32api.mouse_event(win32con.MOUSEEVENTF_ABSOLUTE | win32con.MOUSEEVENTF_LEFTDOWN, abs_x, abs_y, 0, 0)
         await asyncio.sleep(random.uniform(0.02, 0.05))
         win32api.mouse_event(win32con.MOUSEEVENTF_ABSOLUTE | win32con.MOUSEEVENTF_LEFTUP, abs_x, abs_y, 0, 0)
-        
+
         if double_click:
             await asyncio.sleep(random.uniform(0.03, 0.06))
             win32api.mouse_event(win32con.MOUSEEVENTF_ABSOLUTE | win32con.MOUSEEVENTF_LEFTDOWN, abs_x, abs_y, 0, 0)
             await asyncio.sleep(random.uniform(0.02, 0.05))
             win32api.mouse_event(win32con.MOUSEEVENTF_ABSOLUTE | win32con.MOUSEEVENTF_LEFTUP, abs_x, abs_y, 0, 0)
-            
+
         logger.debug(f"Clic physique généré ABSOLUTEMENT en ({target_x}, {target_y})")
         return True
 
@@ -434,7 +432,7 @@ class ActionController:
             action_intent.bet_size,
             sorted(key for key, value in (coords_mapping or {}).items() if value),
         )
-        
+
         # Délai de réflexion humain proportionnel à l'action
         if action_name == "FOLD":
             think_time = random.uniform(1.0, 2.5)
@@ -442,10 +440,10 @@ class ActionController:
             think_time = random.uniform(2.0, 4.5)
         else:
             think_time = random.uniform(4.0, 12.0)
-            
+
         logger.info(f"Bot en réflexion ({think_time:.2f}s)...")
         await asyncio.sleep(think_time)
-        
+
         if action_name == "FOLD":
             coords = coords_mapping.get("FOLD")
             if coords:
@@ -458,7 +456,7 @@ class ActionController:
                 return {"ok": False, "action": "FOLD", "reason": "fold_click_failed", "target": tuple(coords)}
             logger.warning("CLICK_RESULT | action=FOLD status=skipped reason=missing_fold_coords")
             return {"ok": False, "action": "FOLD", "reason": "missing_fold_coords"}
-                
+
         elif action_name == "CALL" or action_name == "CHECK":
             coords = coords_mapping.get("CALL")
             if coords:
@@ -471,7 +469,7 @@ class ActionController:
                 return {"ok": False, "action": action_name, "reason": "call_click_failed", "target": tuple(coords)}
             logger.warning("CLICK_RESULT | action=%s status=skipped reason=missing_call_coords", action_name)
             return {"ok": False, "action": action_name, "reason": "missing_call_coords"}
-                
+
         elif action_name == "ALL_IN" or "RAISE" in action_name or "BET" in action_name:
             text_box_coords = coords_mapping.get("BET_BOX")
             if text_box_coords:
@@ -480,14 +478,14 @@ class ActionController:
                 if not clicked:
                     logger.error("CLICK_RESULT | action=%s status=failed reason=bet_box_click_failed", action_name)
                     return {"ok": False, "action": action_name, "reason": "bet_box_click_failed"}
-                
+
                 # --- Dynamic BB Parsing for resilient betting ---
                 import json
                 import os
                 import re
                 bb_size = 200  # Fallback par defaut absolu
                 active_regex = r'\d+[/,](\d+)\b'
-                
+
                 # 1. Selection automatique du profil du site depuis config.json
                 if self.window_title:
                     try:
@@ -495,7 +493,7 @@ class ActionController:
                         with open(config_path) as f:
                             cfg = json.load(f)
                             profiles = cfg.get('bot', {}).get('site_profiles', {})
-                            
+
                             # On cherche quel site correspond au titre de la fenetre actuelle
                             for site_name, profile in profiles.items():
                                 if site_name.lower() in self.window_title.lower():
@@ -513,38 +511,38 @@ class ActionController:
                             bb_size = int(match.group(1))
                         except ValueError:
                             pass
-                            
+
                 target_amount = action_intent.bet_size if action_intent.bet_size is not None else float(3 * bb_size)
-                
+
                 # Si le calcul OCR a fail (pot=0) et crashé à 1.0, on force une relance standard GTO (3 BB)
                 if target_amount < bb_size:
                     logger.warning(f"Correction Sizing: {target_amount} est inférieur à 1 BB ({bb_size}). Forcé à 3 BB.")
                     target_amount = float(3 * bb_size)
-                
+
                 # Formatage du nombre (Entier si Play Money, Décimal sinon)
                 if bb_size >= 10:
                     amount_to_bet = str(int(target_amount))
                 else:
                     amount_to_bet = f"{target_amount:.2f}".rstrip('0').rstrip('.')
-                    
+
                 logger.info("=========== HISTORIQUE MISE ===========")
                 logger.info(f"  Action Requise    : {action_name}")
                 logger.info(f"  BB détectée       : {bb_size}")
                 logger.info(f"  Calcul IA brut    : {action_intent.bet_size}")
                 logger.info(f"  Montant Final     : {amount_to_bet}")
                 logger.info("=======================================")
-                
+
                 await self.send_text(amount_to_bet)
-                
+
                 await asyncio.sleep(random.uniform(0.08, 0.16))
-                
+
                 # Double frappe ENTER pour valider sur les clients récalcitrants
                 for _ in range(2):
                     win32api.keybd_event(win32con.VK_RETURN, 0, 0, 0)
                     await asyncio.sleep(random.uniform(0.03, 0.07))
                     win32api.keybd_event(win32con.VK_RETURN, 0, win32con.KEYEVENTF_KEYUP, 0)
                     await asyncio.sleep(random.uniform(0.1, 0.2))
-                
+
                 # ET on clique le bouton physiques BET_BTN pour valider (Indispensable sur PokerStars récent)
                 bet_btn_coords = coords_mapping.get("BET_BTN")
                 if bet_btn_coords:
@@ -560,7 +558,7 @@ class ActionController:
                         logger.info("CLICK_RESULT | Bouton BET_BTN cliqué avec succès.")
                 else:
                     logger.warning("CLICK_RESULT | AUCUNE coordonnée pour BET_BTN. L'IA n'a pas vu le bouton final ! Seul ENTER a été pressé.")
-                
+
                 logger.info(f"-> Action exécutée : {action_name} ({amount_to_bet}) validé")
                 return {
                     "ok": True,

@@ -96,7 +96,7 @@ def test_execute_action_without_matching_coords_does_not_click(monkeypatch):
 
 
 def test_execute_action_clicks_action_button_and_types_bet_amount(monkeypatch):
-    from src.bot.win32_controller import WM_CHAR, WM_KEYDOWN, WM_KEYUP, Win32GhostController
+    from src.bot.win32_controller import WM_CHAR, WM_KEYDOWN, Win32GhostController
 
     key_calls = []
     fake_api = types.SimpleNamespace(

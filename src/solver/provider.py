@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import time
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Callable
 
 from src.runtime.health import HealthMonitor
@@ -11,7 +11,7 @@ from src.runtime.health import HealthMonitor
 try:
     from datetime import UTC, datetime
 except ImportError:  # Python 3.10 compatibility
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     UTC = UTC
 

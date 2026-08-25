@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from typing import Optional
 from collections.abc import Callable
 
 from aiohttp import web
@@ -12,7 +11,7 @@ except ImportError:
 try:
     from datetime import UTC, datetime
 except ImportError:  # Python 3.10 compatibility
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     UTC = UTC
 
@@ -62,7 +61,7 @@ class BotAPI(
         self._runtime_snapshot_cached_at: float = 0.0
         self._runtime_snapshot_ttl_seconds = 0.9
         self._runtime_snapshot_lock = asyncio.Lock()
-        
+
         self._setup_routes()
         self._setup_cors()
 

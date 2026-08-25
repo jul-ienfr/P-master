@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import cv2
 import numpy as np
@@ -126,7 +126,6 @@ def geometry_to_pixel_regions(
 
 
 # --- Phase 2.7 : helpers de géométrie déplacés depuis src/main.py ---
-from typing import Tuple  # noqa: E402
 
 from src.vision.models import DetectionResult, TableState  # noqa: E402
 

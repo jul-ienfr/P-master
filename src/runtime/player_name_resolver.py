@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import html
 import re
-from typing import Dict, Tuple
 
 UI_PLAYER_NAME_TOKENS = {
     "passer",

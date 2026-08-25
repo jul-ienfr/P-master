@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Optional
 from collections.abc import Sequence
 
 from src.vision.ocr import PokerOCR

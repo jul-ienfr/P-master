@@ -80,10 +80,10 @@ class MouseMover(VirtualBoxController):
     def mouse_mover(self, x1, y1, x2, y2):
         speed = 0.5
         distance = ((x2 - x1)**2 + (y2 - y1)**2)**0.5
-        
+
         # Scale deviation according to distance, max deviation 150px
         deviation = min(distance * 0.3, 150)
-        
+
         # Define base control points for Bezier curve
         cp = [
             (x1, y1),
@@ -91,15 +91,15 @@ class MouseMover(VirtualBoxController):
             (x1 + (x2 - x1)*0.66 + random.uniform(-deviation, deviation), y1 + (y2 - y1)*0.66 + random.uniform(-deviation, deviation)),
             (x2, y2)
         ]
-        
+
         # Determine number of steps
         steps = max(int(distance / 10), 10)
-        
+
         for i in range(steps):
             t = i / float(steps - 1)
-            
+
             x, y = get_point_on_cubic_bezier(cp, t)
-            
+
             # Additional small tremble
             x += int(random.uniform(-2, 2))
             y += int(random.uniform(-2, 2))
@@ -130,7 +130,7 @@ class MouseMover(VirtualBoxController):
             enable_typing_delay = get_config().config.getboolean('antidetection', 'enable_typing_delay', fallback=True)
         except:
             enable_typing_delay = True
-            
+
         is_windows = sys.platform.startswith('win')
         shell = None
         if not self.vbox_mode and is_windows:
@@ -139,7 +139,7 @@ class MouseMover(VirtualBoxController):
                 shell = win32com.client.Dispatch("WScript.Shell")
             except ImportError:
                 log.warning("win32com is required for local keyboard typing.")
-            
+
         for char in text:
             if self.vbox_mode:
                 self.keyboard_type_vbox(char)
@@ -149,7 +149,7 @@ class MouseMover(VirtualBoxController):
                     shell.SendKeys(char)
                 else:
                     log.warning("Keyboard typing bypassed: Not supported on this environment.")
-            
+
             if enable_typing_delay:
                 human_sleep(0.05, 0.25)
             else:
@@ -170,19 +170,19 @@ class MouseMover(VirtualBoxController):
             if random.random() < 0.02:
                 miss_x = x2 + xrand + random.choice([random.randint(25, 45), -random.randint(25, 45)])
                 miss_y = y2 + yrand + random.choice([random.randint(25, 45), -random.randint(25, 45)])
-                
+
                 log.debug("Intentional Miss-click initiated")
                 if self.vbox_mode:
                     self.mouse_move_vbox(miss_x, miss_y)
                 else:
                     self.mouse.move(miss_x, miss_y)
                 human_sleep(0.01, 0.1)
-                
+
                 if self.vbox_mode:
                     self.mouse_click_vbox(miss_x, miss_y)
                 else:
                     self.mouse.click(miss_x, miss_y)
-                
+
                 # Realize mistake, wait before correcting
                 human_sleep(0.4, 0.8)
 

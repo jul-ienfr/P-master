@@ -1,8 +1,6 @@
-import ctypes
 import logging
 import random
 import time
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +22,7 @@ class Win32GhostController:
     def __init__(self, window_title: str = "PokerStars"):
         self.window_title = window_title
         self.hwnd = self._find_window(window_title)
-        
+
         if not self.hwnd:
             logger.warning(f"Fenêtre '{window_title}' introuvable. Le mode Fantôme Win32 sera inactif.")
 
@@ -63,10 +61,9 @@ class Win32GhostController:
             return
 
         try:
-            import win32api
             import win32con
             import win32gui
-            
+
             # On ajoute un micro-jitter (1-2 pixels) pour éviter un clic robotique parfait
             jitter_x = x + random.randint(-2, 2)
             jitter_y = y + random.randint(-2, 2)
@@ -74,14 +71,14 @@ class Win32GhostController:
 
             # Envoi du message DOWN (pression)
             win32gui.SendMessage(self.hwnd, WM_LBUTTONDOWN, win32con.MK_LBUTTON, lparam)
-            
+
             # Délai microscopique humain entre l'appui et le relâchement du clic (30 à 80ms)
             time.sleep(random.uniform(0.03, 0.08))
-            
+
             # Envoi du message UP (relâchement)
             win32gui.SendMessage(self.hwnd, WM_LBUTTONUP, 0, lparam)
             logger.debug(f"Clic fantôme envoyé à {jitter_x},{jitter_y} sur HWND {self.hwnd}")
-            
+
         except Exception as e:
             logger.error(f"Erreur lors du clic Win32 : {e}")
 
@@ -89,37 +86,36 @@ class Win32GhostController:
         """Envoie des frappes de clavier virtuelles à la fenêtre pour saisir le montant."""
         if not self.hwnd:
             return
-            
+
         try:
             import win32api
-            import win32gui
-            
+
             amount_str = str(amount)
             for char in amount_str:
                 # Convertir le caractère en code ASCII/Virtual Key
                 vk_code = ord(char.upper())
-                
+
                 # Message KeyDown
                 win32api.SendMessage(self.hwnd, WM_KEYDOWN, vk_code, 0)
                 # Message d'impression du caractère
                 win32api.SendMessage(self.hwnd, WM_CHAR, ord(char), 0)
                 # Message KeyUp
                 win32api.SendMessage(self.hwnd, WM_KEYUP, vk_code, 0)
-                
+
                 # Délai de frappe humain ultra rapide (10-30ms)
                 time.sleep(random.uniform(0.01, 0.03))
-                
+
             # Appuyer sur Entrée pour valider (optionnel, selon le casino)
             win32api.SendMessage(self.hwnd, WM_KEYDOWN, VK_RETURN, 0)
             win32api.SendMessage(self.hwnd, WM_KEYUP, VK_RETURN, 0)
-            
+
         except Exception as e:
             logger.error(f"Erreur lors de la frappe Win32 : {e}")
 
     def execute_action(self, action: str, amount: float | None, coords_dict: dict):
         """Exécute l'action de poker instantanément en arrière-plan."""
         action = action.upper()
-        
+
         # 1. Saisie du montant si c'est une mise
         if amount is not None and action in ["BET", "RAISE", "ALL_IN"]:
             if "BET_BOX" in coords_dict:
@@ -128,7 +124,7 @@ class Win32GhostController:
                 time.sleep(0.05)
                 # Optionnel: Ctrl+A pour tout sélectionner avant de taper
                 self.ghost_type_amount(amount)
-        
+
         # 2. Clic sur le bouton d'action (Fold, Call, Bet)
         if action in coords_dict:
             btn_x, btn_y = coords_dict[action]

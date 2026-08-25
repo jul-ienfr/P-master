@@ -90,7 +90,7 @@ class VirtualBoxController(VirtualBoxMouseBase):
     def keyboard_type_vbox(self, text):
         """Type a string into the VirtualBox console."""
         # Note: Depending on the virtualbox ctypes binding, put_keys might act directly on strings.
-        # Ensure we have the appropriate random delays between keystrokes in the calling function, 
+        # Ensure we have the appropriate random delays between keystrokes in the calling function,
         # or we put_keys for individual characters in `type_keyboard` inside MouseMover.
         try:
             self.session.console.keyboard.put_keys(text)

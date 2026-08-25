@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import time
 from copy import deepcopy
-from typing import Optional
 
 try:
     from datetime import UTC, datetime
 except ImportError:  # Python 3.10 compatibility
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     UTC = UTC
 

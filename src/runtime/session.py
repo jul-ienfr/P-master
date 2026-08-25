@@ -3,12 +3,11 @@ import logging
 import os
 import socket
 import uuid
-from typing import Optional, Tuple
 
 try:
     from datetime import UTC, datetime
 except ImportError:  # Python 3.10 compatibility
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     UTC = UTC
 

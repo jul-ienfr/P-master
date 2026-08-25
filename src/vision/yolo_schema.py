@@ -14,20 +14,20 @@ YOLO_CLASS_NAMES: list[str] = [
     # Maintien des anciens labels génériques pour compatibilité / fallback
     "board_card",
     "hero_card",
-    
+
     # --- 2. Zones Textuelles (OCR) et Boutons ---
     "pot_area",
     "stack_area",
     "player_name_area",
     "dealer_button",
-    
+
     # --- 3. Actions ---
     "fold_button",
     "call_button",
     "check_button",
     "bet_button",
     "raise_button",
-    
+
     # --- 4. Validation Visuelle (Anti-Hallucination OCR) ---
     "chip_stack_red",
     "chip_stack_blue",

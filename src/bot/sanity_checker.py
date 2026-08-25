@@ -1,7 +1,7 @@
 ﻿import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("SanityChecker")
 
@@ -348,7 +348,7 @@ class SanityChecker:
         if action_name in {"BET", "RAISE", "RAISE_HALF", "RAISE_POT", "ALL_IN"}:
             return ["BET_BOX", "BET_BTN"]
         return []
-        
+
     def validate_pot_evolution(self, old_pot: float, new_ocr_pot: float, total_bets: float, *, allow_unbacked_observed_pot: bool = False) -> float:
         """
         VÃ©rifie si le nouveau pot lu par l'OCR est mathÃ©matiquement possible.
@@ -507,13 +507,13 @@ class SanityChecker:
         # A drop is suspect when it exceeds half the current stack
         # OR exceeds 3x the pot (an implausible single-action sizing).
         return drop_ratio > 0.50 or amount_dropped > effective_pot * 3.0
-        
+
     def validate_board_cards(self, current_stage: str, detected_cards: list) -> list:
         """
         Filtre les cartes "fantÃ´mes" (erreurs YOLO ou animations) selon la street.
         """
         num_cards = len(detected_cards)
-        
+
         if current_stage in {"IDLE", "PREFLOP"} and num_cards not in (0, 3):
             logger.debug(f"Cartes ignorÃ©es avant le flop (frame instable) : {detected_cards}")
             return []
@@ -527,7 +527,7 @@ class SanityChecker:
         elif current_stage == "RIVER" and num_cards not in (4, 5):
             logger.debug(f"Frame instable a la River. YOLO voit {num_cards} cartes.")
             return self._coerce_board_count(detected_cards, 5)
-        
+
         return detected_cards
 
     def _coerce_board_count(self, detected_cards: list, expected_count: int) -> list:

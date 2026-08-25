@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Iterable, Sequence
 
 from src.vision.site_adapter import SiteAdapterProtocol

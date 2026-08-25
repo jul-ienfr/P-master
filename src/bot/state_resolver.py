@@ -1,21 +1,19 @@
 """Résolution de l'état runtime : rues, participation, lissage, snapshot tracker (extrait de src/main.py)."""
 import logging
 import time
-from typing import Dict, List, Optional, Tuple
 from collections.abc import Iterable
 
 import numpy as np
 
 from src.bot.live_reconstruction import (
-    derive_legal_actions,
     derive_street,
     normalize_board_for_street,
     smooth_state_confidence_window,
     stable_window_value,
 )
-from src.bot.runtime_types import CanonicalPlayer, CanonicalTableState
+from src.bot.runtime_types import CanonicalTableState
 from src.runtime.readiness import build_runtime_readiness
-from src.vision.models import DetectionResult, TableState
+from src.vision.models import TableState
 
 logger = logging.getLogger("SuperBot2026")
 

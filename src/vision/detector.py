@@ -1,7 +1,6 @@
 """Orchestrateur de détection : YOLO + fallback template (lecture cartes/table)."""
 import logging
 from pathlib import Path
-from typing import List, Optional
 
 import cv2
 import numpy as np
@@ -120,27 +119,27 @@ class PokerDetector:
     def _hybrid_validate_card(self, crop: np.ndarray, original_class: str) -> str:
         if not self.fallback_detector.presets or crop is None or crop.size == 0:
             return original_class
-        
+
         best_error = 1.0
         best_label = original_class
-        
+
         for preset in self.fallback_detector.presets:
             for label, template in preset.card_templates.items():
                 crop_h, crop_w = crop.shape[:2]
                 if crop_h < 10 or crop_w < 10:
                     continue
-                
+
                 corner = _extract_card_corner(crop)
                 t_corner = _extract_card_corner(template)
                 if corner is None or t_corner is None:
                     continue
-                
+
                 t_corner = cv2.resize(t_corner, (corner.shape[1], corner.shape[0]), interpolation=cv2.INTER_AREA)
                 error, _ = _find_template_sqdiff(corner, t_corner)
                 if error < best_error:
                     best_error = error
                     best_label = label
-                    
+
         # Seuil d'erreur permissif pour accepter la correction
         if best_error < 0.18:
             return best_label
@@ -163,7 +162,7 @@ class PokerDetector:
             conf = float(box.conf[0])
             cls_id = int(box.cls[0])
             class_name = self.names[cls_id]
-            
+
             # Keep cards with >= 0.05 conf temporarily for extreme logging
             is_card_class = len(class_name) == 2 and class_name[0] in "23456789TJQKA" and class_name[1] in "shdc"
             min_required_conf = 0.05 if is_card_class else base_conf_threshold
@@ -171,7 +170,7 @@ class PokerDetector:
                 continue
 
             x1, y1, x2, y2 = map(int, box.xyxy[0])
-            
+
             detection = DetectionResult(
                 class_name=class_name,
                 confidence=conf,
@@ -179,7 +178,7 @@ class PokerDetector:
             )
 
             is_card = bool(decode_card_token(class_name)) or class_name.startswith("card_") or class_name in ("board_card", "hero_card")
-            
+
             # HYBRID FALLBACK: Si YOLO doute d'une carte (conf < 0.82), on demande à OpenCV Templates
             if is_card and conf < 0.82 and decode_card_token(class_name):
                 crop = _crop_frame(frame, (x1, y1, x2, y2))
@@ -187,7 +186,7 @@ class PokerDetector:
                 if validated_class != class_name:
                     logger.info(f"[HYBRID] YOLO uncertain ({conf:.2f}) on {class_name}. Corrected to {validated_class} via Template Matching.")
                     class_name = validated_class
-            
+
             detection.class_name = class_name
             if is_card:
                 logger.info(f"[YOLO DEBUG] Raw card candidate: cls={class_name} conf={conf:.3f} y1={y1}")
@@ -240,15 +239,15 @@ class PokerDetector:
             return TableState(metadata={"detector_mode": "none"})
 
         state = TableState(metadata={"detector_mode": "none", "table_detected": False})
-        
+
         for step in self.pipeline:
             valides_hero = _resolved_card_detections(state.hero_cards)
             valides_board = _resolved_card_detections(state.board_cards)
-            
+
             # Si on a déjà tout trouvé aux étapes précédentes, on s'arrête là !
             if len(valides_hero) >= 2 and state.metadata.get("table_detected"):
                 break
-                
+
             if step == "yolo" and self.model is not None:
                 yolo_state = self._run_yolo_detection(frame, conf_threshold)
                 if self._has_meaningful_signal(yolo_state):
@@ -262,7 +261,7 @@ class PokerDetector:
                         state.action_buttons = yolo_state.action_buttons
                     if not state.pots:
                         state.pots = yolo_state.pots
-                        
+
             elif step == "opencv" and self.fallback_detector.available():
                 fallback_state = self._run_template_fallback(frame)
                 if fallback_state.metadata.get("table_detected"):
@@ -309,7 +308,7 @@ class PokerDetector:
                     state.player_names = fallback_state.player_names
                 if fallback_state.dealer_button is not None and state.dealer_button is None:
                     state.dealer_button = fallback_state.dealer_button
-                    
+
             elif step == "llm" and hasattr(self, "ai_fallback") and self.ai_fallback is not None:
                 if self._should_query_llm_for_hero(state):
                     logger.info("Appel de l'API LLM...")
@@ -343,7 +342,7 @@ class PokerDetector:
                                     bbox=bbox,
                                 )
                             )
-                        
+
                         if len(llm_hero) == 2:
                             llm_hero = _dedupe_card_detections(llm_hero, detection_sort_key)
                             if len(llm_hero) == 2:

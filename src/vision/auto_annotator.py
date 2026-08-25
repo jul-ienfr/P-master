@@ -33,7 +33,7 @@ class AutoAnnotator:
     def encode_image(self, image_path: str) -> str:
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode('utf-8')
-            
+
     def encode_image_frame(self, frame: np.ndarray) -> str:
         _, buffer = cv2.imencode('.jpg', frame)
         return base64.b64encode(buffer).decode('utf-8')
@@ -44,7 +44,7 @@ class AutoAnnotator:
             api_key = provider.get("api_key", "")
             base_url = provider.get("base_url", "")
             model = provider.get("model", "gpt-4o")
-            
+
             # Formatage propre de l'URL
             if not base_url or base_url.strip() == "":
                 base_url = None
@@ -56,21 +56,21 @@ class AutoAnnotator:
                     base_url or "default_openai",
                 )
                 continue
-                
+
             try:
                 logger.info(f"Tentative {i+1}/{len(self.providers)} avec le modèle {model}...")
                 client = OpenAI(api_key=api_key or "local", base_url=base_url)
-                
+
                 boxes = self._ask_single_ai(client, model, image_path, width, height, frame=frame)
-                
+
                 if boxes and len(boxes) > 0:
                     return boxes # Succès, on quitte la boucle
                 else:
                     logger.warning(f"Le modèle {model} n'a rien détecté.")
-                    
+
             except Exception as e:
                 logger.error(f"Échec avec le fournisseur {model}: {e}")
-                
+
         logger.error(f"Tous les fournisseurs ({len(self.providers)}) ont échoué sur {image_path}.")
         return []
 
@@ -79,7 +79,7 @@ class AutoAnnotator:
             base64_image = self.encode_image_frame(frame)
         else:
             base64_image = self.encode_image(image_path)
-            
+
         class_list = ", ".join(f'"{name}"' for name in YOLO_CLASS_NAMES)
         prompt = f"""
 Tu es un expert en Computer Vision pour des tables de Poker.
@@ -107,20 +107,20 @@ Si tu ne vois rien, retourne {{"boxes": []}}.
             ],
             "temperature": 0.0
         }
-        
+
         if client.base_url and "openai" in (client.base_url.host or ""):
              call_params["response_format"] = { "type": "json_object" }
 
         response = client.chat.completions.create(**call_params)
         result_text = response.choices[0].message.content.strip()
-        
+
         # Nettoyage Markdown (Groq / Ollama safe)
         if result_text.startswith("```json"): result_text = result_text[7:]
         if result_text.startswith("```"): result_text = result_text[3:]
         if result_text.endswith("```"): result_text = result_text[:-3]
-            
+
         parsed = json.loads(result_text.strip())
-        
+
         if isinstance(parsed, dict) and "boxes" in parsed:
             return parsed["boxes"]
         elif isinstance(parsed, dict):
@@ -141,16 +141,16 @@ Si tu ne vois rien, retourne {{"boxes": []}}.
 
             abs_w, abs_h = xmax - xmin, ymax - ymin
             abs_x_center, abs_y_center = xmin + (abs_w / 2), ymin + (abs_h / 2)
-            
+
             yolo_lines.append(f"{cls_id} {abs_x_center/img_width:.6f} {abs_y_center/img_height:.6f} {abs_w/img_width:.6f} {abs_h/img_height:.6f}")
 
         return "\n".join(yolo_lines)
 
     def process_dataset(self, raw_dir: str = "dataset/raw_images", labels_dir: str = "dataset/labels"):
         if not self.providers: return
-        
+
         os.makedirs(labels_dir, exist_ok=True)
-            
+
         for filename in os.listdir(raw_dir):
             if not filename.lower().endswith(('.png', '.jpg', '.jpeg')): continue
 
@@ -165,7 +165,7 @@ Si tu ne vois rien, retourne {{"boxes": []}}.
             height, width = img.shape[:2]
 
             boxes = self.ask_ai_with_fallbacks(img_path, width, height)
-            
+
             if boxes:
                 with open(label_path, "w") as f:
                     f.write(self.convert_to_yolo_format(boxes, width, height))

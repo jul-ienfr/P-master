@@ -5,7 +5,6 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Optional
 from collections.abc import Callable
 
 from src.runtime.health import HealthMonitor

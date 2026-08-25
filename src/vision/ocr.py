@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 from collections.abc import Sequence
 
 import cv2
@@ -225,7 +225,7 @@ class RapidOCREngine(BaseOCREngine):
             return ""
 
         engine = self._get_engine()
-        
+
         # Apply OpenCV Preprocessing
         enhanced_image = self._preprocess_for_ocr(image_crop)
         pil_image = Image.fromarray(enhanced_image)
@@ -1008,27 +1008,27 @@ class PokerOCR:
         try:
             # 1. Upscale for better font recognition
             enlarged = cv2.resize(image_crop, None, fx=3.0, fy=3.0, interpolation=cv2.INTER_CUBIC)
-            
+
             # 2. Convert to HSV
             hsv = cv2.cvtColor(enlarged, cv2.COLOR_BGR2HSV)
-            
+
             # 3. Create Yellow Mask (Poker UI amounts are often yellow or white)
             lower_yellow = np.array([20, 50, 150])
             upper_yellow = np.array([40, 255, 255])
             mask_yellow = cv2.inRange(hsv, lower_yellow, upper_yellow)
-            
+
             # 4. Create White Mask
             lower_white = np.array([0, 0, 180])
             upper_white = np.array([179, 40, 255])
             mask_white = cv2.inRange(hsv, lower_white, upper_white)
-            
+
             # 5. Combine Masks
             combo_mask = cv2.bitwise_or(mask_white, mask_yellow)
-            
+
             # 6. Create Binary Image (Black text on White background)
             binary = np.full(enlarged.shape[:2], 255, dtype=np.uint8)
             binary[combo_mask > 0] = 0
-            
+
             # Return BGR so engines relying on 3 channels don't break
             return cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
         except Exception as exc:

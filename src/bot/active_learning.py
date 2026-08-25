@@ -21,20 +21,20 @@ class HumanInTheLoop:
         self.dataset_dir_labels = "dataset/labels"
         self.shadow_dir = Path("dataset/shadow_failures")
         self.shadow_manifest_path = self.shadow_dir / "events.jsonl"
-        
+
         # S'assurer que les dossiers existent
         os.makedirs(self.dataset_dir_images, exist_ok=True)
         os.makedirs(self.dataset_dir_labels, exist_ok=True)
         self.shadow_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Compter les images déjà annotées
         self.annotations_count = len([f for f in os.listdir(self.dataset_dir_labels) if f.endswith('.txt')])
-        
+
         # États de synchronisation
         self.intervention_event = asyncio.Event()
         self.current_issue = None
         self.is_waiting_for_human = False
-        
+
         # L'annotateur de secours (Initialisé dans _setup_api_fallback)
         self.ai_fallback: AutoAnnotator = None
 
@@ -48,11 +48,11 @@ class HumanInTheLoop:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
         img_path = os.path.join(self.dataset_dir_images, f"active_learn_{timestamp}.jpg")
         lbl_path = os.path.join(self.dataset_dir_labels, f"active_learn_{timestamp}.txt")
-        
+
         cv2.imwrite(img_path, frame)
         with open(lbl_path, "w") as f:
             f.write(yolo_label_content)
-            
+
         self.annotations_count += 1
         logger.info(f"Nouvelle donnée ajoutée au dataset ({self.annotations_count}/{self.target_dataset_size})")
 
@@ -166,16 +166,16 @@ class HumanInTheLoop:
         frame = self.current_issue["raw_frame"]
         width = self.current_issue["width"]
         height = self.current_issue["height"]
-        
+
         # Création d'un AutoAnnotator factice juste pour utiliser sa méthode de formatage
-        dummy_annotator = AutoAnnotator(api_key="") 
+        dummy_annotator = AutoAnnotator(api_key="")
         yolo_txt = dummy_annotator.convert_to_yolo_format(human_boxes, width, height)
-        
+
         self._save_to_dataset(frame, yolo_txt)
-        
+
         self.current_issue["resolution"] = {"status": "resolved_by_human", "boxes": human_boxes}
         self.is_waiting_for_human = False
-        
+
         # Débloque le bot
         self.intervention_event.set()
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 
 def load_runtime_failure_records(manifest_path: str) -> list[dict[str, Any]]:

@@ -2,7 +2,6 @@ import ctypes
 import logging
 import threading
 import time
-from typing import Optional, Tuple
 
 import cv2
 import numpy as np
@@ -128,7 +127,7 @@ class ScreenCapture:
                 self.backend = "imagegrab"
                 self.capture_mode = "imagegrab"
                 logger.warning("Fallback sur PIL.ImageGrab suite a l'echec DXcam.")
-             
+
         self.is_capturing = False
 
     @staticmethod
@@ -378,7 +377,7 @@ class ScreenCapture:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     cap = ScreenCapture(target_fps=2)
-    
+
     # On démarre la capture (sur tout l'écran pour le test)
     if cap.start():
         try:
@@ -389,7 +388,7 @@ if __name__ == "__main__":
                     # On affiche la frame réduite pour le test
                     preview = cv2.resize(frame, (960, 540))
                     cv2.imshow("Poker Bot - DXcam Preview", preview)
-                
+
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
         finally:

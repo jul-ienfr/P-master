@@ -4,7 +4,6 @@ import importlib.util
 import json
 import os
 from pathlib import Path
-from typing import Optional
 
 MODEL_PATH_CANDIDATE_SUFFIXES = (".engine", ".onnx", ".pt")
 

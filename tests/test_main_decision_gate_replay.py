@@ -812,11 +812,11 @@ def test_run_decision_gate_flow_reuses_cached_decision_for_same_spot():
 def test_jit_action_validator_can_ignore_action_region_changes():
     controller = object.__new__(SuperBotController)
     controller.camera = types.SimpleNamespace(get_latest_frame=lambda: np.zeros((24, 24, 3), dtype=np.uint8))
-    
+
     # Simuler un changement important
     base_preview = np.zeros((18, 24), dtype=np.uint8)
     mutated_preview = np.ones((18, 24), dtype=np.uint8) * 100
-    
+
     controller._last_visual_previews = {"actions": base_preview}
     controller._capture_live_visual_previews = lambda frame: {"actions": mutated_preview}
 

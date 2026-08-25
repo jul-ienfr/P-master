@@ -5,7 +5,7 @@ import logging
 import time
 from collections import OrderedDict
 from functools import lru_cache
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -227,7 +227,7 @@ def _analyze_board_texture(board: list[str]) -> str:
     ranks = "23456789TJQKA"
     board_suits = [card[-1] for card in board if len(card) == 2]
     board_ranks = [ranks.find(card[0]) for card in board if len(card) == 2 and card[0] in ranks]
-    
+
     if not board_suits or not board_ranks:
         return "DRY"
 
@@ -237,23 +237,23 @@ def _analyze_board_texture(board: list[str]) -> str:
 
     if max_suit_count >= 3:
         return "MONOTONE"
-    
+
     board_ranks = sorted(board_ranks)
     gaps = sum(board_ranks[i+1] - board_ranks[i] for i in range(len(board_ranks)-1))
-    
+
     if gaps <= 3 or max_suit_count == 2:
         return "WET"
-        
+
     return "DRY"
 
 def _bet_size_from_action(action_name: str | None, pot: float, effective_stack: float, board: list[str] = None) -> float | None:
     normalized = _normalize_action_name(action_name)
     if not normalized:
         return None
-        
+
     if normalized == "ALL_IN":
         return round(max(effective_stack, 0.0), 2)
-        
+
     spr = effective_stack / pot if pot > 0 else 100.0
 
     if normalized in {"BET", "RAISE"} and spr <= 0.8:
@@ -261,7 +261,7 @@ def _bet_size_from_action(action_name: str | None, pot: float, effective_stack: 
 
     if normalized in {"BET", "RAISE"}:
         texture = _analyze_board_texture(board or [])
-        
+
         if texture == "DRY":
             target_size = pot * 0.33
         elif texture == "WET":
@@ -270,7 +270,7 @@ def _bet_size_from_action(action_name: str | None, pot: float, effective_stack: 
             target_size = pot * 0.50
         else:
             target_size = pot * 0.50
-            
+
         streets_remaining = 4 - len(board) if board else 3
         if streets_remaining > 0 and 1.0 < spr <= 4.0:
             geometric_ratio = (spr + 1) ** (1 / streets_remaining) - 1
@@ -282,7 +282,7 @@ def _bet_size_from_action(action_name: str | None, pot: float, effective_stack: 
         return round(min(max(pot * 0.5, 1.0), effective_stack), 2)
     if normalized == "BET_75":
         return round(min(max(pot * 0.75, 1.0), effective_stack), 2)
-        
+
     return None
 
 def _safe_float(value: Any) -> float | None:
@@ -348,19 +348,19 @@ class DecisionMaker:
         self.solver_provider = solver_provider
         if self.solver_provider is None and resolved_solver_backend is not None:
             self.solver_provider = SolverProvider(native_backend=resolved_solver_backend)
-        
+
         self.hero_base_range = BASE_GTO_RANGE
-        
+
         # Circuit Breaker variables
         self._consecutive_solver_timeouts = 0
         self._solver_cooldown_until = 0.0
 
-        
+
         if rl_agent is _DEFAULT_DEPENDENCY:
             self.rl_agent = RLAdapterAgent() if create_rl_agent and RL_AVAILABLE else None
         else:
             self.rl_agent = rl_agent
-            
+
         self.create_rl_agent = create_rl_agent
         self.enable_validated_rl = enable_validated_rl
         self.autoload_rl_model = autoload_rl_model
@@ -372,12 +372,12 @@ class DecisionMaker:
         self._solve_cache_ttl_s = 10.0
         self._solve_cache_max_entries = 256
         self.enable_llm_assist = False # Par défaut, le LLM est désactivé (100% local)
-        
+
         # Configuration de la Rake (Commission du Casino) - NL2 à NL10 = 5%
         self.rake_percentage = 0.05
         self._profile_cache: dict[str, tuple[float, dict | None]] = {}
         self._profile_cache_ttl_s = 30.0
-        
+
         if self.rl_agent and rl_agent is _DEFAULT_DEPENDENCY and self.create_rl_agent and self.autoload_rl_model:
             self.rl_agent.load_model()
 
@@ -505,7 +505,7 @@ class DecisionMaker:
         vpip = float(derived.get("vpip_rate", profile.get("vpip_count", 0) / sample_hands) or 0.0)
         pfr = float(derived.get("pfr_rate", profile.get("pfr_count", 0) / sample_hands) or 0.0)
         af = float(derived.get("aggression_ratio", profile.get("af", 1.0)) or 1.0)
-        
+
         state = np.zeros(50)
         state[0] = pot / max(effective_stack, 1.0)
         state[1] = effective_stack / 100.0
@@ -670,7 +670,7 @@ class DecisionMaker:
 
         if structured_profile.get("call_bias", 0.0) >= 0.12 and "CALL" in normalized_legal_actions and normalized_gto == "FOLD":
             return normalized_legal_actions["CALL"], "EXPLOIT_PROFILE"
-        
+
         return gto_action, "GTO_RUST"
 
     def _build_rl_ab_metadata(
@@ -1099,25 +1099,25 @@ class DecisionMaker:
         """
         if not profile or profile.get("hands_played", 0) < 30:
             return base_villain_range # Pas assez de données, on joue GTO pur.
-            
+
         player_type = profile.get("player_type", "Balanced")
-        
+
         range_items = list(_cached_range_items(base_villain_range))
         locked_range = []
 
         if player_type == "Nit" or player_type == "TightPassive":
             for hand in range_items:
-                if "s" in hand and hand[0] not in "AKQJ": 
+                if "s" in hand and hand[0] not in "AKQJ":
                     continue
-                if hand in ["22+", "33+", "44+"]: 
+                if hand in ["22+", "33+", "44+"]:
                     locked_range.append("77+")
                 else:
                     locked_range.append(hand)
-                    
+
         elif player_type == "Whale" or player_type == "LoosePassive":
             locked_range = range_items.copy()
             locked_range.extend(["K2s+", "Q5s+", "J7s+", "T7s+", "A2o+", "K7o+", "Q9o+"])
-            
+
         elif player_type == "Maniac" or player_type == "LooseAggressive":
             locked_range = range_items.copy()
             locked_range.extend(["75s+", "64s+", "53s+", "K5o+", "Q8o+"])
@@ -1128,8 +1128,8 @@ class DecisionMaker:
         final_range = ", ".join(list(dict.fromkeys(locked_range)))
         return final_range if final_range else base_villain_range
 
-    async def get_best_action(self, hero_hand: str, board: list[str], pot: float, 
-                              effective_stack: float, villain_name: str, 
+    async def get_best_action(self, hero_hand: str, board: list[str], pot: float,
+                              effective_stack: float, villain_name: str,
                               legal_actions: list[str], spot_id: str = "",
                               hero_position: str = "ip", state_confidence: float = 0.0,
                               action_history: list[dict[str, Any]] | None = None,
@@ -1143,7 +1143,7 @@ class DecisionMaker:
         legal_actions = self._normalize_runtime_actions(legal_actions)
         if not legal_actions:
             return self._fallback_action([])
-            
+
         # CIRCUIT BREAKER CHECK
         if time.monotonic() < self._solver_cooldown_until:
             logger.error("🛑 CIRCUIT BREAKER ACTIF: Solver en cooldown. Auto-Fallback.")
@@ -1160,7 +1160,7 @@ class DecisionMaker:
             )
             and not self.enable_validated_rl
         )
-         
+
         # 1. Profilage & Node-Locking GTO
         profile = await self._get_cached_profile(
             villain_name,
@@ -1168,31 +1168,31 @@ class DecisionMaker:
         )
         structured_profile = self._build_structured_profile(profile)
         villain_position = self._infer_villain_position(villain_name, hero_position, action_history)
-        
+
         # Obtenir la range théorique via le PreflopManager
         base_villain_range = self.preflop_manager.get_villain_range(villain_position)
-        
+
         # Appliquer le Node-Locking
         villain_range = self._apply_node_locking(base_villain_range, profile, board)
-        
+
         # 2. Utilisation du Deep Reinforcement Learning pour dévier de la GTO
         rl_action_name = None
         preflop_fast_used = False
         if self.rl_agent and not use_preflop_fast_path:
             state_vector = self._state_to_vector(hero_hand, board, pot, effective_stack, profile or {})
-            
+
             valid_mask = np.zeros(self.rl_agent.action_dim)
             for action in legal_actions:
                 if action in ACTION_MAP:
                     valid_mask[ACTION_MAP[action]] = 1
-                    
+
             rl_action_idx = self.rl_agent.select_action(state_vector, valid_mask, exploit_mode=False)
-            
+
             if "CALL" in legal_actions and rl_action_idx == 1:
                 rl_action_name = "CALL"
             else:
                 rl_action_name = REVERSE_ACTION_MAP.get(rl_action_idx, None)
-                
+
             if rl_action_name and rl_action_name in legal_actions:
                 logger.info(f"L'Agent RL recommande une action exploitative : {rl_action_name}")
 
@@ -1248,12 +1248,12 @@ class DecisionMaker:
         else:
             fallback_used = True
             fallback_reason = "rust_solver_unavailable"
-            
+
         # Résilience: si la requête réussit, on reset le circuit breaker
         if not fallback_used:
             self._consecutive_solver_timeouts = 0
 
-                
+
         # 4. Orchestration exploitative bornée
         final_action, decision_source = self._select_exploit_action(
             legal_actions,
@@ -1306,7 +1306,7 @@ class DecisionMaker:
             villain_stack = tournament_data.get("villain_stack", effective_stack)
             all_stacks = tournament_data.get("all_stacks", [])
             payouts = tournament_data.get("payouts", [])
-            
+
             if all_stacks and payouts:
                 icm_action = self.icm_calculator.adjust_gto_for_tournament(
                     gto_action=final_action,
@@ -1325,10 +1325,10 @@ class DecisionMaker:
         bet_size = gto_details.get("dynamic_amount")
         if bet_size is None:
             bet_size = _bet_size_from_action(gto_details.get("chosen_action", final_action), pot, effective_stack, board)
-        
+
         if final_action not in {"BET", "RAISE", "ALL_IN"}:
             bet_size = None
-            
+
         alternatives = self._extract_solver_alternatives(gto_details, legal_actions)
         rl_ab_metadata = self._build_rl_ab_metadata(
             legal_actions=legal_actions,

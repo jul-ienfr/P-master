@@ -7,16 +7,13 @@ from pathlib import Path
 try:
     from datetime import UTC, datetime
 except ImportError:  # Python 3.10 compatibility
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     UTC = UTC
 import ctypes
 import json
 import os
-import socket
-import subprocess
 import sys
-import time
 
 import cv2
 import numpy as np
@@ -38,12 +35,7 @@ def ensure_admin() -> None:
     ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(['"'+arg+'"' for arg in sys.argv]), None, 1)
     sys.exit(0)
 
-import traceback
-import uuid
 import warnings
-from types import SimpleNamespace
-from typing import Dict, List, Optional, Tuple
-from collections.abc import Iterable
 
 import torch
 
@@ -74,76 +66,36 @@ from src.bot.action_controller import ActionController
 from src.bot.active_learning import HumanInTheLoop
 from src.bot.decision_maker import DecisionMaker
 from src.bot.gate_flow import GateFlowMixin
-from src.bot.gate_flow import compact_solver_payload as _compact_solver_payload
 from src.bot.live_execution import (
-    ASSISTED_FALLBACK_MIN_DECISION_CONFIDENCE,
-    ASSISTED_MIN_DECISION_CONFIDENCE,
-    ASSISTED_MIN_GATE_CONFIDENCE,
-    ASSISTED_MIN_OBSERVED_HANDS,
-    ASSISTED_MIN_PROFILE_RELIABILITY,
-    ASSISTED_MIN_STATE_CONFIDENCE,
     LiveExecutionMixin,
 )
 from src.bot.live_reconstruction import (
     derive_legal_actions,
-    derive_street,
-    infer_hero_seat_id,
-    normalize_board_for_street,
-    ordered_stacks_by_table_geometry,
-    smooth_state_confidence_window,
-    stable_window_value,
 )
 from src.bot.metrics import MetricsMixin
 from src.bot.operator_snapshot import OperatorSnapshotMixin
 from src.bot.pixel_probe import FastPixelProbe
 from src.bot.players_builder import PlayersBuilderMixin
 from src.bot.runtime_types import CanonicalPlayer, CanonicalTableState
-from src.bot.sanity_checker import ActionIntent, GateReason, GateResult, SanityChecker
+from src.bot.sanity_checker import GateResult, SanityChecker
 from src.bot.state_resolver import StateResolverMixin
 from src.bot.table_tracker import TableTracker
 from src.data.database import DatabaseManager
 from src.runtime.bridge_store import RuntimeBridgeStore
 from src.runtime.capture_context import CaptureContextMixin
 from src.runtime.frame_pipeline import FramePipeline
-from src.runtime.go_live_gate import evaluate_go_live_gate
 from src.runtime.health import HealthMonitor
 from src.runtime.history_store import RuntimeHistoryStore
 from src.runtime.loop import RuntimeLoop
 from src.runtime.operator_bridge import OperatorBridge
 from src.runtime.player_identity_state import PlayerIdentityState
-from src.runtime.player_name_resolver import resolve_player_name
 from src.runtime.poker_state_validator import PokerStateValidator
-from src.runtime.policy_compare import (
-    build_empty_policy_compare_summary,
-    build_policy_compare_summary,
-    build_runtime_ab_summary,
-    compact_policy_compare_examples,
-    dedupe_runtime_ab_decisions,
-    extract_policy_compare_actions,
-    extract_policy_compare_ev_by_action,
-    extract_runtime_ab_decision,
-    normalize_runtime_action_name,
-    normalize_runtime_street_name,
-    policy_compare_sample_id,
-    policy_compare_spot_example,
-    policy_slug,
-    runtime_ab_decision_key,
-    safe_runtime_float,
-)
 from src.runtime.preflight import Preflight, PreflightError
-from src.runtime.readiness import build_runtime_readiness
 from src.runtime.session import (
-    RUNTIME_PORT_CANDIDATES,
     RuntimeSessionMixin,
 )
 from src.runtime.session import (
-    parse_bool_flag as _parse_bool_flag,
-)
-from src.runtime.session import (
     resolve_runtime_api_port as _resolve_runtime_api_port,
-)
-from src.runtime.session import (
-    select_available_runtime_port as _select_available_runtime_port,
 )
 from src.solver.provider import SolverProvider
 from src.vision.button_classifier import (
@@ -155,10 +107,8 @@ from src.vision.button_classifier import (
 from src.vision.capture import ScreenCapture
 from src.vision.detector import PokerDetector
 from src.vision.models import DetectionResult, TableState
-from src.vision.numeric_reader import NumericReader
 from src.vision.observation_dataset import ObservationDatasetCollector
 from src.vision.ocr import PokerOCR
-from src.vision.player_name_reader import PlayerNameReader
 from src.vision.runtime_failure_dataset import RuntimeFailureDataset
 from src.vision.table_geometry import (
     build_dynamic_coordinates,
@@ -212,7 +162,7 @@ class SuperBotController(
         except FileNotFoundError:
             logger.error(f"Fichier de config {config_path} introuvable. ArrÃªt.")
             exit(1)
-            
+
         bot_cfg = self.config.get("bot", {})
         db_cfg = self.config.get("database", {}) or {}
 
@@ -226,7 +176,7 @@ class SuperBotController(
         )
         yolo_cfg = self.config.get("yolo", {}) or {}
         vision_pipeline = self.config.get("vision_pipeline", ["yolo", "llm", "opencv"])
-        
+
         self.detector = PokerDetector(
             model_path=yolo_cfg.get("model_path", "models/poker_yolo_v11.engine"),
             pipeline=vision_pipeline
@@ -255,7 +205,7 @@ class SuperBotController(
             if getattr(fast_amount_ocr, "engines", [])
             else (self.analysis_ocr if getattr(self.analysis_ocr, "engines", []) else self.ocr)
         )
-        
+
         # --- 3. Data & Tracking ---
         self.db = DatabaseManager(
             dsn=db_cfg.get("dsn"),
@@ -264,7 +214,7 @@ class SuperBotController(
             persistence_enabled=bool(db_cfg.get("observation_persistence_enabled", True)),
         )
         self.tracker = TableTracker(self.db)
-        
+
         runtime_cfg = self.config.get("runtime_history", {}) or {}
         self.runtime_session_id = self._build_runtime_session_id()
         self.runtime_history_store = RuntimeHistoryStore(
@@ -291,10 +241,10 @@ class SuperBotController(
             autoload_rl_model=rl_cfg["autoload_rl_model"],
         )
         self.runtime_sanity = SanityChecker()
-        
+
         # --- 5. ExÃ©cuteur Stealth ---
         self.action_controller = ActionController(window_title_keywords=bot_cfg.get("window_title_keywords", "VirtualBox"))
-        
+
         # --- 6. ACTIVE LEARNING (HITL) ---
         self.hitl = HumanInTheLoop(target_dataset_size=100)
         # Configuration de l'Auto-Adaptation via API
@@ -341,10 +291,10 @@ class SuperBotController(
         )
         self.frame_pipeline = FramePipeline(self)
         self.runtime_loop = RuntimeLoop(self)
-        
+
         self.is_running = False
         self.fallback_coords = self.config.get("fallback_coordinates", {})
-        
+
         # Cache OCR
         self.last_pot_crop: np.ndarray = None
         self.last_pot_value: float = 0.0
@@ -527,7 +477,7 @@ class SuperBotController(
             frame = self.camera.get_latest_frame()
             if frame is None:
                 return False
-            
+
             # Utilisation de notre nouvelle implémentation basée sur les previews stockées
             previews = self._capture_live_visual_previews(frame)
             last_previews = getattr(self, "_last_visual_previews", {})
@@ -537,14 +487,14 @@ class SuperBotController(
             if not ignore_action_region:
                 old_action_preview = last_previews["actions"]
                 new_action_preview = previews["actions"]
-                
+
                 # Check MSE diff
                 mse = np.mean((old_action_preview - new_action_preview) ** 2)
-                
+
                 if mse > 5.0: # Seuil de mutation (le bouton s'est allumé, éteint, ou a disparu)
                     logger.warning(f"JIT CHECK FAILED : MSE de {mse:.2f} sur la zone d'action.")
                     return False
-                
+
             return True
         except Exception as e:
             logger.error(f"Erreur durant l'évaluation JIT : {e}")

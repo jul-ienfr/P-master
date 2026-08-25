@@ -7,7 +7,6 @@ conservernt l'API historique.
 """
 from __future__ import annotations
 
-from typing import List, Optional
 
 
 def normalize_runtime_street_name(value: object) -> str:

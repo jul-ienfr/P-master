@@ -2,7 +2,6 @@
 import logging
 import time
 from collections import deque
-from typing import Dict, Optional
 
 import numpy as np
 

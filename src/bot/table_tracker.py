@@ -3,7 +3,7 @@ import logging
 import re
 import time
 from collections import deque
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -64,18 +64,18 @@ class TableTracker:
         self.db = db_manager
         self.sanity = SanityChecker()
         self._update_lock = asyncio.Lock()
-        
+
         # --- 1. Machine à États Stricte (Transitions) ---
         machine_cls = Machine or _FallbackMachine
         self.machine = machine_cls(model=self, states=TableTracker.states, initial='IDLE')
-        
+
         # Règles de passage (impossible de passer de PREFLOP à RIVER)
         self.machine.add_transition(trigger='deal_hole_cards', source='IDLE', dest='PREFLOP')
         self.machine.add_transition(trigger='deal_flop', source='PREFLOP', dest='FLOP')
         self.machine.add_transition(trigger='deal_turn', source='FLOP', dest='TURN')
         self.machine.add_transition(trigger='deal_river', source='TURN', dest='RIVER')
         self.machine.add_transition(trigger='end_hand', source='*', dest='IDLE')
-        
+
         # État courant de la table
         self.current_board: list[str] = []
         self.confirmed_board: list[str] = []
@@ -87,7 +87,7 @@ class TableTracker:
         self.action_buttons: list[str] = []
         self.spot_id: str = ""
         self.state_confidence: float = 0.0
-        
+
         self.last_pot: float = 0.0
         self.current_hand_actions: list[dict[str, Any]] = []
         self.observed_players_this_hand: set[str] = set()
@@ -110,7 +110,7 @@ class TableTracker:
         """Réinitialise l'état et force la State Machine à IDLE."""
         if self.state != 'IDLE':
             self.end_hand()
-            
+
         self.current_board = []
         self.confirmed_board = []
         self.hero_cards = []
@@ -136,13 +136,13 @@ class TableTracker:
         self._pfr_players_this_hand = set()
         self._recent_state_confidences.clear()
         self._recent_hero_seat_ids.clear()
-        
+
         for p in self.players.values():
             p.is_active = True
             p.has_folded = False
             p.bet = 0.0
             p.starting_stack = p.current_stack # Snapshot du stack en début de main
-            
+
         logger.info(f"--- Nouvelle Main Détectée (État: {self.state}) ---")
 
     def _safe_fire_and_forget(self, coro, task_name: str = "background_task"):
@@ -504,7 +504,7 @@ class TableTracker:
             hero_cards,
         )
         self._recent_state_confidences.append(self.state_confidence)
-        
+
         valides = [c for c in hero_cards if c != "hero_card"]
         if len(valides) >= 2:
             self._cached_hero_cards = list(valides)
@@ -513,7 +513,7 @@ class TableTracker:
             self.hero_cards = list(self._cached_hero_cards)
         else:
             self.hero_cards = [] if observation_mode and len(valides) < 2 else hero_cards
-            
+
         hero_seat_id = next((str(player.get("seat_id") or player.get("name") or "") for player in smoothed_players if player.get("is_hero")), "")
         if hero_seat_id:
             self._recent_hero_seat_ids.append(hero_seat_id)
@@ -614,7 +614,7 @@ class TableTracker:
             has_folded = bool(v_player.get("folded", False))
             is_hero = bool(v_player.get("is_hero", False))
             has_button = bool(v_player.get("has_button", False))
-            
+
             if seat_id not in self.players:
                 self.players[seat_id] = PlayerState(
                     seat_id=seat_id,
@@ -650,7 +650,7 @@ class TableTracker:
             if hand_is_observable and seat_id not in self.observed_players_this_hand:
                 self.observed_players_this_hand.add(seat_id)
                 await self.db.record_observed_hand(name, self.state)
-            
+
             # Détection de Fold
             if was_active and (has_folded or not is_active):
                 p.is_active = False
@@ -673,14 +673,14 @@ class TableTracker:
                 seat_id=p.seat_id,
                 stack_ocr_metadata=stack_ocr_metadata,
             )
-            
+
             # Détection de Mise
             if p.is_active and clean_stack < p.current_stack:
                 amount_invested = p.current_stack - clean_stack
                 p.current_stack = clean_stack
                 p.bet += amount_invested
                 total_bets_this_frame += amount_invested
-                
+
                 action_type = "RAISE/BET" if amount_invested > self.pot_total * 0.1 else "CALL"
                 await self._record_action(name, action_type, amount_invested)
             else:
@@ -744,13 +744,13 @@ class TableTracker:
             player for player in self.players.values()
             if not player.is_hero and player.is_active and not player.has_folded
         ]
-        
+
         if not hero:
             return 0.0
-            
+
         if not active_villains:
             return max(0.0, hero.current_stack)
-            
+
         # Le max des stacks des adversaires, limité par notre propre stack
         max_villain_stack = max(v.current_stack for v in active_villains)
         return max(0.0, min(hero.current_stack, max_villain_stack))
@@ -763,26 +763,26 @@ class TableTracker:
         active_players = [p for p in self.players.values() if p.is_active and not p.has_folded]
         if not active_players:
             return
-            
+
         # Tri des joueurs par seat_index (dans le sens des aiguilles d'une montre)
         sorted_players = sorted(active_players, key=lambda p: p.seat_index)
-        
+
         # Trouver l'index du bouton
         button_idx = -1
         for i, p in enumerate(sorted_players):
             if p.has_button:
                 button_idx = i
                 break
-                
+
         # S'il n'y a pas de bouton clair, on ne calcule pas
         if button_idx == -1:
             return
-            
+
         # Réorganiser la liste pour commencer par la Small Blind (le joueur APRÈS le bouton)
         ordered_from_sb = sorted_players[button_idx+1:] + sorted_players[:button_idx+1]
-        
+
         num_players = len(ordered_from_sb)
-        
+
         if num_players == 2:
             # Heads-Up: Le bouton est la SB
             ordered_from_sb[0].position = "BB"
@@ -806,11 +806,11 @@ class TableTracker:
             ordered_from_sb[0].position = "SB"
             ordered_from_sb[1].position = "BB"
             ordered_from_sb[2].position = "UTG"
-            
+
             # Gestion des places entre UTG et HJ si table pleine
             for i in range(3, num_players - 3):
                 ordered_from_sb[i].position = f"EP{i-2}" # Early Position
-                
+
             ordered_from_sb[-3].position = "HJ"
             ordered_from_sb[-2].position = "CO"
             ordered_from_sb[-1].position = "BTN"

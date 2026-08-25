@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 import unicodedata
-from typing import Dict, List, Optional, Set, Tuple
 from collections.abc import Callable
 
 import cv2

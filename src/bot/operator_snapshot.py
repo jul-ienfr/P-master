@@ -1,7 +1,6 @@
 """Snapshots opérateur/observation/HITL et état du bridge runtime (extrait de src/main.py)."""
 import asyncio
 import logging
-from typing import Dict
 
 import numpy as np
 

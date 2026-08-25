@@ -1,6 +1,5 @@
 """Construction des joueurs runtime : pairing stacks/noms, quarantaine OCR (extrait de src/main.py)."""
 import time
-from typing import List, Optional
 from collections.abc import Iterable
 
 import numpy as np
@@ -10,7 +9,7 @@ from src.bot.live_reconstruction import (
     ordered_stacks_by_table_geometry,
     stable_window_value,
 )
-from src.bot.runtime_types import CanonicalPlayer, CanonicalTableState
+from src.bot.runtime_types import CanonicalPlayer
 from src.runtime.player_name_resolver import resolve_player_name
 from src.vision.models import DetectionResult, TableState
 from src.vision.numeric_reader import NumericReader

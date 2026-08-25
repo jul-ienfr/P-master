@@ -5,7 +5,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
-import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -168,7 +167,6 @@ def test_evaluate_fallback_execution_readiness_blocks_without_window(fast_sleep=
 
 
 def test_handle_stale_live_frame_marks_blocked_gate():
-    from src.bot.gate_flow import GateFlowMixin as GFM
 
     c = Controller()
     c._max_live_frame_age_s = 0.6

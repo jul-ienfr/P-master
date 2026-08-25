@@ -1,4 +1,3 @@
-import os
 import shutil
 import sys
 from pathlib import Path
@@ -167,7 +166,7 @@ def main():
     args = parser.parse_args()
 
     print("=== Fine-tuning YOLOv11 pour Poker Bot ===")
-    
+
     # 1. Verification du Dataset
     dataset_yaml = ROOT / args.data
     if not dataset_yaml.exists():
@@ -182,21 +181,21 @@ def main():
         include_observation=_parse_bool_flag(args.include_observation),
     )
     print(f"📚 Dataset utilise pour l'entrainement : {dataset_yaml}")
-        
+
     # 2. Chargement du Modele Existant
     # On fine-tune le modele actuel s'il existe, sinon on prend un modele pre-entraine global.
-    existing_model_path = ROOT / "models" / "poker_yolo_v11.pt"  
+    existing_model_path = ROOT / "models" / "poker_yolo_v11.pt"
     # Ultralytics a besoin du .pt pour entrainer, pas du .onnx
-    
+
     if existing_model_path.exists():
         print(f"✅ Chargement du modele existant : {existing_model_path}")
         model = YOLO(str(existing_model_path))
     else:
         print("⚠️ Modele global introuvable. Telechargement d'un modele yolov11n de base.")
-        model = YOLO("yolo11n.pt")  
+        model = YOLO("yolo11n.pt")
 
     print("\n🚀 Demarrage de l'entrainement...")
-    
+
     # 3. Lancement de l'entrainement
     results = model.train(
         data=str(dataset_yaml),
@@ -206,11 +205,11 @@ def main():
         name="poker_yolo_finetune",
         device="0" # Utilise le GPU
     )
-    
+
     # 4. Exportation ONNX
     print("\n📦 Exportation du nouveau modele en ONNX pour des performances max...")
     success = model.export(format="onnx", int8=False, dynamic=False)
-    
+
     print("\n✅ Entrainement et export terminés !")
     print("-> Pour l'utiliser, deplacez le nouveau fichier .onnx dans le dossier 'models/'")
     print("-> et mettez a jour 'config.json' : 'yolo.model_path'")

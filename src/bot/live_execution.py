@@ -3,7 +3,6 @@ import asyncio
 import logging
 import time
 from types import SimpleNamespace
-from typing import Dict, List, Optional
 from collections.abc import Iterable
 
 from src.bot.gate_flow import compact_solver_payload as _compact_solver_payload
@@ -410,7 +409,7 @@ class LiveExecutionMixin:
             tuple(sorted(set(button_names))), # Toujours ignorer l'ordre d'apparition
             # Ne pas inclure la confidence dans la signature pour éviter le spam aux micro-décimales
         )
-        
+
         # Debouncer absolu : on n'affiche plus jamais le log si l'état exact (la signature) n'a pas changé.
         if signature == self._last_live_details_signature:
             return

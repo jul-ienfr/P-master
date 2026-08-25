@@ -1,10 +1,8 @@
 """Tests Phase 3.6 — cache solve en mémoire (LRU + TTL)."""
 import asyncio
 import sys
-import time
 from pathlib import Path
 
-import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
