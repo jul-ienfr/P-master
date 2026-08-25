@@ -7,8 +7,8 @@ import pandas as pd
 import requests
 
 try:
-    from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
     from requests.exceptions import RequestException
+    from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5), retry=retry_if_exception_type(RequestException), reraise=True)
     def _http_post(*args, **kwargs):
@@ -35,7 +35,11 @@ from PIL import Image
 from requests.exceptions import JSONDecodeError
 
 from poker.tools.helper import COMPUTER_NAME, get_config, get_dir
-from poker.tools.room_manager import RemotePresetSync, get_preset_repository, read_room_manager_settings
+from poker.tools.room_manager import (
+    RemotePresetSync,
+    get_preset_repository,
+    read_room_manager_settings,
+)
 from poker.tools.singleton import Singleton
 
 TABLES_COLLECTION = 'tables'

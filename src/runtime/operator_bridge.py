@@ -5,7 +5,8 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Optional
+from collections.abc import Callable
 
 from src.runtime.health import HealthMonitor
 
@@ -21,9 +22,9 @@ class OperatorBridge:
         build_state: Callable[[], dict],
         apply_command: Callable[[dict], None],
         push_incident: Callable[..., None],
-        health_monitor: Optional[HealthMonitor] = None,
+        health_monitor: HealthMonitor | None = None,
         publish_interval_s: float = 0.15,
-        process_factory: Optional[Callable[..., object]] = None,
+        process_factory: Callable[..., object] | None = None,
         sleep_fn: Callable[[float], None] = time.sleep,
     ) -> None:
         self.root = Path(root)

@@ -1,7 +1,6 @@
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -11,8 +10,8 @@ from research.timesfm_adapter import (
     build_forecast_evaluation,
     build_last_value_baseline,
     build_moving_average_baseline,
-    forecast_runtime_metrics,
     forecast_runtime_metric,
+    forecast_runtime_metrics,
     forecast_series,
     summarize_forecast_evaluations,
 )

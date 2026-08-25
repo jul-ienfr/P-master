@@ -8,7 +8,6 @@ from pathlib import Path
 
 import numpy as np
 
-
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -110,11 +109,10 @@ if "src.vision.ocr" not in sys.modules:
 
 from src.bot.runtime_types import CanonicalPlayer, CanonicalTableState
 from src.bot.sanity_checker import GateResult, SanityChecker
+from src.main import SuperBotController
+from src.runtime.go_live_gate import evaluate_go_live_gate
 from src.runtime.poker_state_validator import PokerStateValidator
 from src.runtime.readiness import build_runtime_readiness
-from src.runtime.go_live_gate import evaluate_go_live_gate
-from src.main import SuperBotController
-
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 _ORIGINAL_ASYNCIO_SLEEP = asyncio.sleep

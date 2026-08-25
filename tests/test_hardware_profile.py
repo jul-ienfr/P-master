@@ -6,15 +6,14 @@ from types import SimpleNamespace
 
 import pytest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
 from src.runtime.hardware import (
-    PROFILES_12G,
     PROFILES_3G,
+    PROFILES_12G,
     PROFILES_CPU,
     apply_hardware_profile,
     classify_profile,

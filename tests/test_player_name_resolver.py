@@ -1,6 +1,6 @@
 from src.runtime.player_name_resolver import (
-    is_probable_ui_name,
     is_placeholder_player_name,
+    is_probable_ui_name,
     resolve_player_name,
     sanitize_player_name,
 )

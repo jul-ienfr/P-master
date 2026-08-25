@@ -5,7 +5,6 @@ import numpy as np
 
 from src.runtime.evidence_models import CropQualityReport
 
-
 FIELD_SIGNAL_WEIGHTS: dict[str, float] = {
     "button": 0.40,
     "action_buttons": 0.40,

@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
-
-import json
 
 import cv2
 import numpy as np
@@ -32,7 +31,7 @@ def _is_area(value: Any) -> bool:
     return isinstance(value, dict) and {"x1", "y1", "x2", "y2"}.issubset(value.keys())
 
 
-def _normalize_area(value: Dict[str, Any]) -> tuple[int, int, int, int]:
+def _normalize_area(value: dict[str, Any]) -> tuple[int, int, int, int]:
     return (
         int(value["x1"]),
         int(value["y1"]),
@@ -41,7 +40,7 @@ def _normalize_area(value: Dict[str, Any]) -> tuple[int, int, int, int]:
     )
 
 
-def _estimate_table_bounds(table_data: Dict[str, Any]) -> tuple[int, int]:
+def _estimate_table_bounds(table_data: dict[str, Any]) -> tuple[int, int]:
     max_x = 0
     max_y = 0
 
@@ -60,7 +59,7 @@ def _estimate_table_bounds(table_data: Dict[str, Any]) -> tuple[int, int]:
     return max_x + 48, max_y + 48
 
 
-def _normalize_region(area: Optional[Dict[str, Any]], table_size: tuple[int, int]) -> tuple[float, float, float, float] | None:
+def _normalize_region(area: dict[str, Any] | None, table_size: tuple[int, int]) -> tuple[float, float, float, float] | None:
     if not _is_area(area):
         return None
     table_width, table_height = table_size
@@ -102,7 +101,7 @@ def geometry_to_pixel_regions(
     geometry: TableGeometry = DEFAULT_RUNTIME_GEOMETRY,
     *,
     table_bbox: tuple[int, int, int, int] | None = None,
-) -> Dict[str, tuple[int, int, int, int]]:
+) -> dict[str, tuple[int, int, int, int]]:
     height, width = frame.shape[:2]
     if table_bbox is not None:
         tx1, ty1, tx2, ty2 = table_bbox
@@ -115,7 +114,7 @@ def geometry_to_pixel_regions(
         base_y = 0
         base_width = width
         base_height = height
-    pixel_regions: Dict[str, tuple[int, int, int, int]] = {}
+    pixel_regions: dict[str, tuple[int, int, int, int]] = {}
     for name, (x1, y1, x2, y2) in geometry.regions.items():
         pixel_regions[name] = (
             int(base_x + (base_width * x1)),
@@ -134,12 +133,12 @@ from src.vision.models import DetectionResult, TableState  # noqa: E402
 
 def safe_crop(
     frame: np.ndarray,
-    bbox: Tuple[int, int, int, int],
+    bbox: tuple[int, int, int, int],
     pad_x: int = 0,
     pad_y: int = 0,
     pad_ratio_x: float = 0.0,
     pad_ratio_y: float = 0.0,
-) -> Optional[np.ndarray]:
+) -> np.ndarray | None:
     x1, y1, x2, y2 = bbox
     height, width = frame.shape[:2]
 
@@ -161,7 +160,7 @@ def safe_crop(
     return crop if crop.size > 0 else None
 
 
-def detection_center(det: DetectionResult) -> Tuple[float, float]:
+def detection_center(det: DetectionResult) -> tuple[float, float]:
     x1, y1, x2, y2 = det.bbox
     return ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
 
@@ -215,10 +214,10 @@ _COORD_KEYS = ("FOLD", "CALL", "BET_BTN", "BET_BOX")
 
 def build_dynamic_coordinates(
     state: TableState,
-    fallback_coords: Dict[str, Any],
-) -> tuple[Dict[str, Tuple[int, int]], Dict[str, Dict[str, Any]]]:
-    mapping: Dict[str, Tuple[int, int]] = {}
-    diagnostics: Dict[str, Dict[str, Any]] = {}
+    fallback_coords: dict[str, Any],
+) -> tuple[dict[str, tuple[int, int]], dict[str, dict[str, Any]]]:
+    mapping: dict[str, tuple[int, int]] = {}
+    diagnostics: dict[str, dict[str, Any]] = {}
 
     for button in state.action_buttons:
         cx, cy = detection_center(button)

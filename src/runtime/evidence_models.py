@@ -129,10 +129,10 @@ class FieldEvidence:
     field_name: str
     criticality: FieldCriticality
     selected_value: Any = None
-    selected_candidate: Optional[FieldCandidate] = None
+    selected_candidate: FieldCandidate | None = None
     candidates: tuple[FieldCandidate, ...] = ()
     confidence: float = 0.0
-    crop_quality: Optional[CropQualityReport] = None
+    crop_quality: CropQualityReport | None = None
     state: str = "empty"
     rejection_reason: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)

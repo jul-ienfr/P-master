@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests du contexte de capture et du snapshot pot rapide (src/runtime/capture_context.py)."""
 import sys
 from pathlib import Path

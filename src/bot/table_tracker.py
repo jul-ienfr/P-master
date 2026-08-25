@@ -3,7 +3,8 @@ import logging
 import re
 import time
 from collections import deque
-from typing import List, Dict, Optional, Any
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel
 
 try:
@@ -12,14 +13,14 @@ except ImportError:
     Machine = None
 
 # Import du bouclier anti-hallucination
-from src.bot.sanity_checker import SanityChecker
 from src.bot.live_reconstruction import smooth_state_confidence_window, stable_window_value
+from src.bot.sanity_checker import SanityChecker
 
 logger = logging.getLogger("TableTracker")
 
 
 class _FallbackMachine:
-    def __init__(self, model, states: List[str], initial: str):
+    def __init__(self, model, states: list[str], initial: str):
         self.model = model
         self.states = set(states)
         self.model.state = initial
@@ -76,26 +77,26 @@ class TableTracker:
         self.machine.add_transition(trigger='end_hand', source='*', dest='IDLE')
         
         # État courant de la table
-        self.current_board: List[str] = []
-        self.confirmed_board: List[str] = []
+        self.current_board: list[str] = []
+        self.confirmed_board: list[str] = []
         self.pot_total: float = 0.0
-        self.players: Dict[str, PlayerState] = {}
-        self.hero_cards: List[str] = []
-        self._cached_hero_cards: List[str] = []
-        self.legal_actions: List[str] = []
-        self.action_buttons: List[str] = []
+        self.players: dict[str, PlayerState] = {}
+        self.hero_cards: list[str] = []
+        self._cached_hero_cards: list[str] = []
+        self.legal_actions: list[str] = []
+        self.action_buttons: list[str] = []
         self.spot_id: str = ""
         self.state_confidence: float = 0.0
         
         self.last_pot: float = 0.0
-        self.current_hand_actions: List[Dict[str, Any]] = []
+        self.current_hand_actions: list[dict[str, Any]] = []
         self.observed_players_this_hand: set[str] = set()
-        self.pending_new_hand_pot: Optional[float] = None
+        self.pending_new_hand_pot: float | None = None
         self.pending_new_hand_frames: int = 0
-        self.pending_board_reset: Optional[List[str]] = None
+        self.pending_board_reset: list[str] | None = None
         self.pending_board_reset_frames: int = 0
-        self.pending_street_promotion: Optional[str] = None
-        self.pending_street_promotion_board: Optional[List[str]] = None
+        self.pending_street_promotion: str | None = None
+        self.pending_street_promotion_board: list[str] | None = None
         self.pending_street_promotion_frames: int = 0
         self.strict_state_freeze_seconds: float = 0.5
         self.state_freeze_until_monotonic: float = 0.0
@@ -168,19 +169,19 @@ class TableTracker:
         self.state_freeze_until_monotonic = 0.0
         self.state_freeze_reason = ""
 
-    def _reference_board(self) -> List[str]:
+    def _reference_board(self) -> list[str]:
         if self.confirmed_board:
             return list(self.confirmed_board)
         return list(self.current_board)
 
-    def _commit_confirmed_board(self, board: List[str]) -> None:
+    def _commit_confirmed_board(self, board: list[str]) -> None:
         self.confirmed_board = list(board or [])
 
-    def _is_recovered_frozen_frame(self, incoming_street: str, raw_board: List[str]) -> bool:
+    def _is_recovered_frozen_frame(self, incoming_street: str, raw_board: list[str]) -> bool:
         reference_board = self._reference_board()
         return str(incoming_street or self.state) == self.state and list(raw_board or []) == reference_board
 
-    def _detect_strict_state_violation(self, incoming_street: str, raw_board: List[str]) -> Optional[str]:
+    def _detect_strict_state_violation(self, incoming_street: str, raw_board: list[str]) -> str | None:
         if self.state == 'IDLE':
             return None
 
@@ -212,10 +213,10 @@ class TableTracker:
         return cleaned or str(name or "").strip()
 
     @staticmethod
-    def _board_mismatch_count(left: List[str], right: List[str]) -> int:
+    def _board_mismatch_count(left: list[str], right: list[str]) -> int:
         return sum(1 for left_card, right_card in zip(list(left or []), list(right or [])) if left_card != right_card)
 
-    def _is_distinct_board_rollover(self, new_board: List[str]) -> bool:
+    def _is_distinct_board_rollover(self, new_board: list[str]) -> bool:
         reference_board = self._reference_board()
         if len(reference_board) < 3 or len(new_board) != len(reference_board):
             return False
@@ -223,9 +224,9 @@ class TableTracker:
 
     def _is_distinct_hero_rollover(
         self,
-        previous_hero_cards: List[str],
-        hero_cards: List[str],
-        new_board: List[str],
+        previous_hero_cards: list[str],
+        hero_cards: list[str],
+        new_board: list[str],
         incoming_street: str,
     ) -> bool:
         return (
@@ -241,7 +242,7 @@ class TableTracker:
         self.reset_for_new_hand()
         await self._update_from_vision_unlocked(vision_state)
 
-    async def _start_new_preflop_hand(self, hero_cards: List[str], pot_value: float) -> None:
+    async def _start_new_preflop_hand(self, hero_cards: list[str], pot_value: float) -> None:
         await self._save_hand_history()
         self.reset_for_new_hand()
         self.pending_board_reset = None
@@ -267,13 +268,13 @@ class TableTracker:
             else:
                 break
 
-    def _parse_seat_index(self, vision_player: dict) -> Optional[int]:
+    def _parse_seat_index(self, vision_player: dict) -> int | None:
         seat_index = vision_player.get('seat_index')
         if seat_index is None:
             return None
         return int(seat_index)
 
-    def _resolve_board_stage_hint(self, raw_board: list[str]) -> Optional[str]:
+    def _resolve_board_stage_hint(self, raw_board: list[str]) -> str | None:
         board_size = len(raw_board)
         hinted_stage = self._BOARD_STREET_BY_SIZE.get(board_size)
         if hinted_stage is None:
@@ -285,7 +286,7 @@ class TableTracker:
             return hinted_stage
         return None
 
-    def _resolve_confirmed_target_street(self, incoming_street: str, board_stage_hint: Optional[str], new_board: List[str]) -> str:
+    def _resolve_confirmed_target_street(self, incoming_street: str, board_stage_hint: str | None, new_board: list[str]) -> str:
         target_street = self.state
         reference_board = self._reference_board()
         for street_hint in (incoming_street, board_stage_hint):
@@ -332,10 +333,10 @@ class TableTracker:
     def _should_reuse_previous_legal_actions(
         self,
         incoming_street: str,
-        raw_board: List[str],
-        hero_cards: List[str],
-        incoming_legal_actions: List[str],
-        incoming_action_buttons: List[str],
+        raw_board: list[str],
+        hero_cards: list[str],
+        incoming_legal_actions: list[str],
+        incoming_action_buttons: list[str],
     ) -> bool:
         return (
             not incoming_legal_actions
@@ -351,8 +352,8 @@ class TableTracker:
         self,
         incoming_confidence: float,
         incoming_street: str,
-        raw_board: List[str],
-        hero_cards: List[str],
+        raw_board: list[str],
+        hero_cards: list[str],
     ) -> float:
         same_runtime_context = (
             incoming_street == self.state
@@ -365,7 +366,7 @@ class TableTracker:
 
         return smooth_state_confidence_window(list(self._recent_state_confidences), incoming_confidence)
 
-    def _smooth_hero_flags(self, vision_players: List[dict]) -> List[dict]:
+    def _smooth_hero_flags(self, vision_players: list[dict]) -> list[dict]:
         if not vision_players:
             self._recent_hero_seat_ids.clear()
             return vision_players
@@ -401,7 +402,7 @@ class TableTracker:
         if not stable_hero_seat_id:
             return vision_players
 
-        smoothed_players: List[dict] = []
+        smoothed_players: list[dict] = []
         for player in vision_players:
             seat_id = str(player.get("seat_id") or player.get("name") or "")
             updated_player = dict(player)
@@ -418,7 +419,7 @@ class TableTracker:
         player: PlayerState,
         ocr_stack: float,
         seat_id: str,
-        stack_ocr_metadata: Optional[Dict[str, Any]] = None,
+        stack_ocr_metadata: dict[str, Any] | None = None,
     ) -> float:
         stack_ocr_metadata = dict(stack_ocr_metadata or {})
         if stack_ocr_metadata.get("skipped_due_to_quarantine"):
@@ -438,7 +439,7 @@ class TableTracker:
         observation_mode = bool(metadata.get("observation_mode", False))
         hero_participation = str(metadata.get("hero_participation") or "")
         observation_street = str(metadata.get("observation_street") or "")
-        raw_board_count = int(((metadata.get("vision", {}) or {}).get("raw_board_count", 0) or 0)) if isinstance(metadata.get("vision", {}), dict) else 0
+        raw_board_count = int((metadata.get("vision", {}) or {}).get("raw_board_count", 0) or 0) if isinstance(metadata.get("vision", {}), dict) else 0
         smoothed_players = self._smooth_hero_flags(list(vision_state.get("players", [])))
         self.spot_id = str(vision_state.get("spot_id", self.spot_id or ""))
         new_ocr_pot = vision_state.get("pot", 0.0)
@@ -723,7 +724,7 @@ class TableTracker:
         elif not self.pending_street_promotion and not board_reset_candidate and len(new_board) in (0, 3, 4, 5):
             self._commit_confirmed_board(new_board)
 
-    def get_primary_villain(self) -> Optional[PlayerState]:
+    def get_primary_villain(self) -> PlayerState | None:
         active_villains = [
             player for player in self.players.values()
             if not player.is_hero and player.is_active and not player.has_folded
@@ -846,7 +847,7 @@ class TableTracker:
             return
         seen_actions: set[tuple] = set()
         folded_players: set[str] = set()
-        sanitized_actions: List[Dict[str, Any]] = []
+        sanitized_actions: list[dict[str, Any]] = []
         for action in self.current_hand_actions:
             normalized = dict(action)
             normalized_player = self._sanitize_player_name(str(normalized.get("player", "") or ""))

@@ -1,12 +1,13 @@
 import asyncio
+import ctypes
 import logging
+import math
 import random
+from typing import List, Optional, Tuple
+
 import win32api
 import win32con
 import win32gui
-import math
-import ctypes
-from typing import List, Optional, Tuple
 
 from src.bot.sanity_checker import ActionIntent
 
@@ -25,7 +26,7 @@ except Exception as e:
     logger.warning(f"Impossible de définir le DPI Awareness: {e}")
 
 
-def _parse_window_title_keywords(raw_value: str) -> List[str]:
+def _parse_window_title_keywords(raw_value: str) -> list[str]:
     tokens = str(raw_value or "").replace(",", "|").replace(";", "|").split("|")
     return [token.strip() for token in tokens if token and token.strip()]
 
@@ -41,8 +42,8 @@ class ActionController:
         self.window_title = ""
         self._find_window()
 
-    def _candidate_windows(self) -> List[Tuple[int, str, Tuple[int, int, int, int]]]:
-        candidates: List[Tuple[int, str, Tuple[int, int, int, int]]] = []
+    def _candidate_windows(self) -> list[tuple[int, str, tuple[int, int, int, int]]]:
+        candidates: list[tuple[int, str, tuple[int, int, int, int]]] = []
 
         def enum_windows_callback(hwnd, context):
             if not win32gui.IsWindowVisible(hwnd):
@@ -62,7 +63,7 @@ class ActionController:
         return candidates
 
     @staticmethod
-    def _score_window_title(title: str, keywords: List[str]) -> int:
+    def _score_window_title(title: str, keywords: list[str]) -> int:
         normalized_title = title.lower()
         score = sum(3 for keyword in keywords if keyword.lower() in normalized_title)
         if "lobby" in normalized_title:
@@ -71,8 +72,8 @@ class ActionController:
 
     def _select_best_window(
         self,
-        keywords: List[str],
-    ) -> Optional[Tuple[int, str, Tuple[int, int, int, int]]]:
+        keywords: list[str],
+    ) -> tuple[int, str, tuple[int, int, int, int]] | None:
         if not keywords:
             return None
 
@@ -131,7 +132,7 @@ class ActionController:
         self._find_window()
         return self.hwnd
 
-    def get_window_rect(self, refresh: bool = False) -> Optional[Tuple[int, int, int, int]]:
+    def get_window_rect(self, refresh: bool = False) -> tuple[int, int, int, int] | None:
         if refresh or not self.hwnd:
             self._find_window()
         if not self.hwnd:
@@ -143,7 +144,7 @@ class ActionController:
             self.window_title = ""
             return None
 
-    def get_client_rect(self, refresh: bool = False) -> Optional[Tuple[int, int, int, int]]:
+    def get_client_rect(self, refresh: bool = False) -> tuple[int, int, int, int] | None:
         if refresh or not self.hwnd:
             self._find_window()
         if not self.hwnd:
@@ -157,7 +158,7 @@ class ActionController:
             self.window_title = ""
             return None
 
-    def _get_client_origin(self) -> Optional[Tuple[int, int]]:
+    def _get_client_origin(self) -> tuple[int, int] | None:
         if not self.hwnd:
             return None
         try:
@@ -166,7 +167,7 @@ class ActionController:
             return None
 
     @staticmethod
-    def _get_foreground_window() -> Optional[int]:
+    def _get_foreground_window() -> int | None:
         try:
             hwnd = int(win32gui.GetForegroundWindow())
         except Exception:
@@ -179,7 +180,7 @@ class ActionController:
 
         target_hwnd = int(self.hwnd)
         foreground_before = self._get_foreground_window()
-        attached_threads: List[int] = []
+        attached_threads: list[int] = []
         user32 = getattr(getattr(ctypes, "windll", None), "user32", None)
         kernel32 = getattr(getattr(ctypes, "windll", None), "kernel32", None)
         current_thread_id = 0
@@ -481,7 +482,9 @@ class ActionController:
                     return {"ok": False, "action": action_name, "reason": "bet_box_click_failed"}
                 
                 # --- Dynamic BB Parsing for resilient betting ---
-                import re, json, os
+                import json
+                import os
+                import re
                 bb_size = 200  # Fallback par defaut absolu
                 active_regex = r'\d+[/,](\d+)\b'
                 
@@ -489,7 +492,7 @@ class ActionController:
                 if self.window_title:
                     try:
                         config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'config.json')
-                        with open(config_path, 'r') as f:
+                        with open(config_path) as f:
                             cfg = json.load(f)
                             profiles = cfg.get('bot', {}).get('site_profiles', {})
                             
@@ -524,12 +527,12 @@ class ActionController:
                 else:
                     amount_to_bet = f"{target_amount:.2f}".rstrip('0').rstrip('.')
                     
-                logger.info(f"=========== HISTORIQUE MISE ===========")
+                logger.info("=========== HISTORIQUE MISE ===========")
                 logger.info(f"  Action Requise    : {action_name}")
                 logger.info(f"  BB détectée       : {bb_size}")
                 logger.info(f"  Calcul IA brut    : {action_intent.bet_size}")
                 logger.info(f"  Montant Final     : {amount_to_bet}")
-                logger.info(f"=======================================")
+                logger.info("=======================================")
                 
                 await self.send_text(amount_to_bet)
                 

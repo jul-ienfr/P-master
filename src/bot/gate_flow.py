@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Flux de décision/gate live (extrait de src/main.py)."""
 import logging
 import time
@@ -80,7 +79,7 @@ class GateFlowMixin:
         category: str,
         incident_id: str,
         severity: str = "warning",
-        context: Optional[dict] = None,
+        context: dict | None = None,
     ) -> None:
         dataset = getattr(self, "runtime_failure_dataset", None)
         if dataset is None:
@@ -156,8 +155,8 @@ class GateFlowMixin:
         state: TableState,
         primary_villain,
         effective_stack: float,
-        gate_tracker_snapshot: Optional[Dict[str, object]] = None,
-        frame_age_ms: Optional[float] = None,
+        gate_tracker_snapshot: dict[str, object] | None = None,
+        frame_age_ms: float | None = None,
     ) -> dict:
         dynamic_coords = self._get_dynamic_coordinates(state)
         hero_position = self._derive_live_hero_position(primary_villain)
@@ -571,8 +570,8 @@ class GateFlowMixin:
         self,
         canonical_state: CanonicalTableState,
         *,
-        frame_age_ms: Optional[float] = None,
-    ) -> Dict[str, object]:
+        frame_age_ms: float | None = None,
+    ) -> dict[str, object]:
         legal_actions = {str(action).strip().upper() for action in (canonical_state.legal_actions or ())}
         action_buttons = tuple(sorted(str(button).strip().lower() for button in (canonical_state.action_buttons or ()) if str(button).strip()))
         target_action = "CHECK" if "CHECK" in legal_actions else ("FOLD" if "FOLD" in legal_actions else "")

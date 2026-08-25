@@ -1,12 +1,13 @@
 import asyncio
-import logging
 import base64
 import json
+import logging
 import os
+from datetime import datetime
 from pathlib import Path
+
 import cv2
 import numpy as np
-from datetime import datetime
 
 # On réutilise l'outil qu'on a déjà créé pour interroger les API
 from src.vision.auto_annotator import AutoAnnotator

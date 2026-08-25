@@ -1,30 +1,30 @@
-# -*- coding: utf-8 -*-
 """Modèles pydantic et helpers de détection (extrait de src/vision/detector.py)."""
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
+
 class DetectionResult(BaseModel):
     class_name: str
     confidence: float
-    bbox: Tuple[int, int, int, int]
+    bbox: tuple[int, int, int, int]
 
     @property
-    def center(self) -> Tuple[float, float]:
+    def center(self) -> tuple[float, float]:
         x1, y1, x2, y2 = self.bbox
         return ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
 
 
 class TableState(BaseModel):
-    board_cards: List[DetectionResult] = Field(default_factory=list)
-    hero_cards: List[DetectionResult] = Field(default_factory=list)
-    dealer_button: Optional[DetectionResult] = None
-    pots: List[DetectionResult] = Field(default_factory=list)
-    stacks: List[DetectionResult] = Field(default_factory=list)
-    player_names: List[DetectionResult] = Field(default_factory=list)
-    action_buttons: List[DetectionResult] = Field(default_factory=list)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    board_cards: list[DetectionResult] = Field(default_factory=list)
+    hero_cards: list[DetectionResult] = Field(default_factory=list)
+    dealer_button: DetectionResult | None = None
+    pots: list[DetectionResult] = Field(default_factory=list)
+    stacks: list[DetectionResult] = Field(default_factory=list)
+    player_names: list[DetectionResult] = Field(default_factory=list)
+    action_buttons: list[DetectionResult] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 CARD_CODE_RE = re.compile(r"([2-9TJQKA][shdc])$", re.IGNORECASE)
@@ -69,11 +69,11 @@ def board_sort_key(det: DetectionResult) -> tuple[float, float]:
 
 
 def dedupe_nearby_detections(
-    detections: List[DetectionResult],
+    detections: list[DetectionResult],
     x_tolerance: float,
     y_tolerance: float,
-) -> List[DetectionResult]:
-    kept: List[DetectionResult] = []
+) -> list[DetectionResult]:
+    kept: list[DetectionResult] = []
     for det in sorted(detections, key=lambda item: item.confidence, reverse=True):
         cx, cy = det.center
         duplicate = False

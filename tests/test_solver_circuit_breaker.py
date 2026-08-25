@@ -5,13 +5,12 @@ from pathlib import Path
 
 import pytest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
-from src.bot.decision_maker import DecisionMaker, _SOLVER_BREAKER_THRESHOLD
+from src.bot.decision_maker import _SOLVER_BREAKER_THRESHOLD, DecisionMaker
 
 
 class FakeDB:
@@ -101,7 +100,7 @@ def test_success_resets_consecutive_timeouts(monkeypatch):
     async def flaky_wait_for(coro, timeout=None):
         calls["n"] += 1
         if calls["n"] == 1:
-            raise asyncio.TimeoutError()
+            raise TimeoutError()
         return await real_wait_for(coro, timeout=timeout)
 
     monkeypatch.setattr(dm_module.asyncio, "wait_for", flaky_wait_for)

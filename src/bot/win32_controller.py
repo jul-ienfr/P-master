@@ -1,7 +1,7 @@
 import ctypes
-import time
 import logging
 import random
+import time
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -63,9 +63,9 @@ class Win32GhostController:
             return
 
         try:
-            import win32gui
             import win32api
             import win32con
+            import win32gui
             
             # On ajoute un micro-jitter (1-2 pixels) pour éviter un clic robotique parfait
             jitter_x = x + random.randint(-2, 2)
@@ -91,8 +91,8 @@ class Win32GhostController:
             return
             
         try:
-            import win32gui
             import win32api
+            import win32gui
             
             amount_str = str(amount)
             for char in amount_str:
@@ -116,7 +116,7 @@ class Win32GhostController:
         except Exception as e:
             logger.error(f"Erreur lors de la frappe Win32 : {e}")
 
-    def execute_action(self, action: str, amount: Optional[float], coords_dict: dict):
+    def execute_action(self, action: str, amount: float | None, coords_dict: dict):
         """Exécute l'action de poker instantanément en arrière-plan."""
         action = action.upper()
         

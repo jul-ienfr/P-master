@@ -28,8 +28,8 @@ from poker.decisionmaker.v2_contracts import (
     build_mock_gate_result,
     build_mock_spot_snapshot,
     build_runtime_snapshot,
-    build_version_payload,
     build_suite_samples,
+    build_version_payload,
 )
 
 

@@ -25,14 +25,14 @@ class RuntimeFailureDataset:
         text = str(value or "incident").strip()
         return "".join(char if char.isalnum() or char in ("-", "_") else "_" for char in text)[:80] or "incident"
 
-    def _write_image(self, image: np.ndarray, destination: Path) -> Optional[Path]:
+    def _write_image(self, image: np.ndarray, destination: Path) -> Path | None:
         if image is None or not isinstance(image, np.ndarray) or image.size == 0:
             return None
         destination.parent.mkdir(parents=True, exist_ok=True)
         success = cv2.imwrite(str(destination), image)
         return destination if success else None
 
-    def record_incident(self, payload: dict[str, Any]) -> Optional[Path]:
+    def record_incident(self, payload: dict[str, Any]) -> Path | None:
         if not self.enabled:
             return None
         record = dict(payload or {})

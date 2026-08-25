@@ -1,17 +1,17 @@
-# -*- coding: utf-8 -*-
 """Snapshots de métriques runtime (extrait de src/main.py)."""
 from typing import List, Optional
+
 try:
     from datetime import UTC, datetime
 except ImportError:  # Python 3.10 compatibility
     from datetime import datetime, timezone
 
-    UTC = timezone.utc
+    UTC = UTC
 
 
 class MetricsMixin:
     @staticmethod
-    def _parse_runtime_timestamp(value: object) -> Optional[datetime]:
+    def _parse_runtime_timestamp(value: object) -> datetime | None:
         if not isinstance(value, str) or not value:
             return None
         try:
@@ -24,7 +24,7 @@ class MetricsMixin:
         decision_count = len(decisions)
         blocked_count = 0
         fallback_count = 0
-        latencies: List[float] = []
+        latencies: list[float] = []
 
         for entry in decisions:
             if not isinstance(entry, dict):
@@ -68,7 +68,7 @@ class MetricsMixin:
         }
 
     @staticmethod
-    def _latest_timestamp(entries: List[dict]) -> Optional[str]:
+    def _latest_timestamp(entries: list[dict]) -> str | None:
         if entries and isinstance(entries[0], dict):
             return entries[0].get("timestamp")
         return None
@@ -118,7 +118,7 @@ class MetricsMixin:
             },
         }
 
-    def _persist_runtime_metrics_snapshot(self, force: bool = False) -> Optional[dict]:
+    def _persist_runtime_metrics_snapshot(self, force: bool = False) -> dict | None:
         persistence = self.runtime_history_store.summarize()
         history = {
             "events": list(self.runtime_event_history),

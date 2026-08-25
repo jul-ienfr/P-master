@@ -3,7 +3,6 @@ import json
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -18,7 +17,6 @@ from src.bot.live_reconstruction import (
     ordered_stacks_by_table_geometry,
 )
 from src.bot.runtime_types import CanonicalPlayer, CanonicalTableState
-
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 

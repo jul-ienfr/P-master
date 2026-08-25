@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Protocol, Sequence
-
+from typing import Any, Protocol
+from collections.abc import Sequence
 
 DEFAULT_POKERSTARS_PRESET_MANIFESTS = (
     "poker/pokerstars-7-fr-6-max/draft/manifest.json",

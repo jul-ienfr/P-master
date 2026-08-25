@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Orchestrateur de détection : YOLO + fallback template (lecture cartes/table)."""
 import logging
 from pathlib import Path
@@ -39,7 +38,7 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def resolve_model_path(model_path: str) -> Optional[Path]:
+def resolve_model_path(model_path: str) -> Path | None:
     requested = Path(model_path)
     if not requested.is_absolute():
         requested = (_repo_root() / model_path).resolve()
@@ -62,7 +61,7 @@ class PokerDetector:
         self.model = None
         self.names = {}
         self.fallback_detector = TemplateFallbackDetector()
-        self._last_fallback_preset_name: Optional[str] = None
+        self._last_fallback_preset_name: str | None = None
 
         resolved_model_path = resolve_model_path(model_path)
 
@@ -102,7 +101,7 @@ class PokerDetector:
         )
 
     @staticmethod
-    def _has_actionable_button_layout(action_buttons: List[DetectionResult]) -> bool:
+    def _has_actionable_button_layout(action_buttons: list[DetectionResult]) -> bool:
         labels = {str(button.class_name or "").lower() for button in action_buttons}
         return "fold_button" in labels and bool(
             labels.intersection({"call_button", "check_button", "bet_button", "raise_button", "all_in_call_button"})
@@ -291,8 +290,9 @@ class PokerDetector:
                     # Active Learning (Sauvegarde image pour annotation si YOLO/LLM a échoué avant)
                     try:
                         import os
-                        import cv2
                         from datetime import datetime
+
+                        import cv2
                         os.makedirs("dataset/needs_annotation", exist_ok=True)
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
                         cv2.imwrite(f"dataset/needs_annotation/al_openvl_{timestamp}.jpg", frame)
@@ -316,7 +316,7 @@ class PokerDetector:
                     h, w = frame.shape[:2]
                     boxes = self.ai_fallback.ask_ai_with_fallbacks("", w, h, frame=frame)
                     if boxes:
-                        llm_hero: List[DetectionResult] = []
+                        llm_hero: list[DetectionResult] = []
                         for b in boxes:
                             cls_name = b.get("class", "")
                             if not decode_card_token(cls_name):
@@ -354,6 +354,7 @@ class PokerDetector:
                                 try:
                                     import os
                                     from datetime import datetime
+
                                     import cv2
                                     yolo_txt = self.ai_fallback.convert_to_yolo_format(boxes, w, h)
                                     os.makedirs("dataset/raw_images", exist_ok=True)

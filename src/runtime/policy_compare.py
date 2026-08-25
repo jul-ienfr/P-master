@@ -25,7 +25,7 @@ def policy_slug(value: object, fallback: str = "runtime") -> str:
     return slug or fallback
 
 
-def safe_runtime_float(value: object) -> Optional[float]:
+def safe_runtime_float(value: object) -> float | None:
     try:
         if value is None or isinstance(value, bool):
             return None
@@ -34,7 +34,7 @@ def safe_runtime_float(value: object) -> Optional[float]:
         return None
 
 
-def extract_runtime_ab_decision(entry: dict) -> Optional[dict]:
+def extract_runtime_ab_decision(entry: dict) -> dict | None:
     if not isinstance(entry, dict):
         return None
 
@@ -51,7 +51,7 @@ def extract_runtime_ab_decision(entry: dict) -> Optional[dict]:
     return None
 
 
-def runtime_ab_decision_key(entry: dict) -> Optional[tuple]:
+def runtime_ab_decision_key(entry: dict) -> tuple | None:
     if not isinstance(entry, dict):
         return None
 
@@ -69,8 +69,8 @@ def runtime_ab_decision_key(entry: dict) -> Optional[tuple]:
     return None
 
 
-def dedupe_runtime_ab_decisions(decisions: List[dict]) -> List[dict]:
-    deduped: List[dict] = []
+def dedupe_runtime_ab_decisions(decisions: list[dict]) -> list[dict]:
+    deduped: list[dict] = []
     seen_keys: set[tuple] = set()
 
     for entry in decisions:
@@ -91,7 +91,7 @@ def dedupe_runtime_ab_decisions(decisions: List[dict]) -> List[dict]:
     return deduped
 
 
-def build_runtime_ab_summary(decisions: List[dict]) -> dict:
+def build_runtime_ab_summary(decisions: list[dict]) -> dict:
     summary = {
         "sample_count": 0,
         "compared_count": 0,
@@ -306,7 +306,7 @@ def compact_policy_compare_examples(examples: list[dict], limit: int = 2) -> lis
     return ranked[:limit]
 
 
-def build_policy_compare_summary(decisions: List[dict]) -> dict:
+def build_policy_compare_summary(decisions: list[dict]) -> dict:
     summary = build_empty_policy_compare_summary()
     if not isinstance(decisions, list) or not decisions:
         return summary

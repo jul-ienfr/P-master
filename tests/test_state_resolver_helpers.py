@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests des helpers de résolution d'état (src/bot/state_resolver.py)."""
 import sys
 from collections import deque

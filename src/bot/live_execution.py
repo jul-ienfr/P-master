@@ -1,14 +1,14 @@
-# -*- coding: utf-8 -*-
 """Signatures, verrous et caches de décision live (extrait de src/main.py)."""
 import asyncio
 import logging
 import time
 from types import SimpleNamespace
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, List, Optional
+from collections.abc import Iterable
 
 from src.bot.gate_flow import compact_solver_payload as _compact_solver_payload
-from src.bot.sanity_checker import GateResult
 from src.bot.runtime_types import CanonicalTableState
+from src.bot.sanity_checker import GateResult
 from src.vision.models import TableState
 
 logger = logging.getLogger("SuperBot2026")
@@ -148,7 +148,7 @@ class LiveExecutionMixin:
         self._last_locked_decision_log_at = now
         return True
 
-    def _build_locked_decision_skip(self, canonical_state: CanonicalTableState) -> Optional[Dict[str, object]]:
+    def _build_locked_decision_skip(self, canonical_state: CanonicalTableState) -> dict[str, object] | None:
         decision_signature = self._build_live_decision_signature(canonical_state)
         locked_signature = getattr(self, "_last_locked_decision_signature", ())
         if not locked_signature or decision_signature != locked_signature:
@@ -167,7 +167,7 @@ class LiveExecutionMixin:
         canonical_state: CanonicalTableState,
         action_name: str,
         reason: str,
-    ) -> Dict[str, object]:
+    ) -> dict[str, object]:
         return {
             "action": str(action_name or "").strip().upper(),
             "source": "LOCKED_SPOT_SKIP",
@@ -186,7 +186,7 @@ class LiveExecutionMixin:
             },
         }
 
-    def _get_cached_live_decision(self, canonical_state: CanonicalTableState) -> Optional[Dict[str, object]]:
+    def _get_cached_live_decision(self, canonical_state: CanonicalTableState) -> dict[str, object] | None:
         decision_signature = self._build_live_decision_signature(canonical_state)
         if decision_signature != getattr(self, "_last_decision_signature", ()):
             return None
@@ -199,7 +199,7 @@ class LiveExecutionMixin:
             return None
         return dict(payload)
 
-    def _remember_cached_live_decision(self, canonical_state: CanonicalTableState, decision: Dict[str, object]) -> None:
+    def _remember_cached_live_decision(self, canonical_state: CanonicalTableState, decision: dict[str, object]) -> None:
         self._last_decision_signature = self._build_live_decision_signature(canonical_state)
         self._last_decision_payload = dict(decision)
         self._last_decision_cached_at = time.monotonic()
@@ -445,8 +445,8 @@ class LiveExecutionMixin:
         self._last_live_details_logged_at = time.monotonic()
 
     @staticmethod
-    def _normalize_incidents(incidents: List[object]) -> List[str]:
-        normalized: List[str] = []
+    def _normalize_incidents(incidents: list[object]) -> list[str]:
+        normalized: list[str] = []
         for incident in incidents:
             if isinstance(incident, dict):
                 incident_id = incident.get("id") or incident.get("label") or incident.get("kind")
@@ -465,7 +465,7 @@ class LiveExecutionMixin:
     def _resolve_live_decision_context(
         self,
         canonical_state: CanonicalTableState,
-    ) -> tuple[Optional[object], float]:
+    ) -> tuple[object | None, float]:
         primary_villain = self.tracker.get_primary_villain()
         effective_stack = float(self.tracker.get_effective_stack() or 0.0)
         if primary_villain is not None and effective_stack > 0.0:

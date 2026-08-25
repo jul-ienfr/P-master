@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests du contrôleur fantôme Win32 avec modules win32 mockés."""
 import sys
 import types

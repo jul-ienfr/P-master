@@ -2,11 +2,12 @@ import asyncio
 import logging
 import random
 import time
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
+
+from src.data.database import DatabaseManager
 
 # On simule l'utilisation de l'OCR pour lire le lobby
 from src.vision.ocr import PokerOCR
-from src.data.database import DatabaseManager
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ class Bumhunter:
         # On évite de s'asseoir s'il y a trop de regs (joueurs réguliers)
         self.MAX_REGS_ALLOWED = 2
 
-    async def evaluate_table(self, table_name: str, players_at_table: List[str]) -> Dict:
+    async def evaluate_table(self, table_name: str, players_at_table: list[str]) -> dict:
         """
         Analyse les noms des joueurs présents à une table (lus par l'OCR dans le lobby).
         Interroge la base de données pour calculer le score de rentabilité de la table.
@@ -96,7 +97,7 @@ class Bumhunter:
             "reason": reason
         }
 
-    async def check_leave_condition(self, current_table_players: List[str]) -> bool:
+    async def check_leave_condition(self, current_table_players: list[str]) -> bool:
         """
         Le "Hit and Run" ou la condition de départ.
         On vérifie si la table est devenue trop difficile.

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Route HITL : /resolve (extrait de src/api/server.py)."""
 import logging
 

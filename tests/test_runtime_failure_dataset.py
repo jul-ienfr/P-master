@@ -4,7 +4,10 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from src.scripts.replay_runtime_failures import export_runtime_failure_review_bundle, replay_runtime_failures
+from src.scripts.replay_runtime_failures import (
+    export_runtime_failure_review_bundle,
+    replay_runtime_failures,
+)
 from src.vision.runtime_failure_dataset import RuntimeFailureDataset
 
 

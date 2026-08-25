@@ -1,7 +1,7 @@
 import math
 from collections import Counter
-from typing import Iterable, Optional, Sequence, TypeVar
-
+from typing import Optional, TypeVar
+from collections.abc import Iterable, Sequence
 
 T = TypeVar("T")
 
@@ -119,7 +119,7 @@ def derive_street(board: Sequence[str], hero_cards: Sequence[str]) -> str:
 def ordered_stacks_by_table_geometry(
     stack_bboxes: Sequence[tuple[int, int, int, int]],
     frame_shape: tuple[int, int],
-    pot_bbox: Optional[tuple[int, int, int, int]] = None,
+    pot_bbox: tuple[int, int, int, int] | None = None,
 ) -> list[tuple[str, tuple[int, int, int, int]]]:
     if not stack_bboxes:
         return []
@@ -158,8 +158,8 @@ def infer_hero_seat_id(
     ordered_stacks: Sequence[tuple[str, tuple[int, int, int, int]]],
     hero_card_bboxes: Sequence[tuple[int, int, int, int]],
     frame_shape: tuple[int, int],
-    last_hero_seat_id: Optional[str] = None,
-) -> Optional[str]:
+    last_hero_seat_id: str | None = None,
+) -> str | None:
     if not ordered_stacks:
         return None
 

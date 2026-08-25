@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests des gardes de clic sûr de l'ActionController (sans interaction Windows réelle)."""
 import asyncio
 import sys

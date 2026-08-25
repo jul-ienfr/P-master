@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests des métriques runtime extraites dans src/bot/metrics.py."""
 import sys
 from collections import deque

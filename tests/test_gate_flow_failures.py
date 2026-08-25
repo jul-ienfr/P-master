@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests des enregistreurs d'échec runtime et du gate flow (src/bot/gate_flow.py)."""
 import sys
 from collections import deque
@@ -13,8 +12,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.bot.gate_flow import GateFlowMixin, compact_solver_payload
-from src.bot.sanity_checker import ActionIntent, GateReason, GateResult
 from src.bot.live_execution import LiveExecutionMixin
+from src.bot.sanity_checker import ActionIntent, GateReason, GateResult
 from src.runtime.session import RuntimeSessionMixin
 
 

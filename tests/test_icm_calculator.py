@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests de l'ICMCalculator (Malmuth-Harville) et du risk premium tournoi."""
 import sys
 from pathlib import Path

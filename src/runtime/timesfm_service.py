@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable, Mapping, Optional
+from typing import Any, Optional
+from collections.abc import Callable, Mapping
 
 
 class RuntimeTimesFMService:
@@ -11,9 +12,9 @@ class RuntimeTimesFMService:
         enabled: bool,
         history_path: str,
         default_horizon: int = 12,
-        default_max_context: Optional[int] = 256,
-        series_loader: Optional[Callable[..., Mapping[str, Any]]] = None,
-        forecaster: Optional[Callable[..., Mapping[str, Any]]] = None,
+        default_max_context: int | None = 256,
+        series_loader: Callable[..., Mapping[str, Any]] | None = None,
+        forecaster: Callable[..., Mapping[str, Any]] | None = None,
     ) -> None:
         self.enabled = bool(enabled)
         self.history_path = str(history_path)
@@ -29,7 +30,7 @@ class RuntimeTimesFMService:
 
         return load_runtime_metric_series_map(history_path)
 
-    def _forecast(self, series_map, horizon: int, max_context: Optional[int]):
+    def _forecast(self, series_map, horizon: int, max_context: int | None):
         if self._forecaster is not None:
             return self._forecaster(series_map, horizon=horizon, max_context=max_context)
         from research.timesfm_adapter import forecast_runtime_metrics
@@ -45,10 +46,10 @@ class RuntimeTimesFMService:
     def forecast_runtime_metrics(
         self,
         *,
-        metric: Optional[str] = None,
-        horizon: Optional[int] = None,
-        max_context: Optional[int] = None,
-        history_path: Optional[str] = None,
+        metric: str | None = None,
+        horizon: int | None = None,
+        max_context: int | None = None,
+        history_path: str | None = None,
     ) -> dict:
         if not self.enabled:
             raise RuntimeError("TimesFM runtime forecasts are disabled.")

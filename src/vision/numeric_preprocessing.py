@@ -6,11 +6,11 @@ import cv2
 import numpy as np
 
 
-def preprocess_numeric_variants(image_crop: np.ndarray) -> List[Tuple[str, np.ndarray]]:
+def preprocess_numeric_variants(image_crop: np.ndarray) -> list[tuple[str, np.ndarray]]:
     if image_crop is None or not isinstance(image_crop, np.ndarray) or image_crop.size == 0:
         return []
 
-    variants: List[Tuple[str, np.ndarray]] = [("original", image_crop)]
+    variants: list[tuple[str, np.ndarray]] = [("original", image_crop)]
     gray = cv2.cvtColor(image_crop, cv2.COLOR_BGR2GRAY) if image_crop.ndim == 3 else image_crop.copy()
     normalized = cv2.normalize(gray, None, 0, 255, cv2.NORM_MINMAX)
     gray_bgr = cv2.cvtColor(normalized, cv2.COLOR_GRAY2BGR)

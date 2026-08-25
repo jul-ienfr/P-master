@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests des helpers purs de PokerOCR (parsing de montants, confiance, métadonnées)."""
 import sys
 from pathlib import Path

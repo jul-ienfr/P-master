@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests du classifieur de boutons d'action (src/vision/button_classifier.py)."""
 import sys
 from pathlib import Path

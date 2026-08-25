@@ -1,4 +1,9 @@
-from src.vision.site_adapter import FormatProfile, PokerStarsAdapter, ThemeProfile, get_active_adapter
+from src.vision.site_adapter import (
+    FormatProfile,
+    PokerStarsAdapter,
+    ThemeProfile,
+    get_active_adapter,
+)
 
 
 def test_pokerstars_adapter_filters_preset_manifests_to_pokerstars_only():

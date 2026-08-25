@@ -1,13 +1,18 @@
 from pathlib import Path
 
-from src.vision.detector import resolve_model_path
-from src.vision.models import DetectionResult
-from src.vision.yolo_schema import YOLO_CLASS_MAP, YOLO_CLASS_NAMES, validate_dataset_yaml_schema, write_dataset_yaml
 import pytest
 
 from scripts.bootstrap_yolo_labels_from_template import state_to_yolo_lines
 from scripts.train_yolo_detector import resolve_training_device
 from scripts.validate_proposed_yolo_labels import inspect_labels, write_validated_labels
+from src.vision.detector import resolve_model_path
+from src.vision.models import DetectionResult
+from src.vision.yolo_schema import (
+    YOLO_CLASS_MAP,
+    YOLO_CLASS_NAMES,
+    validate_dataset_yaml_schema,
+    write_dataset_yaml,
+)
 
 
 def test_resolve_model_path_finds_onnx_when_engine_is_missing(tmp_path):

@@ -13,7 +13,7 @@ import re
 import shutil
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 from pathlib import Path
 from typing import Any
 
@@ -27,9 +27,17 @@ log = logging.getLogger(__name__)
 try:  # pragma: no cover - depends on local runtime packages
     from poker.tools.screen_operations import (
         binary_pil_to_cv2 as _binary_pil_to_cv2,
+    )
+    from poker.tools.screen_operations import (
         crop_screenshot_with_topleft_corner as _crop_screenshot_with_topleft_corner,
+    )
+    from poker.tools.screen_operations import (
         find_template_on_screen as _find_template_on_screen,
+    )
+    from poker.tools.screen_operations import (
         get_ocr_float as _get_ocr_float,
+    )
+    from poker.tools.screen_operations import (
         is_template_in_search_area as _is_template_in_search_area,
     )
     _SCREEN_OPS_AVAILABLE = True
@@ -137,7 +145,7 @@ def update_room_manager_settings(updates: dict[str, Any]) -> dict[str, Any]:
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    return datetime.now(UTC).replace(microsecond=0).isoformat()
 
 
 def _slugify(value: str) -> str:
@@ -375,7 +383,7 @@ class AiAssistProvider:
 class LocalAiAssistProvider(AiAssistProvider):
     provider_name = "local"
 
-    def __init__(self, repository: "HybridPresetRepository"):
+    def __init__(self, repository: HybridPresetRepository):
         self.repository = repository
 
     def suggest(self, table_name: str, screenshots: list[Image.Image], manifest: dict[str, Any]) -> dict[str, Any]:
@@ -454,7 +462,7 @@ class CloudAiAssistProvider(AiAssistProvider):
 
     def __init__(
         self,
-        repository: "HybridPresetRepository",
+        repository: HybridPresetRepository,
         settings: dict[str, Any] | None = None,
         request_post=None,
     ):
@@ -716,7 +724,7 @@ class CloudAiAssistProvider(AiAssistProvider):
 
 
 def build_ai_assist_provider(
-    repository: "HybridPresetRepository",
+    repository: HybridPresetRepository,
     settings: dict[str, Any] | None = None,
 ) -> AiAssistProvider:
     settings = settings or read_room_manager_settings()
@@ -1654,7 +1662,7 @@ class LocalPresetRepository:
         return capture_path
 
     def _next_version_id(self, existing_versions: list[str]) -> str:
-        return f"v{len(existing_versions) + 1:04d}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+        return f"v{len(existing_versions) + 1:04d}-{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}"
 
     def _reset_draft_from_version(self, table_name: str, version_id: str) -> None:
         version_dir = self._version_dir(table_name, version_id)

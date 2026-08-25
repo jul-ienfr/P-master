@@ -20,8 +20,8 @@ except ImportError:  # pragma: no cover - optional in lightweight environments
 import requests
 
 try:
-    from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
     from requests.exceptions import RequestException
+    from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5), retry=retry_if_exception_type(RequestException), reraise=True)
     def _http_post(*args, **kwargs):
@@ -77,8 +77,7 @@ class Singleton(type):
     def __call__(cls, *args, **kwargs):
         """Is called at instantiation of a class that refers to this metaclass."""
         if cls not in cls._instances:
-            cls._instances[cls] = super(
-                Singleton, cls).__call__(*args, **kwargs)
+            cls._instances[cls] = super().__call__(*args, **kwargs)
         return cls._instances[cls]
 
     @staticmethod

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests du players builder extrait dans src/bot/players_builder.py."""
 import sys
 from pathlib import Path

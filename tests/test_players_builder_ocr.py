@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests du chemin OCR complet du players builder (_pair_stack_and_name, _build_players)."""
 import sys
 from pathlib import Path

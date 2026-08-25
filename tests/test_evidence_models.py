@@ -1,6 +1,6 @@
 from src.runtime.evidence_models import (
-    CropQualityReport,
     FIELD_CRITICALITY,
+    CropQualityReport,
     FieldCandidate,
     FieldCriticality,
     FieldEvidence,

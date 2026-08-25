@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 
+
 class FastPixelProbe:
     """
     Sonde ultra-légère au niveau pixel pour de la détection rapide (ex: à qui est le tour)

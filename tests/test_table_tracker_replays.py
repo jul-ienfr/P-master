@@ -4,7 +4,6 @@ import sys
 import types
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -28,7 +27,6 @@ if "transitions" not in sys.modules:
 
 
 from src.bot.table_tracker import TableTracker
-
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 

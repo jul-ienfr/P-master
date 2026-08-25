@@ -12,9 +12,9 @@ sys.modules.setdefault(
     ),
 )
 
-from src.api.server import BotAPI
 from research.policy_compare import build_policy_compare_summary, load_policy_compare_corpus
 from research.run_policy_compare import main as run_policy_compare_main
+from src.api.server import BotAPI
 
 
 class StubHITL:

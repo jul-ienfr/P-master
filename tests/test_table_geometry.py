@@ -1,7 +1,12 @@
-import numpy as np
 from pathlib import Path
 
-from src.vision.table_geometry import DEFAULT_RUNTIME_GEOMETRY, geometry_from_manifest_path, geometry_to_pixel_regions
+import numpy as np
+
+from src.vision.table_geometry import (
+    DEFAULT_RUNTIME_GEOMETRY,
+    geometry_from_manifest_path,
+    geometry_to_pixel_regions,
+)
 
 
 def test_geometry_to_pixel_regions_returns_expected_named_regions():

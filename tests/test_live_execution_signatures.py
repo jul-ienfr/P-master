@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests des signatures et gardes de décision live (src/bot/live_execution.py)."""
 import sys
 from pathlib import Path

@@ -13,12 +13,11 @@ try:
 except ImportError:  # Python 3.10 compatibility
     from datetime import datetime, timezone
 
-    UTC = timezone.utc
+    UTC = UTC
 
 from src.bot.runtime_types import CanonicalTableState
 from src.vision.models import TableState
 from src.vision.yolo_schema import write_dataset_yaml
-
 
 logger = logging.getLogger("ObservationDataset")
 

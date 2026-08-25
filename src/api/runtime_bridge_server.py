@@ -13,17 +13,20 @@ if str(ROOT) not in sys.path:
 
 from src.api.server import BotAPI
 from src.data.database import DatabaseManager
-from src.runtime.bridge_store import BridgeHitlProxy, BridgeRuntimeStatusProvider, RuntimeBridgeStore
+from src.runtime.bridge_store import (
+    BridgeHitlProxy,
+    BridgeRuntimeStatusProvider,
+    RuntimeBridgeStore,
+)
 from src.runtime.history_store import RuntimeHistoryStore
 from src.runtime.timesfm_service import RuntimeTimesFMService
-
 
 logger = logging.getLogger("RuntimeBridgeAPI")
 
 
 def _load_json_config(config_path: str) -> dict:
     try:
-        with open(config_path, "r", encoding="utf-8") as handle:
+        with open(config_path, encoding="utf-8") as handle:
             payload = json.load(handle)
         return dict(payload) if isinstance(payload, dict) else {}
     except Exception:

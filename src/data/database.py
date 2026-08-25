@@ -2,12 +2,13 @@ import json
 import logging
 import os
 from copy import deepcopy
+
 try:
     from datetime import UTC, datetime
 except ImportError:  # Python 3.10 compatibility
     from datetime import datetime, timezone
 
-    UTC = timezone.utc
+    UTC = UTC
 
 try:
     import asyncpg
@@ -186,7 +187,7 @@ class DatabaseManager:
             return
 
         try:
-            with open(self.persistence_path, "r", encoding="utf-8") as handle:
+            with open(self.persistence_path, encoding="utf-8") as handle:
                 payload = json.load(handle)
         except Exception as e:
             self.persistence_error = str(e)

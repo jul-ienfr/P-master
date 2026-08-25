@@ -1,6 +1,8 @@
-import time
 import logging
+import time
+
 import numpy as np
+
 try:
     import virtualbox
 except ImportError:
@@ -8,7 +10,6 @@ except ImportError:
 from PIL import Image
 
 from poker.tools.helper import get_config
-
 
 VirtualBoxMouseBase = virtualbox.library.IMouse if virtualbox is not None else object
 

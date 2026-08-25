@@ -66,9 +66,9 @@ def load_runtime_failure_artifacts(record: dict[str, Any]) -> dict[str, Any]:
 def replay_runtime_failures(
     manifest_path: str,
     *,
-    incident_id: Optional[str] = None,
-    category: Optional[str] = None,
-    severity: Optional[str] = None,
+    incident_id: str | None = None,
+    category: str | None = None,
+    severity: str | None = None,
 ) -> dict[str, Any]:
     records = load_runtime_failure_records(manifest_path)
     if incident_id:
@@ -92,9 +92,9 @@ def export_runtime_failure_review_bundle(
     manifest_path: str,
     output_path: str,
     *,
-    incident_id: Optional[str] = None,
-    category: Optional[str] = None,
-    severity: Optional[str] = None,
+    incident_id: str | None = None,
+    category: str | None = None,
+    severity: str | None = None,
 ) -> str:
     replay = replay_runtime_failures(
         manifest_path,

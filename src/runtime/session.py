@@ -1,23 +1,23 @@
-# -*- coding: utf-8 -*-
 """Helpers de session runtime : horodatage, session id, flags et port API."""
 import logging
 import os
 import socket
 import uuid
 from typing import Optional, Tuple
+
 try:
     from datetime import UTC, datetime
 except ImportError:  # Python 3.10 compatibility
     from datetime import datetime, timezone
 
-    UTC = timezone.utc
+    UTC = UTC
 
 logger = logging.getLogger("SuperBot2026")
 
 RUNTIME_PORT_CANDIDATES = (8005, 8080)
 
 
-def parse_bool_flag(value: object) -> Optional[bool]:
+def parse_bool_flag(value: object) -> bool | None:
     if value is None:
         return None
     if isinstance(value, bool):
@@ -54,7 +54,7 @@ def resolve_runtime_flag(config_value: object, env_var_name: str, default: bool)
     return default
 
 
-def select_available_runtime_port(candidates: Tuple[int, ...] = RUNTIME_PORT_CANDIDATES) -> int:
+def select_available_runtime_port(candidates: tuple[int, ...] = RUNTIME_PORT_CANDIDATES) -> int:
     for port in candidates:
         probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
@@ -67,7 +67,7 @@ def select_available_runtime_port(candidates: Tuple[int, ...] = RUNTIME_PORT_CAN
     return candidates[0]
 
 
-def resolve_runtime_api_port(candidates: Tuple[int, ...] = RUNTIME_PORT_CANDIDATES) -> int:
+def resolve_runtime_api_port(candidates: tuple[int, ...] = RUNTIME_PORT_CANDIDATES) -> int:
     configured = os.getenv("POKER_RUNTIME_API_PORT")
     if configured:
         try:

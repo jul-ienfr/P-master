@@ -1,14 +1,14 @@
-# -*- coding: utf-8 -*-
 """Builders de payload runtime snapshot/observation (extrait de src/api/server.py)."""
 import asyncio
 import logging
 import time
+
 try:
     from datetime import UTC, datetime
 except ImportError:  # Python 3.10 compatibility
     from datetime import datetime, timezone
 
-    UTC = timezone.utc
+    UTC = UTC
 from typing import Any, Dict, List, Optional, Tuple
 
 from aiohttp import web
@@ -78,7 +78,7 @@ class SnapshotPayloadMixin:
         return [dict(player) for player in players if isinstance(player, dict)]
 
     @classmethod
-    def _runtime_hero_and_villains(cls, canonical_spot: dict) -> tuple[Optional[dict], list[dict]]:
+    def _runtime_hero_and_villains(cls, canonical_spot: dict) -> tuple[dict | None, list[dict]]:
         players = cls._runtime_players(canonical_spot)
         active_players = [
             player for player in players
@@ -93,7 +93,7 @@ class SnapshotPayloadMixin:
         return hero_player, villains
 
     @staticmethod
-    def _runtime_effective_stack(hero_player: Optional[dict], villains: list[dict]) -> float:
+    def _runtime_effective_stack(hero_player: dict | None, villains: list[dict]) -> float:
         hero_stack = safe_float((hero_player or {}).get("stack"))
         villain_stacks = [
             stack
@@ -109,7 +109,7 @@ class SnapshotPayloadMixin:
         return 0.0
 
     @staticmethod
-    def _runtime_hero_position(hero_player: Optional[dict], villains: list[dict], tracker: dict) -> Optional[str]:
+    def _runtime_hero_position(hero_player: dict | None, villains: list[dict], tracker: dict) -> str | None:
         if hero_player and bool(hero_player.get("has_button")):
             return "ip" if len(villains) <= 1 else "btn"
         if any(bool(player.get("has_button")) for player in villains):

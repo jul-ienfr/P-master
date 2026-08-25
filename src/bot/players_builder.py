@@ -1,7 +1,7 @@
-# -*- coding: utf-8 -*-
 """Construction des joueurs runtime : pairing stacks/noms, quarantaine OCR (extrait de src/main.py)."""
 import time
-from typing import Iterable, List, Optional
+from typing import List, Optional
+from collections.abc import Iterable
 
 import numpy as np
 
@@ -11,14 +11,14 @@ from src.bot.live_reconstruction import (
     stable_window_value,
 )
 from src.bot.runtime_types import CanonicalPlayer, CanonicalTableState
+from src.runtime.player_name_resolver import resolve_player_name
 from src.vision.models import DetectionResult, TableState
 from src.vision.numeric_reader import NumericReader
 from src.vision.player_name_reader import PlayerNameReader
-from src.runtime.player_name_resolver import resolve_player_name
 
 
 class PlayersBuilderMixin:
-    def _known_stack_fallback(self, seat_id: str, cached_player: Optional[CanonicalPlayer]) -> float:
+    def _known_stack_fallback(self, seat_id: str, cached_player: CanonicalPlayer | None) -> float:
         if cached_player is not None and float(cached_player.stack or 0.0) > 0.0:
             return float(cached_player.stack or 0.0)
 
@@ -52,10 +52,10 @@ class PlayersBuilderMixin:
 
     def _read_player_stack(
         self,
-        stack_crop: Optional[np.ndarray],
+        stack_crop: np.ndarray | None,
         seat_id: str,
-        cached_player: Optional[CanonicalPlayer] = None,
-    ) -> tuple[Optional[float], dict]:
+        cached_player: CanonicalPlayer | None = None,
+    ) -> tuple[float | None, dict]:
         if stack_crop is None:
             return None, {}
 
@@ -97,7 +97,7 @@ class PlayersBuilderMixin:
         seat_index: int,
         seat_id: str,
         is_hero: bool,
-        cached_player: Optional[CanonicalPlayer] = None,
+        cached_player: CanonicalPlayer | None = None,
     ) -> CanonicalPlayer:
         sx, sy = self._center(stack_det)
         nearest_name = None
@@ -181,7 +181,7 @@ class PlayersBuilderMixin:
         seat_index: int,
         seat_id: str,
         is_hero: bool,
-        cached_player: Optional[CanonicalPlayer],
+        cached_player: CanonicalPlayer | None,
     ) -> CanonicalPlayer:
         stack_crop = self._safe_crop(frame, stack_det.bbox)
         stack_value, stack_ocr_metadata = self._read_player_stack(
@@ -231,7 +231,7 @@ class PlayersBuilderMixin:
     @staticmethod
     def _runtime_players_have_meaningful_stacks(
         players: Iterable[CanonicalPlayer],
-        hero_seat_id: Optional[str],
+        hero_seat_id: str | None,
     ) -> bool:
         players = list(players or [])
         if not players:
@@ -245,7 +245,7 @@ class PlayersBuilderMixin:
                 return False
         return True
 
-    def _ordered_stacks_by_table_geometry(self, state: TableState, frame: np.ndarray) -> List[tuple[str, DetectionResult]]:
+    def _ordered_stacks_by_table_geometry(self, state: TableState, frame: np.ndarray) -> list[tuple[str, DetectionResult]]:
         ordered = ordered_stacks_by_table_geometry(
             stack_bboxes=[stack_det.bbox for stack_det in state.stacks],
             frame_shape=frame.shape[:2],
@@ -256,10 +256,10 @@ class PlayersBuilderMixin:
 
     def _infer_hero_seat_id(
         self,
-        ordered_stacks: List[tuple[str, DetectionResult]],
+        ordered_stacks: list[tuple[str, DetectionResult]],
         state: TableState,
         frame: np.ndarray,
-    ) -> Optional[str]:
+    ) -> str | None:
         best_seat_id = infer_hero_seat_id(
             ordered_stacks=[(seat_id, stack_det.bbox) for seat_id, stack_det in ordered_stacks],
             hero_card_bboxes=[card.bbox for card in state.hero_cards],
@@ -278,7 +278,7 @@ class PlayersBuilderMixin:
 
     def _player_detection_signature(
         self,
-        ordered_stacks: List[tuple[str, DetectionResult]],
+        ordered_stacks: list[tuple[str, DetectionResult]],
         state: TableState,
     ) -> tuple:
         return (
@@ -290,7 +290,7 @@ class PlayersBuilderMixin:
     @staticmethod
     def _refresh_cached_player_runtime_flags(
         players: tuple[CanonicalPlayer, ...],
-        hero_seat_id: Optional[str],
+        hero_seat_id: str | None,
         state: TableState,
     ) -> tuple[CanonicalPlayer, ...]:
         if not players:
@@ -301,7 +301,7 @@ class PlayersBuilderMixin:
             x1, y1, x2, y2 = state.dealer_button.bbox
             dealer_center = ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
 
-        refreshed_players: List[CanonicalPlayer] = []
+        refreshed_players: list[CanonicalPlayer] = []
         for player in players:
             has_button = False
             if dealer_center is not None:
@@ -327,7 +327,7 @@ class PlayersBuilderMixin:
             )
         return tuple(refreshed_players)
 
-    def _build_players(self, state: TableState, frame: np.ndarray) -> List[CanonicalPlayer]:
+    def _build_players(self, state: TableState, frame: np.ndarray) -> list[CanonicalPlayer]:
         if not state.stacks:
             return []
 
@@ -351,7 +351,7 @@ class PlayersBuilderMixin:
 
         if responsive_live_path:
             if not self._runtime_players_have_meaningful_stacks(self._cached_runtime_players, hero_seat_id):
-                quick_players: List[CanonicalPlayer] = []
+                quick_players: list[CanonicalPlayer] = []
                 for index, (seat_id, stack_det) in enumerate(ordered_stacks):
                     quick_players.append(
                         self._pair_stack_quick(
@@ -374,7 +374,7 @@ class PlayersBuilderMixin:
                 x1, y1, x2, y2 = state.dealer_button.bbox
                 dealer_center = ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
 
-            placeholder_players: List[CanonicalPlayer] = []
+            placeholder_players: list[CanonicalPlayer] = []
             for index, (seat_id, stack_det) in enumerate(ordered_stacks):
                 cached_player = cached_by_seat.get(seat_id)
                 has_button = False

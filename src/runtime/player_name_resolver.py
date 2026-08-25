@@ -166,8 +166,8 @@ def is_usable_player_name(candidate_name: str) -> bool:
 def resolve_player_name(
     seat_id: str,
     candidate_name: str,
-    seat_cache: Dict[str, str],
-) -> Tuple[str, str]:
+    seat_cache: dict[str, str],
+) -> tuple[str, str]:
     candidate = sanitize_player_name(candidate_name)
     cached = sanitize_player_name(seat_cache.get(seat_id) or "")
 

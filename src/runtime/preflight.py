@@ -14,7 +14,7 @@ class PreflightError(RuntimeError):
 
 
 class Preflight:
-    def __init__(self, root: Path, *, config_path: Optional[Path] = None) -> None:
+    def __init__(self, root: Path, *, config_path: Path | None = None) -> None:
         self.root = Path(root)
         self.config_path = Path(config_path or (self.root / "config.json"))
 
@@ -28,7 +28,7 @@ class Preflight:
             raise PreflightError(f"Configuration illisible: {self.config_path} ({exc})") from exc
         return dict(payload) if isinstance(payload, dict) else {}
 
-    def _resolve_model_path(self, model_path: str) -> Optional[Path]:
+    def _resolve_model_path(self, model_path: str) -> Path | None:
         requested = Path(model_path)
         if not requested.is_absolute():
             requested = (self.root / requested).resolve()

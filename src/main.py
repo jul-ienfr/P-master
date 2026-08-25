@@ -1,24 +1,26 @@
-# -*- coding: utf-8 -*-
 import asyncio
 import logging
-from logging.handlers import RotatingFileHandler
 from collections import deque
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
+
 try:
     from datetime import UTC, datetime
 except ImportError:  # Python 3.10 compatibility
     from datetime import datetime, timezone
 
-    UTC = timezone.utc
-import cv2
-import numpy as np
+    UTC = UTC
+import ctypes
 import json
 import os
 import socket
 import subprocess
 import sys
 import time
-import ctypes
+
+import cv2
+import numpy as np
+
 
 def is_admin():
     try:
@@ -37,10 +39,12 @@ def ensure_admin() -> None:
     sys.exit(0)
 
 import traceback
-from types import SimpleNamespace
 import uuid
-from typing import Dict, Tuple, List, Optional, Iterable
 import warnings
+from types import SimpleNamespace
+from typing import Dict, List, Optional, Tuple
+from collections.abc import Iterable
+
 import torch
 
 warnings.filterwarnings("ignore", message=".*'pin_memory'.*")
@@ -64,30 +68,13 @@ seed_everything()
 # -------------------------------------------------
 
 # Imports de nos modules
-from src.vision.capture import ScreenCapture
-from src.vision.detector import PokerDetector
-from src.vision.models import DetectionResult, TableState
-from src.vision.table_geometry import (
-    build_dynamic_coordinates,
-    copy_table_state,
-    detection_center,
-    is_image_changed,
-    safe_crop,
-)
-from src.vision.ocr import PokerOCR
-from src.vision.button_classifier import (
-    ButtonClassifier,
-    button_slot_overlap_ratio,
-    is_resume_like_button_text,
-    normalize_action_button_text,
-)
-from src.vision.numeric_reader import NumericReader
-from src.vision.player_name_reader import PlayerNameReader
-from src.data.database import DatabaseManager
-from src.bot.table_tracker import TableTracker
-from src.bot.decision_maker import DecisionMaker
 from src.bot.action_controller import ActionController
-from src.bot.sanity_checker import ActionIntent, GateReason, GateResult, SanityChecker
+
+# --- Imports Active Learning ---
+from src.bot.active_learning import HumanInTheLoop
+from src.bot.decision_maker import DecisionMaker
+from src.bot.gate_flow import GateFlowMixin
+from src.bot.gate_flow import compact_solver_payload as _compact_solver_payload
 from src.bot.live_execution import (
     ASSISTED_FALLBACK_MIN_DECISION_CONFIDENCE,
     ASSISTED_MIN_DECISION_CONFIDENCE,
@@ -97,11 +84,6 @@ from src.bot.live_execution import (
     ASSISTED_MIN_STATE_CONFIDENCE,
     LiveExecutionMixin,
 )
-from src.bot.gate_flow import GateFlowMixin, compact_solver_payload as _compact_solver_payload
-from src.bot.metrics import MetricsMixin
-from src.bot.players_builder import PlayersBuilderMixin
-from src.bot.operator_snapshot import OperatorSnapshotMixin
-from src.bot.state_resolver import StateResolverMixin
 from src.bot.live_reconstruction import (
     derive_legal_actions,
     derive_street,
@@ -111,18 +93,25 @@ from src.bot.live_reconstruction import (
     smooth_state_confidence_window,
     stable_window_value,
 )
-from src.bot.runtime_types import CanonicalPlayer, CanonicalTableState
+from src.bot.metrics import MetricsMixin
+from src.bot.operator_snapshot import OperatorSnapshotMixin
 from src.bot.pixel_probe import FastPixelProbe
-
-# --- Imports Active Learning ---
-from src.bot.active_learning import HumanInTheLoop
+from src.bot.players_builder import PlayersBuilderMixin
+from src.bot.runtime_types import CanonicalPlayer, CanonicalTableState
+from src.bot.sanity_checker import ActionIntent, GateReason, GateResult, SanityChecker
+from src.bot.state_resolver import StateResolverMixin
+from src.bot.table_tracker import TableTracker
+from src.data.database import DatabaseManager
 from src.runtime.bridge_store import RuntimeBridgeStore
+from src.runtime.capture_context import CaptureContextMixin
 from src.runtime.frame_pipeline import FramePipeline
 from src.runtime.go_live_gate import evaluate_go_live_gate
 from src.runtime.health import HealthMonitor
 from src.runtime.history_store import RuntimeHistoryStore
 from src.runtime.loop import RuntimeLoop
 from src.runtime.operator_bridge import OperatorBridge
+from src.runtime.player_identity_state import PlayerIdentityState
+from src.runtime.player_name_resolver import resolve_player_name
 from src.runtime.poker_state_validator import PokerStateValidator
 from src.runtime.policy_compare import (
     build_empty_policy_compare_summary,
@@ -142,20 +131,42 @@ from src.runtime.policy_compare import (
     safe_runtime_float,
 )
 from src.runtime.preflight import Preflight, PreflightError
-from src.runtime.player_identity_state import PlayerIdentityState
-from src.runtime.player_name_resolver import resolve_player_name
 from src.runtime.readiness import build_runtime_readiness
 from src.runtime.session import (
     RUNTIME_PORT_CANDIDATES,
     RuntimeSessionMixin,
+)
+from src.runtime.session import (
     parse_bool_flag as _parse_bool_flag,
+)
+from src.runtime.session import (
     resolve_runtime_api_port as _resolve_runtime_api_port,
+)
+from src.runtime.session import (
     select_available_runtime_port as _select_available_runtime_port,
 )
-from src.runtime.capture_context import CaptureContextMixin
 from src.solver.provider import SolverProvider
+from src.vision.button_classifier import (
+    ButtonClassifier,
+    button_slot_overlap_ratio,
+    is_resume_like_button_text,
+    normalize_action_button_text,
+)
+from src.vision.capture import ScreenCapture
+from src.vision.detector import PokerDetector
+from src.vision.models import DetectionResult, TableState
+from src.vision.numeric_reader import NumericReader
 from src.vision.observation_dataset import ObservationDatasetCollector
+from src.vision.ocr import PokerOCR
+from src.vision.player_name_reader import PlayerNameReader
 from src.vision.runtime_failure_dataset import RuntimeFailureDataset
+from src.vision.table_geometry import (
+    build_dynamic_coordinates,
+    copy_table_state,
+    detection_center,
+    is_image_changed,
+    safe_crop,
+)
 
 # --- Configuration de Logs Persistants ---
 os.makedirs("log", exist_ok=True)
@@ -196,7 +207,7 @@ class SuperBotController(
     def __init__(self, config_path: str = "config.json"):
         # 1. Chargement de la Configuration
         try:
-            with open(config_path, 'r') as f:
+            with open(config_path) as f:
                 self.config = json.load(f)
         except FileNotFoundError:
             logger.error(f"Fichier de config {config_path} introuvable. ArrÃªt.")
@@ -302,7 +313,7 @@ class SuperBotController(
             require_visual_change=bool(observation_capture_cfg.get("require_visual_change", True)),
             max_samples_per_session=int(observation_capture_cfg.get("max_samples_per_session", 500) or 500),
         )
-        self.operator_controls: Dict[str, object] = {
+        self.operator_controls: dict[str, object] = {
             "profile_name": "live-runtime",
             "surface": "bot_cockpit",
             "capture_source": "ocr",
@@ -338,7 +349,7 @@ class SuperBotController(
         self.last_pot_crop: np.ndarray = None
         self.last_pot_value: float = 0.0
         self.last_gate_result = GateResult(allowed=False, status="idle", reasons=[])
-        self.last_tracker_snapshot: Dict[str, object] = {
+        self.last_tracker_snapshot: dict[str, object] = {
             "street": "IDLE",
             "board": [],
             "pot": 0.0,
@@ -349,7 +360,7 @@ class SuperBotController(
             "state_confidence": 0.0,
             "ocr_metadata": {},
         }
-        self.last_decision_summary: Dict[str, object] = {
+        self.last_decision_summary: dict[str, object] = {
             "action": "",
             "source": "idle",
             "confidence": 0.0,
@@ -361,18 +372,18 @@ class SuperBotController(
             "solver": {},
             "confidence_details": {},
         }
-        self.last_canonical_spot_snapshot: Optional[Dict[str, object]] = None
-        self.last_resolved_runtime_state: Optional[Dict[str, object]] = None
-        self.last_valid_frame: Optional[np.ndarray] = None
+        self.last_canonical_spot_snapshot: dict[str, object] | None = None
+        self.last_resolved_runtime_state: dict[str, object] | None = None
+        self.last_valid_frame: np.ndarray | None = None
         self.runtime_event_history = deque(maxlen=24)
         self.decision_trace_history = deque(maxlen=16)
         self.incident_history = deque(maxlen=16)
         self.metric_snapshot_history = deque(maxlen=24)
-        self._last_hero_seat_id: Optional[str] = None
+        self._last_hero_seat_id: str | None = None
         self._last_runtime_street = "IDLE"
-        self._last_metrics_persisted_at: Optional[datetime] = None
-        self._last_metrics_snapshot_signature: Optional[tuple] = None
-        self._last_valid_player_names_by_seat: Dict[str, str] = {}
+        self._last_metrics_persisted_at: datetime | None = None
+        self._last_metrics_snapshot_signature: tuple | None = None
+        self._last_valid_player_names_by_seat: dict[str, str] = {}
         self.player_identity_state = PlayerIdentityState()
         self._recent_runtime_streets = deque(maxlen=3)
         self._recent_runtime_legal_actions = deque(maxlen=3)
@@ -407,13 +418,13 @@ class SuperBotController(
         self._pot_ocr_refresh_interval_s = float(bot_cfg.get("pot_ocr_refresh_interval_s", 0.12) or 0.12)
         self._pot_crop_change_threshold = float(bot_cfg.get("pot_crop_change_threshold", 0.85) or 0.85)
         self._last_pot_ocr_at = 0.0
-        self._last_fast_pot_snapshot: Dict[str, object] = {}
+        self._last_fast_pot_snapshot: dict[str, object] = {}
         self._fast_pot_stale_after_s = float(bot_cfg.get("fast_pot_stale_after_s", 0.35) or 0.35)
         self._live_debounce_reset_sleep_s = float(bot_cfg.get("live_debounce_reset_sleep_s", 0.03) or 0.03)
         self._live_debounce_stable_window_s = float(bot_cfg.get("live_debounce_stable_window_s", 0.12) or 0.12)
         self._live_debounce_poll_sleep_s = float(bot_cfg.get("live_debounce_poll_sleep_s", 0.02) or 0.02)
-        self._last_visual_previews: Dict[str, np.ndarray] = {}
-        self._last_visual_state: Optional[TableState] = None
+        self._last_visual_previews: dict[str, np.ndarray] = {}
+        self._last_visual_state: TableState | None = None
         self._last_visual_state_at = 0.0
         self._post_action_context_guard_s = float(bot_cfg.get("post_action_context_guard_s", 2.25) or 2.25)
         self._live_action_repeat_cooldown_s = float(bot_cfg.get("live_action_repeat_cooldown_s", 3.5) or 3.5)
@@ -430,7 +441,7 @@ class SuperBotController(
         self._last_locked_decision_log_signature: tuple = ()
         self._last_locked_decision_log_at = 0.0
         self._last_decision_signature: tuple = ()
-        self._last_decision_payload: Optional[Dict[str, object]] = None
+        self._last_decision_payload: dict[str, object] | None = None
         self._last_decision_cached_at = 0.0
         self._decision_cache_ttl_s = float(bot_cfg.get("decision_cache_ttl_s", 0.35) or 0.35)
         self._locked_spot_log_interval_s = float(bot_cfg.get("locked_spot_log_interval_s", 1.0) or 1.0)
@@ -438,7 +449,7 @@ class SuperBotController(
         self._runtime_readiness_failure_cooldown_s = float(bot_cfg.get("runtime_readiness_failure_cooldown_s", 2.0) or 2.0)
         self._last_runtime_readiness_failure_signature: tuple = ()
         self._last_runtime_readiness_failure_at = 0.0
-        self._last_turn_probe_snapshot: Dict[str, object] = {}
+        self._last_turn_probe_snapshot: dict[str, object] = {}
         self._last_capture_context_signature: tuple = ()
         self._last_capture_context_changed_at = 0.0
         self._loop_stage = "startup"
@@ -466,17 +477,17 @@ class SuperBotController(
     @staticmethod
     def _safe_crop(
         frame: np.ndarray,
-        bbox: Tuple[int, int, int, int],
+        bbox: tuple[int, int, int, int],
         pad_x: int = 0,
         pad_y: int = 0,
         pad_ratio_x: float = 0.0,
         pad_ratio_y: float = 0.0,
-    ) -> Optional[np.ndarray]:
+    ) -> np.ndarray | None:
         return safe_crop(frame, bbox, pad_x=pad_x, pad_y=pad_y,
                          pad_ratio_x=pad_ratio_x, pad_ratio_y=pad_ratio_y)
 
     @staticmethod
-    def _center(det: DetectionResult) -> Tuple[float, float]:
+    def _center(det: DetectionResult) -> tuple[float, float]:
         return detection_center(det)
 
     def _is_image_changed(self, img1: np.ndarray, img2: np.ndarray, threshold: float = 0.95, mask_edges: bool = True) -> bool:
@@ -486,7 +497,7 @@ class SuperBotController(
     def _copy_table_state(state: TableState) -> TableState:
         return copy_table_state(state)
 
-    def _build_visual_preview(self, frame: np.ndarray, bbox: Tuple[int, int, int, int]) -> Optional[np.ndarray]:
+    def _build_visual_preview(self, frame: np.ndarray, bbox: tuple[int, int, int, int]) -> np.ndarray | None:
         crop = self._safe_crop(frame, bbox)
         if crop is None or crop.size == 0:
             return None
@@ -496,13 +507,13 @@ class SuperBotController(
         preview = cv2.resize(gray, (target_width, target_height), interpolation=cv2.INTER_AREA)
         return cv2.GaussianBlur(preview, (3, 3), 0)
 
-    def _capture_live_visual_previews(self, frame: np.ndarray) -> Dict[str, np.ndarray]:
+    def _capture_live_visual_previews(self, frame: np.ndarray) -> dict[str, np.ndarray]:
         return self._get_frame_pipeline()._capture_live_visual_previews(frame)
 
     def _detect_relevant_visual_change(
         self,
         frame: np.ndarray,
-    ) -> tuple[bool, Dict[str, np.ndarray], tuple[str, ...]]:
+    ) -> tuple[bool, dict[str, np.ndarray], tuple[str, ...]]:
         return self._get_frame_pipeline()._detect_relevant_visual_change(frame)
 
 
@@ -542,7 +553,7 @@ class SuperBotController(
     async def _process_frame(self, frame) -> TableState:
         return await self._get_frame_pipeline()._process_frame(frame)
 
-    def _build_gate_tracker_snapshot(self, canonical_state: CanonicalTableState) -> Dict[str, object]:
+    def _build_gate_tracker_snapshot(self, canonical_state: CanonicalTableState) -> dict[str, object]:
         metadata = dict(getattr(canonical_state, "metadata", {}) or {})
         hero_seat_id = str(
             metadata.get("hero_seat_id")
@@ -606,7 +617,7 @@ class SuperBotController(
         return 0.01
 
     @staticmethod
-    def _derive_legal_actions(state: TableState) -> Tuple[tuple[str, ...], tuple[str, ...]]:
+    def _derive_legal_actions(state: TableState) -> tuple[tuple[str, ...], tuple[str, ...]]:
         return derive_legal_actions(button.class_name for button in state.action_buttons)
 
     @staticmethod
@@ -627,7 +638,7 @@ class SuperBotController(
             self._button_classifier = classifier
         return classifier
 
-    def _read_action_button_text(self, image_crop: Optional[np.ndarray]) -> str:
+    def _read_action_button_text(self, image_crop: np.ndarray | None) -> str:
         classifier = self._get_button_classifier()
         if classifier._read_text_fn == self._read_action_button_text:
             # Lecteur par défaut : casser le cycle en appelant l'OCR natif.
@@ -636,7 +647,7 @@ class SuperBotController(
 
     def _classify_action_button_label(
         self,
-        image_crop: Optional[np.ndarray],
+        image_crop: np.ndarray | None,
         button_index: int,
         button_count: int,
     ) -> str:
@@ -646,21 +657,21 @@ class SuperBotController(
 
     @staticmethod
     def _button_slot_overlap_ratio(
-        bbox: Tuple[int, int, int, int],
-        slot_bbox: Tuple[int, int, int, int],
+        bbox: tuple[int, int, int, int],
+        slot_bbox: tuple[int, int, int, int],
     ) -> float:
         return button_slot_overlap_ratio(bbox, slot_bbox)
 
     def _slot_key_for_button(
         self,
         button: DetectionResult,
-        slot_boxes: Dict[str, object],
+        slot_boxes: dict[str, object],
     ) -> str:
         return self._get_button_classifier().slot_key_for_button(button, slot_boxes)
 
     def _classify_slot_button_label(
         self,
-        image_crop: Optional[np.ndarray],
+        image_crop: np.ndarray | None,
         slot_key: str,
         visible_slot_keys,
         fallback_label: str,
@@ -678,7 +689,7 @@ class SuperBotController(
         )
 
     @staticmethod
-    def _promote_fast_fold_outliers(buttons: List[DetectionResult]) -> List[DetectionResult]:
+    def _promote_fast_fold_outliers(buttons: list[DetectionResult]) -> list[DetectionResult]:
         return ButtonClassifier.promote_fast_fold_outliers(buttons)
 
     async def main_loop(self):

@@ -1,11 +1,10 @@
-from pathlib import Path
 import sys
 import time
 import types
+from copy import deepcopy
+from pathlib import Path
 
 import numpy as np
-from copy import deepcopy
-
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:

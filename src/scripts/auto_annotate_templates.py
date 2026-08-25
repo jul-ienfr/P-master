@@ -1,8 +1,9 @@
-import os
-import cv2
 import json
-from pathlib import Path
+import os
 import sys
+from pathlib import Path
+
+import cv2
 
 # Define root
 ROOT = Path(__file__).resolve().parents[2]
@@ -10,6 +11,7 @@ sys.path.insert(0, str(ROOT))
 
 from src.vision.detector import PokerDetector
 from src.vision.yolo_schema import YOLO_CLASS_MAP, write_dataset_yaml
+
 
 def create_annotations(dataset_name: str):
     print(f"\n--- Démarrage de l'Auto-Annotation (OpenCV -> YOLO) sur {dataset_name} ---")

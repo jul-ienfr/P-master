@@ -13,7 +13,7 @@ class ICMCalculator:
     def __init__(self):
         pass
 
-    def calculate_icm(self, stacks: List[float], payouts: List[float]) -> List[float]:
+    def calculate_icm(self, stacks: list[float], payouts: list[float]) -> list[float]:
         """
         Calcule l'Equité Monétaire de chaque joueur (Algorithme de Malmuth-Harville).
         :param stacks: Liste des tapis (chips) de tous les joueurs restants.
@@ -36,7 +36,7 @@ class ICMCalculator:
         results = [0.0] * num_players
 
         # Optimisation récursive (Malmuth-Harville)
-        def _calculate(remaining_stacks: List[float], depth: int, prob_path: float):
+        def _calculate(remaining_stacks: list[float], depth: int, prob_path: float):
             nonlocal results
             
             if depth >= len(payouts) or sum(remaining_stacks) == 0:
@@ -59,7 +59,7 @@ class ICMCalculator:
         _calculate(stacks, 0, 1.0)
         return results
 
-    def get_icm_risk_premium(self, hero_stack: float, villain_stack: float, all_stacks: List[float], payouts: List[float]) -> float:
+    def get_icm_risk_premium(self, hero_stack: float, villain_stack: float, all_stacks: list[float], payouts: list[float]) -> float:
         """
         Calcule le "Risk Premium" (La Prime de Risque).
         C'est le pourcentage de jetons supplémentaires qu'un All-In doit gagner par rapport à une situation 
@@ -97,7 +97,7 @@ class ICMCalculator:
         
         return max(0.0, risk_premium)
 
-    def adjust_gto_for_tournament(self, gto_action: str, hero_stack: float, villain_stack: float, all_stacks: List[float], payouts: List[float], pot_size: float) -> str:
+    def adjust_gto_for_tournament(self, gto_action: str, hero_stack: float, villain_stack: float, all_stacks: list[float], payouts: list[float], pot_size: float) -> str:
         """
         Si le Risk Premium est trop élevé (ex: On est 2ème en jetons à la bulle et le 1er fait tapis),
         le bot refusera le GTO "CALL" et choisira "FOLD" pour survivre dans l'argent.

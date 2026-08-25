@@ -10,14 +10,18 @@ from src.bot.runtime_types import CanonicalTableState
 from src.runtime.poker_state_validator import PokerStateValidator
 from src.runtime.readiness import build_runtime_readiness
 from src.vision.crop_quality import analyze_crop_quality
-from src.vision.models import DetectionResult, TableState, decode_card_token
-from src.vision.template_detector import build_detection_quality_metadata
 from src.vision.frame_quality import analyze_frame_quality
+from src.vision.models import DetectionResult, TableState, decode_card_token
+from src.vision.numeric_reader import NumericReader
 from src.vision.preset_registry import PresetRegistry
 from src.vision.region_proposals import build_region_proposals, resolve_region_proposals
-from src.vision.numeric_reader import NumericReader
 from src.vision.site_adapter import get_active_adapter
-from src.vision.table_geometry import DEFAULT_RUNTIME_GEOMETRY, geometry_from_manifest, geometry_to_pixel_regions
+from src.vision.table_geometry import (
+    DEFAULT_RUNTIME_GEOMETRY,
+    geometry_from_manifest,
+    geometry_to_pixel_regions,
+)
+from src.vision.template_detector import build_detection_quality_metadata
 
 
 class FramePipeline:
@@ -41,7 +45,7 @@ class FramePipeline:
         return validator
 
     @staticmethod
-    def _runtime_visual_regions(frame: np.ndarray) -> Dict[str, tuple[int, int, int, int]]:
+    def _runtime_visual_regions(frame: np.ndarray) -> dict[str, tuple[int, int, int, int]]:
         try:
             return geometry_to_pixel_regions(frame, DEFAULT_RUNTIME_GEOMETRY)
         except Exception:
@@ -204,9 +208,9 @@ class FramePipeline:
             focus_y1, focus_y2 = y1, y2
         return (focus_x1, focus_y1, focus_x2, focus_y2)
 
-    def _capture_live_visual_previews(self, frame: np.ndarray) -> Dict[str, np.ndarray]:
+    def _capture_live_visual_previews(self, frame: np.ndarray) -> dict[str, np.ndarray]:
         regions = self._runtime_visual_regions(frame)
-        previews: Dict[str, np.ndarray] = {}
+        previews: dict[str, np.ndarray] = {}
         for key, bbox in regions.items():
             preview = self._build_visual_preview(frame, bbox)
             if preview is not None:
@@ -216,7 +220,7 @@ class FramePipeline:
     def _detect_relevant_visual_change(
         self,
         frame: np.ndarray,
-    ) -> tuple[bool, Dict[str, np.ndarray], tuple[str, ...]]:
+    ) -> tuple[bool, dict[str, np.ndarray], tuple[str, ...]]:
         controller_override = getattr(getattr(self.controller, "__dict__", {}), "get", lambda _key, _default=None: None)(
             "_detect_relevant_visual_change",
             None,

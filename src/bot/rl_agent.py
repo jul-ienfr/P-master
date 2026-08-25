@@ -1,11 +1,12 @@
+import logging
 import os
+import random
+from collections import deque
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from collections import deque
-import random
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ class ExploitValueNetwork(nn.Module):
     - Le profil de l'adversaire (VPIP, PFR, Agression Freq, Fold to CBet, etc.)
     """
     def __init__(self, state_dim, action_dim):
-        super(ExploitValueNetwork, self).__init__()
+        super().__init__()
         
         # Architecture profonde pour capturer les non-linéarités complexes du poker
         self.fc1 = nn.Linear(state_dim, 256)

@@ -1,8 +1,8 @@
-# -*- coding: utf-8 -*-
 """Résolution de l'état runtime : rues, participation, lissage, snapshot tracker (extrait de src/main.py)."""
 import logging
 import time
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
+from collections.abc import Iterable
 
 import numpy as np
 
@@ -32,7 +32,7 @@ class StateResolverMixin:
             return "BET_BOX"
         return "BET_BTN"
 
-    def _get_action_coord_diagnostic(self, state: TableState, action_name: str) -> Dict[str, object]:
+    def _get_action_coord_diagnostic(self, state: TableState, action_name: str) -> dict[str, object]:
         metadata = dict(getattr(state, "metadata", {}) or {})
         diagnostics = dict(metadata.get("dynamic_coord_diagnostics", {}) or {})
         coord_key = self._resolve_action_coord_key(action_name)
@@ -141,7 +141,7 @@ class StateResolverMixin:
     def _normalize_board_for_street(board: tuple[str, ...], street: str) -> tuple[str, ...]:
         return normalize_board_for_street(board, street)
 
-    def _derive_street(self, board: List[str], hero_cards: List[str]) -> str:
+    def _derive_street(self, board: list[str], hero_cards: list[str]) -> str:
         incoming_street = derive_street(board, hero_cards)
         stable_street = stable_window_value(
             list(self._recent_runtime_streets),

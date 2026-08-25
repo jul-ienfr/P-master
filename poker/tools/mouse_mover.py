@@ -1,7 +1,7 @@
 import logging
 import random
-import time
 import sys
+import time
 
 import numpy as np
 

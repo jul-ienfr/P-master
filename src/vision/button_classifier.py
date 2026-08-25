@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import logging
 import unicodedata
-from typing import Callable, Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
+from collections.abc import Callable
 
 import cv2
 import numpy as np
@@ -85,8 +86,8 @@ def is_resume_like_button_text(normalized_text: str) -> bool:
 
 
 def button_slot_overlap_ratio(
-    bbox: Tuple[int, int, int, int],
-    slot_bbox: Tuple[int, int, int, int],
+    bbox: tuple[int, int, int, int],
+    slot_bbox: tuple[int, int, int, int],
 ) -> float:
     x1 = max(bbox[0], slot_bbox[0])
     y1 = max(bbox[1], slot_bbox[1])
@@ -100,19 +101,19 @@ def button_slot_overlap_ratio(
 
 
 class ButtonClassifier:
-    def __init__(self, ocr, read_text_fn: Optional[Callable[[Optional[np.ndarray]], str]] = None):
+    def __init__(self, ocr, read_text_fn: Callable[[np.ndarray | None], str] | None = None):
         self.ocr = ocr
-        self._text_cache: Dict[bytes, str] = {}
+        self._text_cache: dict[bytes, str] = {}
         # Lecteur de texte injecté par l'hôte (cache hôte, stubs de test).
         # None => lecture OCR native ci-dessous.
         self._read_text_fn = read_text_fn
 
-    def read_action_button_text(self, image_crop: Optional[np.ndarray]) -> str:
+    def read_action_button_text(self, image_crop: np.ndarray | None) -> str:
         if self._read_text_fn is not None:
             return self._read_text_fn(image_crop)
         return self.native_read_action_button_text(image_crop)
 
-    def native_read_action_button_text(self, image_crop: Optional[np.ndarray]) -> str:
+    def native_read_action_button_text(self, image_crop: np.ndarray | None) -> str:
         if image_crop is None or image_crop.size == 0:
             return ""
 
@@ -129,7 +130,7 @@ class ButtonClassifier:
         except Exception:
             cache_key = None
 
-        variants: List[np.ndarray] = [image_crop]
+        variants: list[np.ndarray] = [image_crop]
         try:
             gray = cv2.cvtColor(image_crop, cv2.COLOR_BGR2GRAY)
             gray = cv2.normalize(gray, None, 0, 255, cv2.NORM_MINMAX)
@@ -170,7 +171,7 @@ class ButtonClassifier:
 
     def classify_action_button_label(
         self,
-        image_crop: Optional[np.ndarray],
+        image_crop: np.ndarray | None,
         button_index: int,
         button_count: int,
     ) -> str:
@@ -219,7 +220,7 @@ class ButtonClassifier:
     @staticmethod
     def slot_key_for_button(
         button: DetectionResult,
-        slot_boxes: Dict[str, object],
+        slot_boxes: dict[str, object],
     ) -> str:
         best_slot = ""
         best_ratio = 0.0
@@ -235,9 +236,9 @@ class ButtonClassifier:
 
     def classify_slot_button_label(
         self,
-        image_crop: Optional[np.ndarray],
+        image_crop: np.ndarray | None,
         slot_key: str,
-        visible_slot_keys: Set[str],
+        visible_slot_keys: set[str],
         fallback_label: str,
     ) -> str:
         has_fold_slot = "FOLD" in visible_slot_keys
@@ -303,7 +304,7 @@ class ButtonClassifier:
         return fallback_label
 
     @staticmethod
-    def promote_fast_fold_outliers(buttons: List[DetectionResult]) -> List[DetectionResult]:
+    def promote_fast_fold_outliers(buttons: list[DetectionResult]) -> list[DetectionResult]:
         if len(buttons) < 3:
             return buttons
 
@@ -326,7 +327,7 @@ class ButtonClassifier:
         )
         y_threshold = max(28.0, reference_height * 0.55)
 
-        normalized: List[DetectionResult] = []
+        normalized: list[DetectionResult] = []
         for button in buttons:
             if button.class_name != "fold_button":
                 normalized.append(button)
@@ -351,7 +352,7 @@ class ButtonClassifier:
         self,
         state: TableState,
         frame: np.ndarray,
-        safe_crop: Callable[..., Optional[np.ndarray]],
+        safe_crop: Callable[..., np.ndarray | None],
     ) -> TableState:
         if not state.action_buttons:
             return state
@@ -365,7 +366,7 @@ class ButtonClassifier:
             for slot_key in [self.slot_key_for_button(button, slot_boxes)]
             if slot_key
         }
-        relabeled_buttons: List[DetectionResult] = []
+        relabeled_buttons: list[DetectionResult] = []
         button_count = len(state.action_buttons)
         for generic_index, button in enumerate(state.action_buttons):
             slot_key = self.slot_key_for_button(button, slot_boxes)

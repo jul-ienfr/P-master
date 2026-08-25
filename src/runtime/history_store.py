@@ -5,8 +5,8 @@ from collections import deque
 from itertools import groupby
 from pathlib import Path
 from shutil import move
-from typing import Iterable, Optional
-
+from typing import Optional
+from collections.abc import Iterable
 
 logger = logging.getLogger("RuntimeHistoryStore")
 
@@ -23,7 +23,7 @@ class RuntimeHistoryStore:
         file_path: str = "log/runtime_history.jsonl",
         max_size_bytes: int = 1_048_576,
         backup_count: int = 3,
-        session_id: Optional[str] = None,
+        session_id: str | None = None,
     ) -> None:
         self.enabled = bool(enabled)
         self.file_path = Path(file_path)
@@ -57,7 +57,7 @@ class RuntimeHistoryStore:
             self._write_failed = True
 
     @staticmethod
-    def _normalize_record(record: dict) -> Optional[dict]:
+    def _normalize_record(record: dict) -> dict | None:
         if not isinstance(record, dict):
             return None
 
@@ -73,7 +73,7 @@ class RuntimeHistoryStore:
         return normalized
 
     @staticmethod
-    def _normalize_session_id(session_id: object) -> Optional[str]:
+    def _normalize_session_id(session_id: object) -> str | None:
         value = str(session_id or "").strip()
         return value or None
 
@@ -173,7 +173,7 @@ class RuntimeHistoryStore:
     def _backup_path(self, index: int) -> Path:
         return self.file_path.with_suffix(self.file_path.suffix + f".bak.{index}")
 
-    def read_recent(self, stream: Optional[str] = None, limit: int = 10) -> list[dict]:
+    def read_recent(self, stream: str | None = None, limit: int = 10) -> list[dict]:
         if not self.enabled or limit <= 0:
             return []
 
@@ -185,7 +185,7 @@ class RuntimeHistoryStore:
 
         return list(reversed(items))
 
-    def export_records(self, stream: Optional[str] = None) -> list[dict]:
+    def export_records(self, stream: str | None = None) -> list[dict]:
         if not self.enabled:
             return []
 
@@ -196,7 +196,7 @@ class RuntimeHistoryStore:
             records.append(record)
         return records
 
-    def export_record_batches(self, stream: Optional[str] = None) -> list[dict]:
+    def export_record_batches(self, stream: str | None = None) -> list[dict]:
         if not self.enabled:
             return []
 
@@ -232,7 +232,7 @@ class RuntimeHistoryStore:
         return batches
 
     @staticmethod
-    def _coerce_record_list(value) -> Optional[list[dict]]:
+    def _coerce_record_list(value) -> list[dict] | None:
         if not isinstance(value, list):
             return None
         return value
@@ -266,7 +266,7 @@ class RuntimeHistoryStore:
         return {}
 
     @classmethod
-    def _runtime_review_wrapper(cls, payload: dict) -> Optional[dict]:
+    def _runtime_review_wrapper(cls, payload: dict) -> dict | None:
         if not isinstance(payload, dict):
             return None
         wrapper = payload.get("runtime_review")
@@ -278,7 +278,7 @@ class RuntimeHistoryStore:
         return wrapper
 
     @classmethod
-    def _runtime_review_artifact_type(cls, payload: dict) -> Optional[str]:
+    def _runtime_review_artifact_type(cls, payload: dict) -> str | None:
         wrapper = cls._runtime_review_wrapper(payload)
         if not isinstance(wrapper, dict):
             return None
@@ -303,12 +303,12 @@ class RuntimeHistoryStore:
         return tuple(str(value or "").strip().lower() for value in candidates if str(value or "").strip())
 
     @staticmethod
-    def _normalize_string(value: object) -> Optional[str]:
+    def _normalize_string(value: object) -> str | None:
         text = str(value or "").strip()
         return text or None
 
     @staticmethod
-    def _safe_float(value: object) -> Optional[float]:
+    def _safe_float(value: object) -> float | None:
         if value in (None, ""):
             return None
         try:
@@ -317,7 +317,7 @@ class RuntimeHistoryStore:
             return None
 
     @classmethod
-    def _extract_actions_from_shift(cls, value: object) -> tuple[Optional[str], Optional[str]]:
+    def _extract_actions_from_shift(cls, value: object) -> tuple[str | None, str | None]:
         text = cls._normalize_string(value)
         if not text:
             return None, None
@@ -327,7 +327,7 @@ class RuntimeHistoryStore:
         return match.group(1).upper(), match.group(2).upper()
 
     @classmethod
-    def _coerce_records_from_sessions(cls, sessions) -> Optional[list[dict]]:
+    def _coerce_records_from_sessions(cls, sessions) -> list[dict] | None:
         if not isinstance(sessions, list):
             return None
 
@@ -341,7 +341,7 @@ class RuntimeHistoryStore:
         return records if records else None
 
     @classmethod
-    def _coerce_records_from_review_pack_current_replay(cls, current_replay, session_id: Optional[str] = None) -> Optional[list[dict]]:
+    def _coerce_records_from_review_pack_current_replay(cls, current_replay, session_id: str | None = None) -> list[dict] | None:
         if not isinstance(current_replay, dict):
             return None
 
@@ -471,7 +471,7 @@ class RuntimeHistoryStore:
         return records if records else None
 
     @classmethod
-    def _coerce_records_from_review_pack_like_payload(cls, payload: dict) -> Optional[list[dict]]:
+    def _coerce_records_from_review_pack_like_payload(cls, payload: dict) -> list[dict] | None:
         if not isinstance(payload, dict):
             return None
 
@@ -625,10 +625,10 @@ class RuntimeHistoryStore:
             return {
                 "detected": False,
                 "record_count": 0,
-                "counts": {name: 0 for name in KNOWN_STREAMS},
+                "counts": dict.fromkeys(KNOWN_STREAMS, 0),
             }
 
-        counts = {name: 0 for name in KNOWN_STREAMS}
+        counts = dict.fromkeys(KNOWN_STREAMS, 0)
         for record in records:
             if not isinstance(record, dict):
                 continue
@@ -658,10 +658,10 @@ class RuntimeHistoryStore:
             "counts": counts,
         }
 
-    def summarize_records(self, stream: Optional[str] = None) -> dict:
+    def summarize_records(self, stream: str | None = None) -> dict:
         records = self.export_records(stream=stream)
-        counts = {name: 0 for name in KNOWN_STREAMS}
-        latest_at = {name: None for name in KNOWN_STREAMS}
+        counts = dict.fromkeys(KNOWN_STREAMS, 0)
+        latest_at = dict.fromkeys(KNOWN_STREAMS)
 
         for record in records:
             bucket = str(record.get("stream", "") or "")

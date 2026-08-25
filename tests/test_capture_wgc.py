@@ -7,16 +7,15 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
 from src.vision.capture import (
-    WgcWindowCapture,
-    ScreenCapture,
     WINDOWS_CAPTURE_AVAILABLE,
+    ScreenCapture,
+    WgcWindowCapture,
 )
 
 

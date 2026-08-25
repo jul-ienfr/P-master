@@ -5,9 +5,14 @@ from typing import Any, Optional
 
 import numpy as np
 
-from src.runtime.evidence_models import CropQualityReport, FieldCandidate, FieldCriticality, FieldEvidence
-from src.vision.numeric_consensus import NumericConsensus
+from src.runtime.evidence_models import (
+    CropQualityReport,
+    FieldCandidate,
+    FieldCriticality,
+    FieldEvidence,
+)
 from src.vision.crop_quality import analyze_crop_quality
+from src.vision.numeric_consensus import NumericConsensus
 from src.vision.numeric_parser import NumericParser
 from src.vision.numeric_preprocessing import preprocess_numeric_variants
 from src.vision.numeric_validator import NumericValidator
@@ -15,7 +20,7 @@ from src.vision.numeric_validator import NumericValidator
 
 @dataclass(frozen=True)
 class NumericReadResult:
-    selected_value: Optional[float]
+    selected_value: float | None
     evidence: FieldEvidence
     metadata: dict[str, Any]
 
@@ -56,7 +61,7 @@ class NumericReader:
             return NumericReadResult(selected_value=None, evidence=evidence, metadata={"variants": []})
 
         candidates = []
-        best_value: Optional[float] = None
+        best_value: float | None = None
         best_confidence = -1.0
         best_candidate = None
         variant_rows = []

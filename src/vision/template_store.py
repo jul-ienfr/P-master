@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Chargement des presets templates (extrait de src/vision/detector.py)."""
 import json
 import logging
@@ -36,7 +35,7 @@ def _is_area(value: Any) -> bool:
     return isinstance(value, dict) and {"x1", "y1", "x2", "y2"}.issubset(value.keys())
 
 
-def _normalize_area(value: Dict[str, Any]) -> Tuple[int, int, int, int]:
+def _normalize_area(value: dict[str, Any]) -> tuple[int, int, int, int]:
     return (
         int(value["x1"]),
         int(value["y1"]),
@@ -45,7 +44,7 @@ def _normalize_area(value: Dict[str, Any]) -> Tuple[int, int, int, int]:
     )
 
 
-def _estimate_table_bounds(table_data: Dict[str, Any]) -> Tuple[int, int]:
+def _estimate_table_bounds(table_data: dict[str, Any]) -> tuple[int, int]:
     max_x = 0
     max_y = 0
 
@@ -68,24 +67,24 @@ def _estimate_table_bounds(table_data: Dict[str, Any]) -> Tuple[int, int]:
 class TemplatePreset:
     name: str
     manifest_path: Path
-    table_data: Dict[str, Any]
-    anchor_templates: Dict[str, np.ndarray]
-    anchor_offsets: Dict[str, Tuple[int, int]]
-    anchor_match_bounds: Dict[str, Tuple[int, int]]
-    action_templates: Dict[str, np.ndarray]
-    card_templates: Dict[str, np.ndarray]
-    dealer_template: Optional[np.ndarray]
+    table_data: dict[str, Any]
+    anchor_templates: dict[str, np.ndarray]
+    anchor_offsets: dict[str, tuple[int, int]]
+    anchor_match_bounds: dict[str, tuple[int, int]]
+    action_templates: dict[str, np.ndarray]
+    card_templates: dict[str, np.ndarray]
+    dealer_template: np.ndarray | None
     table_width: int
     table_height: int
 
 
 
 
-def load_presets(preset_manifests: List[Path]) -> List[TemplatePreset]:
+def load_presets(preset_manifests: list[Path]) -> list[TemplatePreset]:
     manifests = preset_manifests or [
         _repo_root() / relative_path for relative_path in BUILTIN_PRESET_MANIFESTS
     ]
-    presets: List[TemplatePreset] = []
+    presets: list[TemplatePreset] = []
 
     for manifest_path in manifests:
         if not manifest_path.is_file():
@@ -123,9 +122,7 @@ def load_presets(preset_manifests: List[Path]) -> List[TemplatePreset]:
                 int(default_anchor_offset_data.get("x", 0)),
                 int(default_anchor_offset_data.get("y", 0)),
             )
-            anchor_offsets = {
-                anchor_name: default_anchor_offset for anchor_name in anchor_templates
-            }
+            anchor_offsets = dict.fromkeys(anchor_templates, default_anchor_offset)
             anchor_offsets_data = table_data.get("anchor_offsets", {})
             if isinstance(anchor_offsets_data, dict):
                 for anchor_name, offset_data in anchor_offsets_data.items():

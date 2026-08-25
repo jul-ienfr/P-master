@@ -7,7 +7,7 @@ from typing import Deque, Optional
 
 @dataclass(frozen=True)
 class NumericConsensusResult:
-    value: Optional[float]
+    value: float | None
     state: str
     support: int
     history: tuple[float, ...]
@@ -17,13 +17,13 @@ class NumericConsensus:
     def __init__(self, history_size: int = 3, tolerance_ratio: float = 0.05) -> None:
         self.history_size = max(2, int(history_size))
         self.tolerance_ratio = max(0.0, float(tolerance_ratio))
-        self._history: Deque[float] = deque(maxlen=self.history_size)
+        self._history: deque[float] = deque(maxlen=self.history_size)
 
     def _is_similar(self, left: float, right: float) -> bool:
         margin = max(abs(left) * self.tolerance_ratio, 0.01)
         return abs(left - right) <= margin
 
-    def update(self, value: Optional[float]) -> NumericConsensusResult:
+    def update(self, value: float | None) -> NumericConsensusResult:
         if value is None:
             history = tuple(self._history)
             if history:

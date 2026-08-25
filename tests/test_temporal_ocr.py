@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests du filtre OCR temporel anti-hallucination (src/vision/temporal_ocr.py)."""
 import sys
 from pathlib import Path

@@ -23,7 +23,7 @@ def _parse_bool_flag(value: object) -> bool:
 
 def _parse_simple_dataset_yaml(dataset_yaml: Path) -> dict:
     parsed: dict[str, str] = {}
-    with open(dataset_yaml, "r", encoding="utf-8") as handle:
+    with open(dataset_yaml, encoding="utf-8") as handle:
         for raw_line in handle:
             line = raw_line.strip()
             if not line or line.startswith("#"):

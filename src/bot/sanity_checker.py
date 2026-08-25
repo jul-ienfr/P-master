@@ -9,16 +9,16 @@ logger = logging.getLogger("SanityChecker")
 @dataclass(frozen=True)
 class ActionIntent:
     action: str
-    bet_size: Optional[float] = None
+    bet_size: float | None = None
     source: str = "unknown"
 
     @classmethod
-    def from_payload(cls, payload: Optional[Dict[str, Any]]) -> "ActionIntent":
+    def from_payload(cls, payload: dict[str, Any] | None) -> "ActionIntent":
         payload = payload or {}
         action = str(payload.get("action", "FOLD") or "FOLD").upper()
 
         raw_bet_size = payload.get("bet_size")
-        bet_size: Optional[float] = None
+        bet_size: float | None = None
         if raw_bet_size is not None:
             try:
                 bet_size = float(raw_bet_size)
@@ -31,7 +31,7 @@ class ActionIntent:
             source=str(payload.get("source", "unknown") or "unknown")
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "action": self.action,
             "bet_size": self.bet_size,
@@ -43,9 +43,9 @@ class ActionIntent:
 class GateReason:
     code: str
     message: str
-    context: Dict[str, Any] = field(default_factory=dict)
+    context: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "code": self.code,
             "message": self.message,
@@ -57,9 +57,9 @@ class GateReason:
 class GateResult:
     allowed: bool
     status: str
-    reasons: List[GateReason] = field(default_factory=list)
-    action_intent: Optional[ActionIntent] = None
-    confidence: Optional[float] = None
+    reasons: list[GateReason] = field(default_factory=list)
+    action_intent: ActionIntent | None = None
+    confidence: float | None = None
 
     @property
     def reason(self) -> str:
@@ -69,7 +69,7 @@ class GateResult:
             return "ready"
         return self.status or "blocked"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "allowed": self.allowed,
             "status": self.status,
@@ -92,11 +92,11 @@ class SanityChecker:
         self._last_ocr_pot = -1.0
         self.stack_ocr_quarantine_seconds = 1.0
         self.stack_ocr_warning_cooldown_seconds = 1.0
-        self._stack_ocr_quarantine_until: Dict[str, float] = {}
-        self._stack_ocr_warning_last_at: Dict[str, float] = {}
+        self._stack_ocr_quarantine_until: dict[str, float] = {}
+        self._stack_ocr_warning_last_at: dict[str, float] = {}
 
     @staticmethod
-    def _stack_context_key(seat_id: Optional[str]) -> str:
+    def _stack_context_key(seat_id: str | None) -> str:
         return str(seat_id or "").strip()
 
     def reset_ocr_quarantine(self) -> None:
@@ -107,7 +107,7 @@ class SanityChecker:
         self._pot_discrepancy_count = 0
         self._last_ocr_pot = -1.0
 
-    def get_stack_read_quarantine_remaining(self, seat_id: Optional[str]) -> float:
+    def get_stack_read_quarantine_remaining(self, seat_id: str | None) -> float:
         key = self._stack_context_key(seat_id)
         if not key:
             return 0.0
@@ -119,10 +119,10 @@ class SanityChecker:
             return 0.0
         return blocked_until - now
 
-    def is_stack_read_quarantined(self, seat_id: Optional[str]) -> bool:
+    def is_stack_read_quarantined(self, seat_id: str | None) -> bool:
         return self.get_stack_read_quarantine_remaining(seat_id) > 0.0
 
-    def _register_stack_ocr_anomaly(self, seat_id: Optional[str], message: str) -> None:
+    def _register_stack_ocr_anomaly(self, seat_id: str | None, message: str) -> None:
         key = self._stack_context_key(seat_id)
         if not key:
             logger.warning(message)
@@ -138,7 +138,7 @@ class SanityChecker:
             logger.warning(message)
             self._stack_ocr_warning_last_at[key] = now
 
-    def mark_stack_read_recovered(self, seat_id: Optional[str]) -> None:
+    def mark_stack_read_recovered(self, seat_id: str | None) -> None:
         key = self._stack_context_key(seat_id)
         if not key:
             return
@@ -162,10 +162,10 @@ class SanityChecker:
             return True
         return new_ocr_pot <= 5.0
 
-    def is_possible_board_reset(self, old_board: List[str], new_board: List[str]) -> bool:
+    def is_possible_board_reset(self, old_board: list[str], new_board: list[str]) -> bool:
         return len(old_board or []) > 0 and len(new_board or []) < len(old_board or [])
 
-    def is_same_hand_board_transition(self, old_board: List[str], new_board: List[str]) -> bool:
+    def is_same_hand_board_transition(self, old_board: list[str], new_board: list[str]) -> bool:
         old_board = list(old_board or [])
         new_board = list(new_board or [])
 
@@ -181,8 +181,8 @@ class SanityChecker:
         self,
         current_street: str,
         candidate_street: str,
-        current_board: List[str],
-        new_board: List[str],
+        current_board: list[str],
+        new_board: list[str],
     ) -> bool:
         expected_board_size = {"FLOP": 3, "TURN": 4, "RIVER": 5}
         current_street = str(current_street or "IDLE")
@@ -204,11 +204,11 @@ class SanityChecker:
     def evaluate_action_gate(
         self,
         action_intent: ActionIntent,
-        tracker_state: Optional[Dict[str, Any]],
-        coords_mapping: Optional[Dict[str, Any]],
+        tracker_state: dict[str, Any] | None,
+        coords_mapping: dict[str, Any] | None,
         on_failure=None,
     ) -> GateResult:
-        reasons: List[GateReason] = []
+        reasons: list[GateReason] = []
         tracker_state = tracker_state or {}
         coords_mapping = coords_mapping or {}
 
@@ -340,7 +340,7 @@ class SanityChecker:
             confidence=state_confidence,
         )
 
-    def _required_coordinates_for_action(self, action_name: str) -> List[str]:
+    def _required_coordinates_for_action(self, action_name: str) -> list[str]:
         if action_name == "FOLD":
             return ["FOLD"]
         if action_name in {"CALL", "CHECK"}:
@@ -440,7 +440,7 @@ class SanityChecker:
         new_ocr_stack: float,
         starting_stack: float,
         current_bet: float,
-        seat_id: Optional[str] = None,
+        seat_id: str | None = None,
     ) -> float:
         """
         Vérifie qu'un joueur n'a pas soudainement gagné des jetons au milieu d'une main.

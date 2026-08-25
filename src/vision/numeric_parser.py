@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
-from typing import Optional, Sequence
+from dataclasses import dataclass
+from typing import Optional
+from collections.abc import Sequence
 
 from src.vision.ocr import PokerOCR
 
 
 @dataclass(frozen=True)
 class NumericParseResult:
-    value: Optional[float]
+    value: float | None
     sanitized_text: str
     valid: bool
     reject_reason: str = ""
@@ -27,7 +28,7 @@ class NumericParser:
         self.thousands_separators = tuple(thousands_separators)
         self.decimal_separators = tuple(decimal_separators)
 
-    def _fallback_parse_amount(self, text: str) -> Optional[float]:
+    def _fallback_parse_amount(self, text: str) -> float | None:
         normalized = str(text or "").replace("\u00A0", " ")
         candidates = re.findall(r"[\d][\d\s,\.]*", normalized)
         if not candidates:

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Snapshot pot rapide et gestion du contexte de capture (extrait de src/main.py)."""
 import logging
 import time
@@ -10,7 +9,7 @@ logger = logging.getLogger("SuperBot2026")
 
 
 class CaptureContextMixin:
-    def _update_fast_pot_snapshot(self, snapshot: Optional[Dict[str, object]]) -> None:
+    def _update_fast_pot_snapshot(self, snapshot: dict[str, object] | None) -> None:
         if not isinstance(snapshot, dict) or not snapshot:
             return
         value = float(snapshot.get("value", 0.0) or 0.0)
@@ -20,7 +19,7 @@ class CaptureContextMixin:
         enriched.setdefault("observed_at_monotonic", time.monotonic())
         self._last_fast_pot_snapshot = enriched
 
-    def _get_recent_fast_pot_snapshot(self) -> Dict[str, object]:
+    def _get_recent_fast_pot_snapshot(self) -> dict[str, object]:
         snapshot = dict(getattr(self, "_last_fast_pot_snapshot", {}) or {})
         if not snapshot:
             return {}
@@ -44,7 +43,7 @@ class CaptureContextMixin:
             return False
         return True
 
-    def _refresh_capture_region(self, force: bool = False) -> Optional[Tuple[int, int, int, int]]:
+    def _refresh_capture_region(self, force: bool = False) -> tuple[int, int, int, int] | None:
         now = time.monotonic()
         if not force and (now - self._last_capture_region_refresh_at) < self._capture_region_refresh_interval_s:
             return self.camera.region

@@ -6,7 +6,7 @@ from typing import Dict
 
 @dataclass
 class PlayerIdentityState:
-    identities: Dict[str, dict] = field(default_factory=dict)
+    identities: dict[str, dict] = field(default_factory=dict)
 
     def update(self, seat_id: str, resolved_name: str, resolution_source: str) -> dict:
         entry = dict(self.identities.get(seat_id) or {})

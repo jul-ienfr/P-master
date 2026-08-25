@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-
 DEFAULT_GO_LIVE_THRESHOLDS = {
     "min_decision_count": 20,
     "max_block_rate": 0.5,

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Détecteur template (fallback calibration) : matching par région et scoring (extrait de src/vision/detector.py)."""
 import logging
 from pathlib import Path
@@ -29,7 +28,7 @@ logger = logging.getLogger(__name__)
 FALLBACK_SCALE_FACTORS = (0.75, 0.85, 0.95, 1.0, 1.1, 1.2, 1.35)
 
 
-def _find_template_sqdiff(haystack: np.ndarray, template: np.ndarray) -> Tuple[float, Tuple[int, int]]:
+def _find_template_sqdiff(haystack: np.ndarray, template: np.ndarray) -> tuple[float, tuple[int, int]]:
     if haystack is None or template is None:
         return 1.0, (0, 0)
     if haystack.shape[0] < template.shape[0] or haystack.shape[1] < template.shape[1]:
@@ -44,7 +43,7 @@ def _find_template_candidates(
     template: np.ndarray,
     threshold: float,
     max_candidates: int,
-) -> List[Tuple[float, Tuple[int, int]]]:
+) -> list[tuple[float, tuple[int, int]]]:
     if haystack is None or template is None:
         return []
     if haystack.shape[0] < template.shape[0] or haystack.shape[1] < template.shape[1]:
@@ -54,7 +53,7 @@ def _find_template_candidates(
     working = result.copy()
     suppression_x = max(3, template.shape[1] // 2)
     suppression_y = max(3, template.shape[0] // 2)
-    candidates: List[Tuple[float, Tuple[int, int]]] = []
+    candidates: list[tuple[float, tuple[int, int]]] = []
 
     for _ in range(max_candidates):
         min_val, _, min_loc, _ = cv2.minMaxLoc(working)
@@ -73,7 +72,7 @@ def _find_template_candidates(
     return candidates
 
 
-def _clip_bbox(bbox: Tuple[int, int, int, int], frame_shape: Tuple[int, int]) -> Tuple[int, int, int, int]:
+def _clip_bbox(bbox: tuple[int, int, int, int], frame_shape: tuple[int, int]) -> tuple[int, int, int, int]:
     height, width = frame_shape[:2]
     x1, y1, x2, y2 = bbox
     return (
@@ -85,8 +84,8 @@ def _clip_bbox(bbox: Tuple[int, int, int, int], frame_shape: Tuple[int, int]) ->
 
 
 def _bbox_overlap_ratio(
-    bbox: Tuple[int, int, int, int],
-    region: Tuple[int, int, int, int],
+    bbox: tuple[int, int, int, int],
+    region: tuple[int, int, int, int],
 ) -> float:
     x1 = max(int(bbox[0]), int(region[0]))
     y1 = max(int(bbox[1]), int(region[1]))
@@ -99,11 +98,11 @@ def _bbox_overlap_ratio(
     return max(0.0, min(intersection / area, 1.0))
 
 
-def _center_inside_region(center: Tuple[float, float], region: Tuple[int, int, int, int]) -> bool:
+def _center_inside_region(center: tuple[float, float], region: tuple[int, int, int, int]) -> bool:
     return float(region[0]) <= center[0] <= float(region[2]) and float(region[1]) <= center[1] <= float(region[3])
 
 
-def _distance_score(center: Tuple[float, float], region: Tuple[int, int, int, int]) -> float:
+def _distance_score(center: tuple[float, float], region: tuple[int, int, int, int]) -> float:
     rx = (float(region[0]) + float(region[2])) / 2.0
     ry = (float(region[1]) + float(region[3])) / 2.0
     half_w = max(1.0, (float(region[2]) - float(region[0])) / 2.0)
@@ -112,7 +111,7 @@ def _distance_score(center: Tuple[float, float], region: Tuple[int, int, int, in
     return max(0.0, min(1.0, 1.0 - (normalized_distance / 1.6)))
 
 
-def _card_shape_score(detection: DetectionResult, region: Tuple[int, int, int, int]) -> float:
+def _card_shape_score(detection: DetectionResult, region: tuple[int, int, int, int]) -> float:
     x1, y1, x2, y2 = detection.bbox
     width = max(1.0, float(x2 - x1))
     height = max(1.0, float(y2 - y1))
@@ -126,16 +125,16 @@ def _card_shape_score(detection: DetectionResult, region: Tuple[int, int, int, i
 
 def score_detection_geometry(
     detection: DetectionResult,
-    region: Tuple[int, int, int, int],
+    region: tuple[int, int, int, int],
     *,
     visual_kind: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     center = detection.center
     center_score = 1.0 if _center_inside_region(center, region) else 0.0
     overlap_score = _bbox_overlap_ratio(detection.bbox, region)
     distance_score = _distance_score(center, region)
     geometry_score = (center_score * 0.45) + (overlap_score * 0.35) + (distance_score * 0.20)
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "class_name": detection.class_name,
         "bbox": [int(value) for value in detection.bbox],
         "center_in_region": bool(center_score),
@@ -153,8 +152,8 @@ def score_detection_geometry(
 
 def build_detection_quality_metadata(
     state: TableState,
-    pixel_regions: Dict[str, Tuple[int, int, int, int]],
-) -> Dict[str, Any]:
+    pixel_regions: dict[str, tuple[int, int, int, int]],
+) -> dict[str, Any]:
     region_map = {
         "board_cards": "board",
         "hero_cards": "hero",
@@ -162,7 +161,7 @@ def build_detection_quality_metadata(
         "dealer_button": "table",
         "action_buttons": "actions",
     }
-    quality: Dict[str, Any] = {}
+    quality: dict[str, Any] = {}
     for field_name, region_name in region_map.items():
         region = pixel_regions.get(region_name)
         raw_detections = getattr(state, field_name, None)
@@ -185,7 +184,7 @@ def build_detection_quality_metadata(
     return quality
 
 
-def _crop_frame(frame: np.ndarray, bbox: Tuple[int, int, int, int]) -> Optional[np.ndarray]:
+def _crop_frame(frame: np.ndarray, bbox: tuple[int, int, int, int]) -> np.ndarray | None:
     x1, y1, x2, y2 = _clip_bbox(bbox, frame.shape[:2])
     if x2 <= x1 or y2 <= y1:
         return None
@@ -203,9 +202,9 @@ def _resize_template(template: np.ndarray, scale: float) -> np.ndarray:
 
 
 def _scale_bbox(
-    bbox: Tuple[int, int, int, int],
-    scale: float | Tuple[float, float],
-) -> Tuple[int, int, int, int]:
+    bbox: tuple[int, int, int, int],
+    scale: float | tuple[float, float],
+) -> tuple[int, int, int, int]:
     if isinstance(scale, tuple):
         scale_x, scale_y = scale
         x1, y1, x2, y2 = bbox
@@ -219,15 +218,15 @@ def _scale_bbox(
 
 
 def _expand_bbox(
-    bbox: Tuple[int, int, int, int],
+    bbox: tuple[int, int, int, int],
     pad_x: int,
     pad_y: int,
-) -> Tuple[int, int, int, int]:
+) -> tuple[int, int, int, int]:
     x1, y1, x2, y2 = bbox
     return (x1 - pad_x, y1 - pad_y, x2 + pad_x, y2 + pad_y)
 
 
-def _card_template_scale_candidates(base_scale: float) -> List[float]:
+def _card_template_scale_candidates(base_scale: float) -> list[float]:
     candidates = []
     for factor in (0.82, 0.9, 0.96, 1.0, 1.06):
         candidate = round(base_scale * factor, 3)
@@ -236,7 +235,7 @@ def _card_template_scale_candidates(base_scale: float) -> List[float]:
     return sorted(dict.fromkeys(candidates))
 
 
-def _extract_card_corner(image: Optional[np.ndarray]) -> Optional[np.ndarray]:
+def _extract_card_corner(image: np.ndarray | None) -> np.ndarray | None:
     if image is None or image.size == 0:
         return None
     height, width = image.shape[:2]
@@ -245,7 +244,7 @@ def _extract_card_corner(image: Optional[np.ndarray]) -> Optional[np.ndarray]:
     return image[:corner_height, :corner_width]
 
 
-def _has_visible_card_signal(crop: Optional[np.ndarray]) -> bool:
+def _has_visible_card_signal(crop: np.ndarray | None) -> bool:
     if crop is None or crop.size == 0:
         return False
 
@@ -271,9 +270,9 @@ def _has_visible_card_signal(crop: Optional[np.ndarray]) -> bool:
 
 def _location_adjusted_error(
     raw_error: float,
-    location: Tuple[int, int],
-    search_shape: Tuple[int, int],
-    template_shape: Tuple[int, int],
+    location: tuple[int, int],
+    search_shape: tuple[int, int],
+    template_shape: tuple[int, int],
 ) -> float:
     search_height, search_width = search_shape
     _template_height, _template_width = template_shape
@@ -287,8 +286,8 @@ def _location_adjusted_error(
     return float(raw_error) + (0.08 * x_penalty) + (0.1 * y_penalty)
 
 
-def _dedupe_card_detections(detections: List[DetectionResult], sort_key) -> List[DetectionResult]:
-    best_by_label: Dict[str, DetectionResult] = {}
+def _dedupe_card_detections(detections: list[DetectionResult], sort_key) -> list[DetectionResult]:
+    best_by_label: dict[str, DetectionResult] = {}
     for detection in detections:
         existing = best_by_label.get(detection.class_name)
         if existing is None or detection.confidence > existing.confidence:
@@ -298,7 +297,7 @@ def _dedupe_card_detections(detections: List[DetectionResult], sort_key) -> List
     return unique
 
 
-def _resolved_card_detections(detections: List[DetectionResult]) -> List[DetectionResult]:
+def _resolved_card_detections(detections: list[DetectionResult]) -> list[DetectionResult]:
     return [detection for detection in detections if decode_card_token(detection.class_name)]
 
 
@@ -306,18 +305,18 @@ def _resolved_card_detections(detections: List[DetectionResult]) -> List[Detecti
 class TemplateFallbackDetector:
     """Template detector used as a first-class vision backend for calibrated table themes."""
 
-    def __init__(self, preset_manifests: Optional[List[Path]] = None):
+    def __init__(self, preset_manifests: list[Path] | None = None):
         manifests = preset_manifests or []
         if manifests:
             manifests = list(PresetRegistry.from_paths(manifests).existing())
         self.presets = load_presets(manifests)
-        self._last_match: Optional[Dict[str, Any]] = None
+        self._last_match: dict[str, Any] | None = None
 
     def available(self) -> bool:
         return bool(self.presets)
 
     @staticmethod
-    def _heuristic_action_area(table_shape: Tuple[int, int]) -> Tuple[int, int, int, int]:
+    def _heuristic_action_area(table_shape: tuple[int, int]) -> tuple[int, int, int, int]:
         height, width = table_shape[:2]
         return (
             int(round(width * 0.38)),
@@ -327,7 +326,7 @@ class TemplateFallbackDetector:
         )
 
     @staticmethod
-    def _heuristic_hero_area(table_shape: Tuple[int, int]) -> Tuple[int, int, int, int]:
+    def _heuristic_hero_area(table_shape: tuple[int, int]) -> tuple[int, int, int, int]:
         height, width = table_shape[:2]
         return (
             int(round(width * 0.40)),
@@ -450,8 +449,8 @@ class TemplateFallbackDetector:
     def _find_template_sqdiff_in_region(
         frame: np.ndarray,
         template: np.ndarray,
-        region: Tuple[int, int, int, int],
-    ) -> Optional[Tuple[float, Tuple[int, int]]]:
+        region: tuple[int, int, int, int],
+    ) -> tuple[float, tuple[int, int]] | None:
         search_crop = _crop_frame(frame, region)
         if search_crop is None:
             return None
@@ -462,9 +461,9 @@ class TemplateFallbackDetector:
 
     @staticmethod
     def _clip_region_to_frame(
-        region: Tuple[int, int, int, int],
-        frame_shape: Tuple[int, int],
-    ) -> Optional[Tuple[int, int, int, int]]:
+        region: tuple[int, int, int, int],
+        frame_shape: tuple[int, int],
+    ) -> tuple[int, int, int, int] | None:
         frame_height, frame_width = frame_shape[:2]
         x1, y1, x2, y2 = region
         clipped = (
@@ -482,12 +481,12 @@ class TemplateFallbackDetector:
         frame: np.ndarray,
         preset: TemplatePreset,
         anchor_name: str,
-        template_shape: Tuple[int, int],
-        expected_location: Optional[Tuple[int, int]] = None,
-    ) -> List[Tuple[int, int, int, int]]:
+        template_shape: tuple[int, int],
+        expected_location: tuple[int, int] | None = None,
+    ) -> list[tuple[int, int, int, int]]:
         frame_height, frame_width = frame.shape[:2]
         template_height, template_width = template_shape[:2]
-        regions: List[Tuple[int, int, int, int]] = []
+        regions: list[tuple[int, int, int, int]] = []
 
         if expected_location is not None:
             margin_x = max(56, int(template_width * 2.5))
@@ -534,7 +533,7 @@ class TemplateFallbackDetector:
             if clipped is not None:
                 regions.append(clipped)
 
-        deduped: List[Tuple[int, int, int, int]] = []
+        deduped: list[tuple[int, int, int, int]] = []
         seen = set()
         for region in regions:
             if region not in seen:
@@ -546,9 +545,9 @@ class TemplateFallbackDetector:
     def _ordered_candidate_scales(
         frame: np.ndarray,
         preset: TemplatePreset,
-        prior_scale: Optional[float] = None,
-        limit: Optional[int] = None,
-    ) -> List[float]:
+        prior_scale: float | None = None,
+        limit: int | None = None,
+    ) -> list[float]:
         candidates = TemplateFallbackDetector._candidate_scales(frame, preset)
         width_ratio = frame.shape[1] / max(float(preset.table_width), 1.0)
         height_ratio = frame.shape[0] / max(float(preset.table_height), 1.0)
@@ -556,7 +555,7 @@ class TemplateFallbackDetector:
         if prior_scale is not None and 0.5 <= float(prior_scale) <= 1.9:
             priors.insert(0, float(prior_scale))
 
-        def sort_key(scale: float) -> Tuple[float, float]:
+        def sort_key(scale: float) -> tuple[float, float]:
             distance = min(abs(float(scale) - prior) for prior in priors)
             return (distance, abs(float(scale) - 1.0))
 
@@ -567,8 +566,8 @@ class TemplateFallbackDetector:
 
     def _remember_match(
         self,
-        match: Tuple[TemplatePreset, Tuple[int, int], float, str, float],
-    ) -> Tuple[TemplatePreset, Tuple[int, int], float, str, float]:
+        match: tuple[TemplatePreset, tuple[int, int], float, str, float],
+    ) -> tuple[TemplatePreset, tuple[int, int], float, str, float]:
         preset, location, error, anchor_name, scale = match
         self._last_match = {
             "preset_name": preset.name,
@@ -584,7 +583,7 @@ class TemplateFallbackDetector:
         self,
         frame: np.ndarray,
         threshold: float,
-    ) -> Optional[Tuple[TemplatePreset, Tuple[int, int], float, str, float]]:
+    ) -> tuple[TemplatePreset, tuple[int, int], float, str, float] | None:
         cached = dict(self._last_match or {})
         if not cached:
             return None
@@ -604,7 +603,7 @@ class TemplateFallbackDetector:
         if anchor_template is None:
             return None
 
-        best_match: Optional[Tuple[TemplatePreset, Tuple[int, int], float, str, float]] = None
+        best_match: tuple[TemplatePreset, tuple[int, int], float, str, float] | None = None
         for scale in self._ordered_candidate_scales(frame, preset, prior_scale=prior_scale, limit=5):
             scaled_template = _resize_template(anchor_template, scale)
             if (
@@ -634,7 +633,7 @@ class TemplateFallbackDetector:
         self,
         frame: np.ndarray,
         threshold: float,
-    ) -> Optional[Tuple[TemplatePreset, Tuple[int, int], float, str, float]]:
+    ) -> tuple[TemplatePreset, tuple[int, int], float, str, float] | None:
         cached = dict(self._last_match or {})
         if not cached:
             return None
@@ -690,7 +689,7 @@ class TemplateFallbackDetector:
         self,
         frame: np.ndarray,
         threshold: float = 0.2,
-    ) -> Optional[Tuple[TemplatePreset, Tuple[int, int], float, str, float]]:
+    ) -> tuple[TemplatePreset, tuple[int, int], float, str, float] | None:
         locked_match = self._locate_locked_preset(frame, threshold=threshold)
         if locked_match is not None:
             return locked_match
@@ -699,7 +698,7 @@ class TemplateFallbackDetector:
         if cached_match is not None:
             return cached_match
 
-        fast_match: Optional[Tuple[TemplatePreset, Tuple[int, int], float, str, float]] = None
+        fast_match: tuple[TemplatePreset, tuple[int, int], float, str, float] | None = None
         for preset in self.presets:
             prior_scale = None
             if self._last_match and self._last_match.get("preset_name") == preset.name:
@@ -737,7 +736,7 @@ class TemplateFallbackDetector:
         if fast_match is not None and fast_match[2] <= threshold:
             return self._remember_match(fast_match)
 
-        best_match: Optional[Tuple[TemplatePreset, Tuple[int, int], float, str, float]] = None
+        best_match: tuple[TemplatePreset, tuple[int, int], float, str, float] | None = None
 
         for preset in self.presets:
             prior_scale = None
@@ -775,15 +774,15 @@ class TemplateFallbackDetector:
         return self._remember_match(best_match)
 
     @staticmethod
-    def _sorted_area_items(area_map: Dict[str, Any]) -> List[Tuple[str, Any]]:
-        def area_sort_key(item: Tuple[str, Any]) -> tuple[int, str]:
+    def _sorted_area_items(area_map: dict[str, Any]) -> list[tuple[str, Any]]:
+        def area_sort_key(item: tuple[str, Any]) -> tuple[int, str]:
             key = str(item[0])
             return (0, f"{int(key):04d}") if key.isdigit() else (1, key)
 
         return sorted(area_map.items(), key=area_sort_key)
 
     @staticmethod
-    def _candidate_scales(frame: np.ndarray, preset: TemplatePreset) -> List[float]:
+    def _candidate_scales(frame: np.ndarray, preset: TemplatePreset) -> list[float]:
         candidates = set(float(scale) for scale in FALLBACK_SCALE_FACTORS)
         width_ratio = frame.shape[1] / max(float(preset.table_width), 1.0)
         height_ratio = frame.shape[0] / max(float(preset.table_height), 1.0)
@@ -805,10 +804,10 @@ class TemplateFallbackDetector:
         full_frame: np.ndarray,
         table_frame: np.ndarray,
         preset: TemplatePreset,
-        top_left: Tuple[int, int],
+        top_left: tuple[int, int],
         template_scale: float,
-        region_scale: Tuple[float, float],
-    ) -> List[DetectionResult]:
+        region_scale: tuple[float, float],
+    ) -> list[DetectionResult]:
         buttons_area = preset.table_data.get("buttons_search_area")
         if not _is_area(buttons_area):
             return []
@@ -819,7 +818,7 @@ class TemplateFallbackDetector:
             return []
 
         origin_x, origin_y = top_left
-        detections: List[DetectionResult] = []
+        detections: list[DetectionResult] = []
         for label, template in preset.action_templates.items():
             scaled_template = _resize_template(template, template_scale)
             if (
@@ -945,8 +944,8 @@ class TemplateFallbackDetector:
 
     @staticmethod
     def _bbox_slot_overlap_ratio(
-        bbox: Tuple[int, int, int, int],
-        slot_bbox: Tuple[int, int, int, int],
+        bbox: tuple[int, int, int, int],
+        slot_bbox: tuple[int, int, int, int],
     ) -> float:
         x1 = max(bbox[0], slot_bbox[0])
         y1 = max(bbox[1], slot_bbox[1])
@@ -963,11 +962,11 @@ class TemplateFallbackDetector:
         full_frame: np.ndarray,
         table_frame: np.ndarray,
         preset: TemplatePreset,
-        top_left: Tuple[int, int],
+        top_left: tuple[int, int],
         template_scale: float,
-        region_scale: Tuple[float, float],
-        detections: List[DetectionResult],
-    ) -> List[DetectionResult]:
+        region_scale: tuple[float, float],
+        detections: list[DetectionResult],
+    ) -> list[DetectionResult]:
         slot_boxes = self._collect_preset_slot_boxes(
             preset=preset,
             region_scale=region_scale,
@@ -977,7 +976,7 @@ class TemplateFallbackDetector:
         if not slot_boxes:
             return detections
 
-        slot_visibility: Dict[str, bool] = {}
+        slot_visibility: dict[str, bool] = {}
         for slot_key, slot_bbox in slot_boxes.items():
             slot_crop = _crop_frame(full_frame, slot_bbox)
             slot_visibility[slot_key] = self._has_generic_button_signal(slot_crop)
@@ -990,7 +989,7 @@ class TemplateFallbackDetector:
         if not visible_slots:
             return detections
 
-        normalized: List[DetectionResult] = []
+        normalized: list[DetectionResult] = []
         duplicate_margin = max(18, int(round(18 * template_scale)))
 
         slot_priorities = {
@@ -1013,7 +1012,7 @@ class TemplateFallbackDetector:
             if not slot_visible:
                 continue
 
-            best_detection: Optional[DetectionResult] = None
+            best_detection: DetectionResult | None = None
             priorities = slot_priorities.get(slot_key, ())
             for label in priorities:
                 labeled_candidates = [candidate for candidate in slot_candidates if candidate.class_name == label]
@@ -1026,7 +1025,7 @@ class TemplateFallbackDetector:
 
             class_name: str
             confidence: float
-            bbox: Tuple[int, int, int, int]
+            bbox: tuple[int, int, int, int]
             if best_detection is not None:
                 class_name = best_detection.class_name
                 confidence = best_detection.confidence
@@ -1075,7 +1074,7 @@ class TemplateFallbackDetector:
         return detections
 
     @staticmethod
-    def _has_generic_button_signal(crop: Optional[np.ndarray]) -> bool:
+    def _has_generic_button_signal(crop: np.ndarray | None) -> bool:
         if crop is None or crop.size == 0:
             return False
 
@@ -1101,9 +1100,9 @@ class TemplateFallbackDetector:
 
     @staticmethod
     def _find_card_candidate_boxes(
-        search_crop: Optional[np.ndarray],
+        search_crop: np.ndarray | None,
         limit: int,
-    ) -> List[Tuple[int, int, int, int]]:
+    ) -> list[tuple[int, int, int, int]]:
         if search_crop is None or search_crop.size == 0:
             return []
 
@@ -1113,14 +1112,14 @@ class TemplateFallbackDetector:
         if component_count <= 1:
             return []
 
-        candidates: List[Tuple[int, int, int, int, int]] = []
+        candidates: list[tuple[int, int, int, int, int]] = []
         for index in range(1, component_count):
             x, y, w, h, area = [int(value) for value in stats[index]]
             segments = [(x, y, w, h, area)]
             aspect = float(w) / max(float(h), 1.0)
             if w >= 110:
                 region_mask = white_mask[y : y + h, x : x + w]
-                split_index: Optional[int] = None
+                split_index: int | None = None
                 if region_mask.size > 0:
                     column_strength = (region_mask > 0).sum(axis=0).astype(np.float32)
                     if column_strength.size >= 12:
@@ -1173,7 +1172,7 @@ class TemplateFallbackDetector:
             return []
 
         candidates.sort(key=lambda item: (-item[0], item[2], item[1]))
-        boxes: List[Tuple[int, int, int, int]] = []
+        boxes: list[tuple[int, int, int, int]] = []
         for _, x, y, w, h in candidates:
             duplicate = False
             for existing in boxes:
@@ -1194,10 +1193,10 @@ class TemplateFallbackDetector:
 
     @staticmethod
     def _normalize_card_candidate_bbox(
-        bbox: Tuple[int, int, int, int],
-        crop_shape: Tuple[int, int],
+        bbox: tuple[int, int, int, int],
+        crop_shape: tuple[int, int],
         template_scale: float,
-    ) -> Tuple[int, int, int, int]:
+    ) -> tuple[int, int, int, int]:
         x, y, w, h = bbox
         crop_height, crop_width = crop_shape[:2]
         aspect_ratio = 0.72
@@ -1217,19 +1216,19 @@ class TemplateFallbackDetector:
 
     def _classify_card_crop(
         self,
-        crop: Optional[np.ndarray],
+        crop: np.ndarray | None,
         preset: TemplatePreset,
         template_scale: float,
         corner_weight: float,
-    ) -> Optional[Tuple[str, float, Tuple[int, int, int, int]]]:
+    ) -> tuple[str, float, tuple[int, int, int, int]] | None:
         if crop is None or crop.size == 0 or not _has_visible_card_signal(crop):
             return None
 
         crop_corner = _extract_card_corner(crop)
-        best_label: Optional[str] = None
+        best_label: str | None = None
         best_location = (0, 0)
-        best_error: Optional[float] = None
-        best_raw_error: Optional[float] = None
+        best_error: float | None = None
+        best_raw_error: float | None = None
         best_template_shape = (0, 0)
 
         for label, template in preset.card_templates.items():
@@ -1303,16 +1302,16 @@ class TemplateFallbackDetector:
         full_frame: np.ndarray,
         table_frame: np.ndarray,
         preset: TemplatePreset,
-        top_left: Tuple[int, int],
-        area_bbox: Tuple[int, int, int, int],
+        top_left: tuple[int, int],
+        area_bbox: tuple[int, int, int, int],
         template_scale: float,
-        region_scale: Tuple[float, float],
+        region_scale: tuple[float, float],
         limit: int,
         sort_key,
         pad_ratio_x: float,
         pad_ratio_y: float,
         corner_weight: float,
-    ) -> List[DetectionResult]:
+    ) -> list[DetectionResult]:
         scaled_area_bbox = _scale_bbox(area_bbox, region_scale)
         area_width = max(1, scaled_area_bbox[2] - scaled_area_bbox[0])
         area_height = max(1, scaled_area_bbox[3] - scaled_area_bbox[1])
@@ -1324,7 +1323,7 @@ class TemplateFallbackDetector:
             return []
 
         origin_x, origin_y = top_left
-        detections: List[DetectionResult] = []
+        detections: list[DetectionResult] = []
         candidate_boxes = self._find_card_candidate_boxes(search_crop, limit=limit)
         for candidate_bbox in candidate_boxes:
             normalized_bbox = self._normalize_card_candidate_bbox(
@@ -1363,11 +1362,11 @@ class TemplateFallbackDetector:
         self,
         full_frame: np.ndarray,
         table_frame: np.ndarray,
-        top_left: Tuple[int, int],
-        scaled_search_area: Tuple[int, int, int, int],
+        top_left: tuple[int, int],
+        scaled_search_area: tuple[int, int, int, int],
         template_scale: float,
-        existing: List[DetectionResult],
-    ) -> List[DetectionResult]:
+        existing: list[DetectionResult],
+    ) -> list[DetectionResult]:
         search_crop = _crop_frame(table_frame, scaled_search_area)
         if search_crop is None or search_crop.size == 0:
             return []
@@ -1392,7 +1391,7 @@ class TemplateFallbackDetector:
         min_area = max(5000, int(round(7000 * template_scale * template_scale)))
         max_area = int(round(search_crop.shape[0] * search_crop.shape[1] * 0.45))
 
-        generic_detections: List[DetectionResult] = []
+        generic_detections: list[DetectionResult] = []
         for contour in contours:
             x, y, w, h = cv2.boundingRect(contour)
             area = int(w * h)
@@ -1447,11 +1446,11 @@ class TemplateFallbackDetector:
         self,
         full_frame: np.ndarray,
         table_frame: np.ndarray,
-        top_left: Tuple[int, int],
-        scaled_search_area: Tuple[int, int, int, int],
+        top_left: tuple[int, int],
+        scaled_search_area: tuple[int, int, int, int],
         template_scale: float,
-        existing: List[DetectionResult],
-    ) -> List[DetectionResult]:
+        existing: list[DetectionResult],
+    ) -> list[DetectionResult]:
         search_crop = _crop_frame(table_frame, scaled_search_area)
         if search_crop is None or search_crop.size == 0:
             return []
@@ -1473,7 +1472,7 @@ class TemplateFallbackDetector:
         )
 
         origin_x, origin_y = top_left
-        slot_detections: List[DetectionResult] = []
+        slot_detections: list[DetectionResult] = []
         duplicate_margin = max(18, int(round(18 * template_scale)))
 
         for y1, y2 in vertical_bounds:
@@ -1525,17 +1524,17 @@ class TemplateFallbackDetector:
     @staticmethod
     def _collect_preset_slot_boxes(
         preset: TemplatePreset,
-        region_scale: Tuple[float, float],
-        top_left: Tuple[int, int],
-        frame_shape: Tuple[int, int],
-    ) -> Dict[str, Tuple[int, int, int, int]]:
+        region_scale: tuple[float, float],
+        top_left: tuple[int, int],
+        frame_shape: tuple[int, int],
+    ) -> dict[str, tuple[int, int, int, int]]:
         slot_map = {
             "FOLD": preset.table_data.get("mouse_fold"),
             "CALL": preset.table_data.get("mouse_check") or preset.table_data.get("mouse_call"),
             "BET_BTN": preset.table_data.get("mouse_raise"),
             "BET_BOX": preset.table_data.get("raise_value"),
         }
-        boxes: Dict[str, Tuple[int, int, int, int]] = {}
+        boxes: dict[str, tuple[int, int, int, int]] = {}
         origin_x, origin_y = top_left
         for key, area in slot_map.items():
             if not _is_area(area):
@@ -1552,11 +1551,11 @@ class TemplateFallbackDetector:
         full_frame: np.ndarray,
         table_frame: np.ndarray,
         preset: TemplatePreset,
-        top_left: Tuple[int, int],
+        top_left: tuple[int, int],
         template_scale: float,
-        region_scale: Tuple[float, float],
-        existing: List[DetectionResult],
-    ) -> List[DetectionResult]:
+        region_scale: tuple[float, float],
+        existing: list[DetectionResult],
+    ) -> list[DetectionResult]:
         slot_boxes = self._collect_preset_slot_boxes(
             preset=preset,
             region_scale=region_scale,
@@ -1566,7 +1565,7 @@ class TemplateFallbackDetector:
         if not slot_boxes:
             return []
 
-        detections: List[DetectionResult] = []
+        detections: list[DetectionResult] = []
         duplicate_margin = max(18, int(round(18 * template_scale)))
         ordered_slots = ("FOLD", "CALL", "BET_BTN")
 
@@ -1609,10 +1608,10 @@ class TemplateFallbackDetector:
         full_frame: np.ndarray,
         table_frame: np.ndarray,
         preset: TemplatePreset,
-        top_left: Tuple[int, int],
+        top_left: tuple[int, int],
         template_scale: float,
-        region_scale: Tuple[float, float],
-    ) -> Optional[DetectionResult]:
+        region_scale: tuple[float, float],
+    ) -> DetectionResult | None:
         if preset.dealer_template is None:
             return None
 
@@ -1659,10 +1658,10 @@ class TemplateFallbackDetector:
         full_frame: np.ndarray,
         table_frame: np.ndarray,
         preset: TemplatePreset,
-        top_left: Tuple[int, int],
+        top_left: tuple[int, int],
         template_scale: float,
-        region_scale: Tuple[float, float],
-    ) -> List[DetectionResult]:
+        region_scale: tuple[float, float],
+    ) -> list[DetectionResult]:
         hero_area = preset.table_data.get("my_cards_area")
         if _is_area(hero_area):
             detections = self._detect_cards_from_search_area(
@@ -1683,7 +1682,7 @@ class TemplateFallbackDetector:
             if len(detections) == 2:
                 return detections
 
-        detections: List[DetectionResult] = []
+        detections: list[DetectionResult] = []
         for area_name in ("left_card_area", "right_card_area"):
             area_data = preset.table_data.get(area_name)
             if not _is_area(area_data):
@@ -1745,17 +1744,17 @@ class TemplateFallbackDetector:
         self,
         full_frame: np.ndarray,
         preset: TemplatePreset,
-        top_left: Tuple[int, int],
+        top_left: tuple[int, int],
         area_name: str,
         class_name: str,
-        region_scale: Tuple[float, float],
-    ) -> List[DetectionResult]:
+        region_scale: tuple[float, float],
+    ) -> list[DetectionResult]:
         area_map = preset.table_data.get(area_name)
         if not isinstance(area_map, dict):
             return []
 
         origin_x, origin_y = top_left
-        detections: List[DetectionResult] = []
+        detections: list[DetectionResult] = []
         pad_x = 0
         pad_y = 0
         if class_name == "player_name_area":
@@ -1785,13 +1784,13 @@ class TemplateFallbackDetector:
         full_frame: np.ndarray,
         table_frame: np.ndarray,
         preset: TemplatePreset,
-        top_left: Tuple[int, int],
+        top_left: tuple[int, int],
         template_scale: float,
-        region_scale: Tuple[float, float],
-    ) -> List[DetectionResult]:
+        region_scale: tuple[float, float],
+    ) -> list[DetectionResult]:
         board_slot_map = preset.table_data.get("board_card_areas") or preset.table_data.get("table_card_areas")
         if isinstance(board_slot_map, dict):
-            detections: List[DetectionResult] = []
+            detections: list[DetectionResult] = []
             for _, candidate in self._sorted_area_items(board_slot_map):
                 if not _is_area(candidate):
                     continue
@@ -1832,11 +1831,11 @@ class TemplateFallbackDetector:
         full_frame: np.ndarray,
         table_frame: np.ndarray,
         preset: TemplatePreset,
-        top_left: Tuple[int, int],
-        area_bbox: Tuple[int, int, int, int],
+        top_left: tuple[int, int],
+        area_bbox: tuple[int, int, int, int],
         template_scale: float,
-        region_scale: Tuple[float, float],
-    ) -> Optional[DetectionResult]:
+        region_scale: tuple[float, float],
+    ) -> DetectionResult | None:
         scaled_area_bbox = _scale_bbox(area_bbox, region_scale)
         pad_x = max(16, int(round(18 * max(region_scale[0], 1.0))))
         pad_y = max(12, int(round(14 * max(region_scale[1], 1.0))))
@@ -1845,8 +1844,8 @@ class TemplateFallbackDetector:
         if search_crop is None or not _has_visible_card_signal(search_crop):
             return None
 
-        best_label: Optional[str] = None
-        best_error: Optional[float] = None
+        best_label: str | None = None
+        best_error: float | None = None
         best_location = (0, 0)
         best_scale = template_scale
 
@@ -1890,13 +1889,13 @@ class TemplateFallbackDetector:
         full_frame: np.ndarray,
         table_frame: np.ndarray,
         preset: TemplatePreset,
-        top_left: Tuple[int, int],
-        area_bbox: Tuple[int, int, int, int],
+        top_left: tuple[int, int],
+        area_bbox: tuple[int, int, int, int],
         template_scale: float,
-        region_scale: Tuple[float, float],
+        region_scale: tuple[float, float],
         corner_weight: float = 0.0,
         apply_location_bias: bool = True,
-    ) -> Optional[DetectionResult]:
+    ) -> DetectionResult | None:
         scaled_area_bbox = _scale_bbox(area_bbox, region_scale)
         pad_x = max(8, int(round(10 * max(region_scale[0], 1.0))))
         pad_y = max(10, int(round(16 * max(region_scale[1], 1.0))))
@@ -1980,15 +1979,15 @@ class TemplateFallbackDetector:
         full_frame: np.ndarray,
         table_frame: np.ndarray,
         preset: TemplatePreset,
-        top_left: Tuple[int, int],
-        area_bbox: Tuple[int, int, int, int],
+        top_left: tuple[int, int],
+        area_bbox: tuple[int, int, int, int],
         threshold: float,
         x_tolerance: float,
         y_tolerance: float,
         limit: int,
         template_scale: float,
-        region_scale: Tuple[float, float],
-    ) -> List[DetectionResult]:
+        region_scale: tuple[float, float],
+    ) -> list[DetectionResult]:
         scaled_area_bbox = _scale_bbox(area_bbox, region_scale)
         pad_x = max(8, int(round(10 * max(region_scale[0], 1.0))))
         pad_y = max(10, int(round(14 * max(region_scale[1], 1.0))))
@@ -1998,7 +1997,7 @@ class TemplateFallbackDetector:
             return []
 
         origin_x, origin_y = top_left
-        detections: List[DetectionResult] = []
+        detections: list[DetectionResult] = []
         for label, template in preset.card_templates.items():
             for scale_candidate in _card_template_scale_candidates(template_scale):
                 scaled_template = _resize_template(template, scale_candidate)

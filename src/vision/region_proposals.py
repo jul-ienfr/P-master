@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Optional
+from typing import Any, Optional
+from collections.abc import Iterable
 
 from src.vision.models import DetectionResult, TableState
 
@@ -38,7 +39,7 @@ class RegionResolution:
         }
 
 
-def _union_bbox(detections: Iterable[DetectionResult]) -> Optional[tuple[int, int, int, int]]:
+def _union_bbox(detections: Iterable[DetectionResult]) -> tuple[int, int, int, int] | None:
     boxes = [tuple(det.bbox) for det in detections if getattr(det, "bbox", None)]
     if not boxes:
         return None

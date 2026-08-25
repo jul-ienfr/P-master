@@ -1,11 +1,12 @@
-import os
+import argparse
 import base64
 import json
 import logging
-import argparse
-from openai import OpenAI
+import os
+
 import cv2
 import numpy as np
+from openai import OpenAI
 
 from src.vision.yolo_schema import YOLO_CLASS_MAP, YOLO_CLASS_NAMES
 

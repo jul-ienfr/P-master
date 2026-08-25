@@ -10,14 +10,14 @@ from src.vision.site_adapter import SiteAdapterProtocol
 @dataclass
 class TableSession:
     session_id: str
-    hwnd: Optional[int]
+    hwnd: int | None
     adapter: SiteAdapterProtocol
     tracker_state: dict[str, Any] = field(default_factory=dict)
     visual_state: dict[str, Any] = field(default_factory=dict)
     temporal_state: dict[str, Any] = field(default_factory=dict)
     incidents: list[dict[str, Any]] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-    last_valid_state: Optional[dict[str, Any]] = None
+    last_valid_state: dict[str, Any] | None = None
     readiness: RuntimeReadiness = field(default_factory=RuntimeReadiness)
 
     def record_incident(self, code: str, **context: Any) -> dict[str, Any]:

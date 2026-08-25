@@ -53,7 +53,7 @@ class WgcWindowCapture:
         if not WINDOWS_CAPTURE_AVAILABLE:
             raise RuntimeError("windows-capture indisponible")
         self._lock = threading.Lock()
-        self._latest: Optional[np.ndarray] = None
+        self._latest: np.ndarray | None = None
         self._control = None
         capture = WindowsCapture(window_hwnd=int(hwnd), cursor_capture=False, draw_border=False)
 
@@ -72,7 +72,7 @@ class WgcWindowCapture:
 
         self._control = capture.start_free_threaded()
 
-    def get_frame(self) -> Optional[np.ndarray]:
+    def get_frame(self) -> np.ndarray | None:
         with self._lock:
             if self._latest is None:
                 return None
@@ -101,8 +101,8 @@ class ScreenCapture:
         """
         self.target_fps = target_fps
         self.prefer_window_capture = bool(prefer_window_capture)
-        self.region: Optional[Tuple[int, int, int, int]] = None
-        self.window_hwnd: Optional[int] = None
+        self.region: tuple[int, int, int, int] | None = None
+        self.window_hwnd: int | None = None
         self.backend = "none"
         self.capture_mode = "none"
         self._wgc_session = None
@@ -132,7 +132,7 @@ class ScreenCapture:
         self.is_capturing = False
 
     @staticmethod
-    def _is_valid_dxcam_region(region: Optional[Tuple[int, int, int, int]]) -> bool:
+    def _is_valid_dxcam_region(region: tuple[int, int, int, int] | None) -> bool:
         if not isinstance(region, (tuple, list)) or len(region) != 4:
             return False
         try:
@@ -145,7 +145,7 @@ class ScreenCapture:
             return False
         return True
 
-    def start(self, region: Optional[Tuple[int, int, int, int]] = None, hwnd: Optional[int] = None):
+    def start(self, region: tuple[int, int, int, int] | None = None, hwnd: int | None = None):
         """
         Démarre la capture d'écran en continu.
         
@@ -203,7 +203,7 @@ class ScreenCapture:
         logger.warning("WGC: aucune frame pour HWND %s sous 1s, fallback.", hwnd)
         return False
 
-    def _capture_window_frame(self) -> Optional[np.ndarray]:
+    def _capture_window_frame(self) -> np.ndarray | None:
         if not WINDOW_CAPTURE_AVAILABLE or not self.window_hwnd:
             return None
         screen_dc_handle = None
@@ -231,7 +231,7 @@ class ScreenCapture:
             bitmap.CreateCompatibleBitmap(src_dc, width, height)
             mem_dc.SelectObject(bitmap)
 
-            def _bitmap_to_frame() -> Optional[np.ndarray]:
+            def _bitmap_to_frame() -> np.ndarray | None:
                 bmp_info = bitmap.GetInfo()
                 bmp_bytes = bitmap.GetBitmapBits(True)
                 frame = np.frombuffer(bmp_bytes, dtype=np.uint8)
@@ -290,7 +290,7 @@ class ScreenCapture:
             except Exception:
                 pass
 
-    def get_latest_frame(self) -> Optional[np.ndarray]:
+    def get_latest_frame(self) -> np.ndarray | None:
         """
         Récupère la dernière image capturée (non-bloquant).
         Retourne None si aucune nouvelle image n'est disponible.

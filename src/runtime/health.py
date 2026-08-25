@@ -9,7 +9,7 @@ try:
 except ImportError:  # Python 3.10 compatibility
     from datetime import datetime, timezone
 
-    UTC = timezone.utc
+    UTC = UTC
 
 
 DEFAULT_SUBSYSTEMS = (
@@ -31,7 +31,7 @@ class HealthMonitor:
     def __init__(self, subsystems: tuple[str, ...] = DEFAULT_SUBSYSTEMS) -> None:
         self._subsystems = tuple(subsystems)
         self._states = {name: self._empty_state() for name in self._subsystems}
-        self._overall_last_success_at: Optional[str] = None
+        self._overall_last_success_at: str | None = None
 
     @staticmethod
     def _empty_state() -> dict:
@@ -94,7 +94,7 @@ class HealthMonitor:
     def snapshot(self) -> dict:
         return {name: deepcopy(state) for name, state in self._states.items()}
 
-    def overall_last_success_at(self) -> Optional[str]:
+    def overall_last_success_at(self) -> str | None:
         return self._overall_last_success_at
 
 

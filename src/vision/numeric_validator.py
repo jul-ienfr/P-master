@@ -6,13 +6,13 @@ from typing import Optional
 
 @dataclass(frozen=True)
 class NumericValidationResult:
-    accepted_value: Optional[float]
+    accepted_value: float | None
     valid: bool
     reject_reason: str = ""
 
 
 class NumericValidator:
-    def validate(self, field_name: str, previous_value: float, candidate_value: Optional[float]) -> NumericValidationResult:
+    def validate(self, field_name: str, previous_value: float, candidate_value: float | None) -> NumericValidationResult:
         normalized_field = str(field_name or "").lower()
         if "pot" in normalized_field:
             return self.validate_pot(previous_value, candidate_value)
@@ -22,7 +22,7 @@ class NumericValidator:
             return self.validate_bet(previous_value, candidate_value)
         return self.validate_amount(previous_value, candidate_value)
 
-    def _coerce_values(self, previous_value: float, candidate_value: Optional[float]) -> tuple[float, float] | None:
+    def _coerce_values(self, previous_value: float, candidate_value: float | None) -> tuple[float, float] | None:
         if candidate_value is None:
             return None
         try:
@@ -32,7 +32,7 @@ class NumericValidator:
             return None
         return previous, candidate
 
-    def validate_pot(self, previous_value: float, candidate_value: Optional[float]) -> NumericValidationResult:
+    def validate_pot(self, previous_value: float, candidate_value: float | None) -> NumericValidationResult:
         coerced = self._coerce_values(previous_value, candidate_value)
         if candidate_value is None:
             return NumericValidationResult(accepted_value=None, valid=False, reject_reason="missing_candidate")
@@ -54,7 +54,7 @@ class NumericValidator:
 
         return NumericValidationResult(accepted_value=candidate, valid=True)
 
-    def validate_stack(self, previous_value: float, candidate_value: Optional[float]) -> NumericValidationResult:
+    def validate_stack(self, previous_value: float, candidate_value: float | None) -> NumericValidationResult:
         del previous_value
         if candidate_value is None:
             return NumericValidationResult(accepted_value=None, valid=False, reject_reason="missing_candidate")
@@ -68,7 +68,7 @@ class NumericValidator:
             return NumericValidationResult(accepted_value=None, valid=False, reject_reason="stack_too_large")
         return NumericValidationResult(accepted_value=candidate, valid=True)
 
-    def validate_bet(self, previous_value: float, candidate_value: Optional[float]) -> NumericValidationResult:
+    def validate_bet(self, previous_value: float, candidate_value: float | None) -> NumericValidationResult:
         del previous_value
         if candidate_value is None:
             return NumericValidationResult(accepted_value=None, valid=False, reject_reason="missing_candidate")
@@ -82,7 +82,7 @@ class NumericValidator:
             return NumericValidationResult(accepted_value=None, valid=False, reject_reason="bet_too_large")
         return NumericValidationResult(accepted_value=candidate, valid=True)
 
-    def validate_amount(self, previous_value: float, candidate_value: Optional[float]) -> NumericValidationResult:
+    def validate_amount(self, previous_value: float, candidate_value: float | None) -> NumericValidationResult:
         del previous_value
         if candidate_value is None:
             return NumericValidationResult(accepted_value=None, valid=False, reject_reason="missing_candidate")

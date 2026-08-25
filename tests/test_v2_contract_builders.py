@@ -2,6 +2,7 @@
 import json
 
 from poker.decisionmaker.v2_contracts import (
+    build_config_lab_surface_payload,
     build_mock_bot_cockpit_payload,
     build_mock_config_payload,
     build_mock_llm_assist_payload,
@@ -10,7 +11,6 @@ from poker.decisionmaker.v2_contracts import (
     build_mock_replay_analytics_payload,
     build_mock_solve_response_payload,
     build_replay_analytics_surface_payload,
-    build_config_lab_surface_payload,
 )
 
 

@@ -3,7 +3,8 @@ from __future__ import annotations
 import logging
 import os
 import time
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 from src.runtime.health import HealthMonitor
 
@@ -12,7 +13,7 @@ try:
 except ImportError:  # Python 3.10 compatibility
     from datetime import datetime, timezone
 
-    UTC = timezone.utc
+    UTC = UTC
 
 try:
     import requests
@@ -34,10 +35,10 @@ class SolverProvider:
     def __init__(
         self,
         native_backend: Any = None,
-        http_url: Optional[str] = None,
+        http_url: str | None = None,
         timeout_s: float = DEFAULT_GTO_SERVER_TIMEOUT_S,
-        request_post: Optional[Callable[..., Any]] = None,
-        health_monitor: Optional[HealthMonitor] = None,
+        request_post: Callable[..., Any] | None = None,
+        health_monitor: HealthMonitor | None = None,
     ) -> None:
         self.native_backend = native_backend
         self.http_url = str(http_url or os.getenv("POKER_GTO_SERVER_URL") or DEFAULT_GTO_SERVER_URL).strip()
@@ -46,7 +47,7 @@ class SolverProvider:
         self.health_monitor = health_monitor
         self._active_backend = "fallback"
         self._last_fallback_reason = "rust_solver_unavailable"
-        self._last_success_at: Optional[str] = None
+        self._last_success_at: str | None = None
 
     def active_backend(self) -> str:
         return self._active_backend
@@ -54,7 +55,7 @@ class SolverProvider:
     def fallback_reason(self) -> str:
         return self._last_fallback_reason
 
-    def last_success_at(self) -> Optional[str]:
+    def last_success_at(self) -> str | None:
         return self._last_success_at
 
     def backend_name(self) -> str:
@@ -75,7 +76,7 @@ class SolverProvider:
         actions = payload.get("actions")
         return bool(chosen_action or (isinstance(actions, list) and actions))
 
-    def _normalize_response(self, response: Any, *, backend: str) -> Optional[dict]:
+    def _normalize_response(self, response: Any, *, backend: str) -> dict | None:
         if response is None:
             return None
         if isinstance(response, dict):
@@ -92,7 +93,7 @@ class SolverProvider:
             return None
         return normalized
 
-    def _invoke_native(self, payload: dict) -> tuple[Optional[dict], str]:
+    def _invoke_native(self, payload: dict) -> tuple[dict | None, str]:
         backend = self.native_backend
         if backend is None:
             if self.health_monitor is not None:
@@ -130,7 +131,7 @@ class SolverProvider:
             self.health_monitor.record_success("solver")
         return normalized, ""
 
-    def _invoke_http(self, payload: dict) -> tuple[Optional[dict], str]:
+    def _invoke_http(self, payload: dict) -> tuple[dict | None, str]:
         if not self.http_url:
             if self.health_monitor is not None:
                 self.health_monitor.record_error("solver", "http_solver_disabled", status="degraded")

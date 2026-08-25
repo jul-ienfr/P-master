@@ -6,17 +6,17 @@ import time
 import uuid
 from collections import deque
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Optional
+from collections.abc import Callable
 
 try:
     from datetime import UTC, datetime
 except ImportError:  # Python 3.10 compatibility
     from datetime import datetime, timezone
 
-    UTC = timezone.utc
+    UTC = UTC
 
 from src.runtime.history_store import KNOWN_STREAMS, RuntimeHistoryStore
-
 
 logger = logging.getLogger("RuntimeBridge")
 WINDOWS_BRIDGE_WRITE_RETRIES = 8
@@ -40,7 +40,7 @@ def _safe_float(value: object, default: float = 0.0) -> float:
         return float(default)
 
 
-def _latest_timestamp(entries: list[dict]) -> Optional[str]:
+def _latest_timestamp(entries: list[dict]) -> str | None:
     if entries and isinstance(entries[0], dict):
         timestamp = entries[0].get("timestamp")
         if isinstance(timestamp, str) and timestamp:
@@ -48,7 +48,7 @@ def _latest_timestamp(entries: list[dict]) -> Optional[str]:
     return None
 
 
-def _parse_runtime_timestamp(value: object) -> Optional[datetime]:
+def _parse_runtime_timestamp(value: object) -> datetime | None:
     if not isinstance(value, str) or not value:
         return None
     try:
@@ -114,7 +114,7 @@ class RuntimeBridgeStore:
         self.bridge_dir.mkdir(parents=True, exist_ok=True)
         self.commands_dir.mkdir(parents=True, exist_ok=True)
         self._state_cache_payload: dict = {}
-        self._state_cache_mtime_ns: Optional[int] = None
+        self._state_cache_mtime_ns: int | None = None
         # Ordre garanti des commandes : deux queue_command dans la même
         # microseconde ne doivent pas dépendre du tri des UUID (flaky).
         self._command_seq_lock = threading.Lock()
@@ -127,7 +127,7 @@ class RuntimeBridgeStore:
     def _atomic_write_json(self, path: Path, payload: dict) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         serialized = json.dumps(payload, ensure_ascii=True, default=_json_default)
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(1, WINDOWS_BRIDGE_WRITE_RETRIES + 1):
             temp_path = path.with_suffix(path.suffix + f".{uuid.uuid4().hex}.tmp")
@@ -204,7 +204,7 @@ class RuntimeBridgeStore:
             logger.warning("Impossible de lire l'etat runtime bridge %s: %s", self.state_path, exc)
             return {}
 
-    def queue_command(self, kind: str, payload: Optional[dict] = None) -> dict:
+    def queue_command(self, kind: str, payload: dict | None = None) -> dict:
         command = {
             "command_id": f"{int(time.time() * 1000)}-{uuid.uuid4().hex[:8]}",
             "kind": str(kind or "").strip() or "unknown",
@@ -306,8 +306,8 @@ class BridgeRuntimeStatusProvider:
     def __init__(
         self,
         bridge_store: RuntimeBridgeStore,
-        history_store: Optional[RuntimeHistoryStore] = None,
-        observation_provider: Optional[Callable[[], dict]] = None,
+        history_store: RuntimeHistoryStore | None = None,
+        observation_provider: Callable[[], dict] | None = None,
     ) -> None:
         self.bridge_store = bridge_store
         self.history_store = history_store

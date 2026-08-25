@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Optional, Sequence
+from typing import Any, Optional
+from collections.abc import Iterable, Sequence
 
 from src.vision.site_adapter import SiteAdapterProtocol
 
@@ -22,12 +23,12 @@ class PresetRegistry:
     manifests: tuple[Path, ...]
 
     @classmethod
-    def from_adapter(cls, adapter: SiteAdapterProtocol) -> "PresetRegistry":
+    def from_adapter(cls, adapter: SiteAdapterProtocol) -> PresetRegistry:
         manifests = tuple(path for path in adapter.preset_manifests() if isinstance(path, Path))
         return cls(manifests=manifests)
 
     @classmethod
-    def from_paths(cls, manifests: Iterable[Path]) -> "PresetRegistry":
+    def from_paths(cls, manifests: Iterable[Path]) -> PresetRegistry:
         return cls(manifests=tuple(Path(path).resolve() for path in manifests))
 
     def all(self) -> Sequence[Path]:
@@ -55,7 +56,7 @@ class PresetRegistry:
             )
         return tuple(loaded)
 
-    def find_by_display_name(self, display_name: str) -> Optional[PresetManifest]:
+    def find_by_display_name(self, display_name: str) -> PresetManifest | None:
         target = str(display_name or "").strip().lower()
         if not target:
             return None

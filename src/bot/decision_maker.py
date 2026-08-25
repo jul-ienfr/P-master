@@ -1,12 +1,16 @@
+import asyncio
 import hashlib
 import json
 import logging
 import time
-import asyncio
 from collections import OrderedDict
 from functools import lru_cache
-from typing import List, Dict, Optional, Any
+from typing import Any, Dict, List, Optional
+
 import numpy as np
+
+from src.data.redis_cache import AsyncRedisCache
+from src.solver.provider import SolverProvider
 
 from .icm_calculator import ICMCalculator
 from .preflop_ranges import PreflopManager
@@ -15,15 +19,25 @@ from .preflop_support import (  # noqa: F401  (réexports pour compat)
     CARD_RANK_ORDER,
     PREFLOP_FAST_3BET_RANGE,
     PREFLOP_POSITION_ORDER,
+)
+from .preflop_support import (
     cached_range_items as _cached_range_items_impl,
+)
+from .preflop_support import (
     combo_in_range as _combo_in_range_impl,
+)
+from .preflop_support import (
     hero_combo_notation as _hero_combo_notation_impl,
+)
+from .preflop_support import (
     normalize_hero_hand_string as _normalize_hero_hand_string_impl,
+)
+from .preflop_support import (
     normalize_preflop_position as _normalize_preflop_position_impl,
+)
+from .preflop_support import (
     run_preflop_fast_path as _run_preflop_fast_path_impl,
 )
-from src.solver.provider import SolverProvider
-from src.data.redis_cache import AsyncRedisCache
 
 _DEFAULT_DEPENDENCY = object()
 
@@ -93,7 +107,7 @@ def _profile_sample_hands(profile: dict) -> int:
         or 0
     )
 
-def _normalize_action_name(action: Optional[str]) -> Optional[str]:
+def _normalize_action_name(action: str | None) -> str | None:
     if not action:
         return None
     return str(action).strip().upper()
@@ -103,7 +117,7 @@ def _normalize_hero_hand_string(hero_hand: str) -> str:
     return _normalize_hero_hand_string_impl(hero_hand)
 
 
-def _normalize_preflop_position(value: Optional[str]) -> Optional[str]:
+def _normalize_preflop_position(value: str | None) -> str | None:
     return _normalize_preflop_position_impl(value)
 
 
@@ -205,7 +219,7 @@ def _build_structured_profile_cached(profile_blob: str) -> dict:
         "rl_ready": bool(derived.get("rl_ready", False)),
     }
 
-def _analyze_board_texture(board: List[str]) -> str:
+def _analyze_board_texture(board: list[str]) -> str:
     """Analyse la texture des cartes communes (board) pour ajuster le bet sizing."""
     if not board or len(board) < 3:
         return "DRY" # Préflop
@@ -232,7 +246,7 @@ def _analyze_board_texture(board: List[str]) -> str:
         
     return "DRY"
 
-def _bet_size_from_action(action_name: Optional[str], pot: float, effective_stack: float, board: List[str] = None) -> Optional[float]:
+def _bet_size_from_action(action_name: str | None, pot: float, effective_stack: float, board: list[str] = None) -> float | None:
     normalized = _normalize_action_name(action_name)
     if not normalized:
         return None
@@ -271,7 +285,7 @@ def _bet_size_from_action(action_name: Optional[str], pot: float, effective_stac
         
     return None
 
-def _safe_float(value: Any) -> Optional[float]:
+def _safe_float(value: Any) -> float | None:
     try:
         if value is None:
             return None
@@ -279,7 +293,7 @@ def _safe_float(value: Any) -> Optional[float]:
     except (TypeError, ValueError):
         return None
 
-def _safe_int(value: Any) -> Optional[int]:
+def _safe_int(value: Any) -> int | None:
     try:
         if value is None:
             return None
@@ -287,13 +301,13 @@ def _safe_int(value: Any) -> Optional[int]:
     except (TypeError, ValueError):
         return None
 
-def _safe_string(value: Any) -> Optional[str]:
+def _safe_string(value: Any) -> str | None:
     if value in (None, ""):
         return None
     text = str(value).strip()
     return text or None
 
-def _compact_solver_list(value: Any) -> Optional[list]:
+def _compact_solver_list(value: Any) -> list | None:
     if not isinstance(value, list):
         return None
 
@@ -312,7 +326,7 @@ class DecisionMaker:
         self,
         db_manager,
         solver_backend: Any = _DEFAULT_DEPENDENCY,
-        solver_provider: Optional[SolverProvider] = None,
+        solver_provider: SolverProvider | None = None,
         rl_agent: Any = _DEFAULT_DEPENDENCY,
         create_rl_agent: bool = True,
         enable_validated_rl: bool = False,
@@ -354,14 +368,14 @@ class DecisionMaker:
         self.redis_cache = redis_cache if redis_cache is not None else AsyncRedisCache()
         # Phase 3.6 — cache solve en mémoire (LRU + TTL), évite les re-solves
         # identiques quand les frames se répètent sur un même état de table.
-        self._solve_cache: "OrderedDict[str, tuple[float, dict]]" = OrderedDict()
+        self._solve_cache: OrderedDict[str, tuple[float, dict]] = OrderedDict()
         self._solve_cache_ttl_s = 10.0
         self._solve_cache_max_entries = 256
         self.enable_llm_assist = False # Par défaut, le LLM est désactivé (100% local)
         
         # Configuration de la Rake (Commission du Casino) - NL2 à NL10 = 5%
         self.rake_percentage = 0.05
-        self._profile_cache: Dict[str, tuple[float, Optional[dict]]] = {}
+        self._profile_cache: dict[str, tuple[float, dict | None]] = {}
         self._profile_cache_ttl_s = 30.0
         
         if self.rl_agent and rl_agent is _DEFAULT_DEPENDENCY and self.create_rl_agent and self.autoload_rl_model:
@@ -381,14 +395,14 @@ class DecisionMaker:
         self,
         hero_hand: str,
         villain_range: str,
-        board: List[str],
+        board: list[str],
         pot: float,
         effective_stack: float,
-        legal_actions: List[str],
+        legal_actions: list[str],
         spot_id: str,
         hero_position: str,
         state_confidence: float,
-        action_history: Optional[List[Dict[str, Any]]],
+        action_history: list[dict[str, Any]] | None,
     ) -> dict:
         # Ajustement du pot pour simuler la Rake (5%)
         net_pot = pot * (1.0 - self.rake_percentage) if pot > 0 else pot
@@ -439,13 +453,13 @@ class DecisionMaker:
         *,
         hero_hand: str,
         villain_range: str,
-        board: List[str],
+        board: list[str],
         net_pot: float,
         effective_stack: float,
-        legal_actions: List[str],
+        legal_actions: list[str],
         spot_id: str,
         hero_position: str,
-        action_history: List[str],
+        action_history: list[str],
     ) -> str:
         blob = json.dumps(
             {
@@ -464,7 +478,7 @@ class DecisionMaker:
         )
         return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
-    def _solve_cache_get(self, key: str) -> Optional[dict]:
+    def _solve_cache_get(self, key: str) -> dict | None:
         entry = self._solve_cache.get(key)
         if entry is None:
             return None
@@ -485,7 +499,7 @@ class DecisionMaker:
         while len(self._solve_cache) > self._solve_cache_max_entries:
             self._solve_cache.popitem(last=False)
 
-    def _state_to_vector(self, hero_hand: str, board: List[str], pot: float, effective_stack: float, profile: dict) -> np.ndarray:
+    def _state_to_vector(self, hero_hand: str, board: list[str], pot: float, effective_stack: float, profile: dict) -> np.ndarray:
         derived = profile.get("derived_profile") or {}
         sample_hands = max(_profile_sample_hands(profile), 1)
         vpip = float(derived.get("vpip_rate", profile.get("vpip_count", 0) / sample_hands) or 0.0)
@@ -500,7 +514,7 @@ class DecisionMaker:
         state[4] = af
         return state
 
-    def _build_structured_profile(self, profile: Optional[dict]) -> dict:
+    def _build_structured_profile(self, profile: dict | None) -> dict:
         profile_blob = ""
         if profile:
             try:
@@ -509,7 +523,7 @@ class DecisionMaker:
                 profile_blob = json.dumps(dict(profile), sort_keys=True, default=str)
         return dict(_build_structured_profile_cached(profile_blob))
 
-    async def _get_cached_profile(self, villain_name: str, *, allow_fetch: bool) -> Optional[dict]:
+    async def _get_cached_profile(self, villain_name: str, *, allow_fetch: bool) -> dict | None:
         cache_key = str(villain_name or "").strip()
         if not cache_key:
             return None
@@ -551,7 +565,7 @@ class DecisionMaker:
         self,
         villain_name: str,
         hero_position: str,
-        action_history: Optional[List[Dict[str, Any]]],
+        action_history: list[dict[str, Any]] | None,
     ) -> str:
         normalized_villain_name = str(villain_name or "").strip().lower()
         for item in reversed(action_history or []):
@@ -567,7 +581,7 @@ class DecisionMaker:
         return _normalize_preflop_position(hero_position) or "HJ"
 
     @staticmethod
-    def _has_aggressive_preflop_history(action_history: Optional[List[Dict[str, Any]]]) -> bool:
+    def _has_aggressive_preflop_history(action_history: list[dict[str, Any]] | None) -> bool:
         for item in action_history or []:
             if not isinstance(item, dict):
                 continue
@@ -579,7 +593,7 @@ class DecisionMaker:
         return False
 
     @staticmethod
-    def _preferred_aggressive_action(legal_actions: List[str]) -> Optional[str]:
+    def _preferred_aggressive_action(legal_actions: list[str]) -> str | None:
         normalized_legal_actions = [_normalize_action_name(action) for action in legal_actions]
         if "RAISE" in normalized_legal_actions:
             return "RAISE"
@@ -593,9 +607,9 @@ class DecisionMaker:
         self,
         *,
         hero_hand: str,
-        legal_actions: List[str],
+        legal_actions: list[str],
         hero_position: str,
-        action_history: Optional[List[Dict[str, Any]]],
+        action_history: list[dict[str, Any]] | None,
         effective_stack: float = 0.0,
         pot: float = 0.0,
     ) -> tuple[str, dict]:
@@ -627,9 +641,9 @@ class DecisionMaker:
 
     def _select_exploit_action(
         self,
-        legal_actions: List[str],
+        legal_actions: list[str],
         gto_action: str,
-        rl_action_name: Optional[str],
+        rl_action_name: str | None,
         structured_profile: dict,
     ) -> tuple[str, str]:
         normalized_legal_actions = {_normalize_action_name(action): action for action in legal_actions}
@@ -661,13 +675,13 @@ class DecisionMaker:
 
     def _build_rl_ab_metadata(
         self,
-        legal_actions: List[str],
+        legal_actions: list[str],
         gto_action: str,
-        rl_action_name: Optional[str],
+        rl_action_name: str | None,
         structured_profile: dict,
         final_action: str,
         decision_source: str,
-        alternatives: List[dict],
+        alternatives: list[dict],
     ) -> dict:
         normalized_legal_actions = self._normalize_runtime_actions(legal_actions)
         rl_available = bool(self.rl_agent)
@@ -679,7 +693,7 @@ class DecisionMaker:
         compared = bool(rl_available and normalized_legal_actions)
         rl_differs_from_gto = bool(normalized_rl and normalized_rl != gto_action)
 
-        eligibility_reasons: List[str] = []
+        eligibility_reasons: list[str] = []
         if not rl_available:
             eligibility_reasons.append("rl_unavailable")
         if not self.enable_validated_rl:
@@ -724,8 +738,8 @@ class DecisionMaker:
             },
         }
 
-    def _extract_solver_alternatives(self, gto_details: dict, legal_actions: List[str]) -> List[dict]:
-        alternatives: List[dict] = []
+    def _extract_solver_alternatives(self, gto_details: dict, legal_actions: list[str]) -> list[dict]:
+        alternatives: list[dict] = []
         for item in gto_details.get("actions", []) or []:
             if not isinstance(item, dict):
                 continue
@@ -754,13 +768,13 @@ class DecisionMaker:
 
     def _enrich_solver_alternatives(
         self,
-        alternatives: List[dict],
+        alternatives: list[dict],
         *,
         gto_details: dict,
         gto_action: str,
         final_action: str,
         rl_ab_metadata: dict,
-    ) -> List[dict]:
+    ) -> list[dict]:
         enriched = [dict(item) for item in alternatives if isinstance(item, dict)]
         seen_actions = {
             _normalize_action_name(item.get("action"))
@@ -769,12 +783,12 @@ class DecisionMaker:
         }
 
         def append_candidate(
-            action_name: Optional[str],
+            action_name: str | None,
             *,
-            raw_action: Optional[str] = None,
+            raw_action: str | None = None,
             freq: Any = None,
             ev: Any = None,
-            source: Optional[str] = None,
+            source: str | None = None,
         ) -> None:
             normalized_action = _normalize_action_name(action_name)
             if not normalized_action or normalized_action in seen_actions:
@@ -819,7 +833,7 @@ class DecisionMaker:
 
         return enriched
 
-    def _find_alternative_for_action(self, alternatives: List[dict], action_name: Optional[str]) -> dict:
+    def _find_alternative_for_action(self, alternatives: list[dict], action_name: str | None) -> dict:
         normalized_action = _normalize_action_name(action_name)
         if not normalized_action:
             return {}
@@ -833,7 +847,7 @@ class DecisionMaker:
         self,
         branch_name: str,
         action_name: str,
-        alternatives: List[dict],
+        alternatives: list[dict],
     ) -> dict:
         alternative = self._find_alternative_for_action(alternatives, action_name)
         return {
@@ -846,11 +860,11 @@ class DecisionMaker:
 
     def _build_rl_ab_comparison(
         self,
-        legal_actions: List[str],
+        legal_actions: list[str],
         gto_action: str,
-        rl_action_name: Optional[str],
+        rl_action_name: str | None,
         structured_profile: dict,
-        alternatives: List[dict],
+        alternatives: list[dict],
     ) -> dict:
         normalized_rl = self._normalize_solver_action(rl_action_name, legal_actions) if rl_action_name else None
         rl_eligible = self._should_allow_rl_override(structured_profile)
@@ -921,7 +935,7 @@ class DecisionMaker:
             "fold_bias": float(structured_profile.get("fold_bias", 0.0) or 0.0),
         }
 
-    def _build_solver_maps(self, alternatives: List[dict]) -> tuple[dict, dict, dict]:
+    def _build_solver_maps(self, alternatives: list[dict]) -> tuple[dict, dict, dict]:
         ev_by_action: dict[str, float] = {}
         freq_by_action: dict[str, float] = {}
         action_metadata: dict[str, dict] = {}
@@ -962,7 +976,7 @@ class DecisionMaker:
         self,
         *,
         gto_details: dict,
-        alternatives: List[dict],
+        alternatives: list[dict],
         gto_action: str,
         final_action: str,
     ) -> dict:
@@ -1046,8 +1060,8 @@ class DecisionMaker:
 
         return solver_metadata
 
-    def _normalize_runtime_actions(self, legal_actions: List[str]) -> List[str]:
-        normalized: List[str] = []
+    def _normalize_runtime_actions(self, legal_actions: list[str]) -> list[str]:
+        normalized: list[str] = []
         for action in legal_actions:
             raw = _normalize_action_name(action)
             if not raw:
@@ -1060,7 +1074,7 @@ class DecisionMaker:
                 normalized.append(raw)
         return list(dict.fromkeys(normalized))
 
-    def _normalize_solver_action(self, action_name: Optional[str], legal_actions: List[str]) -> str:
+    def _normalize_solver_action(self, action_name: str | None, legal_actions: list[str]) -> str:
         normalized = _normalize_action_name(action_name)
         normalized_legal_actions = self._normalize_runtime_actions(legal_actions)
         if normalized in normalized_legal_actions:
@@ -1077,7 +1091,7 @@ class DecisionMaker:
             return "FOLD"
         return normalized_legal_actions[0] if normalized_legal_actions else "CHECK"
 
-    def _apply_node_locking(self, base_villain_range: str, profile: dict, board: List[str]) -> str:
+    def _apply_node_locking(self, base_villain_range: str, profile: dict, board: list[str]) -> str:
         """
         NODE-LOCKING GTO PROFOND : 
         Modifie mathématiquement la range de l'adversaire envoyée au Solveur Rust
@@ -1114,12 +1128,12 @@ class DecisionMaker:
         final_range = ", ".join(list(dict.fromkeys(locked_range)))
         return final_range if final_range else base_villain_range
 
-    async def get_best_action(self, hero_hand: str, board: List[str], pot: float, 
+    async def get_best_action(self, hero_hand: str, board: list[str], pot: float, 
                               effective_stack: float, villain_name: str, 
-                              legal_actions: List[str], spot_id: str = "",
+                              legal_actions: list[str], spot_id: str = "",
                               hero_position: str = "ip", state_confidence: float = 0.0,
-                              action_history: Optional[List[Dict[str, Any]]] = None,
-                              tournament_data: Optional[Dict[str, Any]] = None) -> dict:
+                              action_history: list[dict[str, Any]] | None = None,
+                              tournament_data: dict[str, Any] | None = None) -> dict:
         """
         Détermine la meilleure action à prendre en combinant GTO (Solver Rust), 
         Reinforcement Learning (Agent RL), Node-Locking, et ICM.
@@ -1221,7 +1235,7 @@ class DecisionMaker:
                 gto_action = self._normalize_solver_action(response.get("chosen_action", "FOLD"), legal_actions)
                 gto_details = response
                 logger.info(f"Réponse GTO Rust reçue en {response.get('elapsed_ms')}ms : {gto_action}")
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.error("Solver Rust timeout (>10s). Fail-safe to FOLD/CHECK.")
                 self._register_solver_timeout()
                 fallback_used = True
@@ -1384,7 +1398,7 @@ class DecisionMaker:
         if rl_ab_metadata:
             metadata["rl_ab"] = rl_ab_metadata
 
-        incidents: List[dict] = []
+        incidents: list[dict] = []
         if fallback_used:
             incidents.append({
                 "id": "solver_fallback",
@@ -1400,7 +1414,7 @@ class DecisionMaker:
                 "label": f"state_confidence={state_confidence:.2f}",
             })
 
-        warnings: List[str] = []
+        warnings: list[str] = []
         if fallback_used:
             warnings.append("fallback_used")
         if state_confidence < 0.6:
@@ -1454,7 +1468,7 @@ class DecisionMaker:
             "threshold": _SOLVER_BREAKER_THRESHOLD,
         }
 
-    def _fallback_action(self, legal_actions: List[str]) -> dict:
+    def _fallback_action(self, legal_actions: list[str]) -> dict:
         logger.warning("Utilisation de l'action de Fallback (FOLD).")
         normalized_legal_actions = self._normalize_runtime_actions(legal_actions)
         action = "FOLD" if "FOLD" in normalized_legal_actions else normalized_legal_actions[0] if normalized_legal_actions else "CHECK"

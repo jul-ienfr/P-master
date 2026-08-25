@@ -10,12 +10,12 @@ from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
 BASE_GTO_RANGE = "55+, A2s+, K5s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, ATo+, KJo+, QJo"
-CARD_RANK_ORDER: Dict[str, int] = {rank: index for index, rank in enumerate("23456789TJQKA")}
+CARD_RANK_ORDER: dict[str, int] = {rank: index for index, rank in enumerate("23456789TJQKA")}
 PREFLOP_POSITION_ORDER = ("UTG", "HJ", "CO", "BTN", "SB", "BB")
 PREFLOP_FAST_3BET_RANGE = "TT+, AQs+, AKo"
 
 
-def normalize_action_name(action: Optional[str]) -> Optional[str]:
+def normalize_action_name(action: str | None) -> str | None:
     if not action:
         return None
     return str(action).strip().upper()
@@ -31,7 +31,7 @@ def normalize_hero_hand_string(hero_hand: str) -> str:
     if any(len(card) != 2 for card in cards):
         return raw_value
 
-    normalized_cards: List[str] = []
+    normalized_cards: list[str] = []
     for card in cards:
         rank = card[0].upper()
         suit = card[1].lower()
@@ -46,7 +46,7 @@ def normalize_hero_hand_string(hero_hand: str) -> str:
     return "".join(normalized_cards)
 
 
-def normalize_preflop_position(value: Optional[str]) -> Optional[str]:
+def normalize_preflop_position(value: str | None) -> str | None:
     normalized = str(value or "").strip().upper()
     return normalized if normalized in PREFLOP_POSITION_ORDER else None
 
@@ -130,13 +130,13 @@ def combo_in_range(combo: str, range_text: str) -> bool:
 def run_preflop_fast_path(
     *,
     hero_hand: str,
-    legal_actions: List[str],
+    legal_actions: list[str],
     hero_position: str,
     effective_stack: float,
     pot: float,
     preflop_manager: Any,
     facing_raise: bool,
-    aggressive_action: Optional[str],
+    aggressive_action: str | None,
 ) -> tuple[str, dict]:
     """Décision preflop instantanée (ranges chartées), sans solve."""
     normalized_hero_position = normalize_preflop_position(hero_position) or "BTN"

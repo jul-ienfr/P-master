@@ -1,9 +1,10 @@
-# -*- coding: utf-8 -*-
 import asyncio
 import logging
-from typing import Callable, Optional
+from typing import Optional
+from collections.abc import Callable
 
 from aiohttp import web
+
 try:
     import aiohttp_cors
 except ImportError:
@@ -13,7 +14,7 @@ try:
 except ImportError:  # Python 3.10 compatibility
     from datetime import datetime, timezone
 
-    UTC = timezone.utc
+    UTC = UTC
 
 from src.api.routes_history import HistoryRoutesMixin
 from src.api.routes_resolve import ResolveRoutesMixin
@@ -32,11 +33,11 @@ class BotAPI(
     def __init__(
         self,
         hitl_module,
-        runtime_status_provider: Optional[Callable[[], dict]] = None,
-        runtime_operator_handler: Optional[Callable[[dict], dict]] = None,
-        runtime_observation_provider: Optional[Callable[[], dict]] = None,
-        runtime_observation_exporter: Optional[Callable[..., dict]] = None,
-        runtime_timesfm_provider: Optional[Callable[..., dict]] = None,
+        runtime_status_provider: Callable[[], dict] | None = None,
+        runtime_operator_handler: Callable[[dict], dict] | None = None,
+        runtime_observation_provider: Callable[[], dict] | None = None,
+        runtime_observation_exporter: Callable[..., dict] | None = None,
+        runtime_timesfm_provider: Callable[..., dict] | None = None,
         host: str = "127.0.0.1",
         port: int = 8080,
         runtime_history_store=None,
@@ -55,9 +56,9 @@ class BotAPI(
         self.host = host
         self.port = port
         self.app = web.Application()
-        self.runner: Optional[web.AppRunner] = None
-        self.site: Optional[web.TCPSite] = None
-        self._runtime_snapshot_cache: Optional[dict] = None
+        self.runner: web.AppRunner | None = None
+        self.site: web.TCPSite | None = None
+        self._runtime_snapshot_cache: dict | None = None
         self._runtime_snapshot_cached_at: float = 0.0
         self._runtime_snapshot_ttl_seconds = 0.9
         self._runtime_snapshot_lock = asyncio.Lock()
@@ -84,7 +85,7 @@ class BotAPI(
         return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
     @staticmethod
-    def _parse_limit(raw_limit: Optional[str], default: int = 10, maximum: int = 50) -> int:
+    def _parse_limit(raw_limit: str | None, default: int = 10, maximum: int = 50) -> int:
         try:
             limit = int(raw_limit) if raw_limit is not None else default
         except (TypeError, ValueError):

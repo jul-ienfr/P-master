@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Snapshots opérateur/observation/HITL et état du bridge runtime (extrait de src/main.py)."""
 import asyncio
 import logging
@@ -20,7 +19,7 @@ logger = logging.getLogger("SuperBot2026")
 
 
 class OperatorSnapshotMixin:
-    def _build_operator_snapshot(self) -> Dict[str, object]:
+    def _build_operator_snapshot(self) -> dict[str, object]:
         controls = dict(getattr(self, "operator_controls", {}) or {})
         paused = bool(controls.get("paused", False))
         assisted_mode_enabled = bool(controls.get("assisted_mode_enabled", False))
@@ -62,7 +61,7 @@ class OperatorSnapshotMixin:
             "updated_at": str(controls.get("updated_at") or self._utc_now()),
         }
 
-    def _build_observation_snapshot(self) -> Dict[str, object]:
+    def _build_observation_snapshot(self) -> dict[str, object]:
         database = getattr(self, "db", None)
         summary = dict(database.summarize_observation(limit=5) or {}) if database is not None else {}
         operator = self._build_operator_snapshot()
@@ -121,7 +120,7 @@ class OperatorSnapshotMixin:
         finally:
             self._observation_capture_task_running = False
 
-    def _export_observation_dataset(self, player_limit: int = 50, hand_limit: int = 100) -> Dict[str, object]:
+    def _export_observation_dataset(self, player_limit: int = 50, hand_limit: int = 100) -> dict[str, object]:
         dataset = dict(self.db.export_observation_dataset(player_limit=player_limit, hand_limit=hand_limit) or {})
         dataset["session_id"] = self._get_runtime_session_id()
         dataset["mode_enabled"] = bool(self._build_operator_snapshot().get("observation_mode_enabled", False))
@@ -131,13 +130,13 @@ class OperatorSnapshotMixin:
     def _operator_action_mode(self) -> str:
         return str(self._build_operator_snapshot().get("status") or "ready")
 
-    def update_operator_controls(self, patch: Dict[str, object]) -> Dict[str, object]:
+    def update_operator_controls(self, patch: dict[str, object]) -> dict[str, object]:
         if not isinstance(patch, dict):
             return self._build_operator_snapshot()
 
         controls = dict(getattr(self, "operator_controls", {}) or {})
         current_snapshot = self._build_operator_snapshot()
-        normalized_patch: Dict[str, bool] = {}
+        normalized_patch: dict[str, bool] = {}
         aliases = {
             "paused": ("paused",),
             "assisted_mode_enabled": ("assisted_mode_enabled", "assistedModeEnabled"),
@@ -204,7 +203,7 @@ class OperatorSnapshotMixin:
 
         return next_snapshot
 
-    def _build_hitl_snapshot(self) -> Dict[str, object]:
+    def _build_hitl_snapshot(self) -> dict[str, object]:
         current_issue = self.hitl.current_issue if isinstance(self.hitl.current_issue, dict) else None
         serialized_issue = None
         if current_issue is not None:
@@ -224,7 +223,7 @@ class OperatorSnapshotMixin:
             "current_issue": serialized_issue,
         }
 
-    def _build_runtime_bridge_state(self) -> Dict[str, object]:
+    def _build_runtime_bridge_state(self) -> dict[str, object]:
         health_snapshot = self.health_monitor.snapshot() if getattr(self, "health_monitor", None) is not None else {}
         history = {
             "events": list(self.runtime_event_history),
@@ -290,7 +289,7 @@ class OperatorSnapshotMixin:
         if publish:
             self._publish_runtime_bridge_state(force=True)
 
-    def _apply_bridge_command(self, command: Dict[str, object]) -> None:
+    def _apply_bridge_command(self, command: dict[str, object]) -> None:
         kind = str(command.get("kind") or "").strip().lower()
         payload = dict(command.get("payload") or {})
         command_id = str(command.get("command_id") or "")

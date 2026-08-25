@@ -1,4 +1,8 @@
-from src.runtime.bridge_store import BridgeHitlProxy, BridgeRuntimeStatusProvider, RuntimeBridgeStore
+from src.runtime.bridge_store import (
+    BridgeHitlProxy,
+    BridgeRuntimeStatusProvider,
+    RuntimeBridgeStore,
+)
 from src.runtime.history_store import RuntimeHistoryStore
 
 

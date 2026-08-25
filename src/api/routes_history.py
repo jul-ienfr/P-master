@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Routes et builders d'historique runtime : /runtime-history, exports/imports (extrait de src/api/server.py)."""
 import asyncio
 import json
@@ -6,9 +5,9 @@ import logging
 from typing import Optional
 
 from aiohttp import web
-from poker.decisionmaker.v2_contracts import SpotSnapshot
 
-from src.api.snapshots import safe_float, SnapshotPayloadMixin
+from poker.decisionmaker.v2_contracts import SpotSnapshot
+from src.api.snapshots import SnapshotPayloadMixin, safe_float
 
 logger = logging.getLogger("BotAPI")
 
@@ -45,7 +44,7 @@ class HistoryRoutesMixin:
 
     @staticmethod
     def _build_history_timestamps(entries: dict) -> dict:
-        def latest(items) -> Optional[str]:
+        def latest(items) -> str | None:
             if isinstance(items, list) and items and isinstance(items[0], dict):
                 return items[0].get("timestamp")
             return None
@@ -58,7 +57,7 @@ class HistoryRoutesMixin:
         }
 
     @staticmethod
-    def _parse_history_source(raw_source: Optional[str]) -> str:
+    def _parse_history_source(raw_source: str | None) -> str:
         source = str(raw_source or "combined").strip().lower()
         aliases = {
             "all": "combined",
@@ -74,35 +73,35 @@ class HistoryRoutesMixin:
         return aliases.get(source, "combined")
 
     @staticmethod
-    def _parse_bool(raw_value: Optional[str], default: bool = False) -> bool:
+    def _parse_bool(raw_value: str | None, default: bool = False) -> bool:
         if raw_value is None:
             return default
         return str(raw_value).strip().lower() in {"1", "true", "yes", "on"}
 
     @staticmethod
-    def _parse_history_stream(raw_stream: Optional[str]) -> Optional[str]:
+    def _parse_history_stream(raw_stream: str | None) -> str | None:
         stream = str(raw_stream or "").strip().lower()
         if stream in {"events", "decisions", "incidents", "metrics"}:
             return stream
         return None
 
     @staticmethod
-    def _export_filename(stream: Optional[str]) -> str:
+    def _export_filename(stream: str | None) -> str:
         suffix = stream or "all"
         return f"runtime_history_{suffix}.json"
 
     @staticmethod
-    def _review_pack_filename(stream: Optional[str]) -> str:
+    def _review_pack_filename(stream: str | None) -> str:
         suffix = stream or "all"
         return f"runtime_review_pack_{suffix}.json"
 
     @staticmethod
-    def _review_session_filename(stream: Optional[str]) -> str:
+    def _review_session_filename(stream: str | None) -> str:
         suffix = stream or "all"
         return f"runtime_review_session_{suffix}.json"
 
     @classmethod
-    def _contract_metadata(cls, artifact_type: str, stream: Optional[str], record_count: int) -> dict:
+    def _contract_metadata(cls, artifact_type: str, stream: str | None, record_count: int) -> dict:
         return {
             "name": EXPORT_CONTRACT_NAME,
             "version": EXPORT_CONTRACT_VERSION,
@@ -134,11 +133,11 @@ class HistoryRoutesMixin:
     def _build_runtime_review_wrapper(
         cls,
         artifact_type: str,
-        stream: Optional[str],
+        stream: str | None,
         record_count: int,
         artifact: dict,
         *,
-        exported_at: Optional[str] = None,
+        exported_at: str | None = None,
     ) -> dict:
         contract = cls._contract_metadata(artifact_type, stream=stream, record_count=record_count)
         if exported_at:
@@ -418,7 +417,7 @@ class HistoryRoutesMixin:
             logger.warning("Unable to access runtime history store from %s: %s", file_path, exc)
             return None
 
-    def _build_export_payload(self, records: list[dict], stream: Optional[str]) -> dict:
+    def _build_export_payload(self, records: list[dict], stream: str | None) -> dict:
         contract = self._contract_metadata("review_session", stream=stream, record_count=len(records))
         counts = {
             "events": 0,
@@ -446,7 +445,7 @@ class HistoryRoutesMixin:
             "records": records,
         }
 
-    def _build_replay_bundle_payload(self, records: list[dict], stream: Optional[str]) -> dict:
+    def _build_replay_bundle_payload(self, records: list[dict], stream: str | None) -> dict:
         runtime = self.runtime_status_provider() if self.runtime_status_provider else {}
         runtime = runtime or {}
         history = runtime.get("history", {}) or {}
@@ -531,7 +530,7 @@ class HistoryRoutesMixin:
             "bundle": bundle_payload,
         }
 
-    def _build_policy_compare_corpus_payload(self, records: list[dict], stream: Optional[str]) -> dict:
+    def _build_policy_compare_corpus_payload(self, records: list[dict], stream: str | None) -> dict:
         runtime = self.runtime_status_provider() if self.runtime_status_provider else {}
         runtime = runtime or {}
         canonical_spot = runtime.get("canonical_spot")
@@ -617,7 +616,7 @@ class HistoryRoutesMixin:
         )
         return payload
 
-    def _build_policy_compare_batch_payload(self, record_batches: list[dict], stream: Optional[str]) -> dict:
+    def _build_policy_compare_batch_payload(self, record_batches: list[dict], stream: str | None) -> dict:
         sessions = []
         flattened_records = []
 
@@ -704,7 +703,7 @@ class HistoryRoutesMixin:
         }
 
     @staticmethod
-    def _resolve_export_filename(export_format: str, stream: Optional[str]) -> str:
+    def _resolve_export_filename(export_format: str, stream: str | None) -> str:
         normalized = str(export_format or "bundle").strip().lower()
         if normalized in {"policy_compare_batch", "policy-compare-batch", "corpus_batch"}:
             return HistoryRoutesMixin._review_pack_filename(stream)
@@ -733,7 +732,7 @@ class HistoryRoutesMixin:
         }
 
     @staticmethod
-    def _history_entry_key(stream: str, entry: dict) -> Optional[tuple]:
+    def _history_entry_key(stream: str, entry: dict) -> tuple | None:
         if not isinstance(entry, dict):
             return None
 

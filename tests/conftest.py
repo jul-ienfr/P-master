@@ -5,14 +5,12 @@ from pathlib import Path
 
 import pytest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
 from src.data.database import DatabaseManager
-
 
 DEFAULT_TEST_DSN = os.getenv("POKER_TEST_DSN") or os.getenv("POKER_DB_DSN") or "postgresql://poker_bot:__CHANGE_ME__@localhost:5432/poker_db"
 

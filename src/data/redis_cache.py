@@ -63,7 +63,7 @@ class AsyncRedisCache:
             self._connection_failed = True
         return self._client
 
-    async def get_json(self, key: str) -> Optional[dict]:
+    async def get_json(self, key: str) -> dict | None:
         client = await self._ensure_client()
         if client is None:
             return None

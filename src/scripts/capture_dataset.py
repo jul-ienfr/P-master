@@ -1,8 +1,9 @@
+import argparse
 import os
 import sys
 import time
-import argparse
 from pathlib import Path
+
 import cv2
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -113,7 +114,7 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
     
     count = 0
-    print(f"\n📸 Démarrage de la capture automatique.")
+    print("\n📸 Démarrage de la capture automatique.")
     print(f"Intervalle: {args.interval}s | Cible: {args.max_images} images.")
     print(f"Dossier de destination : {out_dir}")
     print("Appuyez sur Ctrl+C dans le terminal pour arreter plus tot.\n")

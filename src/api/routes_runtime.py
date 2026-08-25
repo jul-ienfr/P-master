@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Routes runtime : /status, /runtime-snapshot, /runtime-observation*, /operator-control, timesfm (extrait de src/api/server.py)."""
 import asyncio
 import json

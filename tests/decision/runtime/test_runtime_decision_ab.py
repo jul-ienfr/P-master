@@ -5,14 +5,12 @@ from pathlib import Path
 
 import pytest
 
-
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
 from src.bot.decision_maker import DecisionMaker
-
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 

@@ -1,6 +1,7 @@
 import logging
 from collections import deque
-from typing import Optional, Deque, List
+from typing import Deque, List, Optional
+
 import numpy as np
 
 from src.vision.ocr import PokerOCR
@@ -13,10 +14,10 @@ class TemporalOCRFilter:
     Stocke les N dernières lectures d'une zone (ex: le pot) et 
     ne valide une nouvelle valeur que si elle est stable sur plusieurs frames.
     """
-    def __init__(self, history_size: int = 3, engine_mode: str = "consensus_amounts", enabled_engines: List[str] = None):
+    def __init__(self, history_size: int = 3, engine_mode: str = "consensus_amounts", enabled_engines: list[str] = None):
         self.history_size = history_size
-        self._amount_history: Deque[float] = deque(maxlen=history_size)
-        self._text_history: Deque[str] = deque(maxlen=history_size)
+        self._amount_history: deque[float] = deque(maxlen=history_size)
+        self._text_history: deque[str] = deque(maxlen=history_size)
         
         # Instance sous-jacente du moteur OCR multi-engines
         self.ocr_engine = PokerOCR(
@@ -25,7 +26,7 @@ class TemporalOCRFilter:
             parallel=True
         )
 
-    def read_stable_amount(self, image_crop: np.ndarray, tolerance: float = 0.05, chip_count: Optional[int] = None) -> Optional[float]:
+    def read_stable_amount(self, image_crop: np.ndarray, tolerance: float = 0.05, chip_count: int | None = None) -> float | None:
         """
         Lit un montant et le lisse temporellement.
         tolérance: Différence acceptable (en %) pour considérer que deux lectures sont "les mêmes".
@@ -50,7 +51,7 @@ class TemporalOCRFilter:
             
         return self._get_consensus_amount(tolerance)
 
-    def _get_consensus_amount(self, tolerance: float = 0.05) -> Optional[float]:
+    def _get_consensus_amount(self, tolerance: float = 0.05) -> float | None:
         """Extrait la valeur la plus stable de l'historique récent."""
         if not self._amount_history:
             return None
