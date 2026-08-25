@@ -44,11 +44,11 @@ jobs:
           uv run ruff check tests --select E9,F63,F7,F82
           uv run ruff check poker/tools --select E9,F63,F7,F82
 
-      # Phase 4.1 â€” ratchet : baseline 37% -> 39% -> 42% (2026-08-25).
-      # Gate 42% aujourd'hui ; prochain palier 45%, objectif 60%.
+      # Phase 4.1 â€” ratchet : baseline 37% -> 39% -> 42% -> 45% (2026-08-25).
+      # Gate 45% aujourd'hui ; prochain palier 50%, objectif 60%.
       # poker/tests reste hors collecte par dÃ©faut (lancÃ© par scripts/run_refonte_ci.py).
       - name: Tests + coverage
-        run: uv run pytest --cov=src --cov=poker --cov-report=term-missing --cov-report=xml --cov-fail-under=42
+        run: uv run pytest --cov=src --cov=poker --cov-report=term-missing --cov-report=xml --cov-fail-under=45
 
       - name: Upload coverage artifact
         if: always()
