@@ -1,4 +1,4 @@
-name: Python CI
+﻿name: Python CI
 
 on: [push, pull_request]
 
@@ -7,25 +7,25 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.11'
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
 
-      # Requis pour builder postflop-solver-py (maturin/pyo3, dépendance locale).
+      # Requis pour builder postflop-solver-py (maturin/pyo3, dÃ©pendance locale).
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
 
       - name: Cache cargo build
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ~/.cargo/registry
@@ -35,31 +35,31 @@ jobs:
       - name: Sync dependencies (uv.lock, repro)
         run: uv sync --frozen --extra dev
 
-      # Phase 4.2 — adoption progressive : seuls les codes bloquants à l'exécution
+      # Phase 4.2 â€” adoption progressive : seuls les codes bloquants Ã  l'exÃ©cution
       # sont des gates aujourd'hui ; le set complet [E,F,W,I,B,C4,UP] suivra
-      # après nettoyage (~2000 findings actuels).
+      # aprÃ¨s nettoyage (~2000 findings actuels).
       - name: Ruff (codes bloquants)
         run: |
           uv run ruff check src --select E9,F63,F7,F82
           uv run ruff check tests --select E9,F63,F7,F82
           uv run ruff check poker/tools --select E9,F63,F7,F82
 
-      # Phase 4.1 — ratchet : baseline 37% -> 39% -> 42% (2026-08-25).
+      # Phase 4.1 â€” ratchet : baseline 37% -> 39% -> 42% (2026-08-25).
       # Gate 42% aujourd'hui ; prochain palier 45%, objectif 60%.
-      # poker/tests reste hors collecte par défaut (lancé par scripts/run_refonte_ci.py).
+      # poker/tests reste hors collecte par dÃ©faut (lancÃ© par scripts/run_refonte_ci.py).
       - name: Tests + coverage
         run: uv run pytest --cov=src --cov=poker --cov-report=term-missing --cov-report=xml --cov-fail-under=42
 
       - name: Upload coverage artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-xml
           path: coverage.xml
           if-no-files-found: ignore
 
-      # Non bloquant tant que les pins legacy (torch 2.5 côté requirements miroir,
-      # transitive deps) n'ont pas été audités et corrigés.
+      # Non bloquant tant que les pins legacy (torch 2.5 cÃ´tÃ© requirements miroir,
+      # transitive deps) n'ont pas Ã©tÃ© auditÃ©s et corrigÃ©s.
       - name: Dependency audit (pip-audit, advisory)
         continue-on-error: true
         run: uv run pip-audit --skip-editable

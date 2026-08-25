@@ -36,6 +36,7 @@ __pycache__/
 # Phase 0 — secrets & runtime artefacts (ne jamais committer)
 config.local.json
 .env
+.claude/worktrees/
 log/runtime_bridge/
 log/runtime_history.jsonl
 log/observation_store.json
