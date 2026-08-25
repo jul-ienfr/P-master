@@ -27,9 +27,13 @@ def build_runtime_readiness(
         degraded_fields.append("pot")
 
     if validation.state == "hard_invalid":
-        critical_failures.extend(reason for reason in validation.reasons if reason not in critical_failures)
+        critical_failures.extend(
+            reason for reason in validation.reasons if reason not in critical_failures
+        )
     elif validation.state in {"soft_invalid", "degraded_valid"}:
-        degraded_fields.extend(reason for reason in validation.reasons if reason not in degraded_fields)
+        degraded_fields.extend(
+            reason for reason in validation.reasons if reason not in degraded_fields
+        )
 
     if float(canonical_state.state_confidence or 0.0) < 0.45:
         degraded_fields.append("state_confidence")
@@ -37,7 +41,13 @@ def build_runtime_readiness(
     score_parts = [
         float(canonical_state.state_confidence or 0.0),
         float(frame_quality.get("quality_score", 0.0) or 0.0),
-        1.0 if validation.state == "fully_valid" else 0.7 if validation.state == "degraded_valid" else 0.4 if validation.state == "soft_invalid" else 0.0,
+        1.0
+        if validation.state == "fully_valid"
+        else 0.7
+        if validation.state == "degraded_valid"
+        else 0.4
+        if validation.state == "soft_invalid"
+        else 0.0,
     ]
     score = round(sum(score_parts) / len(score_parts), 3)
 
@@ -55,7 +65,11 @@ def build_runtime_readiness(
         conservative = False
 
     if fallback_readiness:
-        reasons.extend(str(reason) for reason in fallback_readiness.get("reasons", []) if reason and reason not in reasons)
+        reasons.extend(
+            str(reason)
+            for reason in fallback_readiness.get("reasons", [])
+            if reason and reason not in reasons
+        )
 
     return RuntimeReadiness(
         state=state,

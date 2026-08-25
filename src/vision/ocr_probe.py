@@ -16,7 +16,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run OCR probe on a local image")
     parser.add_argument("--image", required=True, help="Path to the image file")
     parser.add_argument("--field", choices=["text", "amount"], default="amount")
-    parser.add_argument("--engines", default="rapidocr,tesseract,surya", help="Comma-separated OCR engines")
+    parser.add_argument(
+        "--engines", default="rapidocr,tesseract,surya", help="Comma-separated OCR engines"
+    )
     parser.add_argument("--mode", default="consensus_amounts")
     parser.add_argument("--parallel", action="store_true")
     args = parser.parse_args()
@@ -24,7 +26,9 @@ def main() -> int:
     image_path = Path(args.image)
     image = cv2.imread(str(image_path))
     if image is None:
-        raise SystemExit(json.dumps({"success": False, "message": f"Unable to read image: {image_path}"}))
+        raise SystemExit(
+            json.dumps({"success": False, "message": f"Unable to read image: {image_path}"})
+        )
 
     engines = [engine.strip() for engine in args.engines.split(",") if engine.strip()]
     ocr = PokerOCR(enabled_engines=engines, mode=args.mode, parallel=args.parallel)

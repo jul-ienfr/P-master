@@ -22,10 +22,20 @@ class PlayerNameReader:
     def __init__(self, ocr_engine) -> None:
         self.ocr_engine = ocr_engine
 
-    def read_name(self, seat_id: str, image_crop: np.ndarray, seat_cache: dict[str, str]) -> PlayerNameReadResult:
+    def read_name(
+        self, seat_id: str, image_crop: np.ndarray, seat_cache: dict[str, str]
+    ) -> PlayerNameReadResult:
         crop_quality = analyze_crop_quality("player_name", image_crop)
-        raw_text = self.ocr_engine.read_player_name(image_crop).strip() if image_crop is not None and image_crop.size else ""
-        ocr_metadata = dict(self.ocr_engine.get_metadata() or {}) if hasattr(self.ocr_engine, "get_metadata") else {}
+        raw_text = (
+            self.ocr_engine.read_player_name(image_crop).strip()
+            if image_crop is not None and image_crop.size
+            else ""
+        )
+        ocr_metadata = (
+            dict(self.ocr_engine.get_metadata() or {})
+            if hasattr(self.ocr_engine, "get_metadata")
+            else {}
+        )
         resolved_name, resolution_source = resolve_player_name(
             seat_id=seat_id,
             candidate_name=raw_text,

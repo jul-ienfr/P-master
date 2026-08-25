@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 import cv2
 import numpy as np
 
@@ -10,7 +9,9 @@ def preprocess_numeric_variants(image_crop: np.ndarray) -> list[tuple[str, np.nd
         return []
 
     variants: list[tuple[str, np.ndarray]] = [("original", image_crop)]
-    gray = cv2.cvtColor(image_crop, cv2.COLOR_BGR2GRAY) if image_crop.ndim == 3 else image_crop.copy()
+    gray = (
+        cv2.cvtColor(image_crop, cv2.COLOR_BGR2GRAY) if image_crop.ndim == 3 else image_crop.copy()
+    )
     normalized = cv2.normalize(gray, None, 0, 255, cv2.NORM_MINMAX)
     gray_bgr = cv2.cvtColor(normalized, cv2.COLOR_GRAY2BGR)
     variants.append(("gray_normalized", gray_bgr))
@@ -21,7 +22,9 @@ def preprocess_numeric_variants(image_crop: np.ndarray) -> list[tuple[str, np.nd
     _, otsu = cv2.threshold(upscaled, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     variants.append(("threshold_otsu", cv2.cvtColor(otsu, cv2.COLOR_GRAY2BGR)))
 
-    adaptive = cv2.adaptiveThreshold(upscaled, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 7)
+    adaptive = cv2.adaptiveThreshold(
+        upscaled, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 7
+    )
     variants.append(("threshold_adaptive", cv2.cvtColor(adaptive, cv2.COLOR_GRAY2BGR)))
 
     inverted = cv2.bitwise_not(adaptive)

@@ -11,10 +11,13 @@ from poker.tools.vbox_manager import VirtualBoxController
 
 log = logging.getLogger(__name__)
 
+
 def human_sleep(min_t, max_t):
     """Sleeps for a random duration between min_t and max_t, with a slight distribution bias."""
     try:
-        if not get_config().config.getboolean('antidetection', 'enable_human_sleeps', fallback=True):
+        if not get_config().config.getboolean(
+            "antidetection", "enable_human_sleeps", fallback=True
+        ):
             time.sleep(np.random.uniform(min_t, max_t))
             return
     except:
@@ -25,6 +28,7 @@ def human_sleep(min_t, max_t):
     # Clip the sleep_time to stay within bounds
     sleep_time = max(min_t, min(sleep_time, max_t))
     time.sleep(sleep_time)
+
 
 def get_point_on_cubic_bezier(cp, t):
     u = 1 - t
@@ -38,13 +42,16 @@ def get_point_on_cubic_bezier(cp, t):
 
     return int(px), int(py)
 
+
 class MouseMover(VirtualBoxController):
     def __init__(self, vbox_mode):
         requested_vbox_mode = vbox_mode
         if vbox_mode:
             super().__init__()
             if not self.is_ready():
-                log.warning("VirtualBox control requested but unavailable. Falling back to direct mouse control.")
+                log.warning(
+                    "VirtualBox control requested but unavailable. Falling back to direct mouse control."
+                )
                 vbox_mode = False
         self.mouse = pymouse.PyMouse()
         self.vbox_mode = vbox_mode
@@ -63,11 +70,14 @@ class MouseMover(VirtualBoxController):
 
         human_sleep(0.01, 0.1)
 
-    def scroll(self, amount, direction='down'):
+    def scroll(self, amount, direction="down"):
         """Scrolls the mouse wheel or simulates reading by waiting."""
         try:
             from poker.tools.helper import get_config
-            enable_scrolling = get_config().config.getboolean('antidetection', 'enable_scrolling', fallback=False)
+
+            enable_scrolling = get_config().config.getboolean(
+                "antidetection", "enable_scrolling", fallback=False
+            )
             if not enable_scrolling:
                 return
         except:
@@ -79,7 +89,7 @@ class MouseMover(VirtualBoxController):
 
     def mouse_mover(self, x1, y1, x2, y2):
         speed = 0.5
-        distance = ((x2 - x1)**2 + (y2 - y1)**2)**0.5
+        distance = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
 
         # Scale deviation according to distance, max deviation 150px
         deviation = min(distance * 0.3, 150)
@@ -87,9 +97,15 @@ class MouseMover(VirtualBoxController):
         # Define base control points for Bezier curve
         cp = [
             (x1, y1),
-            (x1 + (x2 - x1)*0.33 + random.uniform(-deviation, deviation), y1 + (y2 - y1)*0.33 + random.uniform(-deviation, deviation)),
-            (x1 + (x2 - x1)*0.66 + random.uniform(-deviation, deviation), y1 + (y2 - y1)*0.66 + random.uniform(-deviation, deviation)),
-            (x2, y2)
+            (
+                x1 + (x2 - x1) * 0.33 + random.uniform(-deviation, deviation),
+                y1 + (y2 - y1) * 0.33 + random.uniform(-deviation, deviation),
+            ),
+            (
+                x1 + (x2 - x1) * 0.66 + random.uniform(-deviation, deviation),
+                y1 + (y2 - y1) * 0.66 + random.uniform(-deviation, deviation),
+            ),
+            (x2, y2),
         ]
 
         # Determine number of steps
@@ -108,7 +124,9 @@ class MouseMover(VirtualBoxController):
                 try:
                     self.mouse_move_vbox(x, y)
                 except AttributeError:
-                    raise RuntimeError("Virtual box not detected. Switch to direct mouse control in setup or open VirtualBox")
+                    raise RuntimeError(
+                        "Virtual box not detected. Switch to direct mouse control in setup or open VirtualBox"
+                    )
             else:
                 self.mouse.move(x, y)
 
@@ -127,15 +145,18 @@ class MouseMover(VirtualBoxController):
     def type_keyboard(self, text):
         """Type keys with human-like delays."""
         try:
-            enable_typing_delay = get_config().config.getboolean('antidetection', 'enable_typing_delay', fallback=True)
+            enable_typing_delay = get_config().config.getboolean(
+                "antidetection", "enable_typing_delay", fallback=True
+            )
         except:
             enable_typing_delay = True
 
-        is_windows = sys.platform.startswith('win')
+        is_windows = sys.platform.startswith("win")
         shell = None
         if not self.vbox_mode and is_windows:
             try:
                 import win32com.client
+
                 shell = win32com.client.Dispatch("WScript.Shell")
             except ImportError:
                 log.warning("win32com is required for local keyboard typing.")
@@ -161,15 +182,22 @@ class MouseMover(VirtualBoxController):
 
         try:
             from poker.tools.helper import get_config
-            enable_missclicks = get_config().config.getboolean('antidetection', 'enable_missclicks', fallback=False)
+
+            enable_missclicks = get_config().config.getboolean(
+                "antidetection", "enable_missclicks", fallback=False
+            )
         except:
             enable_missclicks = False
 
         if enable_missclicks:
             # 2% chance to miss-click
             if random.random() < 0.02:
-                miss_x = x2 + xrand + random.choice([random.randint(25, 45), -random.randint(25, 45)])
-                miss_y = y2 + yrand + random.choice([random.randint(25, 45), -random.randint(25, 45)])
+                miss_x = (
+                    x2 + xrand + random.choice([random.randint(25, 45), -random.randint(25, 45)])
+                )
+                miss_y = (
+                    y2 + yrand + random.choice([random.randint(25, 45), -random.randint(25, 45)])
+                )
 
                 log.debug("Intentional Miss-click initiated")
                 if self.vbox_mode:
@@ -204,8 +232,8 @@ class MouseMoverTableBased(MouseMover):
         config = get_config()
 
         try:
-            mouse_control = config.config.get('main', 'control')
-            if mouse_control != 'Direct mouse control':
+            mouse_control = config.config.get("main", "control")
+            if mouse_control != "Direct mouse control":
                 self.vbox_mode = True
             else:
                 self.vbox_mode = False
@@ -230,7 +258,9 @@ class MouseMoverTableBased(MouseMover):
         y1 = 10 if y1 > 1000 else y1
 
         try:
-            log.debug("Moving mouse away: " + str(x1) + "," + str(y1) + "," + str(x2) + "," + str(y2))
+            log.debug(
+                "Moving mouse away: " + str(x1) + "," + str(y1) + "," + str(x2) + "," + str(y2)
+            )
             self.mouse_mover(x1, y1, x2, y2)
         except Exception as e:
             log.warning("Moving mouse away failed")
@@ -249,10 +279,10 @@ class MouseMoverTableBased(MouseMover):
             log.warning("Moving mouse via jump away failed" + str(e))
 
     def mouse_action(self, decision, topleftcorner, options=None):
-        if decision == 'Check Deception':
-            decision = 'Check'
-        if decision == 'Call Deception':
-            decision = 'Call'
+        if decision == "Check Deception":
+            decision = "Check"
+        if decision == "Call Deception":
+            decision = "Call"
 
         tlx = int(topleftcorner[0])
         tly = int(topleftcorner[1])
@@ -261,67 +291,67 @@ class MouseMoverTableBased(MouseMover):
         log.debug(f"Top left corner position: {tlx} {tly}")
 
         if decision == "Fold":
-            coo = self.table_dict['mouse_fold']
-            self.take_action(coo['x1'] + tlx, coo['y1'] + tly, coo['x2'] + tlx, coo['y2'] + tly)
+            coo = self.table_dict["mouse_fold"]
+            self.take_action(coo["x1"] + tlx, coo["y1"] + tly, coo["x2"] + tlx, coo["y2"] + tly)
 
         elif decision == "Imback":
             human_sleep(0, 3)
-            coo = self.table_dict['mouse_imback']
-            self.take_action(coo['x1'] + tlx, coo['y1'] + tly, coo['x2'] + tlx, coo['y2'] + tly)
+            coo = self.table_dict["mouse_imback"]
+            self.take_action(coo["x1"] + tlx, coo["y1"] + tly, coo["x2"] + tlx, coo["y2"] + tly)
 
         elif decision == "resume_hand":
             human_sleep(0, 3)
-            coo = self.table_dict['mouse_resume_hand']
-            self.take_action(coo['x1'] + tlx, coo['y1'] + tly, coo['x2'] + tlx, coo['y2'] + tly)
+            coo = self.table_dict["mouse_resume_hand"]
+            self.take_action(coo["x1"] + tlx, coo["y1"] + tly, coo["x2"] + tlx, coo["y2"] + tly)
 
         elif decision == "Call":
-            coo = self.table_dict['mouse_call']
-            self.take_action(coo['x1'] + tlx, coo['y1'] + tly, coo['x2'] + tlx, coo['y2'] + tly)
+            coo = self.table_dict["mouse_call"]
+            self.take_action(coo["x1"] + tlx, coo["y1"] + tly, coo["x2"] + tlx, coo["y2"] + tly)
 
         elif decision == "Call2":
-            coo = self.table_dict['mouse_call2']
-            self.take_action(coo['x1'] + tlx, coo['y1'] + tly, coo['x2'] + tlx, coo['y2'] + tly)
+            coo = self.table_dict["mouse_call2"]
+            self.take_action(coo["x1"] + tlx, coo["y1"] + tly, coo["x2"] + tlx, coo["y2"] + tly)
 
         elif decision == "Check":
-            coo = self.table_dict['mouse_check']
-            self.take_action(coo['x1'] + tlx, coo['y1'] + tly, coo['x2'] + tlx, coo['y2'] + tly)
+            coo = self.table_dict["mouse_check"]
+            self.take_action(coo["x1"] + tlx, coo["y1"] + tly, coo["x2"] + tlx, coo["y2"] + tly)
 
         elif decision == "Bet":
-            coo = self.table_dict['mouse_raise']
-            self.take_action(coo['x1'] + tlx, coo['y1'] + tly, coo['x2'] + tlx, coo['y2'] + tly)
+            coo = self.table_dict["mouse_raise"]
+            self.take_action(coo["x1"] + tlx, coo["y1"] + tly, coo["x2"] + tlx, coo["y2"] + tly)
 
         elif decision == "BetPlus":
-            for i in range(int(options['increases_num'])):
-                coo = self.table_dict['mouse_increase']
-                self.take_action(coo['x1'] + tlx, coo['y1'] + tly, coo['x2'] + tlx, coo['y2'] + tly)
+            for i in range(int(options["increases_num"])):
+                coo = self.table_dict["mouse_increase"]
+                self.take_action(coo["x1"] + tlx, coo["y1"] + tly, coo["x2"] + tlx, coo["y2"] + tly)
 
-            coo = self.table_dict['mouse_raise']
-            self.take_action(coo['x1'] + tlx, coo['y1'] + tly, coo['x2'] + tlx, coo['y2'] + tly)
+            coo = self.table_dict["mouse_raise"]
+            self.take_action(coo["x1"] + tlx, coo["y1"] + tly, coo["x2"] + tlx, coo["y2"] + tly)
 
         elif decision == "Bet Bluff":
-            coo = self.table_dict['mouse_raise']
-            self.take_action(coo['x1'] + tlx, coo['y1'] + tly, coo['x2'] + tlx, coo['y2'] + tly)
+            coo = self.table_dict["mouse_raise"]
+            self.take_action(coo["x1"] + tlx, coo["y1"] + tly, coo["x2"] + tlx, coo["y2"] + tly)
 
         elif decision == "Bet half pot":
-            coo = self.table_dict['mouse_half_pot']
-            self.take_action(coo['x1'] + tlx, coo['y1'] + tly, coo['x2'] + tlx, coo['y2'] + tly)
+            coo = self.table_dict["mouse_half_pot"]
+            self.take_action(coo["x1"] + tlx, coo["y1"] + tly, coo["x2"] + tlx, coo["y2"] + tly)
 
-            coo = self.table_dict['mouse_raise']
-            self.take_action(coo['x1'] + tlx, coo['y1'] + tly, coo['x2'] + tlx, coo['y2'] + tly)
+            coo = self.table_dict["mouse_raise"]
+            self.take_action(coo["x1"] + tlx, coo["y1"] + tly, coo["x2"] + tlx, coo["y2"] + tly)
 
         elif decision == "Bet pot":
-            coo = self.table_dict['mouse_full_pot']
-            self.take_action(coo['x1'] + tlx, coo['y1'] + tly, coo['x2'] + tlx, coo['y2'] + tly)
+            coo = self.table_dict["mouse_full_pot"]
+            self.take_action(coo["x1"] + tlx, coo["y1"] + tly, coo["x2"] + tlx, coo["y2"] + tly)
 
-            coo = self.table_dict['mouse_raise']
-            self.take_action(coo['x1'] + tlx, coo['y1'] + tly, coo['x2'] + tlx, coo['y2'] + tly)
+            coo = self.table_dict["mouse_raise"]
+            self.take_action(coo["x1"] + tlx, coo["y1"] + tly, coo["x2"] + tlx, coo["y2"] + tly)
 
         elif decision == "Bet max":
-            coo = self.table_dict['mouse_all_in']
-            self.take_action(coo['x1'] + tlx, coo['y1'] + tly, coo['x2'] + tlx, coo['y2'] + tly)
+            coo = self.table_dict["mouse_all_in"]
+            self.take_action(coo["x1"] + tlx, coo["y1"] + tly, coo["x2"] + tlx, coo["y2"] + tly)
 
-            coo = self.table_dict['mouse_raise']
-            self.take_action(coo['x1'] + tlx, coo['y1'] + tly, coo['x2'] + tlx, coo['y2'] + tly)
+            coo = self.table_dict["mouse_raise"]
+            self.take_action(coo["x1"] + tlx, coo["y1"] + tly, coo["x2"] + tlx, coo["y2"] + tly)
 
         human_sleep(0.1, 0.3)
         self.move_mouse_away_from_buttons()

@@ -1,4 +1,5 @@
 """Routes runtime : /status, /runtime-snapshot, /runtime-observation*, /operator-control, timesfm (extrait de src/api/server.py)."""
+
 import asyncio
 import json
 import logging
@@ -18,7 +19,7 @@ class RuntimeRoutesMixin:
             "status": "playing",
             "ready_for_training": self.hitl.check_convergence(),
             "collected_samples": self.hitl.annotations_count,
-            "target_samples": self.hitl.target_dataset_size
+            "target_samples": self.hitl.target_dataset_size,
         }
 
         if self.runtime_status_provider:
@@ -31,7 +32,9 @@ class RuntimeRoutesMixin:
                 response_data["decision"] = runtime.get("decision", {}) or {}
                 response_data["operator"] = runtime.get("operator", {}) or {}
                 response_data["health"] = runtime.get("health", {}) or {}
-                response_data["active_solver_backend"] = runtime.get("active_solver_backend", "fallback")
+                response_data["active_solver_backend"] = runtime.get(
+                    "active_solver_backend", "fallback"
+                )
                 response_data["degraded_reasons"] = runtime.get("degraded_reasons", []) or []
                 response_data["last_success_at"] = runtime.get("last_success_at")
             except Exception as e:
@@ -40,7 +43,9 @@ class RuntimeRoutesMixin:
                     "gate": {
                         "allowed": False,
                         "status": "error",
-                        "reasons": [{"code": "RUNTIME_STATUS_ERROR", "message": str(e), "context": {}}],
+                        "reasons": [
+                            {"code": "RUNTIME_STATUS_ERROR", "message": str(e), "context": {}}
+                        ],
                         "action_intent": None,
                     }
                 }
@@ -60,7 +65,7 @@ class RuntimeRoutesMixin:
                 "reason": self.hitl.current_issue["reason"],
                 "image_base64": self.hitl.current_issue["image_base64"],
                 "width": self.hitl.current_issue["width"],
-                "height": self.hitl.current_issue["height"]
+                "height": self.hitl.current_issue["height"],
             }
 
         return web.json_response(response_data)
@@ -71,7 +76,9 @@ class RuntimeRoutesMixin:
             return web.json_response(payload)
         except Exception as e:
             logger.error(f"Erreur lors de la construction du runtime snapshot: {e}")
-            return web.json_response({"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=500)
+            return web.json_response(
+                {"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=500
+            )
 
     async def handle_runtime_observation(self, request):
         try:
@@ -81,19 +88,28 @@ class RuntimeRoutesMixin:
             return web.json_response(payload)
         except Exception as e:
             logger.error(f"Erreur lors de la construction du runtime observation snapshot: {e}")
-            return web.json_response({"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=500)
+            return web.json_response(
+                {"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=500
+            )
 
     async def handle_runtime_observation_export(self, request):
         if self.runtime_observation_exporter is None:
             return web.json_response(
-                {"state": "error", "message": "Observation export is unavailable.", "refreshed_at": self._now_iso()},
+                {
+                    "state": "error",
+                    "message": "Observation export is unavailable.",
+                    "refreshed_at": self._now_iso(),
+                },
                 status=503,
             )
 
         try:
             player_limit = self._parse_limit(request.query.get("players"), default=50, maximum=500)
             hand_limit = self._parse_limit(request.query.get("hands"), default=100, maximum=1000)
-            payload = self.runtime_observation_exporter(player_limit=player_limit, hand_limit=hand_limit) or {}
+            payload = (
+                self.runtime_observation_exporter(player_limit=player_limit, hand_limit=hand_limit)
+                or {}
+            )
             return web.Response(
                 text=json.dumps(payload, ensure_ascii=True),
                 content_type="application/json",
@@ -103,12 +119,18 @@ class RuntimeRoutesMixin:
             )
         except Exception as e:
             logger.error(f"Erreur lors de l'export observation: {e}")
-            return web.json_response({"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=500)
+            return web.json_response(
+                {"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=500
+            )
 
     async def handle_operator_control(self, request):
         if self.runtime_operator_handler is None:
             return web.json_response(
-                {"state": "error", "message": "Operator controls are unavailable.", "refreshed_at": self._now_iso()},
+                {
+                    "state": "error",
+                    "message": "Operator controls are unavailable.",
+                    "refreshed_at": self._now_iso(),
+                },
                 status=503,
             )
 
@@ -116,17 +138,27 @@ class RuntimeRoutesMixin:
             payload = await request.json()
         except Exception as e:
             return web.json_response(
-                {"state": "error", "message": f"Invalid operator payload: {e}", "refreshed_at": self._now_iso()},
+                {
+                    "state": "error",
+                    "message": f"Invalid operator payload: {e}",
+                    "refreshed_at": self._now_iso(),
+                },
                 status=400,
             )
 
         if not isinstance(payload, dict):
             return web.json_response(
-                {"state": "error", "message": "Operator payload must be a JSON object.", "refreshed_at": self._now_iso()},
+                {
+                    "state": "error",
+                    "message": "Operator payload must be a JSON object.",
+                    "refreshed_at": self._now_iso(),
+                },
                 status=400,
             )
 
-        operator_patch = payload.get("operator") if isinstance(payload.get("operator"), dict) else payload
+        operator_patch = (
+            payload.get("operator") if isinstance(payload.get("operator"), dict) else payload
+        )
         try:
             await asyncio.to_thread(self.runtime_operator_handler, dict(operator_patch))
             self._invalidate_runtime_snapshot_cache()
@@ -142,17 +174,26 @@ class RuntimeRoutesMixin:
     async def handle_runtime_timesfm_forecast(self, request):
         if self.runtime_timesfm_provider is None:
             return web.json_response(
-                {"state": "error", "message": "TimesFM runtime forecasts are disabled.", "refreshed_at": self._now_iso()},
+                {
+                    "state": "error",
+                    "message": "TimesFM runtime forecasts are disabled.",
+                    "refreshed_at": self._now_iso(),
+                },
                 status=404,
             )
 
         try:
-            metric = str(request.query.get('metric') or '').strip() or None
-            raw_horizon = request.query.get('horizon')
-            raw_max_context = request.query.get('max_context') or request.query.get('max-context')
-            horizon = int(raw_horizon) if raw_horizon not in (None, '') else None
-            max_context = int(raw_max_context) if raw_max_context not in (None, '') else None
-            history_path = str(request.query.get('history_path') or request.query.get('history-path') or '').strip() or None
+            metric = str(request.query.get("metric") or "").strip() or None
+            raw_horizon = request.query.get("horizon")
+            raw_max_context = request.query.get("max_context") or request.query.get("max-context")
+            horizon = int(raw_horizon) if raw_horizon not in (None, "") else None
+            max_context = int(raw_max_context) if raw_max_context not in (None, "") else None
+            history_path = (
+                str(
+                    request.query.get("history_path") or request.query.get("history-path") or ""
+                ).strip()
+                or None
+            )
             payload = await asyncio.to_thread(
                 self.runtime_timesfm_provider,
                 metric=metric,
@@ -161,13 +202,18 @@ class RuntimeRoutesMixin:
                 history_path=history_path,
             )
             payload = dict(payload or {})
-            payload.setdefault('refreshed_at', self._now_iso())
+            payload.setdefault("refreshed_at", self._now_iso())
             return web.json_response(payload)
         except ValueError as e:
-            return web.json_response({"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=400)
+            return web.json_response(
+                {"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=400
+            )
         except RuntimeError as e:
-            return web.json_response({"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=503)
+            return web.json_response(
+                {"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=503
+            )
         except Exception as e:
             logger.error(f"Erreur lors du forecast runtime TimesFM: {e}")
-            return web.json_response({"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=500)
-
+            return web.json_response(
+                {"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=500
+            )

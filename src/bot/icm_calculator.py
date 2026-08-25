@@ -2,6 +2,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class ICMCalculator:
     """
     Independent Chip Model (ICM)
@@ -51,21 +52,23 @@ class ICMCalculator:
 
                     # On retire le joueur et on distribue la place suivante
                     new_stacks = list(remaining_stacks)
-                    new_stacks[i] = 0 # Éliminé des places restantes
+                    new_stacks[i] = 0  # Éliminé des places restantes
 
                     _calculate(new_stacks, depth + 1, prob_path * prob_first)
 
         _calculate(stacks, 0, 1.0)
         return results
 
-    def get_icm_risk_premium(self, hero_stack: float, villain_stack: float, all_stacks: list[float], payouts: list[float]) -> float:
+    def get_icm_risk_premium(
+        self, hero_stack: float, villain_stack: float, all_stacks: list[float], payouts: list[float]
+    ) -> float:
         """
         Calcule le "Risk Premium" (La Prime de Risque).
-        C'est le pourcentage de jetons supplémentaires qu'un All-In doit gagner par rapport à une situation 
+        C'est le pourcentage de jetons supplémentaires qu'un All-In doit gagner par rapport à une situation
         de Cash Game (ChipEV) pour que le All-In soit rentable en argent réel.
         """
         if not payouts or len(payouts) < 2:
-            return 0.0 # Pas d'effet ICM en début de tournoi ou cash game
+            return 0.0  # Pas d'effet ICM en début de tournoi ou cash game
 
         # 1. Valeur de notre stack AVANT le coup
         icm_before = self.calculate_icm(all_stacks, payouts)[all_stacks.index(hero_stack)]
@@ -88,7 +91,7 @@ class ICMCalculator:
         monetary_loss = icm_before - icm_lose
 
         if monetary_gain == 0:
-            return 1.0 # Le risque est infini si on ne peut rien gagner
+            return 1.0  # Le risque est infini si on ne peut rien gagner
 
         # Calcul du Risk Premium
         # En ChipEV (Cash Game), le rapport est 1:1. En ICM, perdre fait plus mal que gagner.
@@ -96,19 +99,29 @@ class ICMCalculator:
 
         return max(0.0, risk_premium)
 
-    def adjust_gto_for_tournament(self, gto_action: str, hero_stack: float, villain_stack: float, all_stacks: list[float], payouts: list[float], pot_size: float) -> str:
+    def adjust_gto_for_tournament(
+        self,
+        gto_action: str,
+        hero_stack: float,
+        villain_stack: float,
+        all_stacks: list[float],
+        payouts: list[float],
+        pot_size: float,
+    ) -> str:
         """
         Si le Risk Premium est trop élevé (ex: On est 2ème en jetons à la bulle et le 1er fait tapis),
         le bot refusera le GTO "CALL" et choisira "FOLD" pour survivre dans l'argent.
         """
         if gto_action != "CALL" and gto_action != "ALL_IN":
-            return gto_action # L'ICM impacte surtout les gros calls et gros shoves
+            return gto_action  # L'ICM impacte surtout les gros calls et gros shoves
 
         risk_premium = self.get_icm_risk_premium(hero_stack, villain_stack, all_stacks, payouts)
 
         # Si la prime de risque est très élevée (> 15% de rentabilité supplémentaire exigée)
         if risk_premium > 0.15 and pot_size > (hero_stack * 0.4):
-            logger.warning(f"🚨 [ICM SURVIE] Risk Premium extrême ({risk_premium:.2%}). Le bot OVERRIDE le GTO et FOLD pour sécuriser l'argent du tournoi.")
+            logger.warning(
+                f"🚨 [ICM SURVIE] Risk Premium extrême ({risk_premium:.2%}). Le bot OVERRIDE le GTO et FOLD pour sécuriser l'argent du tournoi."
+            )
             return "FOLD"
 
         return gto_action

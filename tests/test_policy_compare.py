@@ -1,4 +1,5 @@
 """Tests unitaires du module policy_compare extrait (Phase 2.7/4.1)."""
+
 import sys
 from pathlib import Path
 
@@ -56,9 +57,18 @@ def test_extract_ab_decision_from_metadata():
 def test_ab_decision_key_prefers_spot_and_timestamp():
     entry = {"spot_id": "S1", "timestamp": "T1", "street": "FLOP"}
     assert runtime_ab_decision_key(entry) == ("spot_id_timestamp", "S1", "T1")
-    fallback_entry = {"timestamp": "T1", "street": "flop", "chosen_action": "check", "source": "solver"}
+    fallback_entry = {
+        "timestamp": "T1",
+        "street": "flop",
+        "chosen_action": "check",
+        "source": "solver",
+    }
     assert runtime_ab_decision_key(fallback_entry) == (
-        "timestamp_street_action", "T1", "FLOP", "CHECK", "solver",
+        "timestamp_street_action",
+        "T1",
+        "FLOP",
+        "CHECK",
+        "solver",
     )
     assert runtime_ab_decision_key({}) is None
     assert runtime_ab_decision_key("x") is None

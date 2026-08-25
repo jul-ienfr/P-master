@@ -5,6 +5,7 @@ injoignable), le cache passe en no-op : get retourne None, set ignore,
 aucune exception ne remonte à l'appelant. Le runtime reste 100% fonctionnel
 sans Valkey/Redis (fallback mémoire existant inchangé).
 """
+
 from __future__ import annotations
 
 import json

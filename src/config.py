@@ -5,6 +5,7 @@ Env vars expand inside JSON values: ${VAR} / ${VAR:-default}.
 
 No hard-coded secrets. All credentials come from env or config.local.json (gitignored).
 """
+
 from __future__ import annotations
 
 import json

@@ -3,12 +3,19 @@ from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
+
 class SessionManager:
     """
     Protège la Bankroll (le capital) du joueur et impose des règles de sécurité strictes.
     Agit comme un "Disjoncteur" si la variance est trop négative ou si le bot joue depuis trop longtemps.
     """
-    def __init__(self, max_session_hours: float = 4.0, stop_loss_buyins: float = 3.0, stop_win_buyins: float = 10.0):
+
+    def __init__(
+        self,
+        max_session_hours: float = 4.0,
+        stop_loss_buyins: float = 3.0,
+        stop_win_buyins: float = 10.0,
+    ):
         self.start_time = datetime.now()
         self.max_session_duration = timedelta(hours=max_session_hours)
 
@@ -17,7 +24,7 @@ class SessionManager:
 
         self.starting_bankroll = 0.0
         self.current_bankroll = 0.0
-        self.big_blind_amount = 1.0 # Sera mis à jour dynamiquement
+        self.big_blind_amount = 1.0  # Sera mis à jour dynamiquement
 
         self.is_active = True
         self.shutdown_reason = ""

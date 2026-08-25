@@ -3,12 +3,12 @@ import os
 import re
 import warnings
 from collections import Counter
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
 from typing import Optional
-from collections.abc import Sequence
 
 import cv2
 import numpy as np
@@ -136,7 +136,9 @@ class RapidOCREngine(BaseOCREngine):
     def _extract_text(result: object) -> str:
         texts = getattr(result, "txts", None) or ()
         if texts:
-            return " ".join(part.strip() for part in texts if isinstance(part, str) and part.strip()).strip()
+            return " ".join(
+                part.strip() for part in texts if isinstance(part, str) and part.strip()
+            ).strip()
 
         if isinstance(result, dict):
             candidate_text = result.get("txt") or result.get("text")
@@ -369,7 +371,9 @@ class PokerOCR:
             amount_thousands_separators,
             default=DEFAULT_AMOUNT_THOUSANDS_SEPARATORS,
         )
-        default_decimal_separators = (".", ",") if self.allow_decimal_amounts else DEFAULT_AMOUNT_DECIMAL_SEPARATORS
+        default_decimal_separators = (
+            (".", ",") if self.allow_decimal_amounts else DEFAULT_AMOUNT_DECIMAL_SEPARATORS
+        )
         self.amount_decimal_separators = self._normalize_amount_separators(
             amount_decimal_separators,
             default=default_decimal_separators,
@@ -391,9 +395,14 @@ class PokerOCR:
         return cls(
             use_gpu=bool(cfg.get("use_gpu", True)),
             enabled_engines=cfg.get("enabled_engines"),
-            mode=str(cfg.get("mode", cfg.get("merge_strategy", "consensus_amounts")) or "consensus_amounts"),
+            mode=str(
+                cfg.get("mode", cfg.get("merge_strategy", "consensus_amounts"))
+                or "consensus_amounts"
+            ),
             parallel=bool(cfg.get("parallel", True)),
-            allow_decimal_amounts=bool(amount_cfg.get("allow_decimals", cfg.get("allow_decimal_amounts", False))),
+            allow_decimal_amounts=bool(
+                amount_cfg.get("allow_decimals", cfg.get("allow_decimal_amounts", False))
+            ),
             amount_thousands_separators=amount_cfg.get("thousands_separators"),
             amount_decimal_separators=amount_cfg.get("decimal_separators"),
         )
@@ -512,7 +521,7 @@ class PokerOCR:
         for raw_value in raw_values:
             if raw_value is None:
                 continue
-            candidate = str(raw_value).replace("\u00A0", " ")
+            candidate = str(raw_value).replace("\u00a0", " ")
             alias = aliases.get(candidate.strip().lower())
             separator = alias if alias is not None else candidate
             if separator not in allowed or separator in normalized:
@@ -525,7 +534,7 @@ class PokerOCR:
 
     @staticmethod
     def _normalize_amount_token(token: str) -> str:
-        token = token.replace("\u00A0", " ")
+        token = token.replace("\u00a0", " ")
         token = token.strip(" -.,")
         token = token.replace("-", "")
         token = re.sub(r"\s+", " ", token)
@@ -564,7 +573,9 @@ class PokerOCR:
         if any(not (char.isdigit() or char in allowed_separators) for char in token):
             return None
 
-        matched_decimal_separators = [separator for separator in decimal_separators if separator and separator in token]
+        matched_decimal_separators = [
+            separator for separator in decimal_separators if separator and separator in token
+        ]
         if len(matched_decimal_separators) > 1:
             return None
 
@@ -577,7 +588,9 @@ class PokerOCR:
                 return None
             if len(fractional_part) > 2:
                 return None
-            if any(separator and separator in fractional_part for separator in thousands_separators):
+            if any(
+                separator and separator in fractional_part for separator in thousands_separators
+            ):
                 return None
         else:
             integer_part = token
@@ -606,7 +619,7 @@ class PokerOCR:
         if not raw_text:
             return None
 
-        normalized = raw_text.upper().strip().replace("\u00A0", " ")
+        normalized = raw_text.upper().strip().replace("\u00a0", " ")
         normalized = normalized.replace("$", " ").replace("€", " ").replace("BB", " ")
         candidates = list(re.finditer(r"(?<![0-9A-Z])[0-9OSILB][0-9OSILB\s,.\-]*[KM]?", normalized))
         if not candidates:
@@ -630,7 +643,9 @@ class PokerOCR:
                 return None
 
             if allow_decimal_amounts:
-                parsed_value = cls._parse_decimal_candidate(cleaned, thousands_separators, decimal_separators)
+                parsed_value = cls._parse_decimal_candidate(
+                    cleaned, thousands_separators, decimal_separators
+                )
             else:
                 parsed_value = cls._parse_integer_candidate(cleaned, thousands_separators)
 
@@ -688,7 +703,9 @@ class PokerOCR:
             decimal_separators=self.amount_decimal_separators,
         )
 
-    def _read_all_texts(self, image_crop: np.ndarray, variant: str = "original") -> list[OCRTextCandidate]:
+    def _read_all_texts(
+        self, image_crop: np.ndarray, variant: str = "original"
+    ) -> list[OCRTextCandidate]:
         def read_candidate(engine: BaseOCREngine) -> OCRTextCandidate:
             try:
                 return OCRTextCandidate(
@@ -704,14 +721,20 @@ class PokerOCR:
             return [read_candidate(engine) for engine in self.engines]
 
         candidates_by_engine: dict[str, OCRTextCandidate] = {}
-        with ThreadPoolExecutor(max_workers=len(self.engines), thread_name_prefix="poker-ocr") as executor:
-            futures = {executor.submit(read_candidate, engine): engine.name for engine in self.engines}
+        with ThreadPoolExecutor(
+            max_workers=len(self.engines), thread_name_prefix="poker-ocr"
+        ) as executor:
+            futures = {
+                executor.submit(read_candidate, engine): engine.name for engine in self.engines
+            }
             for future in as_completed(futures):
                 candidate = future.result()
                 candidates_by_engine[candidate.engine] = candidate
 
         return [
-            candidates_by_engine.get(engine.name, OCRTextCandidate(engine=engine.name, text="", variant=variant))
+            candidates_by_engine.get(
+                engine.name, OCRTextCandidate(engine=engine.name, text="", variant=variant)
+            )
             for engine in self.engines
         ]
 
@@ -727,7 +750,9 @@ class PokerOCR:
             )
         return candidates
 
-    def _read_amounts_until_valid(self, image_crop: np.ndarray) -> tuple[list[OCRAmountCandidate], OCRAmountCandidate | None]:
+    def _read_amounts_until_valid(
+        self, image_crop: np.ndarray
+    ) -> tuple[list[OCRAmountCandidate], OCRAmountCandidate | None]:
         candidates: list[OCRAmountCandidate] = []
         for engine in self.engines:
             try:
@@ -758,7 +783,9 @@ class PokerOCR:
         return round((alpha_numeric_ratio * 0.45) + (length_factor * 0.55), 3)
 
     @classmethod
-    def _amount_confidence(cls, raw_text: str, value: float | None, agreement_bonus: float = 0.0) -> float:
+    def _amount_confidence(
+        cls, raw_text: str, value: float | None, agreement_bonus: float = 0.0
+    ) -> float:
         if value is None:
             return 0.0
         digits_factor = min(sum(char.isdigit() for char in raw_text) / 6.0, 1.0)
@@ -776,13 +803,21 @@ class PokerOCR:
         selected_confidence: float | None = None,
     ) -> None:
         non_empty = [candidate.text for candidate in candidates if candidate.text]
-        agreement = "full" if len(set(non_empty)) == 1 and non_empty else "partial" if len(non_empty) > 1 else "none"
+        agreement = (
+            "full"
+            if len(set(non_empty)) == 1 and non_empty
+            else "partial"
+            if len(non_empty) > 1
+            else "none"
+        )
         candidate_rows = []
         engine_scores: dict[str, float] = {}
         resolved_selected_confidence = selected_confidence
         for candidate in candidates:
             score = (
-                candidate_score_overrides.get((candidate.engine, candidate.variant), self._text_confidence(candidate.text))
+                candidate_score_overrides.get(
+                    (candidate.engine, candidate.variant), self._text_confidence(candidate.text)
+                )
                 if candidate_score_overrides
                 else self._text_confidence(candidate.text)
             )
@@ -825,14 +860,34 @@ class PokerOCR:
         candidate_rows = []
         engine_scores: dict[str, float] = {}
         for candidate in candidates:
-            score = self._amount_confidence(candidate.raw_text, candidate.value, agreement_bonus if candidate.value == selected_amount and agreement == "consensus" else 0.0)
+            score = self._amount_confidence(
+                candidate.raw_text,
+                candidate.value,
+                agreement_bonus
+                if candidate.value == selected_amount and agreement == "consensus"
+                else 0.0,
+            )
             engine_scores[candidate.engine] = score
-            candidate_rows.append({"engine": candidate.engine, "text": candidate.raw_text, "value": candidate.value, "score": score})
+            candidate_rows.append(
+                {
+                    "engine": candidate.engine,
+                    "text": candidate.raw_text,
+                    "value": candidate.value,
+                    "score": score,
+                }
+            )
         self.last_metadata = {
             **self.last_metadata,
             "field": "amount",
             "selected_engine": selected_engine,
-            "selected_text": next((candidate.raw_text for candidate in candidates if candidate.engine == selected_engine), ""),
+            "selected_text": next(
+                (
+                    candidate.raw_text
+                    for candidate in candidates
+                    if candidate.engine == selected_engine
+                ),
+                "",
+            ),
             "selected_amount": selected_amount,
             "selected_confidence": engine_scores.get(selected_engine, 0.0),
             "engine_scores": engine_scores,
@@ -849,7 +904,10 @@ class PokerOCR:
         if self.mode == "priority":
             selected = candidates[0] if candidates else OCRTextCandidate(engine="", text="")
         else:
-            selected = next((candidate for candidate in candidates if candidate.text), candidates[0] if candidates else OCRTextCandidate(engine="", text=""))
+            selected = next(
+                (candidate for candidate in candidates if candidate.text),
+                candidates[0] if candidates else OCRTextCandidate(engine="", text=""),
+            )
 
         self._finalize_text_metadata(selected.engine, selected.text, candidates)
         return selected.text
@@ -944,7 +1002,9 @@ class PokerOCR:
                 candidate_key = (item.engine, item.variant)
                 sanitized = sanitized_by_key.get(candidate_key, "")
                 support_count = support_counts.get(sanitized, 0)
-                score = self._player_name_candidate_score(sanitized, item.variant, support_count=support_count)
+                score = self._player_name_candidate_score(
+                    sanitized, item.variant, support_count=support_count
+                )
                 score_overrides[candidate_key] = score
                 if not is_usable_player_name(sanitized):
                     continue
@@ -963,13 +1023,16 @@ class PokerOCR:
 
             return best_candidate, best_text, best_score, score_overrides
 
-        selected_candidate, selected_text, selected_score, score_overrides = choose_best_player_name(candidates)
+        selected_candidate, selected_text, selected_score, score_overrides = (
+            choose_best_player_name(candidates)
+        )
         has_consensus = bool(
             selected_text
             and sum(
                 1
                 for item in candidates
-                if sanitize_player_name(item.text) == selected_text and is_usable_player_name(item.text)
+                if sanitize_player_name(item.text) == selected_text
+                and is_usable_player_name(item.text)
             )
             >= 2
         )
@@ -977,7 +1040,9 @@ class PokerOCR:
         if (not selected_text or selected_score < 0.82) and not has_consensus:
             for variant_name, variant_image in variants[1:]:
                 candidates.extend(self._read_all_texts(variant_image, variant=variant_name))
-            selected_candidate, selected_text, selected_score, score_overrides = choose_best_player_name(candidates)
+            selected_candidate, selected_text, selected_score, score_overrides = (
+                choose_best_player_name(candidates)
+            )
 
         if selected_candidate is None or not selected_text:
             self._finalize_text_metadata(
@@ -1045,7 +1110,9 @@ class PokerOCR:
 
         if self.mode == "consensus_amounts":
             candidates = self._read_all_amounts(image_crop)
-            valid_candidates = [candidate for candidate in candidates if candidate.value is not None]
+            valid_candidates = [
+                candidate for candidate in candidates if candidate.value is not None
+            ]
 
             if not valid_candidates:
                 self._finalize_amount_metadata("", None, candidates, "none")
@@ -1054,8 +1121,14 @@ class PokerOCR:
             counts = Counter(round(candidate.value or 0.0, 2) for candidate in valid_candidates)
             consensus_value, consensus_count = counts.most_common(1)[0]
             if consensus_count >= 2:
-                selected = next(candidate for candidate in valid_candidates if round(candidate.value or 0.0, 2) == consensus_value)
-                self._finalize_amount_metadata(selected.engine, selected.value, candidates, "consensus")
+                selected = next(
+                    candidate
+                    for candidate in valid_candidates
+                    if round(candidate.value or 0.0, 2) == consensus_value
+                )
+                self._finalize_amount_metadata(
+                    selected.engine, selected.value, candidates, "consensus"
+                )
                 return selected.value
 
             selected = valid_candidates[0]
@@ -1075,4 +1148,3 @@ class PokerOCR:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     ocr = PokerOCR()
-

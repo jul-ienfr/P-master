@@ -1,4 +1,5 @@
 """Helpers de session runtime : horodatage, session id, flags et port API."""
+
 import logging
 import os
 import socket
@@ -72,7 +73,9 @@ def resolve_runtime_api_port(candidates: tuple[int, ...] = RUNTIME_PORT_CANDIDAT
         try:
             return int(configured)
         except ValueError:
-            logger.warning("POKER_RUNTIME_API_PORT invalide (%s), selection automatique.", configured)
+            logger.warning(
+                "POKER_RUNTIME_API_PORT invalide (%s), selection automatique.", configured
+            )
     return select_available_runtime_port(candidates)
 
 
@@ -88,6 +91,7 @@ class RuntimeSessionMixin:
 
     def _get_runtime_session_id(self) -> str:
         return getattr(self, "runtime_session_id", None) or self._build_runtime_session_id()
+
     def _build_rl_runtime_config(self) -> dict:
         rl_cfg = self.config.get("rl", {}) or {}
         bot_cfg = self.config.get("bot", {}) or {}
@@ -124,4 +128,3 @@ class RuntimeSessionMixin:
             "enable_validated_rl": enable_validated_rl,
             "autoload_rl_model": autoload_rl_model,
         }
-

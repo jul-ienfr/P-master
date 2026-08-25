@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 import os
 import time
-from typing import Any
 from collections.abc import Callable
+from typing import Any
 
 from src.runtime.health import HealthMonitor
 
@@ -41,7 +41,9 @@ class SolverProvider:
         health_monitor: HealthMonitor | None = None,
     ) -> None:
         self.native_backend = native_backend
-        self.http_url = str(http_url or os.getenv("POKER_GTO_SERVER_URL") or DEFAULT_GTO_SERVER_URL).strip()
+        self.http_url = str(
+            http_url or os.getenv("POKER_GTO_SERVER_URL") or DEFAULT_GTO_SERVER_URL
+        ).strip()
         self.timeout_s = max(0.05, float(timeout_s or DEFAULT_GTO_SERVER_TIMEOUT_S))
         self.request_post = request_post or (requests.post if requests is not None else None)
         self.health_monitor = health_monitor
@@ -72,7 +74,9 @@ class SolverProvider:
 
     @staticmethod
     def _supports_action_payload(payload: dict) -> bool:
-        chosen_action = str(payload.get("chosen_action") or payload.get("recommended_action") or "").strip()
+        chosen_action = str(
+            payload.get("chosen_action") or payload.get("recommended_action") or ""
+        ).strip()
         actions = payload.get("actions")
         return bool(chosen_action or (isinstance(actions, list) and actions))
 
@@ -97,13 +101,17 @@ class SolverProvider:
         backend = self.native_backend
         if backend is None:
             if self.health_monitor is not None:
-                self.health_monitor.record_error("solver", "rust_solver_unavailable", status="degraded")
+                self.health_monitor.record_error(
+                    "solver", "rust_solver_unavailable", status="degraded"
+                )
             return None, "rust_solver_unavailable"
 
         solver_fn = getattr(backend, "solve_spot_v2", None)
         if not callable(solver_fn):
             if self.health_monitor is not None:
-                self.health_monitor.record_error("solver", "solver_backend_missing_entrypoint", status="degraded")
+                self.health_monitor.record_error(
+                    "solver", "solver_backend_missing_entrypoint", status="degraded"
+                )
             return None, "solver_backend_missing_entrypoint"
 
         try:
@@ -114,18 +122,27 @@ class SolverProvider:
             except Exception as exc:
                 logger.debug("Native solver backend failed after payload fallback: %s", exc)
                 if self.health_monitor is not None:
-                    self.health_monitor.record_error("solver", str(exc) or "native_solver_error", status="degraded", cooldown_s=1.0)
+                    self.health_monitor.record_error(
+                        "solver",
+                        str(exc) or "native_solver_error",
+                        status="degraded",
+                        cooldown_s=1.0,
+                    )
                 return None, str(exc) or "native_solver_error"
         except Exception as exc:
             logger.debug("Native solver backend failed: %s", exc)
             if self.health_monitor is not None:
-                self.health_monitor.record_error("solver", str(exc) or "native_solver_error", status="degraded", cooldown_s=1.0)
+                self.health_monitor.record_error(
+                    "solver", str(exc) or "native_solver_error", status="degraded", cooldown_s=1.0
+                )
             return None, str(exc) or "native_solver_error"
 
         normalized = self._normalize_response(result, backend=self._native_backend_name())
         if normalized is None:
             if self.health_monitor is not None:
-                self.health_monitor.record_error("solver", "native_solver_no_result", status="degraded")
+                self.health_monitor.record_error(
+                    "solver", "native_solver_no_result", status="degraded"
+                )
             return None, "native_solver_no_result"
         if self.health_monitor is not None:
             self.health_monitor.record_success("solver")
@@ -134,11 +151,15 @@ class SolverProvider:
     def _invoke_http(self, payload: dict) -> tuple[dict | None, str]:
         if not self.http_url:
             if self.health_monitor is not None:
-                self.health_monitor.record_error("solver", "http_solver_disabled", status="degraded")
+                self.health_monitor.record_error(
+                    "solver", "http_solver_disabled", status="degraded"
+                )
             return None, "http_solver_disabled"
         if self.request_post is None:
             if self.health_monitor is not None:
-                self.health_monitor.record_error("solver", "http_client_unavailable", status="degraded")
+                self.health_monitor.record_error(
+                    "solver", "http_client_unavailable", status="degraded"
+                )
             return None, "http_client_unavailable"
 
         started = time.perf_counter()
@@ -147,19 +168,25 @@ class SolverProvider:
             status_code = getattr(response, "status_code", 200)
             if status_code != 200:
                 if self.health_monitor is not None:
-                    self.health_monitor.record_error("solver", f"http_status_{status_code}", status="degraded", cooldown_s=1.0)
+                    self.health_monitor.record_error(
+                        "solver", f"http_status_{status_code}", status="degraded", cooldown_s=1.0
+                    )
                 return None, f"http_status_{status_code}"
             result = response.json()
         except Exception as exc:
             logger.debug("HTTP solver backend failed: %s", exc)
             if self.health_monitor is not None:
-                self.health_monitor.record_error("solver", "http_solver_unavailable", status="degraded", cooldown_s=1.0)
+                self.health_monitor.record_error(
+                    "solver", "http_solver_unavailable", status="degraded", cooldown_s=1.0
+                )
             return None, "http_solver_unavailable"
 
         normalized = self._normalize_response(result, backend="gto_server")
         if normalized is None:
             if self.health_monitor is not None:
-                self.health_monitor.record_error("solver", "http_solver_no_result", status="degraded")
+                self.health_monitor.record_error(
+                    "solver", "http_solver_no_result", status="degraded"
+                )
             return None, "http_solver_no_result"
 
         normalized.setdefault("backend_details", {})
@@ -168,12 +195,16 @@ class SolverProvider:
         normalized.setdefault("metadata", {})
         if isinstance(normalized["metadata"], dict):
             normalized["metadata"].setdefault("transport", "local_http")
-            normalized["metadata"].setdefault("elapsed_wall_ms", int((time.perf_counter() - started) * 1000))
+            normalized["metadata"].setdefault(
+                "elapsed_wall_ms", int((time.perf_counter() - started) * 1000)
+            )
         if self.health_monitor is not None:
             self.health_monitor.record_success("solver")
         return normalized, ""
 
-    def _fallback_response(self, reason: str, *, native_reason: str = "", http_reason: str = "") -> dict:
+    def _fallback_response(
+        self, reason: str, *, native_reason: str = "", http_reason: str = ""
+    ) -> dict:
         fallback_reason = str(reason or "no_backend_result")
         response = {
             "chosen_action": "",
@@ -200,7 +231,9 @@ class SolverProvider:
     def solve_spot_v2(self, **payload: Any) -> dict:
         native_response, native_reason = self._invoke_native(payload)
         if native_response is not None:
-            self._active_backend = str(native_response.get("backend") or self._native_backend_name())
+            self._active_backend = str(
+                native_response.get("backend") or self._native_backend_name()
+            )
             self._last_fallback_reason = ""
             self._last_success_at = _utc_now()
             return native_response

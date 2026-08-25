@@ -92,15 +92,20 @@ def test_runtime_history_store_export_combines_backup_and_current_file(tmp_path)
     backup_path.write_text(
         "\n".join(
             [
-                json.dumps({"stream": "events", "timestamp": "2026-04-11T10:00:00Z", "message": "older"}),
-                json.dumps({"stream": "events", "timestamp": "2026-04-11T10:00:01Z", "message": "old"}),
+                json.dumps(
+                    {"stream": "events", "timestamp": "2026-04-11T10:00:00Z", "message": "older"}
+                ),
+                json.dumps(
+                    {"stream": "events", "timestamp": "2026-04-11T10:00:01Z", "message": "old"}
+                ),
             ]
         )
         + "\n",
         encoding="utf-8",
     )
     history_path.write_text(
-        json.dumps({"stream": "events", "timestamp": "2026-04-11T10:00:02Z", "message": "new"}) + "\n",
+        json.dumps({"stream": "events", "timestamp": "2026-04-11T10:00:02Z", "message": "new"})
+        + "\n",
         encoding="utf-8",
     )
 
@@ -116,11 +121,13 @@ def test_runtime_history_store_read_recent_uses_backup_when_rotation_moved_old_r
     backup_path = history_path.with_suffix(history_path.suffix + ".bak")
 
     backup_path.write_text(
-        json.dumps({"stream": "events", "timestamp": "2026-04-11T10:00:01Z", "message": "older"}) + "\n",
+        json.dumps({"stream": "events", "timestamp": "2026-04-11T10:00:01Z", "message": "older"})
+        + "\n",
         encoding="utf-8",
     )
     history_path.write_text(
-        json.dumps({"stream": "events", "timestamp": "2026-04-11T10:00:02Z", "message": "newer"}) + "\n",
+        json.dumps({"stream": "events", "timestamp": "2026-04-11T10:00:02Z", "message": "newer"})
+        + "\n",
         encoding="utf-8",
     )
 
@@ -140,12 +147,29 @@ def test_runtime_history_store_rotation_keeps_multiple_numbered_backups(tmp_path
     )
 
     for index in range(1, 6):
-        store.append("events", {"timestamp": f"2026-04-11T10:00:0{index}Z", "message": f"entry-{index}"})
+        store.append(
+            "events", {"timestamp": f"2026-04-11T10:00:0{index}Z", "message": f"entry-{index}"}
+        )
 
     assert json.loads(history_path.read_text(encoding="utf-8").strip())["message"] == "entry-5"
-    assert json.loads((tmp_path / "runtime_history.jsonl.bak.1").read_text(encoding="utf-8").strip())["message"] == "entry-4"
-    assert json.loads((tmp_path / "runtime_history.jsonl.bak.2").read_text(encoding="utf-8").strip())["message"] == "entry-3"
-    assert json.loads((tmp_path / "runtime_history.jsonl.bak.3").read_text(encoding="utf-8").strip())["message"] == "entry-2"
+    assert (
+        json.loads((tmp_path / "runtime_history.jsonl.bak.1").read_text(encoding="utf-8").strip())[
+            "message"
+        ]
+        == "entry-4"
+    )
+    assert (
+        json.loads((tmp_path / "runtime_history.jsonl.bak.2").read_text(encoding="utf-8").strip())[
+            "message"
+        ]
+        == "entry-3"
+    )
+    assert (
+        json.loads((tmp_path / "runtime_history.jsonl.bak.3").read_text(encoding="utf-8").strip())[
+            "message"
+        ]
+        == "entry-2"
+    )
     assert not (tmp_path / "runtime_history.jsonl.bak.4").exists()
     assert store.summarize()["backup_count"] == 3
 
@@ -155,11 +179,27 @@ def test_runtime_history_store_can_export_record_batches_per_persisted_segment(t
     backup_path = history_path.with_suffix(history_path.suffix + ".bak")
 
     backup_path.write_text(
-        json.dumps({"stream": "decisions", "timestamp": "2026-04-11T10:00:01Z", "spot_id": "old", "chosen_action": "FOLD"}) + "\n",
+        json.dumps(
+            {
+                "stream": "decisions",
+                "timestamp": "2026-04-11T10:00:01Z",
+                "spot_id": "old",
+                "chosen_action": "FOLD",
+            }
+        )
+        + "\n",
         encoding="utf-8",
     )
     history_path.write_text(
-        json.dumps({"stream": "decisions", "timestamp": "2026-04-11T10:00:02Z", "spot_id": "new", "chosen_action": "CALL"}) + "\n",
+        json.dumps(
+            {
+                "stream": "decisions",
+                "timestamp": "2026-04-11T10:00:02Z",
+                "spot_id": "new",
+                "chosen_action": "CALL",
+            }
+        )
+        + "\n",
         encoding="utf-8",
     )
 
@@ -187,9 +227,33 @@ def test_runtime_history_store_export_record_batches_prefers_explicit_session_id
     history_path.write_text(
         "\n".join(
             [
-                json.dumps({"stream": "decisions", "timestamp": "2026-04-11T10:00:01Z", "spot_id": "spot-a", "chosen_action": "CALL", "session_id": "runtime-a"}),
-                json.dumps({"stream": "decisions", "timestamp": "2026-04-11T10:00:02Z", "spot_id": "spot-b", "chosen_action": "BET", "session_id": "runtime-a"}),
-                json.dumps({"stream": "decisions", "timestamp": "2026-04-11T10:00:03Z", "spot_id": "spot-c", "chosen_action": "FOLD", "session_id": "runtime-b"}),
+                json.dumps(
+                    {
+                        "stream": "decisions",
+                        "timestamp": "2026-04-11T10:00:01Z",
+                        "spot_id": "spot-a",
+                        "chosen_action": "CALL",
+                        "session_id": "runtime-a",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "stream": "decisions",
+                        "timestamp": "2026-04-11T10:00:02Z",
+                        "spot_id": "spot-b",
+                        "chosen_action": "BET",
+                        "session_id": "runtime-a",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "stream": "decisions",
+                        "timestamp": "2026-04-11T10:00:03Z",
+                        "spot_id": "spot-c",
+                        "chosen_action": "FOLD",
+                        "session_id": "runtime-b",
+                    }
+                ),
             ]
         )
         + "\n",
@@ -201,7 +265,10 @@ def test_runtime_history_store_export_record_batches_prefers_explicit_session_id
     batches = store.export_record_batches("decisions")
 
     assert [batch["session_id"] for batch in batches] == ["runtime-a", "runtime-b"]
-    assert [[record["spot_id"] for record in batch["records"]] for batch in batches] == [["spot-a", "spot-b"], ["spot-c"]]
+    assert [[record["spot_id"] for record in batch["records"]] for batch in batches] == [
+        ["spot-a", "spot-b"],
+        ["spot-c"],
+    ]
 
 
 def test_runtime_history_store_can_coerce_frontend_review_pack_raw_payload():
@@ -356,8 +423,17 @@ def test_runtime_history_store_describes_and_coerces_policy_compare_artifact_ali
             {
                 "session_id": "alias-session",
                 "records": [
-                    {"stream": "events", "timestamp": "2026-04-11T10:00:00Z", "message": "batch event"},
-                    {"stream": "decisions", "timestamp": "2026-04-11T10:00:01Z", "spot_id": "spot-1", "chosen_action": "BET"},
+                    {
+                        "stream": "events",
+                        "timestamp": "2026-04-11T10:00:00Z",
+                        "message": "batch event",
+                    },
+                    {
+                        "stream": "decisions",
+                        "timestamp": "2026-04-11T10:00:01Z",
+                        "spot_id": "spot-1",
+                        "chosen_action": "BET",
+                    },
                 ],
             }
         ],
@@ -387,7 +463,12 @@ def test_runtime_history_store_describes_policy_compare_corpus_records_alias():
             "artifact_type": "policy_compare_corpus",
         },
         "records": [
-            {"stream": "decisions", "timestamp": "2026-04-11T10:00:01Z", "spot_id": "spot-1", "chosen_action": "CALL"}
+            {
+                "stream": "decisions",
+                "timestamp": "2026-04-11T10:00:01Z",
+                "spot_id": "spot-1",
+                "chosen_action": "CALL",
+            }
         ],
     }
 

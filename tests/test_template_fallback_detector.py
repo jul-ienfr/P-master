@@ -34,7 +34,7 @@ def _load_local_capture(name: str) -> np.ndarray:
 
 def _paste(frame: np.ndarray, image: np.ndarray, x: int, y: int) -> None:
     height, width = image.shape[:2]
-    frame[y:y + height, x:x + width] = image
+    frame[y : y + height, x : x + width] = image
 
 
 def _resize(image: np.ndarray, scale: float) -> np.ndarray:
@@ -51,7 +51,12 @@ def _scaled(value: int, scale: float) -> int:
 
 
 def _sorted_area_map(area_map):
-    return [area_map[key] for key in sorted(area_map, key=lambda item: int(item) if str(item).isdigit() else str(item))]
+    return [
+        area_map[key]
+        for key in sorted(
+            area_map, key=lambda item: int(item) if str(item).isdigit() else str(item)
+        )
+    ]
 
 
 def test_template_fallback_detects_table_hero_cards_and_buttons_without_yolo_model():
@@ -95,8 +100,16 @@ def test_template_fallback_detects_table_hero_cards_and_buttons_without_yolo_mod
     _paste(
         frame,
         kd_image,
-        table_window_x + (right_card_area["x1"] if right_card_area else my_cards_area["x1"] + 6 + ah_image.shape[1] + 8) + 2,
-        table_window_y + (right_card_area["y1"] if right_card_area else my_cards_area["y1"] + 3) + 3,
+        table_window_x
+        + (
+            right_card_area["x1"]
+            if right_card_area
+            else my_cards_area["x1"] + 6 + ah_image.shape[1] + 8
+        )
+        + 2,
+        table_window_y
+        + (right_card_area["y1"] if right_card_area else my_cards_area["y1"] + 3)
+        + 3,
     )
     _paste(
         frame,
@@ -113,20 +126,32 @@ def test_template_fallback_detects_table_hero_cards_and_buttons_without_yolo_mod
     _paste(
         frame,
         jh_image,
-        table_window_x + (board_card_areas[0]["x1"] if board_card_areas else board_area["x1"] + 10) + 2,
-        table_window_y + (board_card_areas[0]["y1"] if board_card_areas else board_area["y1"] + 4) + 2,
+        table_window_x
+        + (board_card_areas[0]["x1"] if board_card_areas else board_area["x1"] + 10)
+        + 2,
+        table_window_y
+        + (board_card_areas[0]["y1"] if board_card_areas else board_area["y1"] + 4)
+        + 2,
     )
     _paste(
         frame,
         eight_h_image,
-        table_window_x + (board_card_areas[1]["x1"] if board_card_areas else board_area["x1"] + 78) + 2,
-        table_window_y + (board_card_areas[1]["y1"] if board_card_areas else board_area["y1"] + 4) + 2,
+        table_window_x
+        + (board_card_areas[1]["x1"] if board_card_areas else board_area["x1"] + 78)
+        + 2,
+        table_window_y
+        + (board_card_areas[1]["y1"] if board_card_areas else board_area["y1"] + 4)
+        + 2,
     )
     _paste(
         frame,
         two_h_image,
-        table_window_x + (board_card_areas[2]["x1"] if board_card_areas else board_area["x1"] + 146) + 2,
-        table_window_y + (board_card_areas[2]["y1"] if board_card_areas else board_area["y1"] + 4) + 2,
+        table_window_x
+        + (board_card_areas[2]["x1"] if board_card_areas else board_area["x1"] + 146)
+        + 2,
+        table_window_y
+        + (board_card_areas[2]["y1"] if board_card_areas else board_area["y1"] + 4)
+        + 2,
     )
 
     detector = PokerDetector(model_path="models/definitely_missing.engine")
@@ -176,7 +201,9 @@ def test_template_fallback_scales_with_window_size_variants(scale: float):
     table_data = manifest["table_data"]
     assets = manifest["assets"]
     anchor_name = "topleft_corner"
-    anchor_offset = table_data.get("anchor_offsets", {}).get(anchor_name, table_data.get("anchor_offset", {"x": 0, "y": 0}))
+    anchor_offset = table_data.get("anchor_offsets", {}).get(
+        anchor_name, table_data.get("anchor_offset", {"x": 0, "y": 0})
+    )
 
     frame = np.zeros((_scaled(689, scale) + 70, _scaled(955, scale) + 60, 3), dtype=np.uint8)
     frame[:] = (20, 30, 40)
@@ -255,7 +282,11 @@ def test_template_fallback_scales_with_window_size_variants(scale: float):
     assert str(state.metadata["topleft_anchor_asset"]).startswith("topleft_corner")
     assert state.metadata["topleft_match_scale"] == pytest.approx(scale, abs=0.06)
     assert sorted(decode_card_token(card.class_name) for card in state.hero_cards) == ["Ah", "Kd"]
-    assert sorted(decode_card_token(card.class_name) for card in state.board_cards) == ["2h", "8h", "Jh"]
+    assert sorted(decode_card_token(card.class_name) for card in state.board_cards) == [
+        "2h",
+        "8h",
+        "Jh",
+    ]
     assert {button.class_name for button in state.action_buttons} == {"call_button", "fold_button"}
 
 
@@ -300,4 +331,10 @@ def test_template_fallback_reads_evening_capture_with_updated_native_cards():
     assert state.metadata["fallback_preset"] == "PokerStars 7 FR 6-max"
     assert state.metadata["topleft_anchor_asset"] == "topleft_corner_live"
     assert [decode_card_token(card.class_name) for card in state.hero_cards] == ["Jh", "Tc"]
-    assert [decode_card_token(card.class_name) for card in state.board_cards] == ["Jd", "Jc", "Th", "Td", "As"]
+    assert [decode_card_token(card.class_name) for card in state.board_cards] == [
+        "Jd",
+        "Jc",
+        "Th",
+        "Td",
+        "As",
+    ]

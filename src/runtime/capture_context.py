@@ -1,4 +1,5 @@
 """Snapshot pot rapide et gestion du contexte de capture (extrait de src/main.py)."""
+
 import logging
 import time
 
@@ -22,7 +23,9 @@ class CaptureContextMixin:
         snapshot = dict(getattr(self, "_last_fast_pot_snapshot", {}) or {})
         if not snapshot:
             return {}
-        age_s = max(0.0, time.monotonic() - float(snapshot.get("observed_at_monotonic", 0.0) or 0.0))
+        age_s = max(
+            0.0, time.monotonic() - float(snapshot.get("observed_at_monotonic", 0.0) or 0.0)
+        )
         if age_s > float(getattr(self, "_fast_pot_stale_after_s", 0.35) or 0.35):
             return {}
         snapshot["age_s"] = age_s
@@ -44,7 +47,11 @@ class CaptureContextMixin:
 
     def _refresh_capture_region(self, force: bool = False) -> tuple[int, int, int, int] | None:
         now = time.monotonic()
-        if not force and (now - self._last_capture_region_refresh_at) < self._capture_region_refresh_interval_s:
+        if (
+            not force
+            and (now - self._last_capture_region_refresh_at)
+            < self._capture_region_refresh_interval_s
+        ):
             return self.camera.region
 
         self._last_capture_region_refresh_at = now
@@ -58,9 +65,8 @@ class CaptureContextMixin:
             previous_hwnd = getattr(self.camera, "window_hwnd", None)
             self.camera.region = next_region
             self.camera.window_hwnd = self.action_controller.hwnd
-            if (
-                getattr(self.camera, "capture_mode", self.camera.backend) == "dxcam"
-                and getattr(self.camera, "is_capturing", False)
+            if getattr(self.camera, "capture_mode", self.camera.backend) == "dxcam" and getattr(
+                self.camera, "is_capturing", False
             ):
                 try:
                     self.camera.stop()
@@ -73,10 +79,16 @@ class CaptureContextMixin:
                         exc,
                     )
             if next_region:
-                logger.info("Capture ciblee sur la fenetre %s: %s", self.action_controller.window_title, next_region)
+                logger.info(
+                    "Capture ciblee sur la fenetre %s: %s",
+                    self.action_controller.window_title,
+                    next_region,
+                )
             else:
                 logger.info("Aucune fenetre cible detectee, retour en capture plein ecran.")
-            self._handle_capture_context_change(previous_hwnd, previous_region, self.action_controller.hwnd, next_region)
+            self._handle_capture_context_change(
+                previous_hwnd, previous_region, self.action_controller.hwnd, next_region
+            )
         return self.camera.region
 
     def _handle_capture_context_change(
@@ -88,11 +100,15 @@ class CaptureContextMixin:
     ) -> None:
         previous_signature = (
             int(previous_hwnd or 0),
-            tuple(int(value) for value in previous_region) if isinstance(previous_region, (tuple, list)) and len(previous_region) == 4 else (),
+            tuple(int(value) for value in previous_region)
+            if isinstance(previous_region, (tuple, list)) and len(previous_region) == 4
+            else (),
         )
         next_signature = (
             int(next_hwnd or 0),
-            tuple(int(value) for value in next_region) if isinstance(next_region, (tuple, list)) and len(next_region) == 4 else (),
+            tuple(int(value) for value in next_region)
+            if isinstance(next_region, (tuple, list)) and len(next_region) == 4
+            else (),
         )
         if previous_signature == next_signature:
             return
@@ -107,13 +123,16 @@ class CaptureContextMixin:
         self.tracker.sanity.reset_pot_reconciliation()
         self.runtime_sanity.reset_pot_reconciliation()
         self._clear_live_execution_guard()
-        idle_state = CanonicalTableState(spot_id="live:IDLE:capture_context_change", street="IDLE", pot=0.0)
+        idle_state = CanonicalTableState(
+            spot_id="live:IDLE:capture_context_change", street="IDLE", pot=0.0
+        )
         self._clear_live_decision_summary(idle_state)
-        logger.info("Capture context reset: hwnd=%s region=%s", next_signature[0], next_signature[1])
+        logger.info(
+            "Capture context reset: hwnd=%s region=%s", next_signature[0], next_signature[1]
+        )
 
     def _capture_context_recently_changed(self) -> bool:
         changed_at = float(getattr(self, "_last_capture_context_changed_at", 0.0) or 0.0)
         if changed_at <= 0.0:
             return False
         return (time.monotonic() - changed_at) <= 1.25
-

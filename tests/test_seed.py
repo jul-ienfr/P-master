@@ -1,4 +1,5 @@
 """Tests Phase 3.5 — seed déterministe."""
+
 import os
 import random
 import sys

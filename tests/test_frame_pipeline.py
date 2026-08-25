@@ -39,7 +39,9 @@ def test_frame_pipeline_detects_initial_visual_regions_as_changed():
     controller._is_image_changed = is_image_changed
 
     pipeline = FramePipeline(controller)
-    changed, previews, regions = pipeline._detect_relevant_visual_change(np.zeros((40, 60, 3), dtype=np.uint8))
+    changed, previews, regions = pipeline._detect_relevant_visual_change(
+        np.zeros((40, 60, 3), dtype=np.uint8)
+    )
 
     assert changed is True
     assert set(previews.keys()) == {"table", "board", "pot", "hero", "actions"}
@@ -58,7 +60,9 @@ def test_process_frame_and_convert_state_expose_frame_and_crop_quality_metadata(
         hitl=types.SimpleNamespace(is_waiting_for_human=True),
         detector=types.SimpleNamespace(
             analyze_frame=lambda frame: TableState(
-                pots=[DetectionResult(class_name="pot_area", confidence=0.9, bbox=(10, 10, 60, 30))],
+                pots=[
+                    DetectionResult(class_name="pot_area", confidence=0.9, bbox=(10, 10, 60, 30))
+                ],
                 metadata={"table_detected": True, "detector_mode": "template"},
             )
         ),
@@ -76,18 +80,28 @@ def test_process_frame_and_convert_state_expose_frame_and_crop_quality_metadata(
         ),
         _label_generic_action_buttons=lambda state, frame: state,
         _build_visual_preview=lambda frame, bbox: np.ones((4, 4), dtype=np.uint8),
-        _is_image_changed=lambda previous, current, threshold=0.0: previous is None or not np.array_equal(previous, current),
+        _is_image_changed=lambda previous, current, threshold=0.0: (
+            previous is None or not np.array_equal(previous, current)
+        ),
         _copy_table_state=_copy_state_for_test,
         _set_loop_stage=lambda *args, **kwargs: None,
         _stabilize_runtime_hero_cards=lambda hero_cards, board, state: hero_cards,
         _build_players=lambda state, frame: [],
         _derive_legal_actions=lambda state: ((), ()),
-        _normalize_auxiliary_action_state=lambda legal_actions, action_buttons, board, hero_cards: (legal_actions, action_buttons),
+        _normalize_auxiliary_action_state=lambda legal_actions, action_buttons, board, hero_cards: (
+            legal_actions,
+            action_buttons,
+        ),
         _derive_runtime_street=lambda board, hero_cards, action_buttons: "IDLE",
         _normalize_board_for_street=lambda board, street: board,
-        _smooth_legal_actions=lambda legal_actions, action_buttons, board, hero_cards: (legal_actions, action_buttons),
+        _smooth_legal_actions=lambda legal_actions, action_buttons, board, hero_cards: (
+            legal_actions,
+            action_buttons,
+        ),
         _smooth_runtime_state_confidence=lambda confidence, street, board, hero_cards: confidence,
-        _derive_hero_participation_mode=lambda board, hero_cards, pot, action_buttons: "waiting_next_hand",
+        _derive_hero_participation_mode=lambda board, hero_cards, pot, action_buttons: (
+            "waiting_next_hand"
+        ),
         _extract_actionable_runtime_buttons=lambda action_buttons: (),
     )
 
@@ -107,7 +121,10 @@ def test_process_frame_and_convert_state_expose_frame_and_crop_quality_metadata(
     assert "region_resolutions" in state.metadata
     assert "detection_quality" in state.metadata
     assert "pot" in state.metadata["region_proposals"]
-    assert state.metadata["region_resolutions"]["pot"]["selected"]["source"] in {"detector_pot", "preset_geometry"}
+    assert state.metadata["region_resolutions"]["pot"]["selected"]["source"] in {
+        "detector_pot",
+        "preset_geometry",
+    }
     assert "pots" in state.metadata["detection_quality"]
 
     canonical = pipeline._convert_state_for_tracker(state, frame)
@@ -142,7 +159,6 @@ def test_detection_quality_scores_in_region_above_out_of_region():
     inside_score = inside_quality["board_cards"]["detections"][0]["score"]
     outside_score = outside_quality["board_cards"]["detections"][0]["score"]
     assert inside_score > outside_score
-
 
 
 def test_process_frame_reads_pot_from_geometry_when_detector_misses_pot():
@@ -183,18 +199,28 @@ def test_process_frame_reads_pot_from_geometry_when_detector_misses_pot():
         ),
         _label_generic_action_buttons=lambda state, frame: state,
         _build_visual_preview=lambda frame, bbox: np.ones((4, 4), dtype=np.uint8),
-        _is_image_changed=lambda previous, current, threshold=0.0: previous is None or not np.array_equal(previous, current),
+        _is_image_changed=lambda previous, current, threshold=0.0: (
+            previous is None or not np.array_equal(previous, current)
+        ),
         _copy_table_state=_copy_state_for_test,
         _set_loop_stage=lambda *args, **kwargs: None,
         _stabilize_runtime_hero_cards=lambda hero_cards, board, state: hero_cards,
         _build_players=lambda state, frame: [],
         _derive_legal_actions=lambda state: ((), ()),
-        _normalize_auxiliary_action_state=lambda legal_actions, action_buttons, board, hero_cards: (legal_actions, action_buttons),
+        _normalize_auxiliary_action_state=lambda legal_actions, action_buttons, board, hero_cards: (
+            legal_actions,
+            action_buttons,
+        ),
         _derive_runtime_street=lambda board, hero_cards, action_buttons: "FLOP",
         _normalize_board_for_street=lambda board, street: board,
-        _smooth_legal_actions=lambda legal_actions, action_buttons, board, hero_cards: (legal_actions, action_buttons),
+        _smooth_legal_actions=lambda legal_actions, action_buttons, board, hero_cards: (
+            legal_actions,
+            action_buttons,
+        ),
         _smooth_runtime_state_confidence=lambda confidence, street, board, hero_cards: confidence,
-        _derive_hero_participation_mode=lambda board, hero_cards, pot, action_buttons: "observing_hand",
+        _derive_hero_participation_mode=lambda board, hero_cards, pot, action_buttons: (
+            "observing_hand"
+        ),
         _extract_actionable_runtime_buttons=lambda action_buttons: (),
     )
 
@@ -233,7 +259,11 @@ def test_process_frame_updates_fast_lane_pot_even_when_visual_state_is_reused():
         _visual_state_refresh_interval_s=999.0,
         _last_visual_state=cached_state,
         _copy_table_state=_copy_state_for_test,
-        _detect_relevant_visual_change=lambda frame: (False, {"pot": np.ones((4, 4), dtype=np.uint8)}, ()),
+        _detect_relevant_visual_change=lambda frame: (
+            False,
+            {"pot": np.ones((4, 4), dtype=np.uint8)},
+            (),
+        ),
         _set_loop_stage=lambda *args, **kwargs: None,
         amount_ocr=types.SimpleNamespace(
             read_and_parse_amount=lambda crop: 3602.0,
@@ -259,12 +289,20 @@ def test_convert_state_uses_raw_board_count_to_escape_idle_when_board_cards_are_
         _stabilize_runtime_hero_cards=lambda hero_cards, board, state: hero_cards,
         _build_players=lambda state, frame: [],
         _derive_legal_actions=lambda state: ((), ()),
-        _normalize_auxiliary_action_state=lambda legal_actions, action_buttons, board, hero_cards: (legal_actions, action_buttons),
+        _normalize_auxiliary_action_state=lambda legal_actions, action_buttons, board, hero_cards: (
+            legal_actions,
+            action_buttons,
+        ),
         _derive_runtime_street=lambda board, hero_cards, action_buttons: "IDLE",
         _normalize_board_for_street=lambda board, street: board,
-        _smooth_legal_actions=lambda legal_actions, action_buttons, board, hero_cards: (legal_actions, action_buttons),
+        _smooth_legal_actions=lambda legal_actions, action_buttons, board, hero_cards: (
+            legal_actions,
+            action_buttons,
+        ),
         _smooth_runtime_state_confidence=lambda confidence, street, board, hero_cards: confidence,
-        _derive_hero_participation_mode=lambda board, hero_cards, pot, action_buttons: "observing_hand",
+        _derive_hero_participation_mode=lambda board, hero_cards, pot, action_buttons: (
+            "observing_hand"
+        ),
         _extract_actionable_runtime_buttons=lambda action_buttons: (),
         ocr=types.SimpleNamespace(get_metadata=lambda: {}),
     )

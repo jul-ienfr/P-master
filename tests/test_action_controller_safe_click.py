@@ -1,4 +1,5 @@
 """Tests des gardes de clic sûr de l'ActionController (sans interaction Windows réelle)."""
+
 import asyncio
 import sys
 from pathlib import Path
@@ -86,8 +87,13 @@ def test_click_at_aborts_when_window_not_foreground(monkeypatch, fast_sleep):
 def test_click_at_happy_path_sends_down_and_up(monkeypatch, fast_sleep):
     controller = make_controller(hwnd=0)  # pas de fenêtre cible -> coordonnées écran directes
     cursor_positions = iter([(0, 0), (0, 0)])
-    monkeypatch.setattr("src.bot.action_controller.win32api.GetCursorPos", lambda: next(cursor_positions))
-    monkeypatch.setattr("src.bot.action_controller.win32api.GetSystemMetrics", lambda index: 1920 if index == 0 else 1080)
+    monkeypatch.setattr(
+        "src.bot.action_controller.win32api.GetCursorPos", lambda: next(cursor_positions)
+    )
+    monkeypatch.setattr(
+        "src.bot.action_controller.win32api.GetSystemMetrics",
+        lambda index: 1920 if index == 0 else 1080,
+    )
     monkeypatch.setattr(ActionController, "_prepare_window_for_input", lambda self: True)
     monkeypatch.setattr(ActionController, "_human_mouse_move", AsyncNoop())
     mouse_events = []

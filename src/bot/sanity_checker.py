@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -28,7 +28,7 @@ class ActionIntent:
         return cls(
             action=action,
             bet_size=bet_size,
-            source=str(payload.get("source", "unknown") or "unknown")
+            source=str(payload.get("source", "unknown") or "unknown"),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -79,11 +79,13 @@ class GateResult:
             "action_intent": self.action_intent.to_dict() if self.action_intent else None,
         }
 
+
 class SanityChecker:
     """
     Bouclier logique contre les hallucinations de l'IA (YOLO/OCR).
     VÃ©rifie que les donnÃ©es lues sur l'Ã©cran respectent les rÃ¨gles mathÃ©matiques du Poker.
     """
+
     def __init__(self):
         self.max_pot_allowed = 200000.0  # SÃ©curitÃ© hardcodÃ©e (ex: NL100, pot max thÃ©orique)
 
@@ -133,7 +135,9 @@ class SanityChecker:
             float(self._stack_ocr_quarantine_until.get(key, 0.0) or 0.0),
             now + self.stack_ocr_quarantine_seconds,
         )
-        last_warning_at = float(self._stack_ocr_warning_last_at.get(key, float("-inf")) or float("-inf"))
+        last_warning_at = float(
+            self._stack_ocr_warning_last_at.get(key, float("-inf")) or float("-inf")
+        )
         if (now - last_warning_at) >= self.stack_ocr_warning_cooldown_seconds:
             logger.warning(message)
             self._stack_ocr_warning_last_at[key] = now
@@ -173,9 +177,9 @@ class SanityChecker:
             return False
 
         if len(new_board) > len(old_board):
-            return new_board[:len(old_board)] == old_board
+            return new_board[: len(old_board)] == old_board
 
-        return old_board[:len(new_board)] == new_board
+        return old_board[: len(new_board)] == new_board
 
     def requires_multiframe_street_confirmation(
         self,
@@ -216,46 +220,62 @@ class SanityChecker:
         board = tracker_state.get("board") or []
         pot = tracker_state.get("pot", 0.0)
         street = tracker_state.get("street", "IDLE")
-        legal_actions = [str(action).upper() for action in (tracker_state.get("legal_actions") or [])]
+        legal_actions = [
+            str(action).upper() for action in (tracker_state.get("legal_actions") or [])
+        ]
         in_hand = bool(tracker_state.get("in_hand", False))
         state_confidence = float(tracker_state.get("state_confidence", 0.0) or 0.0)
 
         if state_confidence < 0.45:
-            reasons.append(GateReason(
-                code="LOW_STATE_CONFIDENCE",
-                message="La confiance globale de l'etat live est trop faible.",
-                context={"state_confidence": state_confidence}
-            ))
+            reasons.append(
+                GateReason(
+                    code="LOW_STATE_CONFIDENCE",
+                    message="La confiance globale de l'etat live est trop faible.",
+                    context={"state_confidence": state_confidence},
+                )
+            )
 
         if not in_hand:
-            reasons.append(GateReason(
-                code="NOT_IN_HAND",
-                message="Aucune main active n'est confirmÃ©e.",
-                context={"street": street}
-            ))
+            reasons.append(
+                GateReason(
+                    code="NOT_IN_HAND",
+                    message="Aucune main active n'est confirmÃ©e.",
+                    context={"street": street},
+                )
+            )
 
         if len(hero_cards) != 2:
-            reasons.append(GateReason(
-                code="HERO_CARDS_UNCERTAIN",
-                message="Le bot ne confirme pas exactement deux cartes hero.",
-                context={"hero_cards_count": len(hero_cards)}
-            ))
+            reasons.append(
+                GateReason(
+                    code="HERO_CARDS_UNCERTAIN",
+                    message="Le bot ne confirme pas exactement deux cartes hero.",
+                    context={"hero_cards_count": len(hero_cards)},
+                )
+            )
 
         if len(board) not in (0, 3, 4, 5):
-            reasons.append(GateReason(
-                code="BOARD_UNCERTAIN",
-                message="Le board lu est incoherent pour une street valide.",
-                context={"board_count": len(board), "board": board}
-            ))
+            reasons.append(
+                GateReason(
+                    code="BOARD_UNCERTAIN",
+                    message="Le board lu est incoherent pour une street valide.",
+                    context={"board_count": len(board), "board": board},
+                )
+            )
 
         expected_street_by_board = {0: "PREFLOP", 3: "FLOP", 4: "TURN", 5: "RIVER"}
         expected_street = expected_street_by_board.get(len(board))
         if in_hand and expected_street and street not in (expected_street, "SHOWDOWN"):
-            reasons.append(GateReason(
-                code="STATE_INCOHERENT",
-                message="La street du tracker ne correspond pas au board observe.",
-                context={"street": street, "expected_street": expected_street, "board_count": len(board)}
-            ))
+            reasons.append(
+                GateReason(
+                    code="STATE_INCOHERENT",
+                    message="La street du tracker ne correspond pas au board observe.",
+                    context={
+                        "street": street,
+                        "expected_street": expected_street,
+                        "board_count": len(board),
+                    },
+                )
+            )
 
         try:
             numeric_pot = float(pot)
@@ -263,18 +283,22 @@ class SanityChecker:
             numeric_pot = -1.0
 
         if numeric_pot < 0 or numeric_pot > self.max_pot_allowed:
-            reasons.append(GateReason(
-                code="POT_UNCERTAIN",
-                message="Le pot courant est absent ou hors bornes de securite.",
-                context={"pot": pot, "max_pot_allowed": self.max_pot_allowed}
-            ))
+            reasons.append(
+                GateReason(
+                    code="POT_UNCERTAIN",
+                    message="Le pot courant est absent ou hors bornes de securite.",
+                    context={"pot": pot, "max_pot_allowed": self.max_pot_allowed},
+                )
+            )
 
         if board and numeric_pot <= 0:
-            reasons.append(GateReason(
-                code="MISSING_POSTFLOP_POT",
-                message="Board detecte sans pot fiable.",
-                context={"board_count": len(board), "pot": pot}
-            ))
+            reasons.append(
+                GateReason(
+                    code="MISSING_POSTFLOP_POT",
+                    message="Board detecte sans pot fiable.",
+                    context={"board_count": len(board), "pot": pot},
+                )
+            )
 
         if legal_actions:
             base_actions = {
@@ -288,34 +312,52 @@ class SanityChecker:
                 "RAISE": "RAISE",
             }
             action_base = base_actions.get(action_intent.action, action_intent.action)
-            is_legal = any(action_base in legal for legal in legal_actions) or action_intent.action in legal_actions
+            is_legal = (
+                any(action_base in legal for legal in legal_actions)
+                or action_intent.action in legal_actions
+            )
             if not is_legal:
-                reasons.append(GateReason(
-                    code="ILLEGAL_ACTION",
-                    message="L'action demandee n'appartient pas aux actions autorisees.",
-                    context={"action": action_intent.action, "legal_actions": legal_actions}
-                ))
+                reasons.append(
+                    GateReason(
+                        code="ILLEGAL_ACTION",
+                        message="L'action demandee n'appartient pas aux actions autorisees.",
+                        context={"action": action_intent.action, "legal_actions": legal_actions},
+                    )
+                )
 
-        if action_intent.action in {"BET", "RAISE", "RAISE_HALF", "RAISE_POT", "ALL_IN"} and action_intent.bet_size is None:
-            reasons.append(GateReason(
-                code="BET_SIZE_MISSING",
-                message="Une action de mise exige un montant explicite.",
-                context={"action": action_intent.action}
-            ))
+        if (
+            action_intent.action in {"BET", "RAISE", "RAISE_HALF", "RAISE_POT", "ALL_IN"}
+            and action_intent.bet_size is None
+        ):
+            reasons.append(
+                GateReason(
+                    code="BET_SIZE_MISSING",
+                    message="Une action de mise exige un montant explicite.",
+                    context={"action": action_intent.action},
+                )
+            )
 
         required_coords = self._required_coordinates_for_action(action_intent.action)
         missing_coords = [coord for coord in required_coords if not coords_mapping.get(coord)]
         if missing_coords:
-            reasons.append(GateReason(
-                code="MISSING_COORDINATES",
-                message="Les coordonnees d'execution live sont incompletes.",
-                context={"action": action_intent.action, "missing": missing_coords}
-            ))
+            reasons.append(
+                GateReason(
+                    code="MISSING_COORDINATES",
+                    message="Les coordonnees d'execution live sont incompletes.",
+                    context={"action": action_intent.action, "missing": missing_coords},
+                )
+            )
 
         if reasons:
             gate_result = GateResult(
                 allowed=False,
-                status="blocked" if any(reason.code in {"STATE_INCOHERENT", "ILLEGAL_ACTION", "MISSING_COORDINATES", "NOT_IN_HAND"} for reason in reasons) else "uncertain",
+                status="blocked"
+                if any(
+                    reason.code
+                    in {"STATE_INCOHERENT", "ILLEGAL_ACTION", "MISSING_COORDINATES", "NOT_IN_HAND"}
+                    for reason in reasons
+                )
+                else "uncertain",
                 reasons=reasons,
                 action_intent=action_intent,
                 confidence=state_confidence,
@@ -349,7 +391,14 @@ class SanityChecker:
             return ["BET_BOX", "BET_BTN"]
         return []
 
-    def validate_pot_evolution(self, old_pot: float, new_ocr_pot: float, total_bets: float, *, allow_unbacked_observed_pot: bool = False) -> float:
+    def validate_pot_evolution(
+        self,
+        old_pot: float,
+        new_ocr_pot: float,
+        total_bets: float,
+        *,
+        allow_unbacked_observed_pot: bool = False,
+    ) -> float:
         """
         VÃ©rifie si le nouveau pot lu par l'OCR est mathÃ©matiquement possible.
         old_pot: Le pot Ã  la frame N-1
@@ -416,18 +465,24 @@ class SanityChecker:
 
         # If OCR is consistent for 3 consecutive reads, we trust it and reconcile
         if self._pot_discrepancy_count >= 3:
-            logger.info(f"ðŸ”„ RÃ©conciliation Pot : L'OCR insiste depuis 3 frames, synchronisation mathÃ©matique sur la valeur OCR au lieu de forcer. (Ancien math={expected_pot}, Nouvel OCR={new_ocr_pot})")
+            logger.info(
+                f"ðŸ”„ RÃ©conciliation Pot : L'OCR insiste depuis 3 frames, synchronisation mathÃ©matique sur la valeur OCR au lieu de forcer. (Ancien math={expected_pot}, Nouvel OCR={new_ocr_pot})"
+            )
             self.reset_pot_reconciliation()
             self._last_ocr_pot = new_ocr_pot
             return new_ocr_pot
 
         if new_ocr_pot > expected_pot:
-            logger.warning(f"âš ï¸ Pic OCR dÃ©tectÃ© ! Pot lu: {new_ocr_pot} | Pot mathÃ©matique attendu: {expected_pot}. Bufferisation en cours...")
+            logger.warning(
+                f"âš ï¸ Pic OCR dÃ©tectÃ© ! Pot lu: {new_ocr_pot} | Pot mathÃ©matique attendu: {expected_pot}. Bufferisation en cours..."
+            )
             return expected_pot
 
         # NEW CODE: Anti-deflation
         if expected_pot > 0 and new_ocr_pot < expected_pot and (new_ocr_pot / expected_pot) < 0.5:
-            logger.warning(f"âš ï¸ Anomalie OCR bloquÃ©e ! Pot lu ({new_ocr_pot}) trop bas par rapport au pot mathÃ©matique ({expected_pot}).")
+            logger.warning(
+                f"âš ï¸ Anomalie OCR bloquÃ©e ! Pot lu ({new_ocr_pot}) trop bas par rapport au pot mathÃ©matique ({expected_pot})."
+            )
             return expected_pot
 
         # Un pot OCR trop bas est souvent un retard de lecture ou une mise partiellement observÃ©e.
@@ -460,7 +515,7 @@ class SanityChecker:
             self.mark_stack_read_recovered(seat_id)
             return new_ocr_stack
 
-        if new_ocr_stack > starting_stack + 0.1: # +0.1 pour float rounding
+        if new_ocr_stack > starting_stack + 0.1:  # +0.1 pour float rounding
             self._register_stack_ocr_anomaly(
                 seat_id,
                 f"⚠️ Anomalie Stack bloquée ! Stack lu: {new_ocr_stack} > Stack de départ: {starting_stack}. L'OCR a halluciné des jetons.",
@@ -475,7 +530,10 @@ class SanityChecker:
 
             # Si le stack chute brutalement de plus de 85% de sa valeur ET qu'il reste très peu de jetons
             # ou si on voit une baisse minuscule (moins de la petite blinde, souvent erreur virgule OCR)
-            if (drop_ratio < 0.15 and amount_dropped > max(5.0, (current_stack + amount_dropped) * 0.05)) or (0 < amount_dropped < 0.02):
+            if (
+                drop_ratio < 0.15
+                and amount_dropped > max(5.0, (current_stack + amount_dropped) * 0.05)
+            ) or (0 < amount_dropped < 0.02):
                 self._register_stack_ocr_anomaly(
                     seat_id,
                     f"⚠️ Chute de stack bloquée (Drop suspect lu OCR) ! Ancien: {current_stack} -> Lu: {new_ocr_stack}",
@@ -519,7 +577,9 @@ class SanityChecker:
             return []
         elif current_stage == "FLOP" and num_cards != 3:
             # Si on est au flop, il DOIT y avoir 3 cartes. Si YOLO en voit 2 ou 4, c'est une erreur de frame.
-            logger.debug(f"Frame instable au Flop. YOLO voit {num_cards} cartes. Attente de stabilisation...")
+            logger.debug(
+                f"Frame instable au Flop. YOLO voit {num_cards} cartes. Attente de stabilisation..."
+            )
             return self._coerce_board_count(detected_cards, 3)
         elif current_stage == "TURN" and num_cards not in (3, 4):
             logger.debug(f"Frame instable au Turn. YOLO voit {num_cards} cartes.")
@@ -534,4 +594,3 @@ class SanityChecker:
         if len(detected_cards) < expected_count:
             return detected_cards
         return list(detected_cards[:expected_count])
-

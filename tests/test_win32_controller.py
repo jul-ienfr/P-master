@@ -1,4 +1,5 @@
 """Tests du contrôleur fantôme Win32 avec modules win32 mockés."""
+
 import sys
 import types
 from pathlib import Path
@@ -27,7 +28,9 @@ def install_fake_win32(monkeypatch, find_window_result=0, enum_windows_hits=None
         return hwnds
 
     win32gui.EnumWindows = enum_windows
-    win32gui.SendMessage = lambda hwnd, msg, wparam, lparam: calls["send"].append((hwnd, msg, wparam, lparam))
+    win32gui.SendMessage = lambda hwnd, msg, wparam, lparam: calls["send"].append(
+        (hwnd, msg, wparam, lparam)
+    )
 
     win32api = types.SimpleNamespace(SendMessage=lambda *a: None)
 
@@ -107,9 +110,7 @@ def test_execute_action_clicks_action_button_and_types_bet_amount(monkeypatch):
     sys.modules["win32api"] = fake_api
 
     controller = Win32GhostController("PokerStars")
-    controller.execute_action(
-        "BET", 12.5, coords_dict={"BET_BOX": (400, 500), "BET": (600, 520)}
-    )
+    controller.execute_action("BET", 12.5, coords_dict={"BET_BOX": (400, 500), "BET": (600, 520)})
 
     clicked_messages = [msg for (_hwnd, msg, _w, _l) in calls["send"]]
     assert len(clicked_messages) >= 4  # clic BET_BOX + clic bouton BET (DOWN/UP x2)

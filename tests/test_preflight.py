@@ -30,7 +30,10 @@ def test_preflight_accepts_existing_runtime_paths(tmp_path, monkeypatch):
         encoding="utf-8",
     )
 
-    monkeypatch.setattr("src.runtime.preflight.importlib.util.find_spec", lambda name: object() if name == "postflop_solver_py" else None)
+    monkeypatch.setattr(
+        "src.runtime.preflight.importlib.util.find_spec",
+        lambda name: object() if name == "postflop_solver_py" else None,
+    )
 
     result = Preflight(tmp_path, config_path=config_path).run()
 
@@ -59,7 +62,10 @@ def test_preflight_resolves_onnx_when_engine_path_is_requested(tmp_path, monkeyp
         encoding="utf-8",
     )
 
-    monkeypatch.setattr("src.runtime.preflight.importlib.util.find_spec", lambda name: object() if name == "postflop_solver_py" else None)
+    monkeypatch.setattr(
+        "src.runtime.preflight.importlib.util.find_spec",
+        lambda name: object() if name == "postflop_solver_py" else None,
+    )
 
     result = Preflight(tmp_path, config_path=config_path).run()
 

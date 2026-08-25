@@ -25,7 +25,13 @@ def test_geometry_to_pixel_regions_scales_with_frame_size():
 
 
 def test_geometry_from_manifest_path_loads_preset_regions():
-    manifest_path = Path(__file__).resolve().parents[1] / "poker" / "pokerstars-7-fr-6-max" / "draft" / "manifest.json"
+    manifest_path = (
+        Path(__file__).resolve().parents[1]
+        / "poker"
+        / "pokerstars-7-fr-6-max"
+        / "draft"
+        / "manifest.json"
+    )
     geometry = geometry_from_manifest_path(manifest_path)
 
     assert geometry.source.endswith("manifest.json")

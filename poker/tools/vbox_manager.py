@@ -18,15 +18,15 @@ class VirtualBoxController(VirtualBoxMouseBase):
     def __init__(self):
         self.vm = None
         self.session = None
-        self.logger = logging.getLogger('vm_control')
+        self.logger = logging.getLogger("vm_control")
         self.logger.setLevel(logging.DEBUG)
         self.vbox = None
-        self.control_name = 'Direct mouse control'
+        self.control_name = "Direct mouse control"
         self.vbox_ready = False
 
         try:
             config = get_config()
-            self.control_name = config.config.get('main', 'control')
+            self.control_name = config.config.get("main", "control")
         except Exception:
             pass
 
@@ -36,11 +36,13 @@ class VirtualBoxController(VirtualBoxMouseBase):
         super().__init__()
         try:
             self.vbox = virtualbox.VirtualBox()
-            if self.control_name == 'Direct mouse control':
+            if self.control_name == "Direct mouse control":
                 return
 
             if self.control_name not in self.get_vbox_list():
-                self.logger.warning("Configured virtual machine '%s' was not found", self.control_name)
+                self.logger.warning(
+                    "Configured virtual machine '%s' was not found", self.control_name
+                )
                 return
 
             self.start_vm()
@@ -48,14 +50,16 @@ class VirtualBoxController(VirtualBoxMouseBase):
             if self.vbox_ready:
                 self.logger.debug("VM session established successfully")
             else:
-                self.logger.warning("Unable to establish a VirtualBox session for '%s'", self.control_name)
+                self.logger.warning(
+                    "Unable to establish a VirtualBox session for '%s'", self.control_name
+                )
 
         except Exception as e:
             self.logger.error(str(e))
 
     def start_vm(self):
         try:
-            if self.control_name != 'Direct mouse control':
+            if self.control_name != "Direct mouse control":
                 self.vm = self.vbox.find_machine(self.control_name)
                 self.session = self.vm.create_session()
         except Exception as e:
@@ -72,12 +76,14 @@ class VirtualBoxController(VirtualBoxMouseBase):
 
     def get_screenshot_vbox(self):
         h, w, _, _, _, _ = self.session.console.display.get_screen_resolution(0)
-        png = self.session.console.display.take_screen_shot_to_array(0, h, w, virtualbox.library.BitmapFormat.png)
-        open('screenshot_vbox.png', 'wb').write(png)  # pylint: disable=consider-using-with
+        png = self.session.console.display.take_screen_shot_to_array(
+            0, h, w, virtualbox.library.BitmapFormat.png
+        )
+        open("screenshot_vbox.png", "wb").write(png)  # pylint: disable=consider-using-with
         # image=Image.fromarray(png)
         # image.show()
         time.sleep(0.2)
-        return Image.open('screenshot_vbox.png')
+        return Image.open("screenshot_vbox.png")
 
     def mouse_move_vbox(self, x, y, dz=0, dw=0):
         self.session.console.mouse.put_mouse_event_absolute(x, y, dz, dw, 0)

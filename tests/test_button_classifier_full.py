@@ -1,4 +1,5 @@
 """Tests du classifieur de boutons d'action (src/vision/button_classifier.py)."""
+
 import sys
 from pathlib import Path
 
@@ -92,7 +93,9 @@ def test_read_action_button_text_breaks_cycle_with_native_reader(monkeypatch):
 
 
 def test_promote_fast_fold_outliers_keeps_single_generic_button():
-    generic = DetectionResult(class_name="action_button_generic", confidence=0.95, bbox=(0, 0, 80, 40))
+    generic = DetectionResult(
+        class_name="action_button_generic", confidence=0.95, bbox=(0, 0, 80, 40)
+    )
     fast = DetectionResult(class_name="fast_fold_button", confidence=0.5, bbox=(200, 0, 280, 40))
     promoted = ButtonClassifier.promote_fast_fold_outliers([generic])
     assert [b.class_name for b in promoted] == ["action_button_generic"]
@@ -106,9 +109,15 @@ def test_label_generic_action_buttons_relabels_and_sorts_left_to_right():
         read_text_fn=lambda crop: "",
     )
     state_buttons = [
-        DetectionResult(class_name="action_button_generic", confidence=0.9, bbox=(500, 700, 600, 760)),
-        DetectionResult(class_name="action_button_generic", confidence=0.9, bbox=(100, 700, 200, 760)),
-        DetectionResult(class_name="action_button_generic", confidence=0.9, bbox=(300, 700, 400, 760)),
+        DetectionResult(
+            class_name="action_button_generic", confidence=0.9, bbox=(500, 700, 600, 760)
+        ),
+        DetectionResult(
+            class_name="action_button_generic", confidence=0.9, bbox=(100, 700, 200, 760)
+        ),
+        DetectionResult(
+            class_name="action_button_generic", confidence=0.9, bbox=(300, 700, 400, 760)
+        ),
     ]
     labeled = classifier.label_generic_action_buttons(
         TableState(action_buttons=state_buttons), None, safe_crop_stub
@@ -126,8 +135,12 @@ def safe_crop_stub(frame, bbox, pad_x=0, pad_y=0, pad_ratio_x=0.0, pad_ratio_y=0
 
 def test_slot_key_for_button_requires_minimum_overlap():
     slots = {"FOLD": (0, 0, 100, 50), "CALL": (500, 0, 600, 50)}
-    button = DetectionResult(class_name="action_button_generic", confidence=0.9, bbox=(10, 5, 90, 45))
-    far = DetectionResult(class_name="action_button_generic", confidence=0.9, bbox=(900, 900, 990, 950))
+    button = DetectionResult(
+        class_name="action_button_generic", confidence=0.9, bbox=(10, 5, 90, 45)
+    )
+    far = DetectionResult(
+        class_name="action_button_generic", confidence=0.9, bbox=(900, 900, 990, 950)
+    )
     assert ButtonClassifier.slot_key_for_button(button, slots) == "FOLD"
     assert ButtonClassifier.slot_key_for_button(far, slots) == ""
     assert ButtonClassifier.slot_key_for_button(far, {"BAD": (1, 2, 3)}) == ""

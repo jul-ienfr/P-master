@@ -23,43 +23,55 @@ try:
     from requests.exceptions import RequestException
     from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5), retry=retry_if_exception_type(RequestException), reraise=True)
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=5),
+        retry=retry_if_exception_type(RequestException),
+        reraise=True,
+    )
     def _http_post(*args, **kwargs):
         resp = requests.post(*args, **kwargs)
         resp.raise_for_status()
         return resp
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5), retry=retry_if_exception_type(RequestException), reraise=True)
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=5),
+        retry=retry_if_exception_type(RequestException),
+        reraise=True,
+    )
     def _http_get(*args, **kwargs):
         resp = requests.get(*args, **kwargs)
         resp.raise_for_status()
         return resp
 except ImportError:
+
     def _http_post(*args, **kwargs):
         resp = requests.post(*args, **kwargs)
         resp.raise_for_status()
         return resp
+
     def _http_get(*args, **kwargs):
         resp = requests.get(*args, **kwargs)
         resp.raise_for_status()
         return resp
 
 
-if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-    codebase = os.path.abspath(os.path.join(__file__, '..', '..', '..'))
+if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+    codebase = os.path.abspath(os.path.join(__file__, "..", "..", ".."))
 else:
-    codebase = os.path.abspath(os.path.join(__file__, '..', '..'))
+    codebase = os.path.abspath(os.path.join(__file__, "..", ".."))
 
 log = logging.getLogger(__name__)
 
 # check if os is windows or mac
-IS_WINDOWS = sys.platform == 'win32'
-IS_MAC = sys.platform == 'darwin'
+IS_WINDOWS = sys.platform == "win32"
+IS_MAC = sys.platform == "darwin"
 
 COMPUTER_NAME = socket.gethostname()
 
 
-ON_CI = os.environ.get('ENV') == 'CI'
+ON_CI = os.environ.get("ENV") == "CI"
 
 
 class Singleton(type):
@@ -87,7 +99,7 @@ class Singleton(type):
             del class_name._instances[class_name]  # pylint: disable=protected-access
 
 
-class CustomConfigParser():
+class CustomConfigParser:
     """
     Singleton class that wraps the ConfigParser to make sure it's only loaded once.
 
@@ -99,10 +111,9 @@ class CustomConfigParser():
     def __init__(self, config_override_filename=None):
         """Load the configuration (usually config.ini)."""
         if config_override_filename and not os.path.isfile(config_override_filename):
-            raise ValueError("Unable to find config file {}".format(
-                config_override_filename))
+            raise ValueError("Unable to find config file {}".format(config_override_filename))
 
-        main_file = os.path.join(get_dir('codebase'), 'config.ini')
+        main_file = os.path.join(get_dir("codebase"), "config.ini")
 
         self.config = ConfigParser(interpolation=ExtendedInterpolation())
         self.config.optionxform = str  # enforce case sensitivity on key
@@ -114,17 +125,17 @@ class CustomConfigParser():
 
     def update_file(self):
         """write back to the config file"""
-        main_file = os.path.join(get_dir('codebase'), 'config.ini')
-        with open(main_file, 'w') as configfile:
+        main_file = os.path.join(get_dir("codebase"), "config.ini")
+        with open(main_file, "w") as configfile:
             self.config.write(configfile)
 
 
 def get_config():
     """Public accessor for config file."""
-    return CustomConfigParser(os.path.join(get_dir('codebase'), 'config.ini'))
+    return CustomConfigParser(os.path.join(get_dir("codebase"), "config.ini"))
 
 
-def init_logger(screenlevel, filename=None, logdir=None, modulename=''):
+def init_logger(screenlevel, filename=None, logdir=None, modulename=""):
     """
     Initialize Logger.
 
@@ -169,41 +180,52 @@ def init_logger(screenlevel, filename=None, logdir=None, modulename=''):
     [root.removeHandler(rh) for rh in root.handlers]  # pylint: disable=W0106
     [root.removeFilter(rf) for rf in root.filters]  # pylint: disable=W0106
 
-    root = logging.getLogger('')
+    root = logging.getLogger("")
     root.setLevel(logging.WARNING)
 
     stream_handler = logging.StreamHandler(sys.stdout)
     stream_handler.setLevel(screenlevel)
-    if filename and not filename == 'None':
-        filename = filename.replace(
-            "{date}", datetime.date.today().strftime("%Y%m%d"))
-        all_logs_filename = os.path.join(logdir, filename + '.log')
-        error_filename = os.path.join(logdir, filename + '_errors.log')
-        info_filename = os.path.join(logdir, filename + '_info.log')
+    if filename and not filename == "None":
+        filename = filename.replace("{date}", datetime.date.today().strftime("%Y%m%d"))
+        all_logs_filename = os.path.join(logdir, filename + ".log")
+        error_filename = os.path.join(logdir, filename + "_errors.log")
+        info_filename = os.path.join(logdir, filename + "_info.log")
 
         print("Saving log file to: {}".format(all_logs_filename))
         print("Saving info file to: {}".format(info_filename))
         print("Saving error only file to: {}".format(error_filename))
 
         file_handler2 = handlers.RotatingFileHandler(
-            all_logs_filename, maxBytes=300000, backupCount=20)
+            all_logs_filename, maxBytes=300000, backupCount=20
+        )
         file_handler2.setLevel(logging.DEBUG)
 
         error_handler = handlers.RotatingFileHandler(
-            error_filename, maxBytes=300000, backupCount=20)
+            error_filename, maxBytes=300000, backupCount=20
+        )
         error_handler.setLevel(logging.WARNING)
 
         info_handler = handlers.RotatingFileHandler(
-            info_filename, maxBytes=30000000, backupCount=100)
+            info_filename, maxBytes=30000000, backupCount=100
+        )
         info_handler.setLevel(logging.INFO)
 
         # formatter when using --log command line and writing log to a file
         file_handler2.setFormatter(
-            logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s - %(funcName)s - %(lineno)d - %(message)s'))
+            logging.Formatter(
+                "%(asctime)s - %(levelname)s - %(filename)s - %(funcName)s - %(lineno)d - %(message)s"
+            )
+        )
         error_handler.setFormatter(
-            logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s - %(funcName)s - %(lineno)d - %(message)s'))
+            logging.Formatter(
+                "%(asctime)s - %(levelname)s - %(filename)s - %(funcName)s - %(lineno)d - %(message)s"
+            )
+        )
         info_handler.setFormatter(
-            logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s - %(funcName)s - %(lineno)d - %(message)s'))
+            logging.Formatter(
+                "%(asctime)s - %(levelname)s - %(filename)s - %(funcName)s - %(lineno)d - %(message)s"
+            )
+        )
 
         # root.addHandler(fh)
         root.addHandler(file_handler2)
@@ -211,8 +233,7 @@ def init_logger(screenlevel, filename=None, logdir=None, modulename=''):
         root.addHandler(info_handler)
 
     # screen output formatter
-    stream_handler.setFormatter(
-        logging.Formatter('%(levelname)s - %(message)s'))
+    stream_handler.setFormatter(logging.Formatter("%(levelname)s - %(message)s"))
     root.addHandler(stream_handler)
 
     mainlogger = logging.getLogger(modulename)
@@ -230,7 +251,7 @@ def get_dir(*paths):
     3. if neither of the above, custom directory relative to codebase
 
     """
-    if paths[0] == 'codebase':  # pylint: disable=no-else-return
+    if paths[0] == "codebase":  # pylint: disable=no-else-return
         return codebase
     else:
         # check if entry in config.ini
@@ -239,9 +260,8 @@ def get_dir(*paths):
             specified_path = config.config.get("Files", paths[0])
             if len(paths) > 1:
                 specified_path = os.path.join(specified_path, *paths[1:])
-            thirdparty_dir = config.config.get('Thirdparty', 'thirdparty_dir')
-            full_path = os.path.abspath(os.path.join(
-                codebase, thirdparty_dir, specified_path))
+            thirdparty_dir = config.config.get("Thirdparty", "thirdparty_dir")
+            full_path = os.path.abspath(os.path.join(codebase, thirdparty_dir, specified_path))
             return full_path
         except:  # pylint: disable=bare-except
             # otherwise just return absolute path in codebase
@@ -253,8 +273,7 @@ def exception_hook(*exc_info):
     """Catches all unhandled exceptions."""
     # Print the error and traceback
     print("--- exception hook ----")
-    text = "".join(traceback.format_exception(
-        *exc_info))  # pylint: disable=E1120
+    text = "".join(traceback.format_exception(*exc_info))  # pylint: disable=E1120
     log.error("Unhandled exception: %s", text)
 
 
@@ -280,8 +299,8 @@ def get_multiprocessing_config():
 
     """
     config = get_config()
-    parallel = config.getboolean('MultiThreading', 'parallel')
-    cores = config.getint('MultiThreading', 'cores')
+    parallel = config.getboolean("MultiThreading", "parallel")
+    cores = config.getint("MultiThreading", "cores")
     num_cpus = multiprocessing.cpu_count()
     cores = max(1, min(cores, num_cpus - 1))
     return parallel, cores
@@ -304,9 +323,11 @@ def multi_threading(pool_fn, pool_args, disable_multiprocessing=False, dataframe
 
     """
     from multiprocessing.pool import ThreadPool
+
     parallel, cores = get_multiprocessing_config()
-    log.debug("Start with parallel={} and cores={}, queue size={}".format(
-        parallel, cores, len(pool_args)))
+    log.debug(
+        "Start with parallel={} and cores={}, queue size={}".format(parallel, cores, len(pool_args))
+    )
     if parallel and not disable_multiprocessing:
         threadpool = ThreadPool(cores)
         if dataframe_mode:
@@ -338,17 +359,21 @@ def memory_cache(func):
                 try:
                     res = self.cache[self.func.__name__, args_tuple]
                     log.debug(
-                        "+++ Using memory cacheed item for {} function +++ ".format(self.func.__name__))
+                        "+++ Using memory cacheed item for {} function +++ ".format(
+                            self.func.__name__
+                        )
+                    )
                     return res
                 except KeyError:
                     log.debug(
-                        "--- Caching item for {} function in memory ---".format(self.func.__name__))
-                    self.cache[self.func.__name__,
-                               args_tuple] = res = self.func(*args, **kwargs)
+                        "--- Caching item for {} function in memory ---".format(self.func.__name__)
+                    )
+                    self.cache[self.func.__name__, args_tuple] = res = self.func(*args, **kwargs)
                     return res
             except Exception as err:  # pylint: disable=broad-except
                 raise RuntimeError(
-                    "Error calling cached function {} ".format(self.func.__name__), err)
+                    "Error calling cached function {} ".format(self.func.__name__), err
+                )
 
     return Memoise(func)
 
@@ -372,7 +397,7 @@ def _keys_to_tuple(args, kwargs):
 
 def open_payment_link():
     config = get_config()
-    URL = config.config.get('main', 'db')
+    URL = config.config.get("main", "db")
     c = _http_post(URL + "get_internal", timeout=10).json()[0]
-    payment_link = c['payment_link']
+    payment_link = c["payment_link"]
     webbrowser.open(payment_link, new=1)

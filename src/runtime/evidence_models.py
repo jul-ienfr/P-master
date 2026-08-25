@@ -146,7 +146,9 @@ class FieldEvidence:
             "field_name": self.field_name,
             "criticality": self.criticality.value,
             "selected_value": self.selected_value,
-            "selected_candidate": self.selected_candidate.to_dict() if self.selected_candidate else None,
+            "selected_candidate": self.selected_candidate.to_dict()
+            if self.selected_candidate
+            else None,
             "candidates": [candidate.to_dict() for candidate in self.candidates],
             "confidence": self.confidence,
             "crop_quality": self.crop_quality.to_dict() if self.crop_quality else None,

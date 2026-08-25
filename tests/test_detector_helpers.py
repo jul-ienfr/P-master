@@ -1,4 +1,5 @@
 """Tests unitaires des helpers purs du detector (ratchet coverage 43%)."""
+
 import sys
 from pathlib import Path
 

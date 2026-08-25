@@ -23,8 +23,12 @@ def test_action_controller_prefers_table_window_over_lobby(monkeypatch):
 
     monkeypatch.setattr("src.bot.action_controller.win32gui.EnumWindows", fake_enum_windows)
     monkeypatch.setattr("src.bot.action_controller.win32gui.IsWindowVisible", lambda hwnd: True)
-    monkeypatch.setattr("src.bot.action_controller.win32gui.GetWindowText", lambda hwnd: windows[hwnd][0])
-    monkeypatch.setattr("src.bot.action_controller.win32gui.GetWindowRect", lambda hwnd: windows[hwnd][1])
+    monkeypatch.setattr(
+        "src.bot.action_controller.win32gui.GetWindowText", lambda hwnd: windows[hwnd][0]
+    )
+    monkeypatch.setattr(
+        "src.bot.action_controller.win32gui.GetWindowRect", lambda hwnd: windows[hwnd][1]
+    )
 
     controller = ActionController(window_title_keywords="VirtualBox")
 

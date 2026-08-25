@@ -118,7 +118,9 @@ def test_decision_replay_validated_rl_fixture_matches_expected_output():
 
     decision = asyncio.run(decision_maker.get_best_action(**fixture["request"]))
 
-    comparable = {key: value for key, value in decision.items() if key not in {"metadata", "ab_decision"}}
+    comparable = {
+        key: value for key, value in decision.items() if key not in {"metadata", "ab_decision"}
+    }
     assert comparable == fixture["expected"]
     assert decision["metadata"]["rl_ab"]["applied"] is True
     assert decision["metadata"]["rl_ab"]["gto_action"] == "FOLD"
@@ -137,7 +139,9 @@ def test_decision_replay_fallback_fixture_matches_expected_output():
 
     decision = asyncio.run(decision_maker.get_best_action(**fixture["request"]))
 
-    comparable = {key: value for key, value in decision.items() if key not in {"metadata", "ab_decision"}}
+    comparable = {
+        key: value for key, value in decision.items() if key not in {"metadata", "ab_decision"}
+    }
     assert comparable == fixture["expected"]
     assert decision["metadata"]["profile"]["style"] == "Unknown"
     assert decision["metadata"]["solver"]["chosen_action_raw"] is None

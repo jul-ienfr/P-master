@@ -1,13 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
-from collections.abc import Sequence
 
-DEFAULT_POKERSTARS_PRESET_MANIFESTS = (
-    "poker/pokerstars-7-fr-6-max/draft/manifest.json",
-)
+DEFAULT_POKERSTARS_PRESET_MANIFESTS = ("poker/pokerstars-7-fr-6-max/draft/manifest.json",)
 
 
 @dataclass(frozen=True)
@@ -33,8 +31,7 @@ class SiteAdapterProtocol(Protocol):
     theme: ThemeProfile
     amount_format: FormatProfile
 
-    def preset_manifests(self) -> Sequence[Path]:
-        ...
+    def preset_manifests(self) -> Sequence[Path]: ...
 
 
 @dataclass(frozen=True)
@@ -80,7 +77,9 @@ class PokerStarsAdapter:
         return tuple(manifests)
 
 
-def get_active_adapter(site_key: str = "pokerstars", *, theme_key: str = "dark-fr", real_money: bool = False) -> SiteAdapterProtocol:
+def get_active_adapter(
+    site_key: str = "pokerstars", *, theme_key: str = "dark-fr", real_money: bool = False
+) -> SiteAdapterProtocol:
     normalized = str(site_key or "pokerstars").strip().lower()
     if normalized == "pokerstars":
         return PokerStarsAdapter(theme_key=theme_key, real_money=real_money)

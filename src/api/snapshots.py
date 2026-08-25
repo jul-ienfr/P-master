@@ -1,4 +1,5 @@
 """Builders de payload runtime snapshot/observation (extrait de src/api/server.py)."""
+
 import asyncio
 import logging
 import time
@@ -39,12 +40,12 @@ def safe_float(value: object):
         return None
 
 
-
 class SnapshotPayloadMixin:
     _now_iso = staticmethod(now_iso)
     _parse_limit = staticmethod(parse_limit)
     _slice_history_entries = staticmethod(slice_history_entries)
     _safe_float = staticmethod(safe_float)
+
     def _build_runtime_observation_payload(self, limit: int = 5) -> dict:
         observation = {}
         if self.runtime_observation_provider is not None:
@@ -69,7 +70,6 @@ class SnapshotPayloadMixin:
         }
 
     @staticmethod
-
     @staticmethod
     def _runtime_players(canonical_spot: dict) -> list[dict]:
         players = canonical_spot.get("players", []) if isinstance(canonical_spot, dict) else []
@@ -79,10 +79,13 @@ class SnapshotPayloadMixin:
     def _runtime_hero_and_villains(cls, canonical_spot: dict) -> tuple[dict | None, list[dict]]:
         players = cls._runtime_players(canonical_spot)
         active_players = [
-            player for player in players
+            player
+            for player in players
             if bool(player.get("active", True)) and not bool(player.get("folded", False))
         ]
-        hero_player = next((player for player in active_players if bool(player.get("is_hero"))), None)
+        hero_player = next(
+            (player for player in active_players if bool(player.get("is_hero"))), None
+        )
         villains = [player for player in active_players if not bool(player.get("is_hero"))]
         if hero_player is None:
             hero_player = next((player for player in players if bool(player.get("is_hero"))), None)
@@ -107,15 +110,21 @@ class SnapshotPayloadMixin:
         return 0.0
 
     @staticmethod
-    def _runtime_hero_position(hero_player: dict | None, villains: list[dict], tracker: dict) -> str | None:
+    def _runtime_hero_position(
+        hero_player: dict | None, villains: list[dict], tracker: dict
+    ) -> str | None:
         if hero_player and bool(hero_player.get("has_button")):
             return "ip" if len(villains) <= 1 else "btn"
         if any(bool(player.get("has_button")) for player in villains):
             if len(villains) == 1:
                 return "oop"
-            seat_id = str((hero_player or {}).get("seat_id") or tracker.get("hero_seat_id") or "").strip()
+            seat_id = str(
+                (hero_player or {}).get("seat_id") or tracker.get("hero_seat_id") or ""
+            ).strip()
             return seat_id or None
-        seat_id = str((hero_player or {}).get("seat_id") or tracker.get("hero_seat_id") or "").strip()
+        seat_id = str(
+            (hero_player or {}).get("seat_id") or tracker.get("hero_seat_id") or ""
+        ).strip()
         return seat_id or None
 
     @classmethod
@@ -123,7 +132,9 @@ class SnapshotPayloadMixin:
         metadata = dict(decision.get("metadata", {}) or {})
         solver_metadata = dict(metadata.get("solver", {}) or {})
         profile_metadata = dict(metadata.get("profile", {}) or {})
-        hero_cards = list(canonical_spot.get("hero_cards", [])) if isinstance(canonical_spot, dict) else []
+        hero_cards = (
+            list(canonical_spot.get("hero_cards", [])) if isinstance(canonical_spot, dict) else []
+        )
         normalized_ranges = solver_metadata.get("normalized_ranges")
         if isinstance(normalized_ranges, list) and normalized_ranges:
             hero_range = str(normalized_ranges[0] or "").strip()
@@ -175,7 +186,9 @@ class SnapshotPayloadMixin:
         runtime = self.runtime_status_provider() if self.runtime_status_provider else {}
         runtime = runtime or {}
         tracker = runtime.get("tracker", {}) or {}
-        canonical_spot = runtime.get("canonical_spot") if isinstance(runtime.get("canonical_spot"), dict) else {}
+        canonical_spot = (
+            runtime.get("canonical_spot") if isinstance(runtime.get("canonical_spot"), dict) else {}
+        )
         gate = runtime.get("gate", {}) or {}
         decision = runtime.get("decision", {}) or {}
         readiness = runtime.get("readiness", {}) or {}
@@ -190,11 +203,14 @@ class SnapshotPayloadMixin:
             observation = self._build_runtime_observation_payload(limit=5)
         hero_player, villains = self._runtime_hero_and_villains(canonical_spot)
         active_players = [
-            player for player in self._runtime_players(canonical_spot)
+            player
+            for player in self._runtime_players(canonical_spot)
             if bool(player.get("active", True)) and not bool(player.get("folded", False))
         ]
-        player_count = len(active_players) or len(self._runtime_players(canonical_spot)) or int(
-            tracker.get("detected_player_count", 0) or 0
+        player_count = (
+            len(active_players)
+            or len(self._runtime_players(canonical_spot))
+            or int(tracker.get("detected_player_count", 0) or 0)
         )
         effective_stack = self._runtime_effective_stack(hero_player, villains)
         hero_position = self._runtime_hero_position(hero_player, villains, tracker)
@@ -202,11 +218,16 @@ class SnapshotPayloadMixin:
         ocr_payload = self._runtime_ocr_payload(tracker, history)
 
         state = "live" if runtime.get("is_running") else "offline"
-        source = str(
-            ((decision.get("metadata", {}) or {}).get("exploit", {}) or {}).get("source_slug")
-            or decision.get("source")
+        source = (
+            str(
+                ((decision.get("metadata", {}) or {}).get("exploit", {}) or {}).get("source_slug")
+                or decision.get("source")
+                or "runtime"
+            )
+            .strip()
+            .lower()
             or "runtime"
-        ).strip().lower() or "runtime"
+        )
         fallback_used = bool(decision.get("fallback_used", False))
         warnings = list(decision.get("warnings", []))
         if fallback_used and "fallback_used" not in warnings:
@@ -218,11 +239,15 @@ class SnapshotPayloadMixin:
             for entry in incident_entries
             if isinstance(entry, dict) and str(entry.get("id", "")).strip()
         ]
-        incident_ids.extend(str(item) for item in decision.get("incidents", []) if str(item).strip())
+        incident_ids.extend(
+            str(item) for item in decision.get("incidents", []) if str(item).strip()
+        )
         incident_ids = list(dict.fromkeys(incident_ids))
 
         latest_decision = history.get("decisions", [{}])
-        latest_decision = latest_decision[0] if isinstance(latest_decision, list) and latest_decision else {}
+        latest_decision = (
+            latest_decision[0] if isinstance(latest_decision, list) and latest_decision else {}
+        )
         fallback_reason = decision.get("fallback_reason")
         fallback_history = [str(fallback_reason)] if fallback_reason else []
         combined_policy_compare = self._select_policy_compare_summary(history_summary, "combined")
@@ -232,7 +257,11 @@ class SnapshotPayloadMixin:
             )
 
         solver_metadata = dict((decision.get("metadata", {}) or {}).get("solver", {}) or {})
-        alternatives_raw = solver_metadata.get("alternatives_complete") or solver_metadata.get("alternatives") or []
+        alternatives_raw = (
+            solver_metadata.get("alternatives_complete")
+            or solver_metadata.get("alternatives")
+            or []
+        )
 
         return {
             "state": "degraded" if warnings else state,
@@ -266,24 +295,26 @@ class SnapshotPayloadMixin:
                 "alternatives": [
                     {
                         "name": str(
-                            item.get("action")
-                            or item.get("raw_action")
-                            or item.get("name")
-                            or ""
-                        ).strip().lower(),
+                            item.get("action") or item.get("raw_action") or item.get("name") or ""
+                        )
+                        .strip()
+                        .lower(),
                         "size": self._safe_float(item.get("size")),
-                        "frequency": self._safe_float(item.get("freq", item.get("frequency"))) or 0.0,
+                        "frequency": self._safe_float(item.get("freq", item.get("frequency")))
+                        or 0.0,
                         "ev": self._safe_float(item.get("ev", item.get("hero_ev"))) or 0.0,
                         "is_recommended": str(
-                            item.get("action")
-                            or item.get("raw_action")
-                            or item.get("name")
-                            or ""
-                        ).strip().upper() == str(decision.get("action", "")).strip().upper(),
+                            item.get("action") or item.get("raw_action") or item.get("name") or ""
+                        )
+                        .strip()
+                        .upper()
+                        == str(decision.get("action", "")).strip().upper(),
                     }
                     for item in alternatives_raw
                     if isinstance(item, dict)
-                    and str(item.get("action") or item.get("raw_action") or item.get("name") or "").strip()
+                    and str(
+                        item.get("action") or item.get("raw_action") or item.get("name") or ""
+                    ).strip()
                 ],
                 "gate_result": gate,
                 "metadata": {
@@ -302,15 +333,22 @@ class SnapshotPayloadMixin:
                     "incidents": incident_ids,
                     "metrics": metrics,
                     "history_summary": history_summary,
-                    "rl_ab": self._select_ab_summary(history_summary, "combined") or self._build_empty_ab_summary(),
-                    "policy_compare": combined_policy_compare or self._build_empty_policy_compare_summary(),
+                    "rl_ab": self._select_ab_summary(history_summary, "combined")
+                    or self._build_empty_ab_summary(),
+                    "policy_compare": combined_policy_compare
+                    or self._build_empty_policy_compare_summary(),
                     "persistence": persistence,
                     "decision_trace_history": history.get("decisions", []),
                     "runtime_event_history": history.get("events", []),
                     "incident_log": incident_entries,
                     "persisted_history": self._runtime_persistence_payload(history, limit=5),
                     "action_history": list(
-                        tracker.get("action_history", decision.get("action_history", latest_decision.get("action_history", [])))
+                        tracker.get(
+                            "action_history",
+                            decision.get(
+                                "action_history", latest_decision.get("action_history", [])
+                            ),
+                        )
                         or latest_decision.get("action_history", [])
                     ),
                     "explanation": latest_decision.get(
@@ -320,7 +358,9 @@ class SnapshotPayloadMixin:
                 },
             },
             "spot": {
-                "street": str(canonical_spot.get("street", tracker.get("street", "PREFLOP"))).lower(),
+                "street": str(
+                    canonical_spot.get("street", tracker.get("street", "PREFLOP"))
+                ).lower(),
                 "board": list(canonical_spot.get("board", tracker.get("board", []))),
                 "pot": float(tracker.get("pot", 0.0) or 0.0),
                 "effective_stack": effective_stack,
@@ -329,7 +369,9 @@ class SnapshotPayloadMixin:
                 "hero_position": hero_position,
                 "hero_seat_id": tracker.get("hero_seat_id"),
                 "legal_actions": list(tracker.get("legal_actions", [])),
-                "action_history": list(decision.get("action_history", latest_decision.get("action_history", []))),
+                "action_history": list(
+                    decision.get("action_history", latest_decision.get("action_history", []))
+                ),
                 "ranges": spot_ranges,
                 "source": "python_runtime",
                 "metadata": {
@@ -340,7 +382,9 @@ class SnapshotPayloadMixin:
                     "metrics": metrics,
                     "decision_trace_count": len(history.get("decisions", [])),
                     "incident_count": len(incident_ids),
-                    "last_decision_at": latest_decision.get("timestamp", decision.get("trace_updated_at")),
+                    "last_decision_at": latest_decision.get(
+                        "timestamp", decision.get("trace_updated_at")
+                    ),
                     "last_runtime_event_at": history_summary.get("latest_event_at"),
                 },
                 "ocr_metadata": {
@@ -360,11 +404,17 @@ class SnapshotPayloadMixin:
                 "shadow_mode_enabled": bool(operator.get("shadow_mode_enabled", False)),
                 "manual_override_enabled": bool(operator.get("manual_override_enabled", False)),
                 "paused": bool(operator.get("paused", False)),
-                "status": str(operator.get("status") or ("ready" if runtime.get("is_running") else "offline")),
+                "status": str(
+                    operator.get("status") or ("ready" if runtime.get("is_running") else "offline")
+                ),
             },
             "observation": observation,
             "warnings": warnings,
-            "notes": [event.get("message", "") for event in history.get("events", [])[:5] if isinstance(event, dict)],
+            "notes": [
+                event.get("message", "")
+                for event in history.get("events", [])[:5]
+                if isinstance(event, dict)
+            ],
             "history": self._build_runtime_history_payload(limit=5),
             "refreshed_at": self._now_iso(),
         }

@@ -8,6 +8,7 @@ Overrides (priorité sur la détection) :
   POKER_GPU_PROFILE=auto|3g|12g|cpu
   POKER_VRAM_CAP=0.70          (fraction max VRAM allouable)
 """
+
 from __future__ import annotations
 
 import logging
@@ -24,17 +25,17 @@ PROFILES_CPU = "cpu"
 _VALID_PROFILES = (PROFILES_3G, PROFILES_12G, PROFILES_CPU)
 
 # Seuils de classification (MiB de VRAM totale)
-_MIB_3G = 4 * 1024        # < 4 Go → profil 3G (1060 3Go…)
-_MIB_12G = 8 * 1024       # >= 8 Go → profil 12G (3060 12Go prod) ; 4-8 Go → 12G dégradé
+_MIB_3G = 4 * 1024  # < 4 Go → profil 3G (1060 3Go…)
+_MIB_12G = 8 * 1024  # >= 8 Go → profil 12G (3060 12Go prod) ; 4-8 Go → 12G dégradé
 
 
 @dataclass(frozen=True)
 class HardwareProfile:
     name: str
     vram_cap_fraction: float
-    cuda_alloc_conf: str | None      # valeur PYTORCH_CUDA_ALLOC_CONF, None = défaut torch
+    cuda_alloc_conf: str | None  # valeur PYTORCH_CUDA_ALLOC_CONF, None = défaut torch
     cudnn_benchmark: bool
-    yolo_model: str                  # sélection modèle via HardwareProfile.yolo_model
+    yolo_model: str  # sélection modèle via HardwareProfile.yolo_model
     surya_batch: int
     observation_capture: bool
     concurrent_tables: int

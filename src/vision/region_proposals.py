@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
-from collections.abc import Iterable
 
 from src.vision.models import DetectionResult, TableState
 
@@ -65,7 +65,11 @@ def build_region_proposals(
             )
         )
 
-    table_bbox = state.metadata.get("table_bbox") if isinstance(getattr(state, "metadata", None), dict) else None
+    table_bbox = (
+        state.metadata.get("table_bbox")
+        if isinstance(getattr(state, "metadata", None), dict)
+        else None
+    )
     if isinstance(table_bbox, list) and len(table_bbox) == 4:
         proposals.setdefault("table", []).append(
             RegionProposal(
@@ -91,19 +95,28 @@ def build_region_proposals(
     hero_union = _union_bbox(getattr(state, "hero_cards", []) or [])
     if hero_union is not None:
         proposals.setdefault("hero", []).append(
-            RegionProposal(field_name="hero", bbox=hero_union, source="detector_hero_cards", score=0.92)
+            RegionProposal(
+                field_name="hero", bbox=hero_union, source="detector_hero_cards", score=0.92
+            )
         )
 
     board_union = _union_bbox(getattr(state, "board_cards", []) or [])
     if board_union is not None:
         proposals.setdefault("board", []).append(
-            RegionProposal(field_name="board", bbox=board_union, source="detector_board_cards", score=0.92)
+            RegionProposal(
+                field_name="board", bbox=board_union, source="detector_board_cards", score=0.92
+            )
         )
 
     action_union = _union_bbox(getattr(state, "action_buttons", []) or [])
     if action_union is not None:
         proposals.setdefault("actions", []).append(
-            RegionProposal(field_name="actions", bbox=action_union, source="detector_action_buttons", score=0.94)
+            RegionProposal(
+                field_name="actions",
+                bbox=action_union,
+                source="detector_action_buttons",
+                score=0.94,
+            )
         )
 
     return proposals
@@ -112,7 +125,12 @@ def build_region_proposals(
 def resolve_region_proposals(
     proposals: dict[str, list[RegionProposal]],
     *,
-    preferred_sources: tuple[str, ...] = ("detector_pot", "detector_action_buttons", "detector_hero_cards", "preset_geometry"),
+    preferred_sources: tuple[str, ...] = (
+        "detector_pot",
+        "detector_action_buttons",
+        "detector_hero_cards",
+        "preset_geometry",
+    ),
 ) -> dict[str, RegionResolution]:
     priority_index = {source: index for index, source in enumerate(preferred_sources)}
     resolved: dict[str, RegionResolution] = {}
@@ -130,5 +148,7 @@ def resolve_region_proposals(
                 ),
             )
         )
-        resolved[field_name] = RegionResolution(field_name=field_name, selected=ordered[0], candidates=ordered)
+        resolved[field_name] = RegionResolution(
+            field_name=field_name, selected=ordered[0], candidates=ordered
+        )
     return resolved

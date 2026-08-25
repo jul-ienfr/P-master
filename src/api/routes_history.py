@@ -1,4 +1,5 @@
 """Routes et builders d'historique runtime : /runtime-history, exports/imports (extrait de src/api/server.py)."""
+
 import asyncio
 import json
 import logging
@@ -23,9 +24,15 @@ class HistoryRoutesMixin:
     def _history_bucket_payload(entries: dict, limit: int) -> dict:
         return {
             "events": SnapshotPayloadMixin._slice_history_entries(entries.get("events", []), limit),
-            "decisions": SnapshotPayloadMixin._slice_history_entries(entries.get("decisions", []), limit),
-            "incidents": SnapshotPayloadMixin._slice_history_entries(entries.get("incidents", []), limit),
-            "metrics": SnapshotPayloadMixin._slice_history_entries(entries.get("metrics", []), limit),
+            "decisions": SnapshotPayloadMixin._slice_history_entries(
+                entries.get("decisions", []), limit
+            ),
+            "incidents": SnapshotPayloadMixin._slice_history_entries(
+                entries.get("incidents", []), limit
+            ),
+            "metrics": SnapshotPayloadMixin._slice_history_entries(
+                entries.get("metrics", []), limit
+            ),
         }
 
     @staticmethod
@@ -35,10 +42,18 @@ class HistoryRoutesMixin:
     @staticmethod
     def _build_history_counts(entries: dict) -> dict:
         return {
-            "event_count": len(entries.get("events", [])) if isinstance(entries.get("events", []), list) else 0,
-            "decision_count": len(entries.get("decisions", [])) if isinstance(entries.get("decisions", []), list) else 0,
-            "incident_count": len(entries.get("incidents", [])) if isinstance(entries.get("incidents", []), list) else 0,
-            "metrics_count": len(entries.get("metrics", [])) if isinstance(entries.get("metrics", []), list) else 0,
+            "event_count": len(entries.get("events", []))
+            if isinstance(entries.get("events", []), list)
+            else 0,
+            "decision_count": len(entries.get("decisions", []))
+            if isinstance(entries.get("decisions", []), list)
+            else 0,
+            "incident_count": len(entries.get("incidents", []))
+            if isinstance(entries.get("incidents", []), list)
+            else 0,
+            "metrics_count": len(entries.get("metrics", []))
+            if isinstance(entries.get("metrics", []), list)
+            else 0,
         }
 
     @staticmethod
@@ -193,12 +208,13 @@ class HistoryRoutesMixin:
             return ""
         return str(value).strip().upper()
 
-
     @classmethod
     def _extract_policy_actions(cls, record: dict) -> dict:
         policy_actions: dict[str, str] = {}
 
-        chosen_action = cls._normalize_action_name(record.get("chosen_action", record.get("action", "")))
+        chosen_action = cls._normalize_action_name(
+            record.get("chosen_action", record.get("action", ""))
+        )
         if chosen_action:
             policy_actions[cls._policy_slug(record.get("source"), "runtime")] = chosen_action
 
@@ -209,7 +225,9 @@ class HistoryRoutesMixin:
 
         comparison = dict(ab_decision.get("comparison", {}) or {})
         for branch in ("rl_off", "rl_on"):
-            branch_action = cls._normalize_action_name((comparison.get(branch, {}) or {}).get("action"))
+            branch_action = cls._normalize_action_name(
+                (comparison.get(branch, {}) or {}).get("action")
+            )
             if branch_action:
                 policy_actions.setdefault(branch, branch_action)
 
@@ -241,7 +259,9 @@ class HistoryRoutesMixin:
         for item in solver.get("alternatives", []) or []:
             if not isinstance(item, dict):
                 continue
-            remember(item.get("action", item.get("raw_action")), item.get("ev", item.get("hero_ev")))
+            remember(
+                item.get("action", item.get("raw_action")), item.get("ev", item.get("hero_ev"))
+            )
 
         ab_decision = dict(record.get("ab_decision", {}) or {})
         comparison = dict(ab_decision.get("comparison", {}) or {})
@@ -288,7 +308,13 @@ class HistoryRoutesMixin:
             if value not in (None, ""):
                 payload[string_key] = str(value)
 
-        for map_key in ("ev_by_action", "freq_by_action", "action_metadata", "backend_details", "cache_details"):
+        for map_key in (
+            "ev_by_action",
+            "freq_by_action",
+            "action_metadata",
+            "backend_details",
+            "cache_details",
+        ):
             map_value = solver.get(map_key, record.get(map_key))
             if isinstance(map_value, dict) and map_value:
                 payload[map_key] = dict(map_value)
@@ -299,14 +325,20 @@ class HistoryRoutesMixin:
 
         warning_details = solver.get("warning_details", record.get("solver_warning_details"))
         if isinstance(warning_details, list) and warning_details:
-            payload["warning_details"] = [dict(item) if isinstance(item, dict) else str(item) for item in warning_details]
+            payload["warning_details"] = [
+                dict(item) if isinstance(item, dict) else str(item) for item in warning_details
+            ]
 
         action_buckets = solver.get("action_buckets", record.get("action_buckets"))
         if isinstance(action_buckets, list) and action_buckets:
-            payload["action_buckets"] = [dict(item) if isinstance(item, dict) else str(item) for item in action_buckets]
+            payload["action_buckets"] = [
+                dict(item) if isinstance(item, dict) else str(item) for item in action_buckets
+            ]
 
         for action_key in ("gto_action", "final_action"):
-            action_value = cls._normalize_action_name(solver.get(action_key, record.get(action_key)))
+            action_value = cls._normalize_action_name(
+                solver.get(action_key, record.get(action_key))
+            )
             if action_value:
                 payload[action_key] = action_value
 
@@ -380,7 +412,9 @@ class HistoryRoutesMixin:
             {
                 "spot_id": canonical_spot.get("spot_id", ""),
                 "source": "runtime_replay_bundle",
-                "game_stage": str(canonical_spot.get("street", canonical_spot.get("game_stage", "")) or "").lower(),
+                "game_stage": str(
+                    canonical_spot.get("street", canonical_spot.get("game_stage", "")) or ""
+                ).lower(),
                 "hero_cards": canonical_spot.get("hero_cards", []),
                 "board": canonical_spot.get("board", []),
                 "hero_position": hero_position,
@@ -399,7 +433,7 @@ class HistoryRoutesMixin:
 
         runtime = self.runtime_status_provider() if self.runtime_status_provider else {}
         runtime = runtime or {}
-        persistence = ((runtime.get("history_summary", {}) or {}).get("persistence", {}) or {})
+        persistence = (runtime.get("history_summary", {}) or {}).get("persistence", {}) or {}
         file_path = str(persistence.get("path", "") or "").strip()
         if not file_path:
             return None
@@ -417,7 +451,9 @@ class HistoryRoutesMixin:
             return None
 
     def _build_export_payload(self, records: list[dict], stream: str | None) -> dict:
-        contract = self._contract_metadata("review_session", stream=stream, record_count=len(records))
+        contract = self._contract_metadata(
+            "review_session", stream=stream, record_count=len(records)
+        )
         counts = {
             "events": 0,
             "decisions": 0,
@@ -467,7 +503,9 @@ class HistoryRoutesMixin:
                 "stream": stream_name,
                 "record_count": len(records),
             },
-            "contract": self._contract_metadata("review_session", stream=stream, record_count=len(records)),
+            "contract": self._contract_metadata(
+                "review_session", stream=stream, record_count=len(records)
+            ),
             "stream": stream_name,
             "record_count": len(records),
             "bundle": {
@@ -490,7 +528,9 @@ class HistoryRoutesMixin:
             },
             "runtime": {
                 "tracker": tracker,
-                "canonical_spot": canonical_spot if isinstance(canonical_spot, dict) and canonical_spot else None,
+                "canonical_spot": canonical_spot
+                if isinstance(canonical_spot, dict) and canonical_spot
+                else None,
                 "gate": gate,
                 "decision": decision,
                 "metrics": metrics,
@@ -498,11 +538,13 @@ class HistoryRoutesMixin:
             "metadata": {
                 "persistence": persistence,
                 "available_streams": {
-                    "runtime": self._build_history_counts({
-                        "events": history.get("events", []),
-                        "decisions": history.get("decisions", []),
-                        "incidents": history.get("incidents", []),
-                    }),
+                    "runtime": self._build_history_counts(
+                        {
+                            "events": history.get("events", []),
+                            "decisions": history.get("decisions", []),
+                            "incidents": history.get("incidents", []),
+                        }
+                    ),
                     "persisted": self._build_history_counts(history.get("persisted", {}) or {}),
                 },
             },
@@ -545,17 +587,28 @@ class HistoryRoutesMixin:
             if not policy_actions:
                 continue
 
-            replay_id = str(record.get("spot_id", "") or record.get("timestamp", f"runtime-{index:03d}"))
+            replay_id = str(
+                record.get("spot_id", "") or record.get("timestamp", f"runtime-{index:03d}")
+            )
             spot = dict(spot_payload)
             spot.update(
                 {
-                    "spot_id": str(record.get("spot_id", spot.get("spot_id", replay_id)) or replay_id),
-                    "game_stage": str(record.get("street", spot.get("game_stage", "")) or spot.get("game_stage", "")).lower(),
+                    "spot_id": str(
+                        record.get("spot_id", spot.get("spot_id", replay_id)) or replay_id
+                    ),
+                    "game_stage": str(
+                        record.get("street", spot.get("game_stage", ""))
+                        or spot.get("game_stage", "")
+                    ).lower(),
                     "hero_cards": list(record.get("hero_cards", spot.get("hero_cards", [])) or []),
                     "board": list(record.get("board", spot.get("board", [])) or []),
                     "pot": float(record.get("pot", spot.get("pot", 0.0)) or 0.0),
-                    "legal_actions": list(record.get("legal_actions", spot.get("legal_actions", [])) or []),
-                    "action_history": list(record.get("action_history", spot.get("action_history", [])) or []),
+                    "legal_actions": list(
+                        record.get("legal_actions", spot.get("legal_actions", [])) or []
+                    ),
+                    "action_history": list(
+                        record.get("action_history", spot.get("action_history", [])) or []
+                    ),
                     "metadata": {
                         **dict(spot.get("metadata", {}) or {}),
                         "runtime_timestamp": record.get("timestamp"),
@@ -568,7 +621,10 @@ class HistoryRoutesMixin:
                     "spot": spot,
                     "policy_actions": policy_actions,
                     "ev_by_action": self._extract_ev_by_action(record),
-                    "tags": ["runtime_replay_bundle", str(record.get("street", "")).strip().lower() or "unknown"],
+                    "tags": [
+                        "runtime_replay_bundle",
+                        str(record.get("street", "")).strip().lower() or "unknown",
+                    ],
                     **self._extract_solver_compact_payload(record),
                     "metadata": {
                         "timestamp": record.get("timestamp"),
@@ -598,7 +654,9 @@ class HistoryRoutesMixin:
             "source_format": "runtime_replay_bundle",
             "stream": stream or "all",
             "exported_at": exported_at,
-            "contract": self._contract_metadata(POLICY_COMPARE_ARTIFACT, stream=stream, record_count=len(corpus_records)),
+            "contract": self._contract_metadata(
+                POLICY_COMPARE_ARTIFACT, stream=stream, record_count=len(corpus_records)
+            ),
             "records": corpus_records,
         }
         payload["runtime_review"] = self._build_runtime_review_wrapper(
@@ -615,7 +673,9 @@ class HistoryRoutesMixin:
         )
         return payload
 
-    def _build_policy_compare_batch_payload(self, record_batches: list[dict], stream: str | None) -> dict:
+    def _build_policy_compare_batch_payload(
+        self, record_batches: list[dict], stream: str | None
+    ) -> dict:
         sessions = []
         flattened_records = []
 
@@ -623,9 +683,13 @@ class HistoryRoutesMixin:
             if not isinstance(batch, dict):
                 continue
 
-            session_id = str(batch.get("session_id", f"session_{index:03d}") or f"session_{index:03d}")
+            session_id = str(
+                batch.get("session_id", f"session_{index:03d}") or f"session_{index:03d}"
+            )
             source_path = str(batch.get("source_path", "") or "")
-            session_payload = self._build_policy_compare_corpus_payload(list(batch.get("records", []) or []), stream=stream)
+            session_payload = self._build_policy_compare_corpus_payload(
+                list(batch.get("records", []) or []), stream=stream
+            )
             session_records = []
 
             for record in session_payload.get("records", []) or []:
@@ -662,7 +726,9 @@ class HistoryRoutesMixin:
                 "stream": stream or "all",
                 "record_count": total_records,
             },
-            "contract": self._contract_metadata("review_pack", stream=stream, record_count=total_records),
+            "contract": self._contract_metadata(
+                "review_pack", stream=stream, record_count=total_records
+            ),
             "stream": stream or "all",
             "record_count": total_records,
             "sessions": sessions,
@@ -682,7 +748,9 @@ class HistoryRoutesMixin:
             "source_format": "runtime_replay_bundle",
             "stream": stream or "all",
             "exported_at": exported_at,
-            "contract": self._contract_metadata(POLICY_COMPARE_BATCH_ARTIFACT, stream=stream, record_count=total_records),
+            "contract": self._contract_metadata(
+                POLICY_COMPARE_BATCH_ARTIFACT, stream=stream, record_count=total_records
+            ),
             "runtime_review": self._build_runtime_review_wrapper(
                 POLICY_COMPARE_BATCH_ARTIFACT,
                 stream,
@@ -724,10 +792,22 @@ class HistoryRoutesMixin:
         if source == "persisted":
             return persisted_entries
         return {
-            "events": self._merge_history_entries("events", runtime_entries.get("events", []), persisted_entries.get("events", [])),
-            "decisions": self._merge_history_entries("decisions", runtime_entries.get("decisions", []), persisted_entries.get("decisions", [])),
-            "incidents": self._merge_history_entries("incidents", runtime_entries.get("incidents", []), persisted_entries.get("incidents", [])),
-            "metrics": self._merge_history_entries("metrics", runtime_entries.get("metrics", []), persisted_entries.get("metrics", [])),
+            "events": self._merge_history_entries(
+                "events", runtime_entries.get("events", []), persisted_entries.get("events", [])
+            ),
+            "decisions": self._merge_history_entries(
+                "decisions",
+                runtime_entries.get("decisions", []),
+                persisted_entries.get("decisions", []),
+            ),
+            "incidents": self._merge_history_entries(
+                "incidents",
+                runtime_entries.get("incidents", []),
+                persisted_entries.get("incidents", []),
+            ),
+            "metrics": self._merge_history_entries(
+                "metrics", runtime_entries.get("metrics", []), persisted_entries.get("metrics", [])
+            ),
         }
 
     @staticmethod
@@ -743,7 +823,9 @@ class HistoryRoutesMixin:
                 return ("spot_id_timestamp", spot_id, timestamp)
 
             street = str(entry.get("street", "") or "").strip().upper()
-            chosen_action = str(entry.get("chosen_action", entry.get("action", "")) or "").strip().upper()
+            chosen_action = (
+                str(entry.get("chosen_action", entry.get("action", "")) or "").strip().upper()
+            )
             source = str(entry.get("source", "") or "").strip().lower()
             if timestamp and street and chosen_action:
                 return ("timestamp_street_action", timestamp, street, chosen_action, source)
@@ -850,7 +932,8 @@ class HistoryRoutesMixin:
         example = {
             "sample_id": sample_id,
             "spot_id": str(record.get("spot_id", "") or "").strip() or sample_id,
-            "street": str(record.get("street", "UNKNOWN") or "UNKNOWN").strip().upper() or "UNKNOWN",
+            "street": str(record.get("street", "UNKNOWN") or "UNKNOWN").strip().upper()
+            or "UNKNOWN",
             "baseline_action": baseline_action,
             "challenger_action": challenger_action,
             "action_pair": f"{baseline_action}->{challenger_action}",
@@ -896,7 +979,9 @@ class HistoryRoutesMixin:
 
     @staticmethod
     def _select_policy_compare_summary(summary: dict, source: str) -> dict:
-        policy_compare = dict(summary.get("policy_compare", {}) or {}) if isinstance(summary, dict) else {}
+        policy_compare = (
+            dict(summary.get("policy_compare", {}) or {}) if isinstance(summary, dict) else {}
+        )
         if source == "runtime":
             return dict(policy_compare.get("runtime", {}) or {})
         if source == "persisted":
@@ -917,8 +1002,12 @@ class HistoryRoutesMixin:
                 policy_actions = HistoryRoutesMixin._extract_policy_actions(item)
                 if len(policy_actions) < 2:
                     continue
-                sample_id = HistoryRoutesMixin._policy_compare_sample_id(item, f"sample-{index:03d}")
-                street = str(item.get("street", "UNKNOWN") or "UNKNOWN").strip().upper() or "UNKNOWN"
+                sample_id = HistoryRoutesMixin._policy_compare_sample_id(
+                    item, f"sample-{index:03d}"
+                )
+                street = (
+                    str(item.get("street", "UNKNOWN") or "UNKNOWN").strip().upper() or "UNKNOWN"
+                )
                 spot_id = str(item.get("spot_id", "") or "").strip() or sample_id
                 spot_summary = spot_counts.setdefault(
                     spot_id,
@@ -931,7 +1020,10 @@ class HistoryRoutesMixin:
                 )
                 spot_summary["sample_count"] += 1
                 spot_summary["streets"].add(street)
-                if sample_id not in spot_summary["sample_ids"] and len(spot_summary["sample_ids"]) < 3:
+                if (
+                    sample_id not in spot_summary["sample_ids"]
+                    and len(spot_summary["sample_ids"]) < 3
+                ):
                     spot_summary["sample_ids"].append(sample_id)
 
                 ev_by_action = HistoryRoutesMixin._extract_ev_by_action(item)
@@ -951,7 +1043,10 @@ class HistoryRoutesMixin:
                                 "divergence_examples": [],
                             },
                         )
-                        if sample_id not in example_summary["sample_ids"] and len(example_summary["sample_ids"]) < 3:
+                        if (
+                            sample_id not in example_summary["sample_ids"]
+                            and len(example_summary["sample_ids"]) < 3
+                        ):
                             example_summary["sample_ids"].append(sample_id)
                         example = HistoryRoutesMixin._policy_compare_spot_example(
                             item,
@@ -965,7 +1060,9 @@ class HistoryRoutesMixin:
                             example_summary["divergence_examples"].append(example)
                 records.append(
                     PolicyCompareRecord(
-                        replay_id=str(item.get("spot_id", item.get("timestamp", f"runtime-{index:03d}"))),
+                        replay_id=str(
+                            item.get("spot_id", item.get("timestamp", f"runtime-{index:03d}"))
+                        ),
                         spot=SpotSnapshot.from_dict(
                             {
                                 "spot_id": item.get("spot_id", ""),
@@ -980,7 +1077,10 @@ class HistoryRoutesMixin:
                         ),
                         policy_actions=policy_actions,
                         ev_by_action=HistoryRoutesMixin._extract_ev_by_action(item),
-                        tags=("runtime_api", str(item.get("street", "")).strip().lower() or "unknown"),
+                        tags=(
+                            "runtime_api",
+                            str(item.get("street", "")).strip().lower() or "unknown",
+                        ),
                         metadata={
                             "timestamp": item.get("timestamp"),
                             "source": item.get("source"),
@@ -996,17 +1096,25 @@ class HistoryRoutesMixin:
             comparable_records = [
                 item
                 for item in decisions or []
-                if isinstance(item, dict) and len(HistoryRoutesMixin._extract_policy_actions(item)) >= 2
+                if isinstance(item, dict)
+                and len(HistoryRoutesMixin._extract_policy_actions(item)) >= 2
             ]
             total_comparable = len(comparable_records)
-            total_pair_samples = sum(int(item.get("comparable_records", 0) or 0) for item in pairwise)
+            total_pair_samples = sum(
+                int(item.get("comparable_records", 0) or 0) for item in pairwise
+            )
             agreement_count = 0
             for item in comparable_records:
                 policy_actions = HistoryRoutesMixin._extract_policy_actions(item)
                 if len(set(policy_actions.values())) == 1:
                     agreement_count += 1
             ev_coverage_count = sum(
-                int(round(float(item.get("ev_coverage_rate", 0.0) or 0.0) * int(item.get("comparable_records", 0) or 0)))
+                int(
+                    round(
+                        float(item.get("ev_coverage_rate", 0.0) or 0.0)
+                        * int(item.get("comparable_records", 0) or 0)
+                    )
+                )
                 for item in pairwise
             )
             policy_counts: dict[str, int] = {}
@@ -1018,7 +1126,9 @@ class HistoryRoutesMixin:
                 extracted_actions = HistoryRoutesMixin._extract_policy_actions(item)
                 if len(extracted_actions) < 2:
                     continue
-                street = str(item.get("street", "UNKNOWN") or "UNKNOWN").strip().upper() or "UNKNOWN"
+                street = (
+                    str(item.get("street", "UNKNOWN") or "UNKNOWN").strip().upper() or "UNKNOWN"
+                )
                 street_counts[street] = street_counts.get(street, 0) + 1
                 source = HistoryRoutesMixin._policy_slug(item.get("source"), "runtime")
                 source_counts[source] = source_counts.get(source, 0) + 1
@@ -1037,7 +1147,9 @@ class HistoryRoutesMixin:
                 )
                 top_action_pairs = [
                     {"actions": action_pair, "count": count}
-                    for action_pair, count in list((item.get("action_pair_counts", {}) or {}).items())[:3]
+                    for action_pair, count in list(
+                        (item.get("action_pair_counts", {}) or {}).items()
+                    )[:3]
                 ]
                 comparisons.append(
                     {
@@ -1047,12 +1159,19 @@ class HistoryRoutesMixin:
                         "agreement_count": int(item.get("agreements", 0) or 0),
                         "disagreement_count": int(item.get("disagreements", 0) or 0),
                         "agreement_rate": float(item.get("agreement_rate", 0.0) or 0.0),
-                        "ev_coverage_count": int(round(float(item.get("ev_coverage_rate", 0.0) or 0.0) * int(item.get("comparable_records", 0) or 0))),
+                        "ev_coverage_count": int(
+                            round(
+                                float(item.get("ev_coverage_rate", 0.0) or 0.0)
+                                * int(item.get("comparable_records", 0) or 0)
+                            )
+                        ),
                         "ev_coverage_rate": float(item.get("ev_coverage_rate", 0.0) or 0.0),
                         "challenger_ev_delta": float(item.get("challenger_ev_delta", 0.0) or 0.0),
                         "sample_ids": list(example_summary.get("sample_ids", [])),
                         "top_action_pairs": top_action_pairs,
-                        "top_spots": HistoryRoutesMixin._compact_policy_compare_examples(example_summary.get("spot_examples", [])),
+                        "top_spots": HistoryRoutesMixin._compact_policy_compare_examples(
+                            example_summary.get("spot_examples", [])
+                        ),
                         "divergence_examples": HistoryRoutesMixin._compact_policy_compare_examples(
                             example_summary.get("divergence_examples", []),
                         ),
@@ -1060,10 +1179,19 @@ class HistoryRoutesMixin:
                 )
 
             most_compared = comparisons[0] if comparisons else None
-            most_divergent = min(
-                comparisons,
-                key=lambda item: (item["agreement_rate"], -item["sample_count"], item["baseline_policy"], item["challenger_policy"]),
-            ) if comparisons else None
+            most_divergent = (
+                min(
+                    comparisons,
+                    key=lambda item: (
+                        item["agreement_rate"],
+                        -item["sample_count"],
+                        item["baseline_policy"],
+                        item["challenger_policy"],
+                    ),
+                )
+                if comparisons
+                else None
+            )
             top_spots = sorted(
                 spot_counts.values(),
                 key=lambda entry: (-entry["sample_count"], entry["spot_id"]),
@@ -1073,25 +1201,41 @@ class HistoryRoutesMixin:
                 "comparable_count": total_comparable,
                 "agreement_count": agreement_count,
                 "disagreement_count": total_comparable - agreement_count,
-                "agreement_rate": round(agreement_count / total_comparable, 4) if total_comparable else 0.0,
+                "agreement_rate": round(agreement_count / total_comparable, 4)
+                if total_comparable
+                else 0.0,
                 "changed_action_count": total_comparable - agreement_count,
-                "changed_action_rate": round((total_comparable - agreement_count) / total_comparable, 4) if total_comparable else 0.0,
+                "changed_action_rate": round(
+                    (total_comparable - agreement_count) / total_comparable, 4
+                )
+                if total_comparable
+                else 0.0,
                 "ev_coverage_count": ev_coverage_count,
-                "ev_coverage_rate": round(ev_coverage_count / total_pair_samples, 4) if total_pair_samples else 0.0,
+                "ev_coverage_rate": round(ev_coverage_count / total_pair_samples, 4)
+                if total_pair_samples
+                else 0.0,
                 "policies": list(summary.get("available_policies", []) or []),
-                "policy_counts": {policy: policy_counts[policy] for policy in sorted(policy_counts)},
-                "street_counts": {street: street_counts[street] for street in sorted(street_counts)},
+                "policy_counts": {
+                    policy: policy_counts[policy] for policy in sorted(policy_counts)
+                },
+                "street_counts": {
+                    street: street_counts[street] for street in sorted(street_counts)
+                },
                 "source_counts": {name: source_counts[name] for name in sorted(source_counts)},
                 "comparisons": comparisons,
                 "highlights": {
-                    "most_compared_pair": None if not most_compared else {
+                    "most_compared_pair": None
+                    if not most_compared
+                    else {
                         "baseline_policy": most_compared["baseline_policy"],
                         "challenger_policy": most_compared["challenger_policy"],
                         "sample_count": most_compared["sample_count"],
                         "sample_ids": list(most_compared.get("sample_ids", [])),
                         "top_spots": list(most_compared.get("top_spots", [])),
                     },
-                    "most_divergent_pair": None if not most_divergent else {
+                    "most_divergent_pair": None
+                    if not most_divergent
+                    else {
                         "baseline_policy": most_divergent["baseline_policy"],
                         "challenger_policy": most_divergent["challenger_policy"],
                         "agreement_rate": most_divergent["agreement_rate"],
@@ -1112,43 +1256,73 @@ class HistoryRoutesMixin:
         except Exception:
             return HistoryRoutesMixin._build_empty_policy_compare_summary()
 
-    def _build_runtime_history_payload(self, kind: str = 'all', limit: int = 10, source: str = 'combined') -> dict:
+    def _build_runtime_history_payload(
+        self, kind: str = "all", limit: int = 10, source: str = "combined"
+    ) -> dict:
         runtime = self.runtime_status_provider() if self.runtime_status_provider else {}
         runtime = runtime or {}
         history = runtime.get("history", {}) or {}
         summary = runtime.get("history_summary", {}) or {}
         selected_history = self._select_history_entries(history, source)
 
-        events = SnapshotPayloadMixin._slice_history_entries(selected_history.get("events", []), limit)
-        decisions = SnapshotPayloadMixin._slice_history_entries(selected_history.get("decisions", []), limit)
-        incidents = SnapshotPayloadMixin._slice_history_entries(selected_history.get("incidents", []), limit)
-        metrics_entries = SnapshotPayloadMixin._slice_history_entries(selected_history.get("metrics", []), limit)
-        runtime_counts = self._build_history_counts({
-            "events": history.get("events", []),
-            "decisions": history.get("decisions", []),
-            "incidents": history.get("incidents", []),
-            "metrics": history.get("metrics", []),
-        })
+        events = SnapshotPayloadMixin._slice_history_entries(
+            selected_history.get("events", []), limit
+        )
+        decisions = SnapshotPayloadMixin._slice_history_entries(
+            selected_history.get("decisions", []), limit
+        )
+        incidents = SnapshotPayloadMixin._slice_history_entries(
+            selected_history.get("incidents", []), limit
+        )
+        metrics_entries = SnapshotPayloadMixin._slice_history_entries(
+            selected_history.get("metrics", []), limit
+        )
+        runtime_counts = self._build_history_counts(
+            {
+                "events": history.get("events", []),
+                "decisions": history.get("decisions", []),
+                "incidents": history.get("incidents", []),
+                "metrics": history.get("metrics", []),
+            }
+        )
         persisted_counts = self._build_history_counts(history.get("persisted", {}) or {})
-        runtime_timestamps = self._build_history_timestamps({
-            "events": history.get("events", []),
-            "decisions": history.get("decisions", []),
-            "incidents": history.get("incidents", []),
-            "metrics": history.get("metrics", []),
-        })
+        runtime_timestamps = self._build_history_timestamps(
+            {
+                "events": history.get("events", []),
+                "decisions": history.get("decisions", []),
+                "incidents": history.get("incidents", []),
+                "metrics": history.get("metrics", []),
+            }
+        )
         persisted_timestamps = self._build_history_timestamps(history.get("persisted", {}) or {})
-        selected_counts = runtime_counts if source == "runtime" else persisted_counts if source == "persisted" else {
-            "event_count": int(summary.get("event_count", runtime_counts["event_count"])),
-            "decision_count": int(summary.get("decision_count", runtime_counts["decision_count"])),
-            "incident_count": int(summary.get("incident_count", runtime_counts["incident_count"])),
-            "metrics_count": int(summary.get("metrics_count", runtime_counts["metrics_count"])),
-        }
-        selected_timestamps = runtime_timestamps if source == "runtime" else persisted_timestamps if source == "persisted" else {
-            "latest_event_at": summary.get("latest_event_at"),
-            "latest_decision_at": summary.get("latest_decision_at"),
-            "latest_incident_at": summary.get("latest_incident_at"),
-            "latest_metrics_at": summary.get("latest_metrics_at"),
-        }
+        selected_counts = (
+            runtime_counts
+            if source == "runtime"
+            else persisted_counts
+            if source == "persisted"
+            else {
+                "event_count": int(summary.get("event_count", runtime_counts["event_count"])),
+                "decision_count": int(
+                    summary.get("decision_count", runtime_counts["decision_count"])
+                ),
+                "incident_count": int(
+                    summary.get("incident_count", runtime_counts["incident_count"])
+                ),
+                "metrics_count": int(summary.get("metrics_count", runtime_counts["metrics_count"])),
+            }
+        )
+        selected_timestamps = (
+            runtime_timestamps
+            if source == "runtime"
+            else persisted_timestamps
+            if source == "persisted"
+            else {
+                "latest_event_at": summary.get("latest_event_at"),
+                "latest_decision_at": summary.get("latest_decision_at"),
+                "latest_incident_at": summary.get("latest_incident_at"),
+                "latest_metrics_at": summary.get("latest_metrics_at"),
+            }
+        )
         policy_compare_summary = self._select_policy_compare_summary(summary, source)
         if not policy_compare_summary:
             policy_compare_summary = self._build_policy_compare_summary_from_records(
@@ -1170,7 +1344,8 @@ class HistoryRoutesMixin:
                 "latest_metrics_at": selected_timestamps["latest_metrics_at"],
                 "persistence": summary.get("persistence", {}),
                 "rl_ab": self._select_ab_summary(summary, source) or self._build_empty_ab_summary(),
-                "policy_compare": policy_compare_summary or self._build_empty_policy_compare_summary(),
+                "policy_compare": policy_compare_summary
+                or self._build_empty_policy_compare_summary(),
                 "sources": {
                     "runtime": {
                         **runtime_counts,
@@ -1185,70 +1360,88 @@ class HistoryRoutesMixin:
             "refreshed_at": self._now_iso(),
         }
 
-        if kind == 'events':
+        if kind == "events":
             payload["entries"] = events
-        elif kind == 'decisions':
+        elif kind == "decisions":
             payload["entries"] = decisions
-        elif kind == 'incidents':
+        elif kind == "incidents":
             payload["entries"] = incidents
-        elif kind == 'metrics':
+        elif kind == "metrics":
             payload["entries"] = metrics_entries
         else:
             payload["events"] = events
             payload["decisions"] = decisions
             payload["incidents"] = incidents
             payload["metrics"] = metrics_entries
-            if source == 'combined':
+            if source == "combined":
                 payload["persisted"] = self._runtime_persistence_payload(history, limit)
 
         return payload
 
     async def handle_runtime_history(self, request):
         try:
-            kind = str(request.query.get('kind', 'all') or 'all').lower()
-            if kind not in {'all', 'events', 'decisions', 'incidents', 'metrics'}:
-                kind = 'all'
-            limit = self._parse_limit(request.query.get('limit'), default=10, maximum=50)
-            source = self._parse_history_source(request.query.get('source') or request.query.get('mode'))
-            payload = await asyncio.to_thread(self._build_runtime_history_payload, kind, limit, source)
+            kind = str(request.query.get("kind", "all") or "all").lower()
+            if kind not in {"all", "events", "decisions", "incidents", "metrics"}:
+                kind = "all"
+            limit = self._parse_limit(request.query.get("limit"), default=10, maximum=50)
+            source = self._parse_history_source(
+                request.query.get("source") or request.query.get("mode")
+            )
+            payload = await asyncio.to_thread(
+                self._build_runtime_history_payload, kind, limit, source
+            )
             return web.json_response(payload)
         except Exception as e:
             logger.error(f"Erreur lors de la construction du runtime history: {e}")
-            return web.json_response({"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=500)
+            return web.json_response(
+                {"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=500
+            )
 
     async def handle_runtime_history_export(self, request):
         store = self._get_runtime_history_store()
         if store is None:
-            return web.json_response({"error": "Runtime history store unavailable.", "refreshed_at": self._now_iso()}, status=503)
+            return web.json_response(
+                {"error": "Runtime history store unavailable.", "refreshed_at": self._now_iso()},
+                status=503,
+            )
 
         try:
-            stream = self._parse_history_stream(request.query.get('stream') or request.query.get('kind'))
-            export_format = str(request.query.get('format', 'bundle') or 'bundle').strip().lower()
+            stream = self._parse_history_stream(
+                request.query.get("stream") or request.query.get("kind")
+            )
+            export_format = str(request.query.get("format", "bundle") or "bundle").strip().lower()
             records = store.export_records(stream=stream)
-            if export_format in {'policy_compare_batch', 'policy-compare-batch', 'corpus_batch'}:
-                record_batches = store.export_record_batches(stream=stream) if hasattr(store, 'export_record_batches') else [
-                    {"session_id": "current", "source_path": "", "records": records}
-                ]
+            if export_format in {"policy_compare_batch", "policy-compare-batch", "corpus_batch"}:
+                record_batches = (
+                    store.export_record_batches(stream=stream)
+                    if hasattr(store, "export_record_batches")
+                    else [{"session_id": "current", "source_path": "", "records": records}]
+                )
                 payload = self._build_policy_compare_batch_payload(record_batches, stream=stream)
-            elif export_format in {'policy_compare', 'policy-compare', 'corpus'}:
+            elif export_format in {"policy_compare", "policy-compare", "corpus"}:
                 payload = self._build_policy_compare_corpus_payload(records, stream=stream)
             else:
                 payload = self._build_replay_bundle_payload(records, stream=stream)
             return web.Response(
                 text=json.dumps(payload, ensure_ascii=True),
-                content_type='application/json',
+                content_type="application/json",
                 headers={
-                    'Content-Disposition': f'attachment; filename="{self._resolve_export_filename(export_format, stream)}"',
+                    "Content-Disposition": f'attachment; filename="{self._resolve_export_filename(export_format, stream)}"',
                 },
             )
         except Exception as e:
             logger.error(f"Erreur lors de l'export runtime history: {e}")
-            return web.json_response({"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=500)
+            return web.json_response(
+                {"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=500
+            )
 
     async def handle_runtime_history_import(self, request):
         store = self._get_runtime_history_store()
         if store is None:
-            return web.json_response({"error": "Runtime history store unavailable.", "refreshed_at": self._now_iso()}, status=503)
+            return web.json_response(
+                {"error": "Runtime history store unavailable.", "refreshed_at": self._now_iso()},
+                status=503,
+            )
 
         try:
             payload = await request.json()
@@ -1260,26 +1453,29 @@ class HistoryRoutesMixin:
 
             payload_summary = RuntimeHistoryStore.describe_records_payload(payload)
             records = RuntimeHistoryStore.coerce_records_payload(payload)
-            replace = self._parse_bool(request.query.get('replace'))
+            replace = self._parse_bool(request.query.get("replace"))
             result = store.import_records(records, replace=replace)
             summary = store.summarize()
-            return web.json_response({
-                "success": True,
-                "contract": {
-                    "name": EXPORT_CONTRACT_NAME,
-                    "version": EXPORT_CONTRACT_VERSION,
-                    "artifact_type": payload_summary.get("artifact_type", "records"),
-                    "coerced_record_count": len(records),
-                    "replace": replace,
-                },
-                "payload_summary": payload_summary,
-                "import": result,
-                "persistence": summary,
-                "refreshed_at": self._now_iso(),
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "contract": {
+                        "name": EXPORT_CONTRACT_NAME,
+                        "version": EXPORT_CONTRACT_VERSION,
+                        "artifact_type": payload_summary.get("artifact_type", "records"),
+                        "coerced_record_count": len(records),
+                        "replace": replace,
+                    },
+                    "payload_summary": payload_summary,
+                    "import": result,
+                    "persistence": summary,
+                    "refreshed_at": self._now_iso(),
+                }
+            )
         except ValueError as e:
             return web.json_response({"error": str(e)}, status=400)
         except Exception as e:
             logger.error(f"Erreur lors de l'import runtime history: {e}")
-            return web.json_response({"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=500)
-
+            return web.json_response(
+                {"state": "error", "message": str(e), "refreshed_at": self._now_iso()}, status=500
+            )

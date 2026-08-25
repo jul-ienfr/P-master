@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from src.vision.ocr import PokerOCR
 
@@ -28,7 +28,7 @@ class NumericParser:
         self.decimal_separators = tuple(decimal_separators)
 
     def _fallback_parse_amount(self, text: str) -> float | None:
-        normalized = str(text or "").replace("\u00A0", " ")
+        normalized = str(text or "").replace("\u00a0", " ")
         candidates = re.findall(r"[\d][\d\s,\.]*", normalized)
         if not candidates:
             return None
@@ -74,7 +74,9 @@ class NumericParser:
     def parse(self, raw_text: str) -> NumericParseResult:
         text = str(raw_text or "").strip()
         if not text:
-            return NumericParseResult(value=None, sanitized_text="", valid=False, reject_reason="empty_text")
+            return NumericParseResult(
+                value=None, sanitized_text="", valid=False, reject_reason="empty_text"
+            )
 
         parse_amount = getattr(PokerOCR, "parse_amount", None)
         if callable(parse_amount):
@@ -87,5 +89,7 @@ class NumericParser:
         else:
             value = self._fallback_parse_amount(text)
         if value is None:
-            return NumericParseResult(value=None, sanitized_text=text, valid=False, reject_reason="parse_rejected")
+            return NumericParseResult(
+                value=None, sanitized_text=text, valid=False, reject_reason="parse_rejected"
+            )
         return NumericParseResult(value=float(value), sanitized_text=text, valid=True)

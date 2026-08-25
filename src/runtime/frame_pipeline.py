@@ -72,21 +72,29 @@ class FramePipeline:
         self.numeric_reader = reader
         return reader
 
-    def _read_live_pot_fast(self, frame: np.ndarray, pot_box: tuple[int, int, int, int]) -> dict | None:
+    def _read_live_pot_fast(
+        self, frame: np.ndarray, pot_box: tuple[int, int, int, int]
+    ) -> dict | None:
         amount_ocr = getattr(self, "amount_ocr", None)
         if amount_ocr is None:
             return None
         pot_focus_box = self._build_pot_text_focus_bbox(pot_box)
         pot_crop = self._safe_crop(frame, pot_focus_box)
-        crop_quality = analyze_crop_quality("pot", pot_crop).to_dict() if pot_crop is not None else None
+        crop_quality = (
+            analyze_crop_quality("pot", pot_crop).to_dict() if pot_crop is not None else None
+        )
         if pot_crop is None or not self._is_pot_crop_usable(crop_quality):
             pot_crop = self._safe_crop(frame, pot_box)
-            crop_quality = analyze_crop_quality("pot", pot_crop).to_dict() if pot_crop is not None else None
+            crop_quality = (
+                analyze_crop_quality("pot", pot_crop).to_dict() if pot_crop is not None else None
+            )
             if pot_crop is None or not self._is_pot_crop_usable(crop_quality):
                 return None
             pot_focus_box = pot_box
         value = amount_ocr.read_and_parse_amount(pot_crop)
-        metadata = dict(amount_ocr.get_metadata() or {}) if hasattr(amount_ocr, "get_metadata") else {}
+        metadata = (
+            dict(amount_ocr.get_metadata() or {}) if hasattr(amount_ocr, "get_metadata") else {}
+        )
         confidence = float(metadata.get("selected_confidence", 0.0) or 0.0)
         if value is None or confidence < 0.9:
             return None
@@ -101,7 +109,9 @@ class FramePipeline:
             "selected_confidence": confidence,
         }
 
-    def _try_update_cached_fast_pot(self, frame: np.ndarray, cached_state: TableState) -> TableState:
+    def _try_update_cached_fast_pot(
+        self, frame: np.ndarray, cached_state: TableState
+    ) -> TableState:
         metadata = dict(getattr(cached_state, "metadata", {}) or {})
         runtime_geometry = dict(metadata.get("runtime_geometry", {}) or {})
         regions = dict(runtime_geometry.get("regions", {}) or {})
@@ -121,7 +131,11 @@ class FramePipeline:
                 if pot_crop is not None:
                     try:
                         value = amount_ocr.read_and_parse_amount(pot_crop)
-                        metadata = dict(amount_ocr.get_metadata() or {}) if hasattr(amount_ocr, "get_metadata") else {}
+                        metadata = (
+                            dict(amount_ocr.get_metadata() or {})
+                            if hasattr(amount_ocr, "get_metadata")
+                            else {}
+                        )
                         confidence = float(metadata.get("selected_confidence", 0.0) or 0.0)
                         if value is not None and confidence >= 0.9:
                             fast_lane_pot = {
@@ -155,14 +169,23 @@ class FramePipeline:
 
     def _resolve_runtime_geometry(self, state: TableState, frame: np.ndarray):
         metadata = dict(getattr(state, "metadata", {}) or {})
-        table_bbox = metadata.get("table_bbox") if isinstance(metadata.get("table_bbox"), list) else None
+        table_bbox = (
+            metadata.get("table_bbox") if isinstance(metadata.get("table_bbox"), list) else None
+        )
         registry = self._get_preset_registry()
         preset_name = str(metadata.get("fallback_preset") or "")
-        if registry is not None and preset_name and isinstance(table_bbox, list) and len(table_bbox) == 4:
+        if (
+            registry is not None
+            and preset_name
+            and isinstance(table_bbox, list)
+            and len(table_bbox) == 4
+        ):
             preset = registry.find_by_display_name(preset_name)
             if preset is not None:
                 geometry = geometry_from_manifest(preset.manifest, source=preset.display_name)
-                pixel_regions = geometry_to_pixel_regions(frame, geometry, table_bbox=tuple(int(value) for value in table_bbox))
+                pixel_regions = geometry_to_pixel_regions(
+                    frame, geometry, table_bbox=tuple(int(value) for value in table_bbox)
+                )
                 return geometry, pixel_regions
         return DEFAULT_RUNTIME_GEOMETRY, self._runtime_visual_regions(frame)
 
@@ -220,7 +243,9 @@ class FramePipeline:
         self,
         frame: np.ndarray,
     ) -> tuple[bool, dict[str, np.ndarray], tuple[str, ...]]:
-        controller_override = getattr(getattr(self.controller, "__dict__", {}), "get", lambda _key, _default=None: None)(
+        controller_override = getattr(
+            getattr(self.controller, "__dict__", {}), "get", lambda _key, _default=None: None
+        )(
             "_detect_relevant_visual_change",
             None,
         )
@@ -245,10 +270,14 @@ class FramePipeline:
         return bool(changed_regions), previews, changed_regions
 
     async def _process_frame(self, frame) -> TableState:
-        refresh_due = (time.monotonic() - self._last_visual_state_at) >= self._visual_state_refresh_interval_s
+        refresh_due = (
+            time.monotonic() - self._last_visual_state_at
+        ) >= self._visual_state_refresh_interval_s
         visual_changed, previews, changed_regions = self._detect_relevant_visual_change(frame)
         changed_region_set = set(changed_regions)
-        fast_action_refresh = bool(changed_region_set) and changed_region_set.issubset({"actions", "pot"})
+        fast_action_refresh = bool(changed_region_set) and changed_region_set.issubset(
+            {"actions", "pot"}
+        )
         if not visual_changed and not refresh_due and self._last_visual_state is not None:
             cached_state = self._copy_table_state(self._last_visual_state)
             cached_state.metadata = dict(getattr(cached_state, "metadata", {}) or {})
@@ -293,12 +322,17 @@ class FramePipeline:
         state.metadata["runtime_geometry"] = {
             "source": getattr(runtime_geometry, "source", "default"),
             "table_size": list(getattr(runtime_geometry, "table_size", (0, 0))),
-            "regions": {key: [float(value) for value in values] for key, values in getattr(runtime_geometry, "regions", {}).items()},
+            "regions": {
+                key: [float(value) for value in values]
+                for key, values in getattr(runtime_geometry, "regions", {}).items()
+            },
         }
         fast_lane_pot_box = pixel_regions.get("pot")
         if fast_lane_pot_box is not None:
             try:
-                fast_lane_pot = self._read_live_pot_fast(frame, tuple(int(value) for value in fast_lane_pot_box))
+                fast_lane_pot = self._read_live_pot_fast(
+                    frame, tuple(int(value) for value in fast_lane_pot_box)
+                )
             except Exception:
                 fast_lane_pot = None
             if fast_lane_pot is not None:
@@ -310,34 +344,46 @@ class FramePipeline:
             for key, values in region_proposals.items()
         }
         state.metadata["region_resolutions"] = {
-            key: value.to_dict()
-            for key, value in region_resolutions.items()
+            key: value.to_dict() for key, value in region_resolutions.items()
         }
         state.metadata["detection_quality"] = build_detection_quality_metadata(state, pixel_regions)
 
         pot_detection_available = bool(state.pots)
         resolved_pot = region_resolutions.get("pot")
-        default_pot_box = tuple(resolved_pot.selected.bbox) if resolved_pot is not None else pixel_regions.get("pot")
+        default_pot_box = (
+            tuple(resolved_pot.selected.bbox)
+            if resolved_pot is not None
+            else pixel_regions.get("pot")
+        )
         if pot_detection_available or default_pot_box is not None:
             self._set_loop_stage("process_frame:pot_ocr", publish=True)
             pot_box = tuple(default_pot_box) if default_pot_box is not None else state.pots[0].bbox
             pot_focus_box = self._build_pot_text_focus_bbox(pot_box)
             pot_crop = self._safe_crop(frame, pot_focus_box)
             ocr_box = pot_focus_box
-            crop_quality = analyze_crop_quality("pot", pot_crop).to_dict() if pot_crop is not None else None
+            crop_quality = (
+                analyze_crop_quality("pot", pot_crop).to_dict() if pot_crop is not None else None
+            )
             fallback_pot_box = pixel_regions.get("pot")
             fallback_pot_crop = None
             fallback_crop_quality = None
             if not self._is_pot_crop_usable(crop_quality):
                 pot_crop = self._safe_crop(frame, pot_box)
                 ocr_box = pot_box
-                crop_quality = analyze_crop_quality("pot", pot_crop).to_dict() if pot_crop is not None else None
+                crop_quality = (
+                    analyze_crop_quality("pot", pot_crop).to_dict()
+                    if pot_crop is not None
+                    else None
+                )
             if (
                 fallback_pot_box is not None
-                and tuple(int(value) for value in fallback_pot_box) != tuple(int(value) for value in pot_box)
+                and tuple(int(value) for value in fallback_pot_box)
+                != tuple(int(value) for value in pot_box)
                 and not self._is_pot_crop_usable(crop_quality)
             ):
-                fallback_pot_crop = self._safe_crop(frame, tuple(int(value) for value in fallback_pot_box))
+                fallback_pot_crop = self._safe_crop(
+                    frame, tuple(int(value) for value in fallback_pot_box)
+                )
                 if fallback_pot_crop is not None:
                     fallback_crop_quality = analyze_crop_quality("pot", fallback_pot_crop).to_dict()
                     if self._is_pot_crop_usable(fallback_crop_quality):
@@ -348,12 +394,15 @@ class FramePipeline:
             if crop_quality is not None:
                 state.metadata.setdefault("crop_quality", {})["pot"] = crop_quality
             if fallback_crop_quality is not None:
-                state.metadata.setdefault("crop_quality", {})["pot_fallback"] = fallback_crop_quality
-            pot_refresh_due = (time.monotonic() - float(getattr(self, "_last_pot_ocr_at", 0.0) or 0.0)) >= float(
-                getattr(self, "_pot_ocr_refresh_interval_s", 0.12) or 0.12
-            )
+                state.metadata.setdefault("crop_quality", {})["pot_fallback"] = (
+                    fallback_crop_quality
+                )
+            pot_refresh_due = (
+                time.monotonic() - float(getattr(self, "_last_pot_ocr_at", 0.0) or 0.0)
+            ) >= float(getattr(self, "_pot_ocr_refresh_interval_s", 0.12) or 0.12)
             pot_changed = bool(
-                pot_crop is not None and self._is_image_changed(
+                pot_crop is not None
+                and self._is_image_changed(
                     self.last_pot_crop,
                     pot_crop,
                     threshold=float(getattr(self, "_pot_crop_change_threshold", 0.85) or 0.85),
@@ -363,12 +412,23 @@ class FramePipeline:
                 if state.pots:
                     state.pots[0].confidence = self.last_pot_value
                 elif self.last_pot_value > 0.0:
-                    state.pots.append(DetectionResult(class_name="pot_area", confidence=1.0, bbox=tuple(int(value) for value in pot_box)))
+                    state.pots.append(
+                        DetectionResult(
+                            class_name="pot_area",
+                            confidence=1.0,
+                            bbox=tuple(int(value) for value in pot_box),
+                        )
+                    )
                     state.pots[0].confidence = self.last_pot_value
             elif pot_crop is not None:
                 numeric_reader = self._get_numeric_reader()
                 numeric_result = (
-                    await asyncio.to_thread(numeric_reader.read_amount, "pot", pot_crop, previous_value=self.last_pot_value)
+                    await asyncio.to_thread(
+                        numeric_reader.read_amount,
+                        "pot",
+                        pot_crop,
+                        previous_value=self.last_pot_value,
+                    )
                     if numeric_reader is not None
                     else None
                 )
@@ -377,22 +437,39 @@ class FramePipeline:
                 if state.pots:
                     state.pots[0].confidence = val
                 elif val > 0.0:
-                    state.pots.append(DetectionResult(class_name="pot_area", confidence=1.0, bbox=tuple(int(value) for value in pot_box)))
+                    state.pots.append(
+                        DetectionResult(
+                            class_name="pot_area",
+                            confidence=1.0,
+                            bbox=tuple(int(value) for value in pot_box),
+                        )
+                    )
                     state.pots[0].confidence = val
                 state.metadata["pot_ocr"] = self.amount_ocr.get_metadata()
                 if numeric_result is not None:
-                    state.metadata["numeric_reader"] = state.metadata.get("numeric_reader", {}) or {}
+                    state.metadata["numeric_reader"] = (
+                        state.metadata.get("numeric_reader", {}) or {}
+                    )
                     state.metadata["numeric_reader"]["pot"] = {
                         "selected_value": numeric_result.selected_value,
                         "evidence": numeric_result.evidence.to_dict(),
                         "metadata": dict(numeric_result.metadata),
                         "source_bbox": list(pot_box),
                         "ocr_bbox": list(ocr_box),
-                        "ocr_focus": "top_label" if tuple(int(value) for value in ocr_box) == tuple(int(value) for value in pot_focus_box) else "full_region",
+                        "ocr_focus": "top_label"
+                        if tuple(int(value) for value in ocr_box)
+                        == tuple(int(value) for value in pot_focus_box)
+                        else "full_region",
                         "source_region": (
                             "preset_geometry"
-                            if fallback_pot_box is not None and tuple(int(value) for value in pot_box) == tuple(int(value) for value in fallback_pot_box)
-                            else (resolved_pot.selected.source if resolved_pot is not None else "detector_pot")
+                            if fallback_pot_box is not None
+                            and tuple(int(value) for value in pot_box)
+                            == tuple(int(value) for value in fallback_pot_box)
+                            else (
+                                resolved_pot.selected.source
+                                if resolved_pot is not None
+                                else "detector_pot"
+                            )
                         ),
                         "ocr_without_detector": not pot_detection_available,
                     }
@@ -406,7 +483,9 @@ class FramePipeline:
                 self.last_pot_crop = pot_crop.copy()
                 self._last_pot_ocr_at = time.monotonic()
             else:
-                state.metadata.setdefault("crop_quality", {})["pot"] = analyze_crop_quality("pot", np.empty((0, 0), dtype=np.uint8)).to_dict()
+                state.metadata.setdefault("crop_quality", {})["pot"] = analyze_crop_quality(
+                    "pot", np.empty((0, 0), dtype=np.uint8)
+                ).to_dict()
 
         if len(state.board_cards) >= 3 and not state.pots:
             self._set_loop_stage("process_frame:hitl_pot_check", publish=True)
@@ -445,17 +524,28 @@ class FramePipeline:
             return "TURN"
         if len(board) == 3:
             return "FLOP"
-        if pot_value > 0.0 or street == "PREFLOP" or any(
-            button_name in {"resume_hand", "im_back", "fast_fold_button"} for button_name in action_buttons
+        if (
+            pot_value > 0.0
+            or street == "PREFLOP"
+            or any(
+                button_name in {"resume_hand", "im_back", "fast_fold_button"}
+                for button_name in action_buttons
+            )
         ):
             return "PREFLOP"
         return "IDLE"
 
-    def _convert_state_for_tracker(self, state: TableState, frame: np.ndarray) -> CanonicalTableState:
+    def _convert_state_for_tracker(
+        self, state: TableState, frame: np.ndarray
+    ) -> CanonicalTableState:
         state = self._label_generic_action_buttons(state, frame)
         raw_board_count = len(getattr(state, "board_cards", []) or [])
-        board = tuple(card for card in (decode_card_token(c.class_name) for c in state.board_cards) if card)
-        hero_cards = tuple(card for card in (decode_card_token(c.class_name) for c in state.hero_cards) if card)
+        board = tuple(
+            card for card in (decode_card_token(c.class_name) for c in state.board_cards) if card
+        )
+        hero_cards = tuple(
+            card for card in (decode_card_token(c.class_name) for c in state.hero_cards) if card
+        )
         hero_cards = self._stabilize_runtime_hero_cards(hero_cards, board, state)
         pot_value = float(getattr(state.pots[0], "confidence", 0.0) or 0.0) if state.pots else 0.0
         players = tuple(self._build_players(state, frame))
@@ -466,7 +556,9 @@ class FramePipeline:
             board,
             hero_cards,
         )
-        confirmed_live_context = bool(board) or raw_board_count >= 3 or len(hero_cards) == 2 or pot_value > 0.0
+        confirmed_live_context = (
+            bool(board) or raw_board_count >= 3 or len(hero_cards) == 2 or pot_value > 0.0
+        )
         if not confirmed_live_context:
             action_buttons = tuple(
                 button_name
@@ -497,10 +589,18 @@ class FramePipeline:
             1.0 if legal_actions else 0.0,
         ]
         state_confidence = round(sum(confidence_parts) / len(confidence_parts), 3)
-        state_confidence = self._smooth_runtime_state_confidence(state_confidence, street, board, hero_cards)
+        state_confidence = self._smooth_runtime_state_confidence(
+            state_confidence, street, board, hero_cards
+        )
         normalized_pot = round(max(0.0, float(pot_value or 0.0)), 1)
-        hero_participation = self._derive_hero_participation_mode(board, hero_cards, normalized_pot, action_buttons)
-        observation_mode = hero_participation in {"waiting_next_hand", "sitting_out", "observing_hand"}
+        hero_participation = self._derive_hero_participation_mode(
+            board, hero_cards, normalized_pot, action_buttons
+        )
+        observation_mode = hero_participation in {
+            "waiting_next_hand",
+            "sitting_out",
+            "observing_hand",
+        }
         observation_street = self._derive_observation_street(
             street,
             board,
@@ -580,8 +680,12 @@ class FramePipeline:
                     "topleft_anchor_asset": state.metadata.get("topleft_anchor_asset", ""),
                     "topleft_match_scale": state.metadata.get("topleft_match_scale"),
                     "table_bbox": state.metadata.get("table_bbox", []),
-                    "static_stack_area_count": int(state.metadata.get("static_stack_area_count", 0) or 0),
-                    "static_name_area_count": int(state.metadata.get("static_name_area_count", 0) or 0),
+                    "static_stack_area_count": int(
+                        state.metadata.get("static_stack_area_count", 0) or 0
+                    ),
+                    "static_name_area_count": int(
+                        state.metadata.get("static_name_area_count", 0) or 0
+                    ),
                     "frame_quality": frame_quality,
                     "crop_quality": crop_quality,
                     "runtime_geometry": runtime_geometry,
@@ -590,7 +694,9 @@ class FramePipeline:
                     "detection_quality": detection_quality,
                     "numeric_reader": numeric_reader,
                     "visual_changed": bool(state.metadata.get("visual_changed", False)),
-                    "visual_changed_regions": list(state.metadata.get("visual_changed_regions", []) or []),
+                    "visual_changed_regions": list(
+                        state.metadata.get("visual_changed_regions", []) or []
+                    ),
                     "visual_refresh_due": bool(state.metadata.get("visual_refresh_due", False)),
                 },
                 "hero_participation": hero_participation,

@@ -1,4 +1,5 @@
 """Tests du calculateur d'outs legacy (maths pures, ratchet coverage)."""
+
 import sys
 from pathlib import Path
 

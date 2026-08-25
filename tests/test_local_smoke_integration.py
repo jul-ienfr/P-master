@@ -10,19 +10,17 @@ if str(ROOT) not in sys.path:
 
 
 if "aiohttp_cors" not in sys.modules:
+
     class _StubResourceOptions:
         def __init__(self, **kwargs):
             self.kwargs = kwargs
-
 
     class _StubCors:
         def add(self, route):
             return route
 
-
     def _stub_setup(app, defaults=None):
         return _StubCors()
-
 
     sys.modules["aiohttp_cors"] = types.SimpleNamespace(
         setup=_stub_setup,
@@ -94,7 +92,13 @@ def test_memory_tracker_and_decisionmaker_smoke_flow():
             "pot": 1.5,
             "state_confidence": 0.93,
             "players": [
-                {"seat_id": "hero", "seat_index": 0, "name": "Hero", "stack": 100.0, "is_hero": True},
+                {
+                    "seat_id": "hero",
+                    "seat_index": 0,
+                    "name": "Hero",
+                    "stack": 100.0,
+                    "is_hero": True,
+                },
                 {"seat_id": "villain", "seat_index": 1, "name": "Villain", "stack": 100.0},
             ],
         }
@@ -104,7 +108,13 @@ def test_memory_tracker_and_decisionmaker_smoke_flow():
             "pot": 5.5,
             "state_confidence": 0.93,
             "players": [
-                {"seat_id": "hero", "seat_index": 0, "name": "Hero", "stack": 100.0, "is_hero": True},
+                {
+                    "seat_id": "hero",
+                    "seat_index": 0,
+                    "name": "Hero",
+                    "stack": 100.0,
+                    "is_hero": True,
+                },
                 {"seat_id": "villain", "seat_index": 1, "name": "Villain", "stack": 96.0},
             ],
         }
@@ -119,12 +129,11 @@ def test_memory_tracker_and_decisionmaker_smoke_flow():
 
         force_idle_signal = {
             "street": "PREFLOP",
-            "hero_cards": [], # Pas de hero_cards = plus en main
+            "hero_cards": [],  # Pas de hero_cards = plus en main
             "pot": 0.0,
             "state_confidence": 0.95,
             "players": [],
         }
-
 
         await tracker.update_from_vision(opening_state)
         await tracker.update_from_vision(action_state)
@@ -218,7 +227,9 @@ def test_botapi_runtime_history_export_import_smoke(tmp_path):
     async def scenario():
         history_store = RuntimeHistoryStore(file_path=str(tmp_path / "runtime_history.jsonl"))
         history_store.append("events", {"timestamp": "2026-04-11T12:00:00Z", "message": "boot"})
-        history_store.append("decisions", {"timestamp": "2026-04-11T12:00:01Z", "chosen_action": "CALL"})
+        history_store.append(
+            "decisions", {"timestamp": "2026-04-11T12:00:01Z", "chosen_action": "CALL"}
+        )
 
         api = BotAPI(
             StubHITL(),
@@ -254,7 +265,9 @@ def test_botapi_runtime_history_export_import_smoke(tmp_path):
             runtime_history_store=history_store,
         )
 
-        export_response = await api.handle_runtime_history_export(FakeQueryRequest({"stream": "events"}))
+        export_response = await api.handle_runtime_history_export(
+            FakeQueryRequest({"stream": "events"})
+        )
         export_payload = json.loads(export_response.text)
 
         assert export_response.status == 200
@@ -274,11 +287,19 @@ def test_botapi_runtime_history_export_import_smoke(tmp_path):
         }
         assert export_payload["bundle"]["records"] == export_payload["records"]
         assert export_payload["bundle"]["runtime"]["tracker"] == {}
-        assert export_payload["bundle"]["runtime"]["canonical_spot"]["spot_id"] == "live:PREFLOP:preflop"
-        assert export_payload["bundle"]["runtime"]["canonical_spot"]["metadata"]["hero_seat_id"] == "hero"
+        assert (
+            export_payload["bundle"]["runtime"]["canonical_spot"]["spot_id"]
+            == "live:PREFLOP:preflop"
+        )
+        assert (
+            export_payload["bundle"]["runtime"]["canonical_spot"]["metadata"]["hero_seat_id"]
+            == "hero"
+        )
         assert export_payload["bundle"]["metadata"]["persistence"]["enabled"] is True
 
-        imported_store = RuntimeHistoryStore(file_path=str(tmp_path / "imported_runtime_history.jsonl"))
+        imported_store = RuntimeHistoryStore(
+            file_path=str(tmp_path / "imported_runtime_history.jsonl")
+        )
         import_api = BotAPI(
             StubHITL(),
             runtime_status_provider=lambda: {
@@ -347,7 +368,7 @@ def test_botapi_runtime_history_can_export_policy_compare_corpus(tmp_path):
                         "alternatives": [
                             {"action": "FOLD", "raw_action": "FOLD", "freq": 0.2, "ev": -0.35},
                             {"action": "CALL", "raw_action": "CALL", "freq": 0.8, "ev": 0.12},
-                        ]
+                        ],
                     }
                 },
             },
@@ -400,7 +421,10 @@ def test_botapi_runtime_history_can_export_policy_compare_corpus(tmp_path):
             "FOLD": {"raw_action": "FOLD", "freq": 0.2, "ev": -0.35},
             "CALL": {"raw_action": "CALL", "freq": 0.8, "ev": 0.12},
         }
-        assert export_payload["records"][0]["backend_details"] == {"name": "solver_stub", "version": "2026.04"}
+        assert export_payload["records"][0]["backend_details"] == {
+            "name": "solver_stub",
+            "version": "2026.04",
+        }
         assert export_payload["records"][0]["cache_details"] == {"hit": True, "tier": "memory"}
         assert export_payload["records"][0]["warnings"] == ["subtree_reused"]
         assert export_payload["records"][0]["gto_action"] == "CALL"
@@ -510,8 +534,10 @@ def test_botapi_operator_observation_mode_and_export():
                     operator_state["status"] = "ready"
             if "paused" in patch:
                 operator_state["paused"] = bool(patch["paused"])
-                operator_state["status"] = "paused" if operator_state["paused"] else (
-                    "observation" if operator_state["observation_mode_enabled"] else "ready"
+                operator_state["status"] = (
+                    "paused"
+                    if operator_state["paused"]
+                    else ("observation" if operator_state["observation_mode_enabled"] else "ready")
                 )
             return dict(operator_state)
 
@@ -632,14 +658,18 @@ def test_botapi_runtime_history_metrics_supports_runtime_persisted_and_combined_
         assert runtime_response.status == 200
         assert runtime_payload["kind"] == "metrics"
         assert runtime_payload["source"] == "runtime"
-        assert [entry["timestamp"] for entry in runtime_payload["entries"]] == ["2026-04-11T12:00:30Z"]
+        assert [entry["timestamp"] for entry in runtime_payload["entries"]] == [
+            "2026-04-11T12:00:30Z"
+        ]
         assert runtime_payload["summary"]["metrics_count"] == 1
         assert runtime_payload["summary"]["latest_metrics_at"] == "2026-04-11T12:00:30Z"
 
         assert persisted_response.status == 200
         assert persisted_payload["kind"] == "metrics"
         assert persisted_payload["source"] == "persisted"
-        assert [entry["timestamp"] for entry in persisted_payload["entries"]] == ["2026-04-11T12:00:00Z"]
+        assert [entry["timestamp"] for entry in persisted_payload["entries"]] == [
+            "2026-04-11T12:00:00Z"
+        ]
         assert persisted_payload["summary"]["metrics_count"] == 1
         assert persisted_payload["summary"]["latest_metrics_at"] == "2026-04-11T12:00:00Z"
 
@@ -835,7 +865,12 @@ def test_botapi_runtime_history_exposes_compact_rl_ab_summary_by_source(tmp_path
         assert runtime_payload["summary"]["policy_compare"]["changed_action_count"] == 1
         assert runtime_payload["summary"]["policy_compare"]["ev_coverage_count"] == 12
         assert runtime_payload["summary"]["policy_compare"]["ev_coverage_rate"] == 1.0
-        assert runtime_payload["summary"]["policy_compare"]["policies"] == ["gto_solver", "rl_off", "rl_on", "validated_rl"]
+        assert runtime_payload["summary"]["policy_compare"]["policies"] == [
+            "gto_solver",
+            "rl_off",
+            "rl_on",
+            "validated_rl",
+        ]
         assert runtime_payload["summary"]["policy_compare"]["source_counts"] == {"validated_rl": 2}
         assert any(
             comparison["baseline_policy"] == "rl_off"
@@ -851,7 +886,12 @@ def test_botapi_runtime_history_exposes_compact_rl_ab_summary_by_source(tmp_path
         )
         assert runtime_rl_pair["sample_ids"] == ["2026-04-11T12:00:30Z", "2026-04-11T12:00:20Z"]
         assert runtime_rl_pair["divergence_examples"][0]["action_pair"] == "CALL->BET"
-        assert runtime_payload["summary"]["policy_compare"]["highlights"]["top_spots"][0]["sample_count"] == 1
+        assert (
+            runtime_payload["summary"]["policy_compare"]["highlights"]["top_spots"][0][
+                "sample_count"
+            ]
+            == 1
+        )
         assert persisted_payload["summary"]["rl_ab"] == {
             "sample_count": 1,
             "compared_count": 1,
@@ -884,11 +924,17 @@ def test_botapi_runtime_history_exposes_compact_rl_ab_summary_by_source(tmp_path
         }
         assert snapshot_payload["decision"]["metadata"]["policy_compare"]["sample_count"] == 3
         assert any(
-            comparison["baseline_policy"] == "rl_off"
-            and comparison["challenger_policy"] == "rl_on"
-            for comparison in snapshot_payload["decision"]["metadata"]["policy_compare"]["comparisons"]
+            comparison["baseline_policy"] == "rl_off" and comparison["challenger_policy"] == "rl_on"
+            for comparison in snapshot_payload["decision"]["metadata"]["policy_compare"][
+                "comparisons"
+            ]
         )
-        assert snapshot_payload["decision"]["metadata"]["policy_compare"]["highlights"]["most_divergent_pair"]["divergence_examples"][0]["street"] == "RIVER"
+        assert (
+            snapshot_payload["decision"]["metadata"]["policy_compare"]["highlights"][
+                "most_divergent_pair"
+            ]["divergence_examples"][0]["street"]
+            == "RIVER"
+        )
 
     run(scenario())
 
@@ -966,7 +1012,12 @@ def test_botapi_timesfm_forecast_route_returns_forecast_payload(tmp_path):
         assert payload["results"]["fallback_rate"]["best_forecaster"] == "timesfm"
         assert payload["results"]["fallback_rate"]["quantile_range_coverage"] == 0.0
         assert round(payload["results"]["fallback_rate"]["mae"]["timesfm"], 6) == 0.01
-        assert round(payload["results"]["fallback_rate"]["baseline_comparison"]["last_value"]["relative_improvement"], 6) == round(14 / 15, 6)
+        assert round(
+            payload["results"]["fallback_rate"]["baseline_comparison"]["last_value"][
+                "relative_improvement"
+            ],
+            6,
+        ) == round(14 / 15, 6)
 
     run(scenario())
 
@@ -1024,7 +1075,9 @@ def test_botapi_timesfm_forecast_route_keeps_successful_metrics_when_one_fails(t
         def forecaster(series_map, horizon, max_context):
             metric_name = next(iter(series_map))
             if metric_name == "block_rate":
-                raise ValueError("Series 'block_rate' must contain at least 3 points for a holdout split.")
+                raise ValueError(
+                    "Series 'block_rate' must contain at least 3 points for a holdout split."
+                )
             return {
                 metric_name: type(
                     "ForecastResult",
@@ -1080,7 +1133,9 @@ def test_botapi_timesfm_forecast_route_returns_structured_payload_when_all_metri
             enabled=True,
             history_path=str(tmp_path / "runtime_history.jsonl"),
             series_loader=lambda path: {"fallback_rate": object(), "block_rate": object()},
-            forecaster=lambda series_map, horizon, max_context: (_ for _ in ()).throw(ValueError("not enough data")),
+            forecaster=lambda series_map, horizon, max_context: (_ for _ in ()).throw(
+                ValueError("not enough data")
+            ),
         )
         api = BotAPI(
             StubHITL(),

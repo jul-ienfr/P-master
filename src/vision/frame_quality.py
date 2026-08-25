@@ -25,7 +25,9 @@ def _normalize_luma_score(mean: float) -> float:
     return _clamp_score(1.0 - (distance / 127.5))
 
 
-def analyze_frame_quality(frame: np.ndarray, *, captured_at: float | None = None, max_age_ms: float = 300.0) -> FrameQualityReport:
+def analyze_frame_quality(
+    frame: np.ndarray, *, captured_at: float | None = None, max_age_ms: float = 300.0
+) -> FrameQualityReport:
     if frame is None or not isinstance(frame, np.ndarray) or frame.size == 0:
         return FrameQualityReport(rejected=True, reject_reason="empty_frame")
 
@@ -41,7 +43,13 @@ def analyze_frame_quality(frame: np.ndarray, *, captured_at: float | None = None
     contrast_score = _normalize_contrast_score(contrast_std)
     luma_score = _normalize_luma_score(luma_mean)
     freshness_score = _clamp_score(1.0 - (frame_age_ms / max(max_age_ms, 1.0)))
-    quality_score = round((blur_score * 0.35) + (contrast_score * 0.25) + (luma_score * 0.20) + (freshness_score * 0.20), 3)
+    quality_score = round(
+        (blur_score * 0.35)
+        + (contrast_score * 0.25)
+        + (luma_score * 0.20)
+        + (freshness_score * 0.20),
+        3,
+    )
 
     reject_reason = ""
     if frame_age_ms > max_age_ms:

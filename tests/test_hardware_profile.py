@@ -1,4 +1,5 @@
 """Tests Phase 2.0 — auto-détection hardware 3G/12G/CPU."""
+
 import os
 import sys
 from pathlib import Path
@@ -31,9 +32,7 @@ def _clean_env(monkeypatch):
 def _fake_torch(total_bytes, name="Fake GPU", available=True):
     cuda = SimpleNamespace(
         is_available=lambda: available,
-        get_device_properties=lambda idx: SimpleNamespace(
-            total_memory=total_bytes, name=name
-        ),
+        get_device_properties=lambda idx: SimpleNamespace(total_memory=total_bytes, name=name),
         set_per_process_memory_fraction=lambda frac, device=0: calls.append(("cap", frac)),
     )
     calls = []

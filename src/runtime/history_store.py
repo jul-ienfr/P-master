@@ -2,16 +2,20 @@ import json
 import logging
 import re
 from collections import deque
+from collections.abc import Iterable
 from itertools import groupby
 from pathlib import Path
 from shutil import move
-from collections.abc import Iterable
 
 logger = logging.getLogger("RuntimeHistoryStore")
 
 KNOWN_STREAMS = ("events", "decisions", "incidents", "metrics")
 ACTION_SHIFT_RE = re.compile(r"^\s*([A-Za-z_]+)\s*(?:->|=>|to)\s*([A-Za-z_]+)\s*$", re.IGNORECASE)
-POLICY_COMPARE_BATCH_ARTIFACTS = {"policy_compare_batch", "policy_compare_corpus_batch", "review_pack"}
+POLICY_COMPARE_BATCH_ARTIFACTS = {
+    "policy_compare_batch",
+    "policy_compare_corpus_batch",
+    "review_pack",
+}
 POLICY_COMPARE_SINGLE_ARTIFACTS = {"policy_compare_corpus"}
 
 
@@ -248,7 +252,9 @@ class RuntimeHistoryStore:
                     **dict(contract),
                     "name": runtime_review.get("name", contract.get("name")),
                     "version": runtime_review.get("version", contract.get("version")),
-                    "artifact_type": runtime_review.get("artifact_type", contract.get("artifact_type")),
+                    "artifact_type": runtime_review.get(
+                        "artifact_type", contract.get("artifact_type")
+                    ),
                 }
             if any(runtime_review.get(key) for key in ("name", "version", "artifact_type")):
                 return {
@@ -299,7 +305,9 @@ class RuntimeHistoryStore:
             meta.get("artifact_type"),
             meta.get("kind"),
         ]
-        return tuple(str(value or "").strip().lower() for value in candidates if str(value or "").strip())
+        return tuple(
+            str(value or "").strip().lower() for value in candidates if str(value or "").strip()
+        )
 
     @staticmethod
     def _normalize_string(value: object) -> str | None:
@@ -340,7 +348,9 @@ class RuntimeHistoryStore:
         return records if records else None
 
     @classmethod
-    def _coerce_records_from_review_pack_current_replay(cls, current_replay, session_id: str | None = None) -> list[dict] | None:
+    def _coerce_records_from_review_pack_current_replay(
+        cls, current_replay, session_id: str | None = None
+    ) -> list[dict] | None:
         if not isinstance(current_replay, dict):
             return None
 
@@ -362,21 +372,37 @@ class RuntimeHistoryStore:
             hero_ev = cls._safe_float(entry.get("heroEv", entry.get("hero_ev")))
             confidence = cls._normalize_string(entry.get("confidence"))
             incidents = [str(item) for item in (entry.get("incidents") or []) if str(item).strip()]
-            runtime_metrics = [str(item) for item in (entry.get("runtimeMetrics", entry.get("runtime_metrics")) or []) if str(item).strip()]
-            decision_trace = [str(item) for item in (entry.get("decisionTrace", entry.get("decision_trace")) or []) if str(item).strip()]
+            runtime_metrics = [
+                str(item)
+                for item in (entry.get("runtimeMetrics", entry.get("runtime_metrics")) or [])
+                if str(item).strip()
+            ]
+            decision_trace = [
+                str(item)
+                for item in (entry.get("decisionTrace", entry.get("decision_trace")) or [])
+                if str(item).strip()
+            ]
             tags = [str(item) for item in (entry.get("tags") or []) if str(item).strip()]
-            canonical_spot = cls._normalize_string(entry.get("canonicalSpot", entry.get("canonical_spot")))
+            canonical_spot = cls._normalize_string(
+                entry.get("canonicalSpot", entry.get("canonical_spot"))
+            )
             gate_result = cls._normalize_string(entry.get("gateResult", entry.get("gate_result")))
             title = cls._normalize_string(entry.get("title"))
             result = cls._normalize_string(entry.get("result"))
             note = cls._normalize_string(entry.get("note"))
-            chosen_action_raw = cls._normalize_string(entry.get("chosenActionRaw", entry.get("chosen_action_raw")))
+            chosen_action_raw = cls._normalize_string(
+                entry.get("chosenActionRaw", entry.get("chosen_action_raw"))
+            )
             backend = cls._normalize_string(entry.get("backend"))
             cache_hit = entry.get("cacheHit", entry.get("cache_hit"))
             ev_by_action = entry.get("evByAction", entry.get("ev_by_action"))
-            alternatives_payload = entry.get("solverAlternatives", entry.get("solver_alternatives", entry.get("alternatives")))
+            alternatives_payload = entry.get(
+                "solverAlternatives", entry.get("solver_alternatives", entry.get("alternatives"))
+            )
 
-            if not any((action, timestamp, incidents, runtime_metrics, decision_trace, title, note)):
+            if not any(
+                (action, timestamp, incidents, runtime_metrics, decision_trace, title, note)
+            ):
                 continue
 
             record = {
@@ -438,25 +464,35 @@ class RuntimeHistoryStore:
             if isinstance(cache_details, dict) and cache_details:
                 record["cache_details"] = dict(cache_details)
                 solver_metadata["cache_details"] = dict(cache_details)
-            solver_warnings = entry.get("solverWarnings", entry.get("solver_warnings", entry.get("warnings")))
+            solver_warnings = entry.get(
+                "solverWarnings", entry.get("solver_warnings", entry.get("warnings"))
+            )
             if isinstance(solver_warnings, list) and solver_warnings:
-                solver_metadata["warnings"] = [str(item) for item in solver_warnings if str(item).strip()]
+                solver_metadata["warnings"] = [
+                    str(item) for item in solver_warnings if str(item).strip()
+                ]
             if isinstance(alternatives_payload, list) and alternatives_payload:
                 solver_metadata["alternatives"] = [
                     dict(item) for item in alternatives_payload if isinstance(item, dict)
                 ]
-                solver_metadata.setdefault("alternatives_complete", list(solver_metadata["alternatives"]))
+                solver_metadata.setdefault(
+                    "alternatives_complete", list(solver_metadata["alternatives"])
+                )
 
             gto_action = cls._normalize_string(entry.get("gtoAction", entry.get("gto_action")))
             if gto_action:
                 record["gto_action"] = gto_action.upper()
                 solver_metadata["gto_action"] = gto_action.upper()
-            final_action = cls._normalize_string(entry.get("finalAction", entry.get("final_action")))
+            final_action = cls._normalize_string(
+                entry.get("finalAction", entry.get("final_action"))
+            )
             if final_action:
                 record["final_action"] = final_action.upper()
                 solver_metadata["final_action"] = final_action.upper()
 
-            baseline_action, challenger_action = cls._extract_actions_from_shift(entry.get("actionShift", entry.get("action_shift")))
+            baseline_action, challenger_action = cls._extract_actions_from_shift(
+                entry.get("actionShift", entry.get("action_shift"))
+            )
             if baseline_action or challenger_action:
                 record["ab_decision"] = {
                     "comparison": {
@@ -474,8 +510,12 @@ class RuntimeHistoryStore:
         if not isinstance(payload, dict):
             return None
 
-        looks_like_review_pack = isinstance(payload.get("review_pack"), dict) or payload.get("kind") == "review_pack"
-        has_review_pack_timeline = any(key in payload for key in ("currentReplay", "current_replay"))
+        looks_like_review_pack = (
+            isinstance(payload.get("review_pack"), dict) or payload.get("kind") == "review_pack"
+        )
+        has_review_pack_timeline = any(
+            key in payload for key in ("currentReplay", "current_replay")
+        )
         has_nested_review_pack_raw = isinstance(payload.get("raw"), dict) and (
             isinstance(payload.get("review_pack"), dict)
             or payload.get("kind") == "review_pack"
@@ -493,8 +533,12 @@ class RuntimeHistoryStore:
                 pass
 
         current_replay = payload.get("currentReplay", payload.get("current_replay"))
-        session_id = cls._normalize_string(payload.get("sessionLabel", payload.get("session_label")))
-        records = cls._coerce_records_from_review_pack_current_replay(current_replay, session_id=session_id)
+        session_id = cls._normalize_string(
+            payload.get("sessionLabel", payload.get("session_label"))
+        )
+        records = cls._coerce_records_from_review_pack_current_replay(
+            current_replay, session_id=session_id
+        )
         if records is not None:
             return records
 
@@ -507,8 +551,12 @@ class RuntimeHistoryStore:
                 except ValueError:
                     pass
             current_replay = review_pack.get("currentReplay", review_pack.get("current_replay"))
-            session_id = cls._normalize_string(review_pack.get("sessionLabel", review_pack.get("session_label")))
-            records = cls._coerce_records_from_review_pack_current_replay(current_replay, session_id=session_id)
+            session_id = cls._normalize_string(
+                review_pack.get("sessionLabel", review_pack.get("session_label"))
+            )
+            records = cls._coerce_records_from_review_pack_current_replay(
+                current_replay, session_id=session_id
+            )
             if records is not None:
                 return records
         return None
@@ -641,9 +689,15 @@ class RuntimeHistoryStore:
             if runtime_review_artifact_type:
                 artifact_type = runtime_review_artifact_type
             artifact_candidates = set(cls._artifact_candidates(payload))
-            if artifact_type == "records" and (artifact_candidates & POLICY_COMPARE_BATCH_ARTIFACTS or isinstance(payload.get("review_pack"), dict) or payload.get("kind") == "review_pack"):
+            if artifact_type == "records" and (
+                artifact_candidates & POLICY_COMPARE_BATCH_ARTIFACTS
+                or isinstance(payload.get("review_pack"), dict)
+                or payload.get("kind") == "review_pack"
+            ):
                 artifact_type = "review_pack"
-            elif artifact_type == "records" and artifact_candidates & POLICY_COMPARE_SINGLE_ARTIFACTS:
+            elif (
+                artifact_type == "records" and artifact_candidates & POLICY_COMPARE_SINGLE_ARTIFACTS
+            ):
                 artifact_type = "policy_compare_corpus"
             elif artifact_type == "records" and isinstance(payload.get("review_session"), dict):
                 artifact_type = "review_session"

@@ -1,4 +1,5 @@
 """Orchestrateur de détection : YOLO + fallback template (lecture cartes/table)."""
+
 import logging
 from pathlib import Path
 
@@ -33,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 MODEL_PATH_CANDIDATE_SUFFIXES = (".engine", ".onnx", ".pt")
 
+
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
@@ -65,9 +67,7 @@ class PokerDetector:
         resolved_model_path = resolve_model_path(model_path)
 
         if YOLO is None:
-            logger.info(
-                "ultralytics n'est pas disponible. Backend vision template actif."
-            )
+            logger.info("ultralytics n'est pas disponible. Backend vision template actif.")
             return
 
         if resolved_model_path is None:
@@ -103,7 +103,9 @@ class PokerDetector:
     def _has_actionable_button_layout(action_buttons: list[DetectionResult]) -> bool:
         labels = {str(button.class_name or "").lower() for button in action_buttons}
         return "fold_button" in labels and bool(
-            labels.intersection({"call_button", "check_button", "bet_button", "raise_button", "all_in_call_button"})
+            labels.intersection(
+                {"call_button", "check_button", "bet_button", "raise_button", "all_in_call_button"}
+            )
         )
 
     @staticmethod
@@ -113,8 +115,14 @@ class PokerDetector:
 
     def _should_query_llm_for_hero(self, state: TableState) -> bool:
         resolved_hero = _resolved_card_detections(state.hero_cards)
-        has_hero_context = self._has_probable_hero_presence(state) or self._has_actionable_button_layout(state.action_buttons)
-        return bool(state.metadata.get("table_detected")) and len(resolved_hero) < 2 and has_hero_context
+        has_hero_context = self._has_probable_hero_presence(
+            state
+        ) or self._has_actionable_button_layout(state.action_buttons)
+        return (
+            bool(state.metadata.get("table_detected"))
+            and len(resolved_hero) < 2
+            and has_hero_context
+        )
 
     def _hybrid_validate_card(self, crop: np.ndarray, original_class: str) -> str:
         if not self.fallback_detector.presets or crop is None or crop.size == 0:
@@ -134,7 +142,9 @@ class PokerDetector:
                 if corner is None or t_corner is None:
                     continue
 
-                t_corner = cv2.resize(t_corner, (corner.shape[1], corner.shape[0]), interpolation=cv2.INTER_AREA)
+                t_corner = cv2.resize(
+                    t_corner, (corner.shape[1], corner.shape[0]), interpolation=cv2.INTER_AREA
+                )
                 error, _ = _find_template_sqdiff(corner, t_corner)
                 if error < best_error:
                     best_error = error
@@ -164,7 +174,11 @@ class PokerDetector:
             class_name = self.names[cls_id]
 
             # Keep cards with >= 0.05 conf temporarily for extreme logging
-            is_card_class = len(class_name) == 2 and class_name[0] in "23456789TJQKA" and class_name[1] in "shdc"
+            is_card_class = (
+                len(class_name) == 2
+                and class_name[0] in "23456789TJQKA"
+                and class_name[1] in "shdc"
+            )
             min_required_conf = 0.05 if is_card_class else base_conf_threshold
             if conf < min_required_conf:
                 continue
@@ -177,19 +191,27 @@ class PokerDetector:
                 bbox=(x1, y1, x2, y2),
             )
 
-            is_card = bool(decode_card_token(class_name)) or class_name.startswith("card_") or class_name in ("board_card", "hero_card")
+            is_card = (
+                bool(decode_card_token(class_name))
+                or class_name.startswith("card_")
+                or class_name in ("board_card", "hero_card")
+            )
 
             # HYBRID FALLBACK: Si YOLO doute d'une carte (conf < 0.82), on demande à OpenCV Templates
             if is_card and conf < 0.82 and decode_card_token(class_name):
                 crop = _crop_frame(frame, (x1, y1, x2, y2))
                 validated_class = self._hybrid_validate_card(crop, class_name)
                 if validated_class != class_name:
-                    logger.info(f"[HYBRID] YOLO uncertain ({conf:.2f}) on {class_name}. Corrected to {validated_class} via Template Matching.")
+                    logger.info(
+                        f"[HYBRID] YOLO uncertain ({conf:.2f}) on {class_name}. Corrected to {validated_class} via Template Matching."
+                    )
                     class_name = validated_class
 
             detection.class_name = class_name
             if is_card:
-                logger.info(f"[YOLO DEBUG] Raw card candidate: cls={class_name} conf={conf:.3f} y1={y1}")
+                logger.info(
+                    f"[YOLO DEBUG] Raw card candidate: cls={class_name} conf={conf:.3f} y1={y1}"
+                )
                 height = frame.shape[0]
                 if class_name == "hero_card" or y1 > height * 0.58:
                     state.hero_cards.append(detection)
@@ -230,7 +252,9 @@ class PokerDetector:
         fallback_state = self.fallback_detector.analyze_frame(frame)
         preset_name = fallback_state.metadata.get("fallback_preset")
         if preset_name and preset_name != self._last_fallback_preset_name:
-            logger.info("Backend vision template actif: table reconnue via le preset '%s'.", preset_name)
+            logger.info(
+                "Backend vision template actif: table reconnue via le preset '%s'.", preset_name
+            )
         self._last_fallback_preset_name = preset_name or self._last_fallback_preset_name
         return fallback_state
 
@@ -266,7 +290,9 @@ class PokerDetector:
                 fallback_state = self._run_template_fallback(frame)
                 if fallback_state.metadata.get("table_detected"):
                     state.metadata["table_detected"] = True
-                    state.metadata["detector_mode"] = str(fallback_state.metadata.get("detector_mode") or "template")
+                    state.metadata["detector_mode"] = str(
+                        fallback_state.metadata.get("detector_mode") or "template"
+                    )
                     for key in (
                         "fallback_preset",
                         "topleft_anchor_asset",
@@ -292,10 +318,12 @@ class PokerDetector:
                         from datetime import datetime
 
                         import cv2
+
                         os.makedirs("dataset/needs_annotation", exist_ok=True)
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
                         cv2.imwrite(f"dataset/needs_annotation/al_openvl_{timestamp}.jpg", frame)
-                    except: pass
+                    except:
+                        pass
                 if fallback_state.board_cards and not state.board_cards:
                     state.board_cards = fallback_state.board_cards
                 if fallback_state.action_buttons and not state.action_buttons:
@@ -346,7 +374,10 @@ class PokerDetector:
                         if len(llm_hero) == 2:
                             llm_hero = _dedupe_card_detections(llm_hero, detection_sort_key)
                             if len(llm_hero) == 2:
-                                logger.info("API LLM a validé les cartes: %s", [card.class_name for card in llm_hero])
+                                logger.info(
+                                    "API LLM a validé les cartes: %s",
+                                    [card.class_name for card in llm_hero],
+                                )
                                 state.hero_cards = llm_hero
                                 state.metadata["table_detected"] = True
                                 # Active Learning Automatique
@@ -355,6 +386,7 @@ class PokerDetector:
                                     from datetime import datetime
 
                                     import cv2
+
                                     yolo_txt = self.ai_fallback.convert_to_yolo_format(boxes, w, h)
                                     os.makedirs("dataset/raw_images", exist_ok=True)
                                     os.makedirs("dataset/labels", exist_ok=True)
@@ -362,7 +394,8 @@ class PokerDetector:
                                     cv2.imwrite(f"dataset/raw_images/al_llm_{timestamp}.jpg", frame)
                                     with open(f"dataset/labels/al_llm_{timestamp}.txt", "w") as f:
                                         f.write(yolo_txt)
-                                except: pass
+                                except:
+                                    pass
 
         return state
 

@@ -26,7 +26,9 @@ class NumericConsensus:
         if value is None:
             history = tuple(self._history)
             if history:
-                return NumericConsensusResult(value=history[-1], state="stale", support=0, history=history)
+                return NumericConsensusResult(
+                    value=history[-1], state="stale", support=0, history=history
+                )
             return NumericConsensusResult(value=None, state="empty", support=0, history=())
 
         self._history.append(float(value))
@@ -34,8 +36,12 @@ class NumericConsensus:
         support = sum(1 for item in history if self._is_similar(item, float(value)))
         threshold = 2 if self.history_size >= 3 else 1
         if support >= threshold:
-            return NumericConsensusResult(value=float(value), state="confirmed", support=support, history=history)
-        return NumericConsensusResult(value=float(value), state="tentative", support=support, history=history)
+            return NumericConsensusResult(
+                value=float(value), state="confirmed", support=support, history=history
+            )
+        return NumericConsensusResult(
+            value=float(value), state="tentative", support=support, history=history
+        )
 
     def reset(self) -> None:
         self._history.clear()

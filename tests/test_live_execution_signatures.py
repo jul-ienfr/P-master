@@ -1,4 +1,5 @@
 """Tests des signatures et gardes de décision live (src/bot/live_execution.py)."""
+
 import sys
 from pathlib import Path
 
@@ -43,13 +44,22 @@ def test_normalize_helpers():
     assert LiveExecutionMixin._normalize_live_execution_pot(None) == 0.0
     assert LiveExecutionMixin._normalize_live_execution_pot("12.35") == 12.3
     assert LiveExecutionMixin._normalize_live_execution_pot(-5) == 0.0
-    assert LiveExecutionMixin._normalize_live_execution_actions(["fold", " FOLD ", "call"]) == ("FOLD", "CALL")
-    assert LiveExecutionMixin._normalize_live_execution_buttons(["Call_Button", "fold_button"]) == ("call_button", "fold_button")
+    assert LiveExecutionMixin._normalize_live_execution_actions(["fold", " FOLD ", "call"]) == (
+        "FOLD",
+        "CALL",
+    )
+    assert LiveExecutionMixin._normalize_live_execution_buttons(["Call_Button", "fold_button"]) == (
+        "call_button",
+        "fold_button",
+    )
 
 
 def test_extract_actionable_runtime_buttons_filters_generic_labels():
     buttons = ("fold_button", "resume_hand", "im_back", "bet_button", "table_info")
-    assert LiveExecutionMixin._extract_actionable_runtime_buttons(buttons) == ("fold_button", "bet_button")
+    assert LiveExecutionMixin._extract_actionable_runtime_buttons(buttons) == (
+        "fold_button",
+        "bet_button",
+    )
 
 
 def test_material_signature_covers_spot_street_cards_pot_buttons_and_seat():

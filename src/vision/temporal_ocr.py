@@ -7,25 +7,30 @@ from src.vision.ocr import PokerOCR
 
 logger = logging.getLogger(__name__)
 
+
 class TemporalOCRFilter:
     """
     Bouclier anti-hallucination OCR basé sur le lissage temporel.
-    Stocke les N dernières lectures d'une zone (ex: le pot) et 
+    Stocke les N dernières lectures d'une zone (ex: le pot) et
     ne valide une nouvelle valeur que si elle est stable sur plusieurs frames.
     """
-    def __init__(self, history_size: int = 3, engine_mode: str = "consensus_amounts", enabled_engines: list[str] = None):
+
+    def __init__(
+        self,
+        history_size: int = 3,
+        engine_mode: str = "consensus_amounts",
+        enabled_engines: list[str] = None,
+    ):
         self.history_size = history_size
         self._amount_history: deque[float] = deque(maxlen=history_size)
         self._text_history: deque[str] = deque(maxlen=history_size)
 
         # Instance sous-jacente du moteur OCR multi-engines
-        self.ocr_engine = PokerOCR(
-            enabled_engines=enabled_engines,
-            mode=engine_mode,
-            parallel=True
-        )
+        self.ocr_engine = PokerOCR(enabled_engines=enabled_engines, mode=engine_mode, parallel=True)
 
-    def read_stable_amount(self, image_crop: np.ndarray, tolerance: float = 0.05, chip_count: int | None = None) -> float | None:
+    def read_stable_amount(
+        self, image_crop: np.ndarray, tolerance: float = 0.05, chip_count: int | None = None
+    ) -> float | None:
         """
         Lit un montant et le lisse temporellement.
         tolérance: Différence acceptable (en %) pour considérer que deux lectures sont "les mêmes".
@@ -36,7 +41,9 @@ class TemporalOCRFilter:
         # --- Sanity Check YOLO vs OCR ---
         if raw_amount is not None and chip_count is not None:
             if chip_count == 0 and raw_amount > 0.0:
-                logger.warning(f"Sanity Check Echoue: L'OCR lit {raw_amount} mais YOLO ne voit AUCUN jeton (chip_count=0).")
+                logger.warning(
+                    f"Sanity Check Echoue: L'OCR lit {raw_amount} mais YOLO ne voit AUCUN jeton (chip_count=0)."
+                )
 
         if raw_amount is None:
             # Si on ne lit rien, on ne casse pas l'historique tout de suite
@@ -60,7 +67,9 @@ class TemporalOCRFilter:
         # On cherche s'il y a un consensus majoritaire
         for val in set(recent_values):
             # Compte combien de valeurs dans l'historique sont "proches" de 'val'
-            similar_count = sum(1 for v in recent_values if abs(v - val) <= (val * tolerance + 0.01))
+            similar_count = sum(
+                1 for v in recent_values if abs(v - val) <= (val * tolerance + 0.01)
+            )
 
             # Si plus de la moitié des frames (ex: 2 sur 3) voient ce montant, on le valide
             if similar_count >= (self.history_size / 2.0):
@@ -90,6 +99,7 @@ class TemporalOCRFilter:
             return ""
 
         from collections import Counter
+
         # Pour le texte, on veut une correspondance exacte
         counts = Counter(self._text_history)
         most_common_text, count = counts.most_common(1)[0]

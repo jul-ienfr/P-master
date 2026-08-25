@@ -1,4 +1,5 @@
 """Tests du contexte de capture et du snapshot pot rapide (src/runtime/capture_context.py)."""
+
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -36,7 +37,9 @@ def make_controller():
                 reset_pot_reconciliation=lambda: resets.__setitem__("pot", resets["pot"] + 1)
             )
             self.runtime_sanity = SimpleNamespace(
-                reset_pot_reconciliation=lambda: resets.__setitem__("runtime_pot", resets["runtime_pot"] + 1)
+                reset_pot_reconciliation=lambda: resets.__setitem__(
+                    "runtime_pot", resets["runtime_pot"] + 1
+                )
             )
             self._last_capture_region_refresh_at = 0.0
             self._capture_region_refresh_interval_s = 5.0

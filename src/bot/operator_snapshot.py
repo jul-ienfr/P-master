@@ -1,4 +1,5 @@
 """Snapshots opérateur/observation/HITL et état du bridge runtime (extrait de src/main.py)."""
+
 import asyncio
 import logging
 
@@ -62,7 +63,9 @@ class OperatorSnapshotMixin:
 
     def _build_observation_snapshot(self) -> dict[str, object]:
         database = getattr(self, "db", None)
-        summary = dict(database.summarize_observation(limit=5) or {}) if database is not None else {}
+        summary = (
+            dict(database.summarize_observation(limit=5) or {}) if database is not None else {}
+        )
         operator = self._build_operator_snapshot()
         mode_enabled = bool(operator.get("observation_mode_enabled", False))
         operator_status = str(operator.get("status") or "offline")
@@ -93,7 +96,9 @@ class OperatorSnapshotMixin:
         if collector is None:
             return
         try:
-            collector.maybe_capture(frame=frame, canonical_state=canonical_state, detector_state=detector_state)
+            collector.maybe_capture(
+                frame=frame, canonical_state=canonical_state, detector_state=detector_state
+            )
         except Exception as exc:
             logger.warning("Capture observation YOLO ignoree: %s", exc)
 
@@ -108,8 +113,16 @@ class OperatorSnapshotMixin:
         self._observation_capture_task_running = True
         try:
             frame_copy = frame.copy() if isinstance(frame, np.ndarray) else frame
-            canonical_copy = canonical_state.model_copy(deep=True) if hasattr(canonical_state, "model_copy") else canonical_state
-            detector_copy = self._copy_table_state(detector_state) if detector_state is not None else detector_state
+            canonical_copy = (
+                canonical_state.model_copy(deep=True)
+                if hasattr(canonical_state, "model_copy")
+                else canonical_state
+            )
+            detector_copy = (
+                self._copy_table_state(detector_state)
+                if detector_state is not None
+                else detector_state
+            )
             await asyncio.to_thread(
                 self._capture_observation_dataset_sample,
                 frame_copy,
@@ -119,10 +132,17 @@ class OperatorSnapshotMixin:
         finally:
             self._observation_capture_task_running = False
 
-    def _export_observation_dataset(self, player_limit: int = 50, hand_limit: int = 100) -> dict[str, object]:
-        dataset = dict(self.db.export_observation_dataset(player_limit=player_limit, hand_limit=hand_limit) or {})
+    def _export_observation_dataset(
+        self, player_limit: int = 50, hand_limit: int = 100
+    ) -> dict[str, object]:
+        dataset = dict(
+            self.db.export_observation_dataset(player_limit=player_limit, hand_limit=hand_limit)
+            or {}
+        )
         dataset["session_id"] = self._get_runtime_session_id()
-        dataset["mode_enabled"] = bool(self._build_operator_snapshot().get("observation_mode_enabled", False))
+        dataset["mode_enabled"] = bool(
+            self._build_operator_snapshot().get("observation_mode_enabled", False)
+        )
         dataset["is_running"] = bool(self.is_running)
         return dataset
 
@@ -203,7 +223,9 @@ class OperatorSnapshotMixin:
         return next_snapshot
 
     def _build_hitl_snapshot(self) -> dict[str, object]:
-        current_issue = self.hitl.current_issue if isinstance(self.hitl.current_issue, dict) else None
+        current_issue = (
+            self.hitl.current_issue if isinstance(self.hitl.current_issue, dict) else None
+        )
         serialized_issue = None
         if current_issue is not None:
             serialized_issue = {
@@ -223,7 +245,11 @@ class OperatorSnapshotMixin:
         }
 
     def _build_runtime_bridge_state(self) -> dict[str, object]:
-        health_snapshot = self.health_monitor.snapshot() if getattr(self, "health_monitor", None) is not None else {}
+        health_snapshot = (
+            self.health_monitor.snapshot()
+            if getattr(self, "health_monitor", None) is not None
+            else {}
+        )
         history = {
             "events": list(self.runtime_event_history),
             "decisions": list(self.decision_trace_history),
@@ -236,9 +262,20 @@ class OperatorSnapshotMixin:
             },
         }
         local_metrics = self._build_local_metrics(history)
-        metrics_snapshot = self._build_persisted_metrics_snapshot(local_metrics, history, self.runtime_history_store.summarize())
+        metrics_snapshot = self._build_persisted_metrics_snapshot(
+            local_metrics, history, self.runtime_history_store.summarize()
+        )
         current_readiness = dict(self.last_decision_summary.get("runtime_readiness", {}) or {})
-        current_validation = dict((self.last_resolved_runtime_state or {}).get("metadata", {}).get("poker_state_validation", {}) or {}) if isinstance(getattr(self, "last_resolved_runtime_state", None), dict) else {}
+        current_validation = (
+            dict(
+                (self.last_resolved_runtime_state or {})
+                .get("metadata", {})
+                .get("poker_state_validation", {})
+                or {}
+            )
+            if isinstance(getattr(self, "last_resolved_runtime_state", None), dict)
+            else {}
+        )
         go_live_gate = evaluate_go_live_gate(
             local_metrics,
             metrics_snapshot,
@@ -256,15 +293,23 @@ class OperatorSnapshotMixin:
             "version": "v2",
             "runtime_api_port": self.runtime_api_port,
             "tracker": dict(self.last_tracker_snapshot),
-            "canonical_spot": dict(self.last_canonical_spot_snapshot) if isinstance(self.last_canonical_spot_snapshot, dict) else None,
+            "canonical_spot": dict(self.last_canonical_spot_snapshot)
+            if isinstance(self.last_canonical_spot_snapshot, dict)
+            else None,
             "gate": self.last_gate_result.to_dict(),
             "decision": dict(self.last_decision_summary),
             "readiness": dict(self.last_decision_summary.get("runtime_readiness", {}) or {}),
             "go_live_gate": go_live_gate.to_dict(),
             "health": health_snapshot,
-            "active_solver_backend": self.solver_provider.active_backend() if getattr(self, "solver_provider", None) is not None else "fallback",
-            "degraded_reasons": self.health_monitor.degraded_reasons() if getattr(self, "health_monitor", None) is not None else [],
-            "last_success_at": self.health_monitor.overall_last_success_at() if getattr(self, "health_monitor", None) is not None else None,
+            "active_solver_backend": self.solver_provider.active_backend()
+            if getattr(self, "solver_provider", None) is not None
+            else "fallback",
+            "degraded_reasons": self.health_monitor.degraded_reasons()
+            if getattr(self, "health_monitor", None) is not None
+            else [],
+            "last_success_at": self.health_monitor.overall_last_success_at()
+            if getattr(self, "health_monitor", None) is not None
+            else None,
             "operator": self._build_operator_snapshot(),
             "observation": self._build_observation_snapshot(),
             "loop_stage": str(getattr(self, "_loop_stage", "")),
@@ -363,9 +408,20 @@ class OperatorSnapshotMixin:
             "persisted": persisted_history,
         }
         local_metrics = self._build_local_metrics(history)
-        metrics_snapshot = self._build_persisted_metrics_snapshot(local_metrics, history, persistence)
+        metrics_snapshot = self._build_persisted_metrics_snapshot(
+            local_metrics, history, persistence
+        )
         current_readiness = dict(self.last_decision_summary.get("runtime_readiness", {}) or {})
-        current_validation = dict((self.last_resolved_runtime_state or {}).get("metadata", {}).get("poker_state_validation", {}) or {}) if isinstance(getattr(self, "last_resolved_runtime_state", None), dict) else {}
+        current_validation = (
+            dict(
+                (self.last_resolved_runtime_state or {})
+                .get("metadata", {})
+                .get("poker_state_validation", {})
+                or {}
+            )
+            if isinstance(getattr(self, "last_resolved_runtime_state", None), dict)
+            else {}
+        )
         go_live_gate = evaluate_go_live_gate(
             local_metrics,
             metrics_snapshot,
@@ -379,11 +435,11 @@ class OperatorSnapshotMixin:
         combined_decisions = dedupe_runtime_ab_decisions(
             list(history["decisions"]) + list(persisted_history["decisions"])
         )
-        combined_ab_summary = build_runtime_ab_summary(
-            combined_decisions
-        )
+        combined_ab_summary = build_runtime_ab_summary(combined_decisions)
         runtime_policy_compare_summary = build_policy_compare_summary(history["decisions"])
-        persisted_policy_compare_summary = build_policy_compare_summary(persisted_history["decisions"])
+        persisted_policy_compare_summary = build_policy_compare_summary(
+            persisted_history["decisions"]
+        )
         combined_policy_compare_summary = build_policy_compare_summary(combined_decisions)
         if not history["metrics"]:
             history["metrics"] = [metrics_snapshot]
@@ -395,7 +451,13 @@ class OperatorSnapshotMixin:
             "version": "v2",
             "session_id": self._get_runtime_session_id(),
             "tracker": self.last_tracker_snapshot,
-            "canonical_spot": dict(getattr(self, "last_resolved_runtime_state", None)) if isinstance(getattr(self, "last_resolved_runtime_state", None), dict) else (dict(self.last_canonical_spot_snapshot) if isinstance(self.last_canonical_spot_snapshot, dict) else None),
+            "canonical_spot": dict(getattr(self, "last_resolved_runtime_state", None))
+            if isinstance(getattr(self, "last_resolved_runtime_state", None), dict)
+            else (
+                dict(self.last_canonical_spot_snapshot)
+                if isinstance(self.last_canonical_spot_snapshot, dict)
+                else None
+            ),
             "gate": self.last_gate_result.to_dict(),
             "decision": self.last_decision_summary,
             "readiness": dict(self.last_decision_summary.get("runtime_readiness", {}) or {}),
@@ -413,18 +475,32 @@ class OperatorSnapshotMixin:
                 "incident_count": len(history["incidents"]),
                 "metrics_count": len(history["metrics"]),
                 "latest_event_at": history["events"][0]["timestamp"] if history["events"] else None,
-                "latest_decision_at": history["decisions"][0]["timestamp"] if history["decisions"] else None,
-                "latest_incident_at": history["incidents"][0]["timestamp"] if history["incidents"] else None,
-                "latest_metrics_at": history["metrics"][0]["timestamp"] if history["metrics"] else None,
+                "latest_decision_at": history["decisions"][0]["timestamp"]
+                if history["decisions"]
+                else None,
+                "latest_incident_at": history["incidents"][0]["timestamp"]
+                if history["incidents"]
+                else None,
+                "latest_metrics_at": history["metrics"][0]["timestamp"]
+                if history["metrics"]
+                else None,
                 "metrics_window_size": local_metrics["window_size"],
                 "persisted_event_count": len(persisted_history["events"]),
                 "persisted_decision_count": len(persisted_history["decisions"]),
                 "persisted_incident_count": len(persisted_history["incidents"]),
                 "persisted_metrics_count": len(persisted_history["metrics"]),
-                "latest_persisted_event_at": persisted_history["events"][0]["timestamp"] if persisted_history["events"] else None,
-                "latest_persisted_decision_at": persisted_history["decisions"][0]["timestamp"] if persisted_history["decisions"] else None,
-                "latest_persisted_incident_at": persisted_history["incidents"][0]["timestamp"] if persisted_history["incidents"] else None,
-                "latest_persisted_metrics_at": persisted_history["metrics"][0]["timestamp"] if persisted_history["metrics"] else None,
+                "latest_persisted_event_at": persisted_history["events"][0]["timestamp"]
+                if persisted_history["events"]
+                else None,
+                "latest_persisted_decision_at": persisted_history["decisions"][0]["timestamp"]
+                if persisted_history["decisions"]
+                else None,
+                "latest_persisted_incident_at": persisted_history["incidents"][0]["timestamp"]
+                if persisted_history["incidents"]
+                else None,
+                "latest_persisted_metrics_at": persisted_history["metrics"][0]["timestamp"]
+                if persisted_history["metrics"]
+                else None,
                 "rl_ab": {
                     "runtime": runtime_ab_summary,
                     "persisted": persisted_ab_summary,
@@ -438,4 +514,3 @@ class OperatorSnapshotMixin:
                 "persistence": persistence,
             },
         }
-

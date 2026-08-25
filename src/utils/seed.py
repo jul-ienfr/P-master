@@ -5,6 +5,7 @@ PyTorch (+CUDA), PYTHONHASHSEED et CUBLAS_WORKSPACE_CONFIG.
 
 À appeler en tête de src/main.py et de tout script d'entraînement/eval.
 """
+
 from __future__ import annotations
 
 import logging

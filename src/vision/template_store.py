@@ -1,4 +1,5 @@
 """Chargement des presets templates (extrait de src/vision/detector.py)."""
+
 import json
 import logging
 from dataclasses import dataclass
@@ -20,7 +21,6 @@ BUILTIN_PRESET_MANIFESTS = (
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
-
 
 
 def _load_cv2_image(path: Path) -> np.ndarray:
@@ -76,8 +76,6 @@ class TemplatePreset:
     dealer_template: np.ndarray | None
     table_width: int
     table_height: int
-
-
 
 
 def load_presets(preset_manifests: list[Path]) -> list[TemplatePreset]:

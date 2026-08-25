@@ -13,6 +13,7 @@ from src.vision.capture import ScreenCapture
 
 try:
     import win32gui
+
     WIN32_AVAILABLE = True
 except ImportError:
     WIN32_AVAILABLE = False
@@ -53,46 +54,61 @@ def get_poker_window():
     win32gui.EnumWindows(callback, None)
     return found_hwnd
 
+
 def extract_table_info_from_title(title: str):
     title_lower = title.lower()
 
     # 1. Site
     site = "UnknownSite"
-    if "pokerstars" in title_lower: site = "PokerStars"
-    elif "winamax" in title_lower: site = "Winamax"
-    elif "partypoker" in title_lower: site = "PartyPoker"
+    if "pokerstars" in title_lower:
+        site = "PokerStars"
+    elif "winamax" in title_lower:
+        site = "Winamax"
+    elif "partypoker" in title_lower:
+        site = "PartyPoker"
 
     # 2. Variante
     variant = "UnknownVariant"
-    if "nlhe" in title_lower or "hold'em" in title_lower or "holdem" in title_lower: variant = "NLHE"
-    elif "plo" in title_lower or "omaha" in title_lower: variant = "PLO"
+    if "nlhe" in title_lower or "hold'em" in title_lower or "holdem" in title_lower:
+        variant = "NLHE"
+    elif "plo" in title_lower or "omaha" in title_lower:
+        variant = "PLO"
 
     # 3. Format
     format_table = "UnknownFormat"
-    if "6 max" in title_lower or "6-max" in title_lower or "6max" in title_lower: format_table = "6Max"
-    elif "9 max" in title_lower or "9-max" in title_lower or "9max" in title_lower: format_table = "9Max"
-    elif "heads-up" in title_lower or "heads up" in title_lower or " hu " in title_lower: format_table = "HeadsUp"
-    elif "8 max" in title_lower or "8-max" in title_lower: format_table = "8Max"
+    if "6 max" in title_lower or "6-max" in title_lower or "6max" in title_lower:
+        format_table = "6Max"
+    elif "9 max" in title_lower or "9-max" in title_lower or "9max" in title_lower:
+        format_table = "9Max"
+    elif "heads-up" in title_lower or "heads up" in title_lower or " hu " in title_lower:
+        format_table = "HeadsUp"
+    elif "8 max" in title_lower or "8-max" in title_lower:
+        format_table = "8Max"
 
     return site, variant, format_table
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Capture automatique des tables de Poker pour creer un Dataset YOLO")
+    parser = argparse.ArgumentParser(
+        description="Capture automatique des tables de Poker pour creer un Dataset YOLO"
+    )
     parser.add_argument("--interval", type=float, default=5.0, help="Intervalle en secondes")
     parser.add_argument("--max-images", type=int, default=100, help="Nombre max")
     args = parser.parse_args()
 
     hwnd = get_poker_window()
     if not hwnd:
-        print("\n❌ Table de Poker introuvable. Assurez-vous d'avoir ouvert la fenêtre du jeu cible.")
+        print(
+            "\n❌ Table de Poker introuvable. Assurez-vous d'avoir ouvert la fenêtre du jeu cible."
+        )
         return
 
     window_title = win32gui.GetWindowText(hwnd)
     site, variant, format_table = extract_table_info_from_title(window_title)
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("  📸 DETECTION AUTOMATIQUE DE LA TABLE")
-    print("="*60)
+    print("=" * 60)
     print(f"🌍 Site détecté   : {site}")
     print(f"🃏 Variante       : {variant}")
     print(f"🪑 Format         : {format_table}")
@@ -139,6 +155,7 @@ def main():
         cap.stop()
         print(f"✅ Terminé. {count} images récoltées dans {out_dir}")
         print("-> Prochaine étape : Utiliser src/vision/auto_annotator.py pour annoter ces images.")
+
 
 if __name__ == "__main__":
     main()

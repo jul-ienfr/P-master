@@ -4,6 +4,7 @@ Utilitaires purs : normalisation main/position, notation combo,
 appartenance à une range, fast-path preflop. Aucun changement
 comportemental — les tests existants font office de garde-fou.
 """
+
 from __future__ import annotations
 
 from functools import lru_cache
@@ -151,7 +152,9 @@ def run_preflop_fast_path(
         if facing_raise:
             if aggressive_action and combo_in_range(hero_combo, PREFLOP_FAST_3BET_RANGE):
                 chosen_action = aggressive_action
-                dynamic_amount = pot * 3.2 if normalized_hero_position in ["SB", "BB"] else pot * 2.8
+                dynamic_amount = (
+                    pot * 3.2 if normalized_hero_position in ["SB", "BB"] else pot * 2.8
+                )
             elif "CALL" in legal_actions:
                 chosen_action = "CALL"
             elif "CHECK" in legal_actions:

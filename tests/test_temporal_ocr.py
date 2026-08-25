@@ -1,4 +1,5 @@
 """Tests du filtre OCR temporel anti-hallucination (src/vision/temporal_ocr.py)."""
+
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -18,8 +19,8 @@ def make_filter(history_size=3, amounts=None, texts=None):
     f._amount_history = __import__("collections").deque(maxlen=history_size)
     f._text_history = __import__("collections").deque(maxlen=history_size)
     f.ocr_engine = SimpleNamespace(
-        read_and_parse_amount=lambda crop: (amounts.pop(0) if amounts else None),
-        read_text=lambda crop: (texts.pop(0) if texts else ""),
+        read_and_parse_amount=lambda crop: amounts.pop(0) if amounts else None,
+        read_text=lambda crop: texts.pop(0) if texts else "",
     )
     return f
 

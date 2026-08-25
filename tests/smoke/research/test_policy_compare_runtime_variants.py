@@ -88,7 +88,7 @@ def test_botapi_policy_compare_export_includes_ab_variants_same_spot():
                 "alternatives": [
                     {"action": "FOLD", "raw_action": "FOLD", "freq": 0.62, "ev": -0.15},
                     {"action": "BET", "raw_action": "BET_75", "freq": 0.38, "ev": 0.41},
-                ]
+                ],
             }
         },
         "ab_decision": {
@@ -113,15 +113,19 @@ def test_botapi_policy_compare_export_includes_ab_variants_same_spot():
                 "players": [{"seat_id": "hero", "stack": 100.0, "is_hero": True}],
                 "legal_actions": ["FOLD", "CALL", "BET"],
                 "metadata": {"hero_seat_id": "btn"},
-            }
+            },
         },
         runtime_history_store=FakeHistoryStore([decision_record]),
     )
 
     payload = json.loads(
-        __import__("asyncio").run(
-            api.handle_runtime_history_export(FakeQueryRequest({"stream": "decisions", "format": "policy_compare"}))
-        ).text
+        __import__("asyncio")
+        .run(
+            api.handle_runtime_history_export(
+                FakeQueryRequest({"stream": "decisions", "format": "policy_compare"})
+            )
+        )
+        .text
     )
 
     assert payload["kind"] == "policy_compare_corpus"
@@ -149,7 +153,9 @@ def test_botapi_policy_compare_export_includes_ab_variants_same_spot():
     assert payload["records"][0]["solver_id"] == "native-postflop"
     assert payload["records"][0]["preset_id"] == "preflop_open_btn"
     assert payload["records"][0]["action_buckets"] == ["FOLD", "BET_75"]
-    assert payload["records"][0]["warning_details"] == [{"code": "subtree_reused", "detail": "cached node"}]
+    assert payload["records"][0]["warning_details"] == [
+        {"code": "subtree_reused", "detail": "cached node"}
+    ]
     assert payload["records"][0]["alternatives"] == [
         {"action": "FOLD", "raw_action": "FOLD", "freq": 0.62, "ev": -0.15},
         {"action": "BET", "raw_action": "BET_75", "freq": 0.38, "ev": 0.41},
@@ -160,7 +166,9 @@ def test_botapi_policy_compare_export_includes_ab_variants_same_spot():
     assert payload["records"][0]["metadata"]["cache_hit"] is True
     assert payload["records"][0]["metadata"]["elapsed_ms"] == 9.0
     assert payload["records"][0]["metadata"]["node_count"] == 512
-    assert payload["records"][0]["metadata"]["warning_details"] == [{"code": "subtree_reused", "detail": "cached node"}]
+    assert payload["records"][0]["metadata"]["warning_details"] == [
+        {"code": "subtree_reused", "detail": "cached node"}
+    ]
 
 
 def test_policy_compare_loader_and_summary_support_runtime_ab_variants(tmp_path):
@@ -202,8 +210,18 @@ def test_policy_compare_loader_and_summary_support_runtime_ab_variants(tmp_path)
                             "metadata": {
                                 "solver": {
                                     "alternatives": [
-                                        {"action": "FOLD", "raw_action": "FOLD", "freq": 0.62, "ev": -0.15},
-                                        {"action": "BET", "raw_action": "BET_75", "freq": 0.38, "ev": 0.41},
+                                        {
+                                            "action": "FOLD",
+                                            "raw_action": "FOLD",
+                                            "freq": 0.62,
+                                            "ev": -0.15,
+                                        },
+                                        {
+                                            "action": "BET",
+                                            "raw_action": "BET_75",
+                                            "freq": 0.38,
+                                            "ev": 0.41,
+                                        },
                                     ]
                                 }
                             },
@@ -235,7 +253,9 @@ def test_policy_compare_loader_and_summary_support_runtime_ab_variants(tmp_path)
     }
     assert records[0].ev_by_action == {"FOLD": -0.15, "BET": 0.41}
 
-    summary = build_policy_compare_summary(records, baseline_policy="rl_off", challenger_policy="rl_on")
+    summary = build_policy_compare_summary(
+        records, baseline_policy="rl_off", challenger_policy="rl_on"
+    )
 
     assert summary["available_policies"] == ["gto_solver", "rl_off", "rl_on", "validated_rl"]
     assert summary["pairwise"][0]["comparable_records"] == 1
@@ -266,9 +286,13 @@ def test_botapi_policy_compare_export_uses_existing_compact_ev_by_action_when_pr
     )
 
     payload = json.loads(
-        __import__("asyncio").run(
-            api.handle_runtime_history_export(FakeQueryRequest({"stream": "decisions", "format": "policy_compare"}))
-        ).text
+        __import__("asyncio")
+        .run(
+            api.handle_runtime_history_export(
+                FakeQueryRequest({"stream": "decisions", "format": "policy_compare"})
+            )
+        )
+        .text
     )
 
     assert payload["records"][0]["ev_by_action"] == {"CALL": 0.18, "FOLD": -0.22}
@@ -310,8 +334,7 @@ def test_botapi_policy_compare_summary_exposes_compact_spot_examples():
     rl_pair = next(
         comparison
         for comparison in summary["comparisons"]
-        if comparison["baseline_policy"] == "rl_off"
-        and comparison["challenger_policy"] == "rl_on"
+        if comparison["baseline_policy"] == "rl_off" and comparison["challenger_policy"] == "rl_on"
     )
     assert rl_pair["sample_ids"] == ["live:PREFLOP:001@2026-04-11T12:00:01Z"]
     assert rl_pair["top_spots"] == [
@@ -329,7 +352,10 @@ def test_botapi_policy_compare_summary_exposes_compact_spot_examples():
             "ev_delta": 0.56,
         }
     ]
-    assert summary["highlights"]["most_divergent_pair"]["divergence_examples"][0]["sample_id"] == "live:PREFLOP:001@2026-04-11T12:00:01Z"
+    assert (
+        summary["highlights"]["most_divergent_pair"]["divergence_examples"][0]["sample_id"]
+        == "live:PREFLOP:001@2026-04-11T12:00:01Z"
+    )
     assert summary["highlights"]["top_spots"][0]["spot_id"] == "live:PREFLOP:001"
 
 
@@ -396,9 +422,13 @@ def test_botapi_policy_compare_batch_export_is_loadable_as_multi_session_corpus(
     )
 
     payload = json.loads(
-        __import__("asyncio").run(
-            api.handle_runtime_history_export(FakeQueryRequest({"stream": "decisions", "format": "policy_compare_batch"}))
-        ).text
+        __import__("asyncio")
+        .run(
+            api.handle_runtime_history_export(
+                FakeQueryRequest({"stream": "decisions", "format": "policy_compare_batch"})
+            )
+        )
+        .text
     )
 
     assert payload["kind"] == "policy_compare_corpus_batch"
@@ -407,7 +437,10 @@ def test_botapi_policy_compare_batch_export_is_loadable_as_multi_session_corpus(
     assert payload["runtime_review"]["artifact_type"] == "policy_compare_batch"
     assert payload["runtime_review"]["artifact"]["sessions"][0]["session_id"] == "runtime-session-a"
     assert payload["review_pack"]["contract"]["artifact_type"] == "review_pack"
-    assert [session["session_id"] for session in payload["sessions"]] == ["runtime-session-a", "runtime-session-b"]
+    assert [session["session_id"] for session in payload["sessions"]] == [
+        "runtime-session-a",
+        "runtime-session-b",
+    ]
     assert payload["sessions"][0]["record_count"] == 1
     assert payload["sessions"][1]["record_count"] == 1
 
@@ -444,7 +477,9 @@ def test_botapi_review_contract_export_and_import_coerce_nested_wrappers(tmp_pat
     )
     api = BotAPI(StubHITL(), runtime_status_provider=lambda: {}, runtime_history_store=store)
 
-    export_response = __import__("asyncio").run(api.handle_runtime_history_export(FakeQueryRequest()))
+    export_response = __import__("asyncio").run(
+        api.handle_runtime_history_export(FakeQueryRequest())
+    )
     export_payload = json.loads(export_response.text)
 
     assert export_payload["format"] == "runtime_history_v1"
@@ -491,7 +526,10 @@ def test_botapi_review_contract_export_and_import_coerce_nested_wrappers(tmp_pat
     assert export_payload["runtime_review"]["name"] == "runtime_review"
     assert export_payload["runtime_review"]["version"] == "v1"
     assert export_payload["runtime_review"]["artifact_type"] == "review_session"
-    assert export_payload["runtime_review"]["artifact"]["bundle"]["records"][0]["spot_id"] == "live:PREFLOP:001"
+    assert (
+        export_payload["runtime_review"]["artifact"]["bundle"]["records"][0]["spot_id"]
+        == "live:PREFLOP:001"
+    )
     assert export_payload["review_session"]["version"] == "v1"
     assert export_payload["review_session"]["meta"] == export_payload["meta"]
     assert export_payload["review_session"]["contract"]["artifact_type"] == "review_session"
@@ -499,9 +537,13 @@ def test_botapi_review_contract_export_and_import_coerce_nested_wrappers(tmp_pat
     assert "runtime_review_session_all.json" in export_response.headers["Content-Disposition"]
 
     import_store = RuntimeHistoryStore(file_path=str(tmp_path / "imported_runtime_history.jsonl"))
-    import_api = BotAPI(StubHITL(), runtime_status_provider=lambda: {}, runtime_history_store=import_store)
+    import_api = BotAPI(
+        StubHITL(), runtime_status_provider=lambda: {}, runtime_history_store=import_store
+    )
     import_response = __import__("asyncio").run(
-        import_api.handle_runtime_history_import(FakeJsonRequest({"review_session": export_payload["review_session"]}))
+        import_api.handle_runtime_history_import(
+            FakeJsonRequest({"review_session": export_payload["review_session"]})
+        )
     )
     import_payload = json.loads(import_response.text)
 
@@ -739,7 +781,9 @@ def test_policy_compare_loader_supports_canonical_runtime_review_wrapper(tmp_pat
                                     "pot": 5.5,
                                     "board": [],
                                     "hero_cards": ["Ah", "Kd"],
-                                    "players": [{"seat_id": "hero", "stack": 100.0, "is_hero": True}],
+                                    "players": [
+                                        {"seat_id": "hero", "stack": 100.0, "is_hero": True}
+                                    ],
                                     "legal_actions": ["FOLD", "CALL", "BET"],
                                     "metadata": {"hero_seat_id": "btn"},
                                 }
@@ -915,7 +959,9 @@ def test_policy_compare_loader_keeps_legacy_alias_fallback_without_runtime_revie
     assert records[0].policy_actions == {"gto_solver": "CHECK", "validated_rl": "BET"}
 
 
-def test_policy_compare_loader_supports_runtime_review_batch_wrapping_frontend_review_pack(tmp_path):
+def test_policy_compare_loader_supports_runtime_review_batch_wrapping_frontend_review_pack(
+    tmp_path,
+):
     payload_path = tmp_path / "runtime_review_batch_frontend_pack.json"
     payload_path.write_text(
         json.dumps(
@@ -935,11 +981,11 @@ def test_policy_compare_loader_supports_runtime_review_batch_wrapping_frontend_r
                                     "timestamp": "2026-04-11T12:55:00Z",
                                     "action": "BET",
                                     "heroEv": "0.35",
-                                    "actionShift": "CHECK -> BET"
+                                    "actionShift": "CHECK -> BET",
                                 }
-                            }
+                            },
                         }
-                    }
+                    },
                 }
             },
             indent=2,
@@ -1046,7 +1092,7 @@ def test_policy_compare_loader_supports_frontend_review_pack_raw_runtime_bundle(
                                     "comparison": {
                                         "rl_off": {"action": "CHECK", "ev": 0.1},
                                         "rl_on": {"action": "BET", "ev": 0.35},
-                                    }
+                                    },
                                 },
                             }
                         ],
@@ -1059,7 +1105,9 @@ def test_policy_compare_loader_supports_frontend_review_pack_raw_runtime_bundle(
     )
 
     records = load_policy_compare_corpus([pack_path])
-    summary = build_policy_compare_summary(records, baseline_policy="rl_off", challenger_policy="rl_on")
+    summary = build_policy_compare_summary(
+        records, baseline_policy="rl_off", challenger_policy="rl_on"
+    )
 
     assert len(records) == 1
     assert records[0].policy_actions["rl_off"] == "CHECK"
@@ -1094,7 +1142,9 @@ def test_policy_compare_loader_supports_frontend_review_pack_timeline_partial_su
     )
 
     records = load_policy_compare_corpus([pack_path])
-    summary = build_policy_compare_summary(records, baseline_policy="review_pack_baseline", challenger_policy="review_pack_challenger")
+    summary = build_policy_compare_summary(
+        records, baseline_policy="review_pack_baseline", challenger_policy="review_pack_challenger"
+    )
 
     assert len(records) == 1
     assert records[0].metadata["session_label"] == "review-ui-session"
@@ -1132,7 +1182,9 @@ def test_policy_compare_loader_supports_nested_review_pack_contract_and_raw_bund
                                         "pot": 14.5,
                                         "board": ["Ah", "Kd", "7c", "2d"],
                                         "hero_cards": ["Qs", "Qd"],
-                                        "players": [{"seat_id": "hero", "stack": 85.0, "is_hero": True}],
+                                        "players": [
+                                            {"seat_id": "hero", "stack": 85.0, "is_hero": True}
+                                        ],
                                         "legal_actions": ["CHECK", "BET"],
                                     }
                                 },
@@ -1168,7 +1220,9 @@ def test_policy_compare_loader_supports_nested_review_pack_contract_and_raw_bund
     )
 
     records = load_policy_compare_corpus([pack_path])
-    summary = build_policy_compare_summary(records, baseline_policy="rl_off", challenger_policy="rl_on")
+    summary = build_policy_compare_summary(
+        records, baseline_policy="rl_off", challenger_policy="rl_on"
+    )
 
     assert len(records) == 1
     assert records[0].policy_actions["rl_off"] == "CHECK"

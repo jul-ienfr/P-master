@@ -23,7 +23,9 @@ def _clamp_score(value: float) -> float:
 def analyze_crop_quality(field_name: str, crop: np.ndarray) -> CropQualityReport:
     normalized_field = str(field_name or "unknown").strip().lower()
     if crop is None or not isinstance(crop, np.ndarray) or crop.size == 0:
-        return CropQualityReport(field_name=normalized_field, rejected=True, reject_reason="empty_crop")
+        return CropQualityReport(
+            field_name=normalized_field, rejected=True, reject_reason="empty_crop"
+        )
 
     height, width = crop.shape[:2]
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if crop.ndim == 3 else crop
@@ -38,7 +40,10 @@ def analyze_crop_quality(field_name: str, crop: np.ndarray) -> CropQualityReport
     signal_score = _clamp_score(edge_density * 3.0)
     signal_weight = FIELD_SIGNAL_WEIGHTS.get(normalized_field, 0.30)
     quality_score = round(
-        (blur_score * 0.30) + (contrast_score * 0.25) + (luma_score * (0.45 - signal_weight)) + (signal_score * signal_weight),
+        (blur_score * 0.30)
+        + (contrast_score * 0.25)
+        + (luma_score * (0.45 - signal_weight))
+        + (signal_score * signal_weight),
         3,
     )
 

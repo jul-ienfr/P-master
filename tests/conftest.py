@@ -12,7 +12,11 @@ if str(ROOT) not in sys.path:
 
 from src.data.database import DatabaseManager
 
-DEFAULT_TEST_DSN = os.getenv("POKER_TEST_DSN") or os.getenv("POKER_DB_DSN") or "postgresql://poker_bot:__CHANGE_ME__@localhost:5432/poker_db"
+DEFAULT_TEST_DSN = (
+    os.getenv("POKER_TEST_DSN")
+    or os.getenv("POKER_DB_DSN")
+    or "postgresql://poker_bot:__CHANGE_ME__@localhost:5432/poker_db"
+)
 
 
 def _env_flag(name: str) -> str | None:
@@ -89,7 +93,9 @@ def postgres_test_dsn(request):
 @pytest.fixture
 def postgres_database_manager(request):
     if _postgres_tests_disabled(request.config):
-        pytest.skip("PostgreSQL integration tests disabled via --no-postgres or POKER_RUN_POSTGRES_TESTS=0.")
+        pytest.skip(
+            "PostgreSQL integration tests disabled via --no-postgres or POKER_RUN_POSTGRES_TESTS=0."
+        )
 
     manager = DatabaseManager(
         dsn=_postgres_test_dsn(request.config),
@@ -102,9 +108,7 @@ def postgres_database_manager(request):
         explicit_run = _postgres_tests_explicitly_enabled(request.config)
         reason = f"PostgreSQL unavailable for integration tests: {exc}"
         if explicit_run:
-            reason = (
-                f"{reason}. Check --postgres-dsn or set POKER_TEST_DSN/POSTGRES_TEST_DSN/DATABASE_URL."
-            )
+            reason = f"{reason}. Check --postgres-dsn or set POKER_TEST_DSN/POSTGRES_TEST_DSN/DATABASE_URL."
         pytest.skip(reason)
 
     try:

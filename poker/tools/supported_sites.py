@@ -108,10 +108,8 @@ def _build_site_items(support_mode):
 
         label = SUPPORT_MODE_LABELS.get(site.support_mode, site.support_mode)
         items.append(
-
-                f"<li><b>{escape(site.display_name)}</b> - "
-                f"{escape(label)}<br/>{escape(site.notes)}</li>"
-
+            f"<li><b>{escape(site.display_name)}</b> - "
+            f"{escape(label)}<br/>{escape(site.notes)}</li>"
         )
     return "".join(items)
 

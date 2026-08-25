@@ -48,7 +48,14 @@ def test_numeric_reader_keeps_best_confident_candidate():
     assert result.selected_value == 1250.0
     assert result.evidence.selected_value == 1250.0
     assert result.evidence.selected_candidate is not None
-    assert result.evidence.selected_candidate.variant in {"gray_normalized", "upscaled_x2", "threshold_otsu", "threshold_adaptive", "threshold_inverted", "denoised"}
+    assert result.evidence.selected_candidate.variant in {
+        "gray_normalized",
+        "upscaled_x2",
+        "threshold_otsu",
+        "threshold_adaptive",
+        "threshold_inverted",
+        "denoised",
+    }
 
 
 def test_numeric_reader_rejects_implausible_pot_drop_and_keeps_previous_value():

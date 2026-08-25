@@ -113,6 +113,7 @@ def _is_observation_profile_name_supported(player_name: str) -> bool:
         return False
     return is_usable_player_name(normalized_name) or is_placeholder_player_name(normalized_name)
 
+
 class DatabaseManager:
     def __init__(
         self,
@@ -122,13 +123,21 @@ class DatabaseManager:
         persistence_enabled: bool = False,
     ):
         # No hard-coded credential — env wins, placeholder forces explicit config
-        self.dsn = dsn or os.getenv("POKER_DB_DSN") or "postgresql://poker_bot:__CHANGE_ME__@localhost:5432/poker_db"
+        self.dsn = (
+            dsn
+            or os.getenv("POKER_DB_DSN")
+            or "postgresql://poker_bot:__CHANGE_ME__@localhost:5432/poker_db"
+        )
         self.pool = None
         self.mode = _normalize_db_mode(mode or os.getenv("POKER_DB_MODE"))
         self.backend = "uninitialized"
         self.players_memory: dict[str, dict] = {}
         self.hands_history_memory: list[dict] = []
-        configured_path = persistence_path or os.getenv("POKER_OBSERVATION_STORE_PATH") or "log/observation_store.json"
+        configured_path = (
+            persistence_path
+            or os.getenv("POKER_OBSERVATION_STORE_PATH")
+            or "log/observation_store.json"
+        )
         self.persistence_path = os.path.abspath(configured_path) if configured_path else ""
         self.persistence_enabled = bool(persistence_enabled)
         self.last_persisted_at: str | None = None
@@ -226,7 +235,9 @@ class DatabaseManager:
             self.persistence_error = None
         except Exception as e:
             self.persistence_error = str(e)
-            logger.error("Impossible de persister l'observation locale dans %s: %s", self.persistence_path, e)
+            logger.error(
+                "Impossible de persister l'observation locale dans %s: %s", self.persistence_path, e
+            )
             try:
                 if os.path.exists(temp_path):
                     os.remove(temp_path)
@@ -279,7 +290,9 @@ class DatabaseManager:
         player["pfr_count"] += is_pfr
         action_counts[action] = int(action_counts.get(action, 0) or 0) + 1
         street_counts[street] = int(street_counts.get(street, 0) or 0) + 1
-        raw_stats["aggressive_actions"] = int(raw_stats.get("aggressive_actions", 0) or 0) + is_aggressive
+        raw_stats["aggressive_actions"] = (
+            int(raw_stats.get("aggressive_actions", 0) or 0) + is_aggressive
+        )
         raw_stats["passive_actions"] = int(raw_stats.get("passive_actions", 0) or 0) + is_passive
         raw_stats["fold_actions"] = int(raw_stats.get("fold_actions", 0) or 0) + is_fold
         raw_stats["last_action"] = action
@@ -287,13 +300,15 @@ class DatabaseManager:
         self._touch_memory_player(player)
 
     def _append_hand_history_cache(self, table_name: str, board: list, actions: list):
-        self.hands_history_memory.append({
-            "hand_id": len(self.hands_history_memory) + 1,
-            "timestamp": datetime.now(UTC).isoformat(timespec="seconds"),
-            "table_name": table_name,
-            "board": "".join(board),
-            "actions": deepcopy(actions),
-        })
+        self.hands_history_memory.append(
+            {
+                "hand_id": len(self.hands_history_memory) + 1,
+                "timestamp": datetime.now(UTC).isoformat(timespec="seconds"),
+                "table_name": table_name,
+                "board": "".join(board),
+                "actions": deepcopy(actions),
+            }
+        )
 
     @staticmethod
     def _merge_counter_maps(primary: dict | None, secondary: dict | None) -> dict:
@@ -307,7 +322,9 @@ class DatabaseManager:
         return merged
 
     @staticmethod
-    def _rewrite_hand_actions_player_name(actions: list | None, source_name: str, target_name: str) -> tuple[list, bool]:
+    def _rewrite_hand_actions_player_name(
+        actions: list | None, source_name: str, target_name: str
+    ) -> tuple[list, bool]:
         normalized_source = sanitize_player_name(source_name)
         normalized_target = sanitize_player_name(target_name)
         rewritten_actions: list = []
@@ -332,13 +349,27 @@ class DatabaseManager:
         merged = deepcopy(source_raw)
         merged.update(deepcopy(target_raw))
 
-        merged["observed_hands"] = int(target_raw.get("observed_hands", 0) or 0) + int(source_raw.get("observed_hands", 0) or 0)
-        merged["aggressive_actions"] = int(target_raw.get("aggressive_actions", 0) or 0) + int(source_raw.get("aggressive_actions", 0) or 0)
-        merged["passive_actions"] = int(target_raw.get("passive_actions", 0) or 0) + int(source_raw.get("passive_actions", 0) or 0)
-        merged["fold_actions"] = int(target_raw.get("fold_actions", 0) or 0) + int(source_raw.get("fold_actions", 0) or 0)
-        merged["action_counts"] = cls._merge_counter_maps(target_raw.get("action_counts"), source_raw.get("action_counts"))
-        merged["street_counts"] = cls._merge_counter_maps(target_raw.get("street_counts"), source_raw.get("street_counts"))
-        merged["rl_ready"] = bool(target_raw.get("rl_ready", False) or source_raw.get("rl_ready", False))
+        merged["observed_hands"] = int(target_raw.get("observed_hands", 0) or 0) + int(
+            source_raw.get("observed_hands", 0) or 0
+        )
+        merged["aggressive_actions"] = int(target_raw.get("aggressive_actions", 0) or 0) + int(
+            source_raw.get("aggressive_actions", 0) or 0
+        )
+        merged["passive_actions"] = int(target_raw.get("passive_actions", 0) or 0) + int(
+            source_raw.get("passive_actions", 0) or 0
+        )
+        merged["fold_actions"] = int(target_raw.get("fold_actions", 0) or 0) + int(
+            source_raw.get("fold_actions", 0) or 0
+        )
+        merged["action_counts"] = cls._merge_counter_maps(
+            target_raw.get("action_counts"), source_raw.get("action_counts")
+        )
+        merged["street_counts"] = cls._merge_counter_maps(
+            target_raw.get("street_counts"), source_raw.get("street_counts")
+        )
+        merged["rl_ready"] = bool(
+            target_raw.get("rl_ready", False) or source_raw.get("rl_ready", False)
+        )
 
         for key in ("last_action", "last_street", "last_observed_street"):
             merged[key] = str(target_raw.get(key) or source_raw.get(key) or "")
@@ -346,13 +377,18 @@ class DatabaseManager:
         return merged
 
     @classmethod
-    def _merge_profile_rows(cls, source_profile: dict | None, target_profile: dict | None, target_name: str) -> dict:
+    def _merge_profile_rows(
+        cls, source_profile: dict | None, target_profile: dict | None, target_name: str
+    ) -> dict:
         source = deepcopy(source_profile or cls._new_memory_player(target_name))
         target = deepcopy(target_profile or cls._new_memory_player(target_name))
-        last_seen = max(
-            str(source.get("last_seen") or ""),
-            str(target.get("last_seen") or ""),
-        ) or None
+        last_seen = (
+            max(
+                str(source.get("last_seen") or ""),
+                str(target.get("last_seen") or ""),
+            )
+            or None
+        )
         target_player_type = str(target.get("player_type") or "")
         source_player_type = str(source.get("player_type") or "")
         if target_player_type not in {"", "Unknown"}:
@@ -364,12 +400,18 @@ class DatabaseManager:
 
         return {
             "player_name": target_name,
-            "hands_played": int(source.get("hands_played", 0) or 0) + int(target.get("hands_played", 0) or 0),
-            "observed_hands": int(source.get("observed_hands", 0) or 0) + int(target.get("observed_hands", 0) or 0),
-            "vpip_count": int(source.get("vpip_count", 0) or 0) + int(target.get("vpip_count", 0) or 0),
-            "pfr_count": int(source.get("pfr_count", 0) or 0) + int(target.get("pfr_count", 0) or 0),
-            "three_bet_count": int(source.get("three_bet_count", 0) or 0) + int(target.get("three_bet_count", 0) or 0),
-            "cbet_count": int(source.get("cbet_count", 0) or 0) + int(target.get("cbet_count", 0) or 0),
+            "hands_played": int(source.get("hands_played", 0) or 0)
+            + int(target.get("hands_played", 0) or 0),
+            "observed_hands": int(source.get("observed_hands", 0) or 0)
+            + int(target.get("observed_hands", 0) or 0),
+            "vpip_count": int(source.get("vpip_count", 0) or 0)
+            + int(target.get("vpip_count", 0) or 0),
+            "pfr_count": int(source.get("pfr_count", 0) or 0)
+            + int(target.get("pfr_count", 0) or 0),
+            "three_bet_count": int(source.get("three_bet_count", 0) or 0)
+            + int(target.get("three_bet_count", 0) or 0),
+            "cbet_count": int(source.get("cbet_count", 0) or 0)
+            + int(target.get("cbet_count", 0) or 0),
             "player_type": player_type,
             "raw_stats": cls._merge_raw_stats(target.get("raw_stats"), source.get("raw_stats")),
             "last_seen": last_seen,
@@ -380,7 +422,9 @@ class DatabaseManager:
         raw_stats = _coerce_json_object(profile.get("raw_stats"))
         profile["raw_stats"] = raw_stats
         hands_played = int(profile.get("hands_played") or 0)
-        observed_hands = int(profile.get("observed_hands") or raw_stats.get("observed_hands", 0) or 0)
+        observed_hands = int(
+            profile.get("observed_hands") or raw_stats.get("observed_hands", 0) or 0
+        )
         vpip_count = int(profile.get("vpip_count") or 0)
         pfr_count = int(profile.get("pfr_count") or 0)
         aggressive_actions = int(raw_stats.get("aggressive_actions", 0) or 0)
@@ -393,10 +437,18 @@ class DatabaseManager:
         pfr_rate = _safe_rate(pfr_count, sample_hands)
         aggression_frequency = _safe_rate(aggressive_actions, total_posture_actions)
         aggression_ratio = round(aggressive_actions / max(passive_actions, 1), 3)
-        reliability = round(min(1.0, observed_hands / 120.0), 3) if observed_hands > 0 else round(min(0.15, hands_played / 500.0), 3)
+        reliability = (
+            round(min(1.0, observed_hands / 120.0), 3)
+            if observed_hands > 0
+            else round(min(0.15, hands_played / 500.0), 3)
+        )
         style = _classify_player_style(vpip_rate, pfr_rate, aggression_frequency)
 
-        profile["player_type"] = style if profile.get("player_type") in (None, "", "Unknown") else profile.get("player_type")
+        profile["player_type"] = (
+            style
+            if profile.get("player_type") in (None, "", "Unknown")
+            else profile.get("player_type")
+        )
         profile["derived_profile"] = {
             "hands_played": sample_hands,
             "observed_hands": observed_hands,
@@ -461,10 +513,7 @@ class DatabaseManager:
             if player_name:
                 self.players_memory[player_name] = normalized_row
 
-        self.hands_history_memory = [
-            self._normalize_hand_row(dict(row))
-            for row in hand_rows
-        ]
+        self.hands_history_memory = [self._normalize_hand_row(dict(row)) for row in hand_rows]
 
     async def _repair_stringified_postgres_payloads(self):
         if self.backend != "postgres" or not self.pool:
@@ -531,7 +580,8 @@ class DatabaseManager:
             default="",
         )
         named_players = [
-            player for player in players
+            player
+            for player in players
             if not is_placeholder_player_name(str(player.get("player_name") or ""))
         ]
         top_profile_source = named_players or players
@@ -549,11 +599,22 @@ class DatabaseManager:
                 {
                     "player_name": str(player.get("player_name") or ""),
                     "player_type": str(player.get("player_type") or "Unknown"),
-                    "observed_hands": int((player.get("derived_profile") or {}).get("observed_hands", 0) or 0),
-                    "vpip_rate": float((player.get("derived_profile") or {}).get("vpip_rate", 0.0) or 0.0),
-                    "pfr_rate": float((player.get("derived_profile") or {}).get("pfr_rate", 0.0) or 0.0),
-                    "aggression_frequency": float((player.get("derived_profile") or {}).get("aggression_frequency", 0.0) or 0.0),
-                    "reliability": float((player.get("derived_profile") or {}).get("reliability", 0.0) or 0.0),
+                    "observed_hands": int(
+                        (player.get("derived_profile") or {}).get("observed_hands", 0) or 0
+                    ),
+                    "vpip_rate": float(
+                        (player.get("derived_profile") or {}).get("vpip_rate", 0.0) or 0.0
+                    ),
+                    "pfr_rate": float(
+                        (player.get("derived_profile") or {}).get("pfr_rate", 0.0) or 0.0
+                    ),
+                    "aggression_frequency": float(
+                        (player.get("derived_profile") or {}).get("aggression_frequency", 0.0)
+                        or 0.0
+                    ),
+                    "reliability": float(
+                        (player.get("derived_profile") or {}).get("reliability", 0.0) or 0.0
+                    ),
                     "last_seen": player.get("last_seen"),
                 }
                 for player in top_profile_source[:normalized_limit]
@@ -600,7 +661,9 @@ class DatabaseManager:
 
         if asyncpg is None:
             if self.mode == "postgres":
-                raise RuntimeError("asyncpg n'est pas installé et le mode postgres a été explicitement demandé.")
+                raise RuntimeError(
+                    "asyncpg n'est pas installé et le mode postgres a été explicitement demandé."
+                )
             self._activate_memory_backend("asyncpg non installé")
             return
 
@@ -878,8 +941,7 @@ class DatabaseManager:
         else:
             async with self.pool.acquire() as conn:
                 row = await conn.fetchrow(
-                    "SELECT * FROM players WHERE player_name = $1",
-                    player_name
+                    "SELECT * FROM players WHERE player_name = $1", player_name
                 )
                 if not row:
                     return None
@@ -898,12 +960,16 @@ class DatabaseManager:
             if not source_profile:
                 return
             target_profile = self.players_memory.get(normalized_target)
-            merged_profile = self._merge_profile_rows(source_profile, target_profile, normalized_target)
+            merged_profile = self._merge_profile_rows(
+                source_profile, target_profile, normalized_target
+            )
             self.players_memory[normalized_target] = merged_profile
             self.players_memory.pop(normalized_source, None)
             for hand in self.hands_history_memory:
                 actions = hand.get("actions") if isinstance(hand, dict) else None
-                rewritten_actions, changed = self._rewrite_hand_actions_player_name(actions, normalized_source, normalized_target)
+                rewritten_actions, changed = self._rewrite_hand_actions_player_name(
+                    actions, normalized_source, normalized_target
+                )
                 if changed and isinstance(hand, dict):
                     hand["actions"] = rewritten_actions
             self._persist_local_state()
@@ -968,7 +1034,7 @@ class DatabaseManager:
                 )
                 hand_rows = await conn.fetch(
                     "SELECT hand_id, actions FROM hands_history WHERE actions::text LIKE $1",
-                    f'%\"{normalized_source}\"%',
+                    f'%"{normalized_source}"%',
                 )
                 for hand_row in hand_rows:
                     rewritten_actions, changed = self._rewrite_hand_actions_player_name(
@@ -988,7 +1054,12 @@ class DatabaseManager:
                     normalized_source,
                 )
         except Exception as e:
-            logger.error("Erreur SQL lors de la fusion du profil %s -> %s: %s", normalized_source, normalized_target, e)
+            logger.error(
+                "Erreur SQL lors de la fusion du profil %s -> %s: %s",
+                normalized_source,
+                normalized_target,
+                e,
+            )
 
     async def close(self):
         if self.backend == "memory":

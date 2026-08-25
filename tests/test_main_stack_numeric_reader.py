@@ -18,7 +18,9 @@ def test_read_player_stack_uses_numeric_reader_and_preserves_metadata():
     )
     controller.tracker = types.SimpleNamespace(sanity=None, players={})
     controller.numeric_reader = None
-    controller._known_stack_fallback = SuperBotController._known_stack_fallback.__get__(controller, SuperBotController)
+    controller._known_stack_fallback = SuperBotController._known_stack_fallback.__get__(
+        controller, SuperBotController
+    )
 
     crop = np.zeros((20, 60, 3), dtype=np.uint8)
     crop[:, ::2] = 255
@@ -47,7 +49,9 @@ def test_read_player_stack_accepts_plausible_stack_drop():
     )
     controller.tracker = types.SimpleNamespace(sanity=None, players={})
     controller.numeric_reader = None
-    controller._known_stack_fallback = SuperBotController._known_stack_fallback.__get__(controller, SuperBotController)
+    controller._known_stack_fallback = SuperBotController._known_stack_fallback.__get__(
+        controller, SuperBotController
+    )
 
     crop = np.zeros((20, 60, 3), dtype=np.uint8)
     crop[:, ::2] = 255
@@ -81,7 +85,9 @@ def test_read_player_stack_keeps_previous_value_while_seat_is_quarantined():
         players={},
     )
     controller.numeric_reader = None
-    controller._known_stack_fallback = SuperBotController._known_stack_fallback.__get__(controller, SuperBotController)
+    controller._known_stack_fallback = SuperBotController._known_stack_fallback.__get__(
+        controller, SuperBotController
+    )
 
     crop = np.zeros((20, 60, 3), dtype=np.uint8)
     crop[:, ::2] = 255

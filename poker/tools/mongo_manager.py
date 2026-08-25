@@ -10,26 +10,39 @@ try:
     from requests.exceptions import RequestException
     from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5), retry=retry_if_exception_type(RequestException), reraise=True)
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=5),
+        retry=retry_if_exception_type(RequestException),
+        reraise=True,
+    )
     def _http_post(*args, **kwargs):
         resp = requests.post(*args, **kwargs)
         resp.raise_for_status()
         return resp
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5), retry=retry_if_exception_type(RequestException), reraise=True)
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=5),
+        retry=retry_if_exception_type(RequestException),
+        reraise=True,
+    )
     def _http_get(*args, **kwargs):
         resp = requests.get(*args, **kwargs)
         resp.raise_for_status()
         return resp
 except ImportError:
+
     def _http_post(*args, **kwargs):
         resp = requests.post(*args, **kwargs)
         resp.raise_for_status()
         return resp
+
     def _http_get(*args, **kwargs):
         resp = requests.get(*args, **kwargs)
         resp.raise_for_status()
         return resp
+
 
 from PIL import Image
 from requests.exceptions import JSONDecodeError
@@ -42,7 +55,7 @@ from poker.tools.room_manager import (
 )
 from poker.tools.singleton import Singleton
 
-TABLES_COLLECTION = 'tables'
+TABLES_COLLECTION = "tables"
 
 log = logging.getLogger(__name__)
 
@@ -51,9 +64,9 @@ class MongoManager(metaclass=Singleton):
     """Compatibility wrapper around the new local preset repository and legacy API."""
 
     def __init__(self):
-        self.login = ''
-        self.password = ''
-        self.url = ''
+        self.login = ""
+        self.password = ""
+        self.url = ""
         self.remote_sync = None
         self.repository = get_preset_repository()
         self.last_runtime_resolution = None
@@ -61,10 +74,12 @@ class MongoManager(metaclass=Singleton):
 
     def refresh_configuration(self):
         config = get_config()
-        self.login = config.config.get('main', 'login', fallback='guest')
-        self.password = config.config.get('main', 'password', fallback='guest')
-        self.url = config.config.get('main', 'db', fallback='').rstrip('/') + '/'
-        self.remote_sync = RemotePresetSync(self.url, self.login, self.password) if self.url.strip('/') else None
+        self.login = config.config.get("main", "login", fallback="guest")
+        self.password = config.config.get("main", "password", fallback="guest")
+        self.url = config.config.get("main", "db", fallback="").rstrip("/") + "/"
+        self.remote_sync = (
+            RemotePresetSync(self.url, self.login, self.password) if self.url.strip("/") else None
+        )
         self.repository = get_preset_repository(self.remote_sync)
         self.repository.remote_sync = self.remote_sync
         self.repository.refresh_ai_provider(settings=read_room_manager_settings())
@@ -84,7 +99,9 @@ class MongoManager(metaclass=Singleton):
         log.info("Preset state updated for %s/%s", table_name, label)
         return True
 
-    def update_tensorflow_model(self, table_name: str, hdf5_file: bytes, model_str: str, class_mapping: str):
+    def update_tensorflow_model(
+        self, table_name: str, hdf5_file: bytes, model_str: str, class_mapping: str
+    ):
         self.repository.update_tensorflow_model(table_name, hdf5_file, model_str, class_mapping)
         return True
 
@@ -93,13 +110,17 @@ class MongoManager(metaclass=Singleton):
         weights = self.repository.load_table_nn_weights(table_name)
         if weights is None:
             try:
-                weights_str = _http_post(self.url + "get_tensorflow_weights", params={'table_name': table_name}, timeout=10).json()
+                weights_str = _http_post(
+                    self.url + "get_tensorflow_weights",
+                    params={"table_name": table_name},
+                    timeout=10,
+                ).json()
                 weights = base64.b64decode(weights_str)
             except Exception as exc:
                 log.error("No trained neural network found for %s. %s", table_name, exc)
                 return
 
-        with open(get_dir('codebase') + '/loaded_model.h5', 'wb') as fh:
+        with open(get_dir("codebase") + "/loaded_model.h5", "wb") as fh:
             fh.write(weights)
         log.info("Neural network weights ready")
 
@@ -119,7 +140,9 @@ class MongoManager(metaclass=Singleton):
             ) from exc
 
     def get_runtime_table(self, table_name, screenshot=None):
-        table_dict, resolution = self.repository.get_runtime_table(table_name, screenshot=screenshot)
+        table_dict, resolution = self.repository.get_runtime_table(
+            table_name, screenshot=screenshot
+        )
         self.last_runtime_resolution = resolution
         return table_dict
 
@@ -130,26 +153,30 @@ class MongoManager(metaclass=Singleton):
         owner = self.repository.get_table_owner(table_name)
         if owner is not None:
             return owner
-        return _http_post(self.url + "get_table_owner", params={'table_name': table_name}, timeout=10).json()
+        return _http_post(
+            self.url + "get_table_owner", params={"table_name": table_name}, timeout=10
+        ).json()
 
     def get_available_tables(self, computer_name):
         return self.repository.get_available_tables(computer_name)
 
     def increment_plays(self, table_name):
         try:
-            _http_post(self.url + "increment_plays", params={'table_name': table_name}, timeout=10)
+            _http_post(self.url + "increment_plays", params={"table_name": table_name}, timeout=10)
         except Exception as exc:
             log.debug("Unable to increment remote play counter for %s: %s", table_name, exc)
 
     def get_rounds(self, game_id):
-        output = _http_post(self.url + "get_rounds", params={'game_id': game_id}, timeout=10).json()
+        output = _http_post(self.url + "get_rounds", params={"game_id": game_id}, timeout=10).json()
         return output
 
     def create_new_table(self, table_name):
         return self.repository.create_new_table(table_name, owner=COMPUTER_NAME)
 
     def create_new_table_from_old(self, table_name, old_table_name):
-        return self.repository.create_new_table_from_old(table_name, old_table_name, owner=COMPUTER_NAME)
+        return self.repository.create_new_table_from_old(
+            table_name, old_table_name, owner=COMPUTER_NAME
+        )
 
     def save_coordinates(self, table_name, label, coordinates_dict):
         self.repository.save_coordinates(table_name, label, coordinates_dict)
@@ -181,7 +208,9 @@ class MongoManager(metaclass=Singleton):
         return self.repository.import_remote_table(table_name)
 
     def validate_table(self, table_name, screenshots=None, use_draft=True):
-        return self.repository.validate(table_name, live_screenshots=screenshots or [], use_draft=use_draft)
+        return self.repository.validate(
+            table_name, live_screenshots=screenshots or [], use_draft=use_draft
+        )
 
     def observe_runtime_table(self, table_name, screenshot):
         return self.repository.observe_runtime_drift(table_name, screenshot)

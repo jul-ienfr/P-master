@@ -98,4 +98,8 @@ class HealthMonitor:
 
 
 def _utc_now_from_epoch(epoch_s: float) -> str:
-    return datetime.fromtimestamp(float(epoch_s), UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+    return (
+        datetime.fromtimestamp(float(epoch_s), UTC)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z")
+    )

@@ -51,12 +51,18 @@ def evaluate_go_live_gate(
         "block_rate": float(local_metrics.get("block_rate", 0.0) or 0.0),
         "fallback_rate": float(local_metrics.get("fallback_rate", 0.0) or 0.0),
         "rolling_latency_ms": float(local_metrics.get("rolling_latency_ms", 0.0) or 0.0),
-        "incident_count": int((metrics_snapshot.get("runtime", {}) or {}).get("incident_count", 0) or 0),
+        "incident_count": int(
+            (metrics_snapshot.get("runtime", {}) or {}).get("incident_count", 0) or 0
+        ),
         "readiness_score": float((readiness or {}).get("score", 0.0) or 0.0),
         "readiness_state": str((readiness or {}).get("state") or "unknown"),
         "validation_state": str((validation or {}).get("state") or "unknown"),
-        "non_actionable_readiness_rate": 1.0 if str((readiness or {}).get("state") or "unknown") in {"blocked_local", "conservative"} else 0.0,
-        "invalid_validation_rate": 1.0 if str((validation or {}).get("state") or "unknown") in {"soft_invalid", "hard_invalid"} else 0.0,
+        "non_actionable_readiness_rate": 1.0
+        if str((readiness or {}).get("state") or "unknown") in {"blocked_local", "conservative"}
+        else 0.0,
+        "invalid_validation_rate": 1.0
+        if str((validation or {}).get("state") or "unknown") in {"soft_invalid", "hard_invalid"}
+        else 0.0,
     }
     checks = {
         "decision_count": {
@@ -102,7 +108,8 @@ def evaluate_go_live_gate(
             "reason": "readiness_score_too_low",
         },
         "non_actionable_readiness_rate": {
-            "ok": metrics["non_actionable_readiness_rate"] <= thresholds["max_non_actionable_readiness_rate"],
+            "ok": metrics["non_actionable_readiness_rate"]
+            <= thresholds["max_non_actionable_readiness_rate"],
             "metric": metrics["non_actionable_readiness_rate"],
             "threshold": thresholds["max_non_actionable_readiness_rate"],
             "operator": "<=",

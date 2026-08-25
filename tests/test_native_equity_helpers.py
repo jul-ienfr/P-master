@@ -1,4 +1,5 @@
 """Tests des helpers purs de l'adaptateur equity natif (ratchet coverage)."""
+
 from types import SimpleNamespace
 
 import pytest

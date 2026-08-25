@@ -4,6 +4,7 @@ Logique déplacée à l'identique : OCR texte des boutons, classification
 générique/par slot, promotion fast-fold, labeling complet d'un état table.
 Aucun changement comportemental — les tests existants font office de garde-fou.
 """
+
 from __future__ import annotations
 
 import logging
@@ -66,7 +67,9 @@ def normalize_action_button_text(raw_text: str) -> str:
         return ""
     normalized = unicodedata.normalize("NFKD", str(raw_text))
     normalized = "".join(char for char in normalized if not unicodedata.combining(char))
-    cleaned = "".join(char if char.isalnum() or char.isspace() else " " for char in normalized.lower())
+    cleaned = "".join(
+        char if char.isalnum() or char.isspace() else " " for char in normalized.lower()
+    )
     return " ".join(cleaned.split())
 
 
@@ -74,7 +77,19 @@ def is_resume_like_button_text(normalized_text: str) -> bool:
     if not normalized_text:
         return False
     compact_text = normalized_text.replace(" ", "")
-    if any(token in normalized_text for token in ("reprendre", "rejoindre", "jouer", "joue", "resume", "continuer", "play", "join")):
+    if any(
+        token in normalized_text
+        for token in (
+            "reprendre",
+            "rejoindre",
+            "jouer",
+            "joue",
+            "resume",
+            "continuer",
+            "play",
+            "join",
+        )
+    ):
         return True
     return (
         compact_text in {"jouer", "joue", "resume", "play", "join", "continue"}
@@ -179,7 +194,11 @@ class ButtonClassifier:
             compact_text = normalized_text.replace(" ", "")
             if is_resume_like_button_text(normalized_text):
                 return "resume_hand"
-            if "im back" in normalized_text or compact_text == "imback" or compact_text.endswith("back"):
+            if (
+                "im back" in normalized_text
+                or compact_text == "imback"
+                or compact_text.endswith("back")
+            ):
                 return "im_back"
             if (
                 "passer vite" in normalized_text
@@ -264,12 +283,24 @@ class ButtonClassifier:
 
         if slot_key == "CALL":
             if has_fold_slot:
-                return fallback_label if fallback_label in {"call_button", "all_in_call_button"} else "call_button"
+                return (
+                    fallback_label
+                    if fallback_label in {"call_button", "all_in_call_button"}
+                    else "call_button"
+                )
             if has_bet_slot:
-                return fallback_label if fallback_label in {"check_button", "call_button", "all_in_call_button"} else "check_button"
+                return (
+                    fallback_label
+                    if fallback_label in {"check_button", "call_button", "all_in_call_button"}
+                    else "check_button"
+                )
             normalized_text = self.read_action_button_text(image_crop)
             compact_text = normalized_text.replace(" ", "")
-            if "im back" in normalized_text or compact_text == "imback" or compact_text.endswith("back"):
+            if (
+                "im back" in normalized_text
+                or compact_text == "imback"
+                or compact_text.endswith("back")
+            ):
                 return "im_back"
             if is_resume_like_button_text(normalized_text):
                 return "resume_hand"
@@ -283,9 +314,17 @@ class ButtonClassifier:
 
         if slot_key == "BET_BTN":
             if has_call_slot and has_fold_slot:
-                return fallback_label if fallback_label in {"bet_button", "raise_button"} else "raise_button"
+                return (
+                    fallback_label
+                    if fallback_label in {"bet_button", "raise_button"}
+                    else "raise_button"
+                )
             if has_call_slot:
-                return fallback_label if fallback_label in {"bet_button", "raise_button"} else "bet_button"
+                return (
+                    fallback_label
+                    if fallback_label in {"bet_button", "raise_button"}
+                    else "bet_button"
+                )
             normalized_text = self.read_action_button_text(image_crop)
             compact_text = normalized_text.replace(" ", "")
             if any(token in normalized_text for token in ("raise", "relancer")):
@@ -310,7 +349,8 @@ class ButtonClassifier:
         reference_buttons = [
             button
             for button in buttons
-            if button.class_name in {"check_button", "call_button", "bet_button", "raise_button", "all_in_call_button"}
+            if button.class_name
+            in {"check_button", "call_button", "bet_button", "raise_button", "all_in_call_button"}
         ]
         fold_candidates = [button for button in buttons if button.class_name == "fold_button"]
         if len(reference_buttons) < 2 or not fold_candidates:
@@ -321,7 +361,8 @@ class ButtonClassifier:
         reference_height = max(
             1.0,
             float(
-                sum((button.bbox[3] - button.bbox[1]) for button in reference_buttons) / len(reference_buttons)
+                sum((button.bbox[3] - button.bbox[1]) for button in reference_buttons)
+                / len(reference_buttons)
             ),
         )
         y_threshold = max(28.0, reference_height * 0.55)
@@ -358,7 +399,9 @@ class ButtonClassifier:
 
         ordered_buttons = sorted(state.action_buttons, key=lambda button: button.center[0])
         standard_labels = set(STANDARD_ACTION_LABELS)
-        slot_boxes = state.metadata.get("button_slot_boxes", {}) if isinstance(state.metadata, dict) else {}
+        slot_boxes = (
+            state.metadata.get("button_slot_boxes", {}) if isinstance(state.metadata, dict) else {}
+        )
         visible_slot_keys = {
             slot_key
             for button in state.action_buttons
@@ -385,7 +428,11 @@ class ButtonClassifier:
             else:
                 classified = self.classify_action_button_label(crop, generic_index, button_count)
             specialized_labels = set(SPECIALIZED_LABELS)
-            if slot_key or button.class_name == "action_button_generic" or classified in specialized_labels:
+            if (
+                slot_key
+                or button.class_name == "action_button_generic"
+                or classified in specialized_labels
+            ):
                 relabeled_buttons.append(
                     DetectionResult(
                         class_name=classified,
@@ -396,7 +443,9 @@ class ButtonClassifier:
             else:
                 relabeled_buttons.append(button)
 
-        relabeled_buttons = dedupe_nearby_detections(relabeled_buttons, x_tolerance=36.0, y_tolerance=24.0)
+        relabeled_buttons = dedupe_nearby_detections(
+            relabeled_buttons, x_tolerance=36.0, y_tolerance=24.0
+        )
         relabeled_buttons = self.promote_fast_fold_outliers(relabeled_buttons)
         if any(button.class_name in standard_labels for button in relabeled_buttons):
             relabeled_buttons = [

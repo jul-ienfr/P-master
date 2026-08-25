@@ -1,4 +1,5 @@
 """Tests des helpers purs de PokerOCR (parsing de montants, confiance, métadonnées)."""
+
 import sys
 from pathlib import Path
 
@@ -51,10 +52,42 @@ def test_parse_decimal_candidate_rules():
 
 def test_parse_amount_with_format_handles_currency_and_multipliers():
     parse = PokerOCR._parse_amount_with_format
-    assert parse("$1 250", allow_decimal_amounts=True, thousands_separators=(" ",), decimal_separators=(",", ".")) == 1250.0
-    assert parse("2,5k", allow_decimal_amounts=True, thousands_separators=(" ",), decimal_separators=(",", ".")) == 2500.0
-    assert parse("garbage", allow_decimal_amounts=True, thousands_separators=(" ",), decimal_separators=(",", ".")) is None
-    assert parse("", allow_decimal_amounts=True, thousands_separators=(" ",), decimal_separators=(",", ".")) is None
+    assert (
+        parse(
+            "$1 250",
+            allow_decimal_amounts=True,
+            thousands_separators=(" ",),
+            decimal_separators=(",", "."),
+        )
+        == 1250.0
+    )
+    assert (
+        parse(
+            "2,5k",
+            allow_decimal_amounts=True,
+            thousands_separators=(" ",),
+            decimal_separators=(",", "."),
+        )
+        == 2500.0
+    )
+    assert (
+        parse(
+            "garbage",
+            allow_decimal_amounts=True,
+            thousands_separators=(" ",),
+            decimal_separators=(",", "."),
+        )
+        is None
+    )
+    assert (
+        parse(
+            "",
+            allow_decimal_amounts=True,
+            thousands_separators=(" ",),
+            decimal_separators=(",", "."),
+        )
+        is None
+    )
 
 
 def test_parse_amount_static_entry_points(ocr):

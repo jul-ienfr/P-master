@@ -12,6 +12,7 @@ WM_KEYUP = 0x0101
 WM_CHAR = 0x0102
 VK_RETURN = 0x0D
 
+
 class Win32GhostController:
     """
     Contrôleur Fantôme (API Win32).
@@ -19,25 +20,33 @@ class Win32GhostController:
     en arrière-plan (sans bouger le curseur physique de la souris de l'utilisateur).
     Zéro latence, 100% scalable pour le multi-tabling.
     """
+
     def __init__(self, window_title: str = "PokerStars"):
         self.window_title = window_title
         self.hwnd = self._find_window(window_title)
 
         if not self.hwnd:
-            logger.warning(f"Fenêtre '{window_title}' introuvable. Le mode Fantôme Win32 sera inactif.")
+            logger.warning(
+                f"Fenêtre '{window_title}' introuvable. Le mode Fantôme Win32 sera inactif."
+            )
 
     def _find_window(self, title: str) -> int:
         """Trouve le Handle (HWND) de la fenêtre par son titre."""
         try:
             import win32gui
+
             # Recherche partielle du titre (ex: "PokerStars Lobby" matchera "PokerStars")
             hwnd = win32gui.FindWindow(None, title)
             if hwnd == 0:
                 # Fallback: énumération de toutes les fenêtres pour un match partiel
                 def callback(h, hwnds):
-                    if win32gui.IsWindowVisible(h) and title.lower() in win32gui.GetWindowText(h).lower():
+                    if (
+                        win32gui.IsWindowVisible(h)
+                        and title.lower() in win32gui.GetWindowText(h).lower()
+                    ):
                         hwnds.append(h)
                     return True
+
                 hwnds = []
                 win32gui.EnumWindows(callback, hwnds)
                 if hwnds:

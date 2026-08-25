@@ -148,10 +148,34 @@ def test_saved_hand_history_sanitizes_names_and_removes_duplicate_or_post_fold_a
     tracker = TableTracker(db)
     tracker.current_board = ["Ah", "Kd", "2c", "7d", "Jh"]
     tracker.current_hand_actions = [
-        {"player": ".<br>NTFmango", "action": "CALL", "amount": 8.0, "pot_size": 900.0, "street": "RIVER"},
-        {"player": ".<br>NTFmango", "action": "CALL", "amount": 8.0, "pot_size": 900.0, "street": "RIVER"},
-        {"player": "Villain", "action": "FOLD", "amount": 0.0, "pot_size": 900.0, "street": "RIVER"},
-        {"player": "Villain", "action": "RAISE/BET", "amount": 25.0, "pot_size": 900.0, "street": "RIVER"},
+        {
+            "player": ".<br>NTFmango",
+            "action": "CALL",
+            "amount": 8.0,
+            "pot_size": 900.0,
+            "street": "RIVER",
+        },
+        {
+            "player": ".<br>NTFmango",
+            "action": "CALL",
+            "amount": 8.0,
+            "pot_size": 900.0,
+            "street": "RIVER",
+        },
+        {
+            "player": "Villain",
+            "action": "FOLD",
+            "amount": 0.0,
+            "pot_size": 900.0,
+            "street": "RIVER",
+        },
+        {
+            "player": "Villain",
+            "action": "RAISE/BET",
+            "amount": 25.0,
+            "pot_size": 900.0,
+            "street": "RIVER",
+        },
     ]
 
     run(tracker._save_hand_history())
@@ -159,8 +183,20 @@ def test_saved_hand_history_sanitizes_names_and_removes_duplicate_or_post_fold_a
     assert len(db.hand_history_calls) == 1
     _, _, actions = db.hand_history_calls[0]
     assert actions == [
-        {"player": "NTFmango", "action": "CALL", "amount": 8.0, "pot_size": 900.0, "street": "RIVER"},
-        {"player": "Villain", "action": "FOLD", "amount": 0.0, "pot_size": 900.0, "street": "RIVER"},
+        {
+            "player": "NTFmango",
+            "action": "CALL",
+            "amount": 8.0,
+            "pot_size": 900.0,
+            "street": "RIVER",
+        },
+        {
+            "player": "Villain",
+            "action": "FOLD",
+            "amount": 0.0,
+            "pot_size": 900.0,
+            "street": "RIVER",
+        },
     ]
 
 
@@ -170,14 +206,26 @@ def test_multiple_hands_can_be_saved_across_consecutive_resets():
 
     tracker.current_board = ["Ah", "Kd", "2c"]
     tracker.current_hand_actions = [
-        {"player": "VillainA", "action": "CALL", "amount": 2.0, "pot_size": 3.0, "street": "PREFLOP"},
+        {
+            "player": "VillainA",
+            "action": "CALL",
+            "amount": 2.0,
+            "pot_size": 3.0,
+            "street": "PREFLOP",
+        },
     ]
     run(tracker._save_hand_history())
     tracker.reset_for_new_hand()
 
     tracker.current_board = ["7h", "8h", "9c", "Td"]
     tracker.current_hand_actions = [
-        {"player": "VillainB", "action": "RAISE/BET", "amount": 12.0, "pot_size": 18.0, "street": "TURN"},
+        {
+            "player": "VillainB",
+            "action": "RAISE/BET",
+            "amount": 12.0,
+            "pot_size": 18.0,
+            "street": "TURN",
+        },
     ]
     run(tracker._save_hand_history())
 
@@ -309,7 +357,13 @@ def test_detected_fold_is_recorded_and_saved_when_new_hand_starts():
         "state_confidence": 0.9,
         "players": [
             {"seat_id": "hero", "seat_index": 0, "name": "Hero", "stack": 100.0, "is_hero": True},
-            {"seat_id": "villain", "seat_index": 1, "name": "Villain", "stack": 100.0, "active": True},
+            {
+                "seat_id": "villain",
+                "seat_index": 1,
+                "name": "Villain",
+                "stack": 100.0,
+                "active": True,
+            },
         ],
     }
     fold_state = {
@@ -319,7 +373,14 @@ def test_detected_fold_is_recorded_and_saved_when_new_hand_starts():
         "state_confidence": 0.9,
         "players": [
             {"seat_id": "hero", "seat_index": 0, "name": "Hero", "stack": 100.0, "is_hero": True},
-            {"seat_id": "villain", "seat_index": 1, "name": "Villain", "stack": 100.0, "active": False, "folded": True},
+            {
+                "seat_id": "villain",
+                "seat_index": 1,
+                "name": "Villain",
+                "stack": 100.0,
+                "active": False,
+                "folded": True,
+            },
         ],
     }
     new_hand_signal = {
@@ -366,7 +427,13 @@ def test_folded_player_is_not_reactivated_by_noisy_followup_frame():
         "pot": 1.5,
         "state_confidence": 0.9,
         "players": [
-            {"seat_id": "villain", "seat_index": 1, "name": "Villain", "stack": 100.0, "active": True},
+            {
+                "seat_id": "villain",
+                "seat_index": 1,
+                "name": "Villain",
+                "stack": 100.0,
+                "active": True,
+            },
         ],
     }
     fold_state = {
@@ -375,7 +442,14 @@ def test_folded_player_is_not_reactivated_by_noisy_followup_frame():
         "pot": 1.5,
         "state_confidence": 0.9,
         "players": [
-            {"seat_id": "villain", "seat_index": 1, "name": "Villain", "stack": 100.0, "active": False, "folded": True},
+            {
+                "seat_id": "villain",
+                "seat_index": 1,
+                "name": "Villain",
+                "stack": 100.0,
+                "active": False,
+                "folded": True,
+            },
         ],
     }
     noisy_reactivation_state = {
@@ -384,7 +458,14 @@ def test_folded_player_is_not_reactivated_by_noisy_followup_frame():
         "pot": 1.5,
         "state_confidence": 0.7,
         "players": [
-            {"seat_id": "villain", "seat_index": 1, "name": "Villain", "stack": 0.0, "active": True, "folded": False},
+            {
+                "seat_id": "villain",
+                "seat_index": 1,
+                "name": "Villain",
+                "stack": 0.0,
+                "active": True,
+                "folded": False,
+            },
         ],
     }
 
@@ -539,25 +620,33 @@ def test_strict_state_violation_freezes_tracker_for_half_second(monkeypatch):
     assert tracker.state_freeze_reason.startswith("street_jump")
 
     fake_now["value"] = 10.2
-    run(tracker.update_from_vision({
-        "street": "TURN",
-        "board": ["2c", "7d", "Jh", "Qs"],
-        "hero_cards": ["Ah", "Kd"],
-        "pot": 18.0,
-        "players": [],
-    }))
+    run(
+        tracker.update_from_vision(
+            {
+                "street": "TURN",
+                "board": ["2c", "7d", "Jh", "Qs"],
+                "hero_cards": ["Ah", "Kd"],
+                "pot": 18.0,
+                "players": [],
+            }
+        )
+    )
 
     assert tracker.state == "FLOP"
     assert tracker.current_board == ["2c", "7d", "Jh"]
 
     fake_now["value"] = 10.6
-    run(tracker.update_from_vision({
-        "street": "FLOP",
-        "board": ["2c", "7d", "Jh"],
-        "hero_cards": ["Ah", "Kd"],
-        "pot": 18.0,
-        "players": [],
-    }))
+    run(
+        tracker.update_from_vision(
+            {
+                "street": "FLOP",
+                "board": ["2c", "7d", "Jh"],
+                "hero_cards": ["Ah", "Kd"],
+                "pot": 18.0,
+                "players": [],
+            }
+        )
+    )
 
     assert tracker._is_state_frozen() is False
 
@@ -1013,7 +1102,13 @@ def test_hero_flag_glitch_keeps_previous_hero_seat_for_same_players():
         "state_confidence": 0.9,
         "players": [
             {"seat_id": "hero", "seat_index": 0, "name": "Hero", "stack": 100.0, "is_hero": True},
-            {"seat_id": "villain", "seat_index": 1, "name": "Villain", "stack": 100.0, "is_hero": False},
+            {
+                "seat_id": "villain",
+                "seat_index": 1,
+                "name": "Villain",
+                "stack": 100.0,
+                "is_hero": False,
+            },
         ],
     }
     glitch_frame = {
@@ -1023,7 +1118,13 @@ def test_hero_flag_glitch_keeps_previous_hero_seat_for_same_players():
         "state_confidence": 0.85,
         "players": [
             {"seat_id": "hero", "seat_index": 0, "name": "Hero", "stack": 100.0, "is_hero": False},
-            {"seat_id": "villain", "seat_index": 1, "name": "Villain", "stack": 100.0, "is_hero": True},
+            {
+                "seat_id": "villain",
+                "seat_index": 1,
+                "name": "Villain",
+                "stack": 100.0,
+                "is_hero": True,
+            },
         ],
     }
 
@@ -1091,7 +1192,14 @@ def test_inactive_glitch_without_explicit_fold_does_not_remove_villain():
         "state_confidence": 0.84,
         "players": [
             {"seat_id": "hero", "seat_index": 0, "name": "Hero", "stack": 100.0, "is_hero": True},
-            {"seat_id": "villain", "seat_index": 1, "name": "Villain", "stack": 0.0, "active": False, "folded": False},
+            {
+                "seat_id": "villain",
+                "seat_index": 1,
+                "name": "Villain",
+                "stack": 0.0,
+                "active": False,
+                "folded": False,
+            },
         ],
     }
     recovery_frame = {

@@ -32,8 +32,11 @@ def ensure_admin() -> None:
     print("Demande des droits administrateur...")
     # Re-run the program with admin rights
     # Need to quote sys.executable just in case, but ShellExecuteW handles it.
-    ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(['"'+arg+'"' for arg in sys.argv]), None, 1)
+    ctypes.windll.shell32.ShellExecuteW(
+        None, "runas", sys.executable, " ".join(['"' + arg + '"' for arg in sys.argv]), None, 1
+    )
     sys.exit(0)
+
 
 import warnings
 
@@ -43,6 +46,7 @@ warnings.filterwarnings("ignore", message=".*'pin_memory'.*")
 warnings.filterwarnings("ignore", message=".*weights_only=False.*")
 try:
     import onnxruntime
+
     onnxruntime.set_default_logger_severity(3)
 except ImportError:
     pass
@@ -122,18 +126,18 @@ from src.vision.table_geometry import (
 os.makedirs("log", exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S',
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
     handlers=[
-        RotatingFileHandler("log/superbot.log", maxBytes=5*1024*1024, backupCount=3, encoding='utf-8'),
-        logging.StreamHandler()
-    ]
+        RotatingFileHandler(
+            "log/superbot.log", maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8"
+        ),
+        logging.StreamHandler(),
+    ],
 )
 logger = logging.getLogger("SuperBot2026")
 RUNTIME_BRIDGE_DIR = "log/runtime_bridge"
 LIVE_DETAILS_LOG_INTERVAL_S = 1.2
-
-
 
 
 def resolve_observation_capture_enabled(observation_capture_cfg: dict, profile) -> bool:
@@ -179,7 +183,7 @@ class SuperBotController(
 
         self.detector = PokerDetector(
             model_path=yolo_cfg.get("model_path", "models/poker_yolo_v11.engine"),
-            pipeline=vision_pipeline
+            pipeline=vision_pipeline,
         )
         if not bool(yolo_cfg.get("live_enabled", False)):
             self.detector.model = None
@@ -243,7 +247,9 @@ class SuperBotController(
         self.runtime_sanity = SanityChecker()
 
         # --- 5. ExÃ©cuteur Stealth ---
-        self.action_controller = ActionController(window_title_keywords=bot_cfg.get("window_title_keywords", "VirtualBox"))
+        self.action_controller = ActionController(
+            window_title_keywords=bot_cfg.get("window_title_keywords", "VirtualBox")
+        )
 
         # --- 6. ACTIVE LEARNING (HITL) ---
         self.hitl = HumanInTheLoop(target_dataset_size=100)
@@ -258,10 +264,15 @@ class SuperBotController(
             enabled=resolve_observation_capture_enabled(
                 observation_capture_cfg, self.hardware_profile
             ),
-            dataset_dir=str(observation_capture_cfg.get("dataset_dir", "dataset/runtime_observation") or "dataset/runtime_observation"),
+            dataset_dir=str(
+                observation_capture_cfg.get("dataset_dir", "dataset/runtime_observation")
+                or "dataset/runtime_observation"
+            ),
             capture_interval_s=float(observation_capture_cfg.get("capture_interval_s", 6.0) or 6.0),
             require_visual_change=bool(observation_capture_cfg.get("require_visual_change", True)),
-            max_samples_per_session=int(observation_capture_cfg.get("max_samples_per_session", 500) or 500),
+            max_samples_per_session=int(
+                observation_capture_cfg.get("max_samples_per_session", 500) or 500
+            ),
         )
         self.operator_controls: dict[str, object] = {
             "profile_name": "live-runtime",
@@ -276,7 +287,9 @@ class SuperBotController(
             "updated_at": self._utc_now(),
         }
         self.runtime_api_port = _resolve_runtime_api_port()
-        self.runtime_bridge_store = RuntimeBridgeStore(os.getenv("POKER_RUNTIME_BRIDGE_DIR") or RUNTIME_BRIDGE_DIR)
+        self.runtime_bridge_store = RuntimeBridgeStore(
+            os.getenv("POKER_RUNTIME_BRIDGE_DIR") or RUNTIME_BRIDGE_DIR
+        )
         self._runtime_state_publish_interval_s = 0.15
         self.operator_bridge = OperatorBridge(
             root=ROOT,
@@ -352,32 +365,63 @@ class SuperBotController(
         self._last_good_runtime_hero_cards: tuple[str, ...] = ()
         self._last_good_runtime_hero_cards_at = 0.0
         self._runtime_hero_cards_ttl_s = 1.75
-        self._runtime_hero_cards_rank_flip_ttl_s = float(bot_cfg.get("runtime_hero_cards_rank_flip_ttl_s", 1.0) or 1.0)
+        self._runtime_hero_cards_rank_flip_ttl_s = float(
+            bot_cfg.get("runtime_hero_cards_rank_flip_ttl_s", 1.0) or 1.0
+        )
         self.go_live_gate_thresholds = dict(bot_cfg.get("go_live_gate", {}) or {})
         self.runtime_failure_dataset = RuntimeFailureDataset(
             enabled=bool(bot_cfg.get("runtime_failure_dataset_enabled", True)),
-            dataset_dir=str(bot_cfg.get("runtime_failure_dataset_dir", "dataset/runtime_failures") or "dataset/runtime_failures"),
+            dataset_dir=str(
+                bot_cfg.get("runtime_failure_dataset_dir", "dataset/runtime_failures")
+                or "dataset/runtime_failures"
+            ),
         )
         self._max_live_frame_age_s = float(bot_cfg.get("max_live_frame_age_s", 1.25) or 1.25)
-        self._slow_loop_log_threshold_ms = float(bot_cfg.get("slow_loop_log_threshold_ms", 750.0) or 750.0)
-        self._post_action_settle_delay_s = float(bot_cfg.get("post_action_settle_delay_s", 0.2) or 0.2)
-        self._post_action_settle_timeout_s = float(bot_cfg.get("post_action_settle_timeout_s", 0.9) or 0.9)
-        self._post_action_settle_poll_interval_s = float(bot_cfg.get("post_action_settle_poll_interval_s", 0.03) or 0.03)
-        self._visual_state_refresh_interval_s = float(bot_cfg.get("visual_state_refresh_interval_s", 0.9) or 0.9)
-        self._visual_state_change_threshold = float(bot_cfg.get("visual_state_change_threshold", 0.985) or 0.985)
-        self._pot_ocr_refresh_interval_s = float(bot_cfg.get("pot_ocr_refresh_interval_s", 0.12) or 0.12)
-        self._pot_crop_change_threshold = float(bot_cfg.get("pot_crop_change_threshold", 0.85) or 0.85)
+        self._slow_loop_log_threshold_ms = float(
+            bot_cfg.get("slow_loop_log_threshold_ms", 750.0) or 750.0
+        )
+        self._post_action_settle_delay_s = float(
+            bot_cfg.get("post_action_settle_delay_s", 0.2) or 0.2
+        )
+        self._post_action_settle_timeout_s = float(
+            bot_cfg.get("post_action_settle_timeout_s", 0.9) or 0.9
+        )
+        self._post_action_settle_poll_interval_s = float(
+            bot_cfg.get("post_action_settle_poll_interval_s", 0.03) or 0.03
+        )
+        self._visual_state_refresh_interval_s = float(
+            bot_cfg.get("visual_state_refresh_interval_s", 0.9) or 0.9
+        )
+        self._visual_state_change_threshold = float(
+            bot_cfg.get("visual_state_change_threshold", 0.985) or 0.985
+        )
+        self._pot_ocr_refresh_interval_s = float(
+            bot_cfg.get("pot_ocr_refresh_interval_s", 0.12) or 0.12
+        )
+        self._pot_crop_change_threshold = float(
+            bot_cfg.get("pot_crop_change_threshold", 0.85) or 0.85
+        )
         self._last_pot_ocr_at = 0.0
         self._last_fast_pot_snapshot: dict[str, object] = {}
         self._fast_pot_stale_after_s = float(bot_cfg.get("fast_pot_stale_after_s", 0.35) or 0.35)
-        self._live_debounce_reset_sleep_s = float(bot_cfg.get("live_debounce_reset_sleep_s", 0.03) or 0.03)
-        self._live_debounce_stable_window_s = float(bot_cfg.get("live_debounce_stable_window_s", 0.12) or 0.12)
-        self._live_debounce_poll_sleep_s = float(bot_cfg.get("live_debounce_poll_sleep_s", 0.02) or 0.02)
+        self._live_debounce_reset_sleep_s = float(
+            bot_cfg.get("live_debounce_reset_sleep_s", 0.03) or 0.03
+        )
+        self._live_debounce_stable_window_s = float(
+            bot_cfg.get("live_debounce_stable_window_s", 0.12) or 0.12
+        )
+        self._live_debounce_poll_sleep_s = float(
+            bot_cfg.get("live_debounce_poll_sleep_s", 0.02) or 0.02
+        )
         self._last_visual_previews: dict[str, np.ndarray] = {}
         self._last_visual_state: TableState | None = None
         self._last_visual_state_at = 0.0
-        self._post_action_context_guard_s = float(bot_cfg.get("post_action_context_guard_s", 2.25) or 2.25)
-        self._live_action_repeat_cooldown_s = float(bot_cfg.get("live_action_repeat_cooldown_s", 3.5) or 3.5)
+        self._post_action_context_guard_s = float(
+            bot_cfg.get("post_action_context_guard_s", 2.25) or 2.25
+        )
+        self._live_action_repeat_cooldown_s = float(
+            bot_cfg.get("live_action_repeat_cooldown_s", 3.5) or 3.5
+        )
         self._last_live_execution_signature: tuple = ()
         self._last_live_execution_context_signature: tuple = ()
         self._last_live_execution_action = ""
@@ -394,9 +438,15 @@ class SuperBotController(
         self._last_decision_payload: dict[str, object] | None = None
         self._last_decision_cached_at = 0.0
         self._decision_cache_ttl_s = float(bot_cfg.get("decision_cache_ttl_s", 0.35) or 0.35)
-        self._locked_spot_log_interval_s = float(bot_cfg.get("locked_spot_log_interval_s", 1.0) or 1.0)
-        self._locked_spot_poll_interval_s = float(bot_cfg.get("locked_spot_poll_interval_s", 0.1) or 0.1)
-        self._runtime_readiness_failure_cooldown_s = float(bot_cfg.get("runtime_readiness_failure_cooldown_s", 2.0) or 2.0)
+        self._locked_spot_log_interval_s = float(
+            bot_cfg.get("locked_spot_log_interval_s", 1.0) or 1.0
+        )
+        self._locked_spot_poll_interval_s = float(
+            bot_cfg.get("locked_spot_poll_interval_s", 0.1) or 0.1
+        )
+        self._runtime_readiness_failure_cooldown_s = float(
+            bot_cfg.get("runtime_readiness_failure_cooldown_s", 2.0) or 2.0
+        )
         self._last_runtime_readiness_failure_signature: tuple = ()
         self._last_runtime_readiness_failure_at = 0.0
         self._last_turn_probe_snapshot: dict[str, object] = {}
@@ -433,21 +483,26 @@ class SuperBotController(
         pad_ratio_x: float = 0.0,
         pad_ratio_y: float = 0.0,
     ) -> np.ndarray | None:
-        return safe_crop(frame, bbox, pad_x=pad_x, pad_y=pad_y,
-                         pad_ratio_x=pad_ratio_x, pad_ratio_y=pad_ratio_y)
+        return safe_crop(
+            frame, bbox, pad_x=pad_x, pad_y=pad_y, pad_ratio_x=pad_ratio_x, pad_ratio_y=pad_ratio_y
+        )
 
     @staticmethod
     def _center(det: DetectionResult) -> tuple[float, float]:
         return detection_center(det)
 
-    def _is_image_changed(self, img1: np.ndarray, img2: np.ndarray, threshold: float = 0.95, mask_edges: bool = True) -> bool:
+    def _is_image_changed(
+        self, img1: np.ndarray, img2: np.ndarray, threshold: float = 0.95, mask_edges: bool = True
+    ) -> bool:
         return is_image_changed(img1, img2, threshold=threshold, mask_edges=mask_edges)
 
     @staticmethod
     def _copy_table_state(state: TableState) -> TableState:
         return copy_table_state(state)
 
-    def _build_visual_preview(self, frame: np.ndarray, bbox: tuple[int, int, int, int]) -> np.ndarray | None:
+    def _build_visual_preview(
+        self, frame: np.ndarray, bbox: tuple[int, int, int, int]
+    ) -> np.ndarray | None:
         crop = self._safe_crop(frame, bbox)
         if crop is None or crop.size == 0:
             return None
@@ -466,7 +521,6 @@ class SuperBotController(
     ) -> tuple[bool, dict[str, np.ndarray], tuple[str, ...]]:
         return self._get_frame_pipeline()._detect_relevant_visual_change(frame)
 
-
     async def _jit_action_validator(self, ignore_action_region: bool = False) -> bool:
         """
         Vérification Just-In-Time (JIT) de l'état de l'écran juste avant le clic physique.
@@ -482,7 +536,7 @@ class SuperBotController(
             previews = self._capture_live_visual_previews(frame)
             last_previews = getattr(self, "_last_visual_previews", {})
             if "actions" not in previews or "actions" not in last_previews:
-                return True # On manque de données, on autorise dans le doute
+                return True  # On manque de données, on autorise dans le doute
 
             if not ignore_action_region:
                 old_action_preview = last_previews["actions"]
@@ -491,7 +545,7 @@ class SuperBotController(
                 # Check MSE diff
                 mse = np.mean((old_action_preview - new_action_preview) ** 2)
 
-                if mse > 5.0: # Seuil de mutation (le bouton s'est allumé, éteint, ou a disparu)
+                if mse > 5.0:  # Seuil de mutation (le bouton s'est allumé, éteint, ou a disparu)
                     logger.warning(f"JIT CHECK FAILED : MSE de {mse:.2f} sur la zone d'action.")
                     return False
 
@@ -503,7 +557,9 @@ class SuperBotController(
     async def _process_frame(self, frame) -> TableState:
         return await self._get_frame_pipeline()._process_frame(frame)
 
-    def _build_gate_tracker_snapshot(self, canonical_state: CanonicalTableState) -> dict[str, object]:
+    def _build_gate_tracker_snapshot(
+        self, canonical_state: CanonicalTableState
+    ) -> dict[str, object]:
         metadata = dict(getattr(canonical_state, "metadata", {}) or {})
         hero_seat_id = str(
             metadata.get("hero_seat_id")
@@ -515,14 +571,16 @@ class SuperBotController(
             "board": list(canonical_state.board),
             "pot": float(canonical_state.pot or 0.0),
             "hero_cards": list(canonical_state.hero_cards),
-            "in_hand": bool(len(canonical_state.hero_cards) == 2 or canonical_state.board or canonical_state.legal_actions),
+            "in_hand": bool(
+                len(canonical_state.hero_cards) == 2
+                or canonical_state.board
+                or canonical_state.legal_actions
+            ),
             "legal_actions": [str(action).upper() for action in canonical_state.legal_actions],
             "hero_seat_id": hero_seat_id,
             "state_confidence": float(canonical_state.state_confidence or 0.0),
             "ocr_metadata": dict(metadata.get("ocr", {}) or {}),
         }
-
-
 
     def _log_loop_timing(
         self,
@@ -645,6 +703,7 @@ class SuperBotController(
     async def main_loop(self):
         return await self._get_runtime_loop().run()
 
+
 def run_bot():
     try:
         Preflight(ROOT).run()
@@ -660,6 +719,7 @@ def run_bot():
         logger.info("Extinction gracieuse...")
         bot.is_running = False
         loop.run_until_complete(asyncio.sleep(1))
+
 
 if __name__ == "__main__":
     ensure_admin()

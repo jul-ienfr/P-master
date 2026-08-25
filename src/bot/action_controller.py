@@ -28,12 +28,14 @@ def _parse_window_title_keywords(raw_value: str) -> list[str]:
     tokens = str(raw_value or "").replace(",", "|").replace(";", "|").split("|")
     return [token.strip() for token in tokens if token and token.strip()]
 
+
 class ActionController:
     """
     Contrôleur d'actions conçu pour fonctionner DEPUIS l'hôte vers une Machine Virtuelle (VM)
-    ou DANS une VM. Il simule des mouvements de souris humains (courbes de Bézier) pour 
+    ou DANS une VM. Il simule des mouvements de souris humains (courbes de Bézier) pour
     déjouer l'analyse heuristique des anti-cheats.
     """
+
     def __init__(self, window_title_keywords: str = "VirtualBox"):
         self.window_title_keywords = window_title_keywords
         self.hwnd = None
@@ -96,7 +98,7 @@ class ActionController:
         primary_keywords = _parse_window_title_keywords(self.window_title_keywords)
 
         # LOCK HWND: Empêcher de sauter sur une autre fenêtre si celle-ci est toujours valide
-        if getattr(self, 'hwnd', None) and win32gui.IsWindow(self.hwnd):
+        if getattr(self, "hwnd", None) and win32gui.IsWindow(self.hwnd):
             try:
                 current_title = win32gui.GetWindowText(self.hwnd)
                 if self._score_window_title(current_title, primary_keywords) > 0:
@@ -111,7 +113,9 @@ class ActionController:
 
         if best_match is None:
             fallback_keywords = [
-                keyword for keyword in DEFAULT_POKER_WINDOW_KEYWORDS if keyword not in primary_keywords
+                keyword
+                for keyword in DEFAULT_POKER_WINDOW_KEYWORDS
+                if keyword not in primary_keywords
             ]
             best_match = self._select_best_window(fallback_keywords)
 
@@ -119,7 +123,9 @@ class ActionController:
             self.hwnd = None
             self.window_title = ""
             if previous_hwnd is not None or previous_title:
-                logger.warning(f"Impossible de trouver une fenêtre contenant '{self.window_title_keywords}'")
+                logger.warning(
+                    f"Impossible de trouver une fenêtre contenant '{self.window_title_keywords}'"
+                )
             return
 
         self.hwnd, self.window_title, _ = best_match
@@ -200,7 +206,9 @@ class ActionController:
                 for thread_id in {target_thread_id, foreground_thread_id}:
                     if thread_id and thread_id != current_thread_id:
                         try:
-                            attached = bool(user32.AttachThreadInput(current_thread_id, thread_id, True))
+                            attached = bool(
+                                user32.AttachThreadInput(current_thread_id, thread_id, True)
+                            )
                         except Exception:
                             attached = False
                         if attached:
@@ -289,7 +297,7 @@ class ActionController:
 
     async def _human_mouse_move(self, start_x, start_y, target_x, target_y, duration=None):
         """
-        Génère un mouvement de souris fluide basé sur la loi de Fitts et Bézier, 
+        Génère un mouvement de souris fluide basé sur la loi de Fitts et Bézier,
         avec un potentiel dépassement (overshoot) pour leurrer les anti-cheats.
         """
         distance = ((target_x - start_x) ** 2 + (target_y - start_y) ** 2) ** 0.5
@@ -298,13 +306,17 @@ class ActionController:
 
         steps = max(5, int(duration * 60))
 
-        control_x = start_x + (target_x - start_x) * random.uniform(0.3, 0.7) + random.randint(-150, 150)
-        control_y = start_y + (target_y - start_y) * random.uniform(0.3, 0.7) + random.randint(-150, 150)
+        control_x = (
+            start_x + (target_x - start_x) * random.uniform(0.3, 0.7) + random.randint(-150, 150)
+        )
+        control_y = (
+            start_y + (target_y - start_y) * random.uniform(0.3, 0.7) + random.randint(-150, 150)
+        )
 
         for i in range(1, steps + 1):
             t = i / steps
-            x = int((1 - t)**2 * start_x + 2 * (1 - t) * t * control_x + t**2 * target_x)
-            y = int((1 - t)**2 * start_y + 2 * (1 - t) * t * control_y + t**2 * target_y)
+            x = int((1 - t) ** 2 * start_x + 2 * (1 - t) * t * control_x + t**2 * target_x)
+            y = int((1 - t) ** 2 * start_y + 2 * (1 - t) * t * control_y + t**2 * target_y)
             win32api.SetCursorPos((x, y))
             await asyncio.sleep(duration / steps)
 
@@ -337,7 +349,9 @@ class ActionController:
         if self.hwnd:
             rect_origin = self.get_window_rect()
             if rect_origin is None:
-                logger.error("CLICK_ATTEMPT | impossible de recuperer le rect origin pour la fenetre cible.")
+                logger.error(
+                    "CLICK_ATTEMPT | impossible de recuperer le rect origin pour la fenetre cible."
+                )
                 return False
             target_x = rect_origin[0] + x
             target_y = rect_origin[1] + y
@@ -365,7 +379,13 @@ class ActionController:
         current_x, current_y = win32api.GetCursorPos()
 
         # Mouvement humain
-        await self._human_mouse_move(current_x, current_y, target_x, target_y, duration=random.uniform(MIN_MOVE_DURATION_S, MAX_MOVE_DURATION_S))
+        await self._human_mouse_move(
+            current_x,
+            current_y,
+            target_x,
+            target_y,
+            duration=random.uniform(MIN_MOVE_DURATION_S, MAX_MOVE_DURATION_S),
+        )
 
         # Micro-pause avant de cliquer
         await asyncio.sleep(random.uniform(0.02, 0.05))
@@ -382,15 +402,23 @@ class ActionController:
         abs_x = int(target_x * 65535 / screen_width)
         abs_y = int(target_y * 65535 / screen_height)
 
-        win32api.mouse_event(win32con.MOUSEEVENTF_ABSOLUTE | win32con.MOUSEEVENTF_LEFTDOWN, abs_x, abs_y, 0, 0)
+        win32api.mouse_event(
+            win32con.MOUSEEVENTF_ABSOLUTE | win32con.MOUSEEVENTF_LEFTDOWN, abs_x, abs_y, 0, 0
+        )
         await asyncio.sleep(random.uniform(0.02, 0.05))
-        win32api.mouse_event(win32con.MOUSEEVENTF_ABSOLUTE | win32con.MOUSEEVENTF_LEFTUP, abs_x, abs_y, 0, 0)
+        win32api.mouse_event(
+            win32con.MOUSEEVENTF_ABSOLUTE | win32con.MOUSEEVENTF_LEFTUP, abs_x, abs_y, 0, 0
+        )
 
         if double_click:
             await asyncio.sleep(random.uniform(0.03, 0.06))
-            win32api.mouse_event(win32con.MOUSEEVENTF_ABSOLUTE | win32con.MOUSEEVENTF_LEFTDOWN, abs_x, abs_y, 0, 0)
+            win32api.mouse_event(
+                win32con.MOUSEEVENTF_ABSOLUTE | win32con.MOUSEEVENTF_LEFTDOWN, abs_x, abs_y, 0, 0
+            )
             await asyncio.sleep(random.uniform(0.02, 0.05))
-            win32api.mouse_event(win32con.MOUSEEVENTF_ABSOLUTE | win32con.MOUSEEVENTF_LEFTUP, abs_x, abs_y, 0, 0)
+            win32api.mouse_event(
+                win32con.MOUSEEVENTF_ABSOLUTE | win32con.MOUSEEVENTF_LEFTUP, abs_x, abs_y, 0, 0
+            )
 
         logger.debug(f"Clic physique généré ABSOLUTEMENT en ({target_x}, {target_y})")
         return True
@@ -407,7 +435,14 @@ class ActionController:
             win32api.keybd_event(vk_code & 0xFF, 0, win32con.KEYEVENTF_KEYUP, 0)
             await asyncio.sleep(random.uniform(0.05, 0.15))
 
-    async def execute_action(self, action_request, coords_mapping: dict, jit_check=None, update_jit_baseline=None, **kwargs):
+    async def execute_action(
+        self,
+        action_request,
+        coords_mapping: dict,
+        jit_check=None,
+        update_jit_baseline=None,
+        **kwargs,
+    ):
         async def _verify_jit(ignore_action_region: bool = False) -> bool:
             if jit_check is None:
                 return True
@@ -416,7 +451,9 @@ class ActionController:
             else:
                 allowed = jit_check(ignore_action_region=ignore_action_region)
             if not allowed:
-                logger.error("JIT_CHECK | action=%s status=aborted reason=jit_check_failed", action_name)
+                logger.error(
+                    "JIT_CHECK | action=%s status=aborted reason=jit_check_failed", action_name
+                )
                 raise RuntimeError("JIT Check Failed")
             return True
 
@@ -453,7 +490,12 @@ class ActionController:
                     logger.info("-> Action exécutée : FOLD")
                     return {"ok": True, "action": "FOLD", "target": tuple(coords)}
                 logger.error("CLICK_RESULT | action=FOLD status=failed reason=fold_click_failed")
-                return {"ok": False, "action": "FOLD", "reason": "fold_click_failed", "target": tuple(coords)}
+                return {
+                    "ok": False,
+                    "action": "FOLD",
+                    "reason": "fold_click_failed",
+                    "target": tuple(coords),
+                }
             logger.warning("CLICK_RESULT | action=FOLD status=skipped reason=missing_fold_coords")
             return {"ok": False, "action": "FOLD", "reason": "missing_fold_coords"}
 
@@ -465,9 +507,18 @@ class ActionController:
                 if clicked:
                     logger.info(f"-> Action exécutée : {action_name}")
                     return {"ok": True, "action": action_name, "target": tuple(coords)}
-                logger.error("CLICK_RESULT | action=%s status=failed reason=call_click_failed", action_name)
-                return {"ok": False, "action": action_name, "reason": "call_click_failed", "target": tuple(coords)}
-            logger.warning("CLICK_RESULT | action=%s status=skipped reason=missing_call_coords", action_name)
+                logger.error(
+                    "CLICK_RESULT | action=%s status=failed reason=call_click_failed", action_name
+                )
+                return {
+                    "ok": False,
+                    "action": action_name,
+                    "reason": "call_click_failed",
+                    "target": tuple(coords),
+                }
+            logger.warning(
+                "CLICK_RESULT | action=%s status=skipped reason=missing_call_coords", action_name
+            )
             return {"ok": False, "action": action_name, "reason": "missing_call_coords"}
 
         elif action_name == "ALL_IN" or "RAISE" in action_name or "BET" in action_name:
@@ -476,29 +527,36 @@ class ActionController:
                 await _verify_jit()
                 clicked = await self.click_at(*text_box_coords, double_click=True)
                 if not clicked:
-                    logger.error("CLICK_RESULT | action=%s status=failed reason=bet_box_click_failed", action_name)
+                    logger.error(
+                        "CLICK_RESULT | action=%s status=failed reason=bet_box_click_failed",
+                        action_name,
+                    )
                     return {"ok": False, "action": action_name, "reason": "bet_box_click_failed"}
 
                 # --- Dynamic BB Parsing for resilient betting ---
                 import json
                 import os
                 import re
+
                 bb_size = 200  # Fallback par defaut absolu
-                active_regex = r'\d+[/,](\d+)\b'
+                active_regex = r"\d+[/,](\d+)\b"
 
                 # 1. Selection automatique du profil du site depuis config.json
                 if self.window_title:
                     try:
-                        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'config.json')
+                        config_path = os.path.join(
+                            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                            "config.json",
+                        )
                         with open(config_path) as f:
                             cfg = json.load(f)
-                            profiles = cfg.get('bot', {}).get('site_profiles', {})
+                            profiles = cfg.get("bot", {}).get("site_profiles", {})
 
                             # On cherche quel site correspond au titre de la fenetre actuelle
                             for site_name, profile in profiles.items():
                                 if site_name.lower() in self.window_title.lower():
-                                    bb_size = int(profile.get('default_bb', bb_size))
-                                    active_regex = profile.get('stake_regex', active_regex)
+                                    bb_size = int(profile.get("default_bb", bb_size))
+                                    active_regex = profile.get("stake_regex", active_regex)
                                     break
                     except Exception:
                         pass
@@ -512,18 +570,24 @@ class ActionController:
                         except ValueError:
                             pass
 
-                target_amount = action_intent.bet_size if action_intent.bet_size is not None else float(3 * bb_size)
+                target_amount = (
+                    action_intent.bet_size
+                    if action_intent.bet_size is not None
+                    else float(3 * bb_size)
+                )
 
                 # Si le calcul OCR a fail (pot=0) et crashé à 1.0, on force une relance standard GTO (3 BB)
                 if target_amount < bb_size:
-                    logger.warning(f"Correction Sizing: {target_amount} est inférieur à 1 BB ({bb_size}). Forcé à 3 BB.")
+                    logger.warning(
+                        f"Correction Sizing: {target_amount} est inférieur à 1 BB ({bb_size}). Forcé à 3 BB."
+                    )
                     target_amount = float(3 * bb_size)
 
                 # Formatage du nombre (Entier si Play Money, Décimal sinon)
                 if bb_size >= 10:
                     amount_to_bet = str(int(target_amount))
                 else:
-                    amount_to_bet = f"{target_amount:.2f}".rstrip('0').rstrip('.')
+                    amount_to_bet = f"{target_amount:.2f}".rstrip("0").rstrip(".")
 
                 logger.info("=========== HISTORIQUE MISE ===========")
                 logger.info(f"  Action Requise    : {action_name}")
@@ -549,15 +613,21 @@ class ActionController:
                     # La saisie du montant mute légitimement la zone d'action :
                     # on relâche la vérification sur cette région pour le check final.
                     await _verify_jit(ignore_action_region=True)
-                    logger.info(f"CLICK_ATTEMPT | Clic de sécurité sur le bouton BET_BTN en coords {bet_btn_coords}...")
+                    logger.info(
+                        f"CLICK_ATTEMPT | Clic de sécurité sur le bouton BET_BTN en coords {bet_btn_coords}..."
+                    )
                     await asyncio.sleep(random.uniform(0.1, 0.3))
                     clicked_btn = await self.click_at(*bet_btn_coords, double_click=False)
                     if not clicked_btn:
-                        logger.warning("CLICK_RESULT | Impossible de cliquer BET_BTN en cascade, validation incertaine.")
+                        logger.warning(
+                            "CLICK_RESULT | Impossible de cliquer BET_BTN en cascade, validation incertaine."
+                        )
                     else:
                         logger.info("CLICK_RESULT | Bouton BET_BTN cliqué avec succès.")
                 else:
-                    logger.warning("CLICK_RESULT | AUCUNE coordonnée pour BET_BTN. L'IA n'a pas vu le bouton final ! Seul ENTER a été pressé.")
+                    logger.warning(
+                        "CLICK_RESULT | AUCUNE coordonnée pour BET_BTN. L'IA n'a pas vu le bouton final ! Seul ENTER a été pressé."
+                    )
 
                 logger.info(f"-> Action exécutée : {action_name} ({amount_to_bet}) validé")
                 return {
@@ -566,8 +636,12 @@ class ActionController:
                     "target": "VK_RETURN+BET_BTN",
                     "bet_size": amount_to_bet,
                 }
-            logger.warning("CLICK_RESULT | action=%s status=skipped reason=missing_bet_box_coords", action_name)
+            logger.warning(
+                "CLICK_RESULT | action=%s status=skipped reason=missing_bet_box_coords", action_name
+            )
             return {"ok": False, "action": action_name, "reason": "missing_bet_box_coords"}
 
-        logger.warning("CLICK_RESULT | action=%s status=skipped reason=unsupported_action", action_name)
+        logger.warning(
+            "CLICK_RESULT | action=%s status=skipped reason=unsupported_action", action_name
+        )
         return {"ok": False, "action": action_name, "reason": "unsupported_action"}

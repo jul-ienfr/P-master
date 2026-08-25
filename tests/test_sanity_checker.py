@@ -119,7 +119,12 @@ def test_evaluate_action_gate_calls_failure_callback_when_blocked():
 def test_validate_board_cards_trims_unstable_turn_frame():
     checker = SanityChecker()
 
-    assert checker.validate_board_cards("TURN", ["2c", "7d", "Jh", "Qs", "Ac"]) == ["2c", "7d", "Jh", "Qs"]
+    assert checker.validate_board_cards("TURN", ["2c", "7d", "Jh", "Qs", "Ac"]) == [
+        "2c",
+        "7d",
+        "Jh",
+        "Qs",
+    ]
 
 
 def test_validate_board_cards_drops_invalid_preflop_ghost_cards():
@@ -179,8 +184,12 @@ def test_is_possible_board_reset_only_flags_downward_board_transitions():
 def test_is_same_hand_board_transition_only_flags_single_card_prefix_changes():
     checker = SanityChecker()
 
-    assert checker.is_same_hand_board_transition(["2c", "7d", "Jh"], ["2c", "7d", "Jh", "Qs"]) is True
-    assert checker.is_same_hand_board_transition(["2c", "7d", "Jh", "Qs"], ["2c", "7d", "Jh"]) is True
+    assert (
+        checker.is_same_hand_board_transition(["2c", "7d", "Jh"], ["2c", "7d", "Jh", "Qs"]) is True
+    )
+    assert (
+        checker.is_same_hand_board_transition(["2c", "7d", "Jh", "Qs"], ["2c", "7d", "Jh"]) is True
+    )
     assert checker.is_same_hand_board_transition(["2c", "7d", "Jh"], []) is False
     assert checker.is_same_hand_board_transition(["2c", "7d", "Jh"], ["2c", "7d", "Td"]) is False
 
@@ -188,30 +197,42 @@ def test_is_same_hand_board_transition_only_flags_single_card_prefix_changes():
 def test_requires_multiframe_street_confirmation_only_for_ambiguous_turn_and_river_promotions():
     checker = SanityChecker()
 
-    assert checker.requires_multiframe_street_confirmation(
-        current_street="FLOP",
-        candidate_street="TURN",
-        current_board=["2c", "7d", "Jh"],
-        new_board=["2c", "7d", "Jh", "Qs"],
-    ) is True
-    assert checker.requires_multiframe_street_confirmation(
-        current_street="TURN",
-        candidate_street="RIVER",
-        current_board=["2c", "7d", "Jh", "Qs"],
-        new_board=["2c", "7d", "Jh", "Qs", "Ac"],
-    ) is True
-    assert checker.requires_multiframe_street_confirmation(
-        current_street="PREFLOP",
-        candidate_street="FLOP",
-        current_board=[],
-        new_board=["2c", "7d", "Jh"],
-    ) is False
-    assert checker.requires_multiframe_street_confirmation(
-        current_street="FLOP",
-        candidate_street="TURN",
-        current_board=["2c", "7d", "Jh"],
-        new_board=["2c", "7d", "Jh"],
-    ) is False
+    assert (
+        checker.requires_multiframe_street_confirmation(
+            current_street="FLOP",
+            candidate_street="TURN",
+            current_board=["2c", "7d", "Jh"],
+            new_board=["2c", "7d", "Jh", "Qs"],
+        )
+        is True
+    )
+    assert (
+        checker.requires_multiframe_street_confirmation(
+            current_street="TURN",
+            candidate_street="RIVER",
+            current_board=["2c", "7d", "Jh", "Qs"],
+            new_board=["2c", "7d", "Jh", "Qs", "Ac"],
+        )
+        is True
+    )
+    assert (
+        checker.requires_multiframe_street_confirmation(
+            current_street="PREFLOP",
+            candidate_street="FLOP",
+            current_board=[],
+            new_board=["2c", "7d", "Jh"],
+        )
+        is False
+    )
+    assert (
+        checker.requires_multiframe_street_confirmation(
+            current_street="FLOP",
+            candidate_street="TURN",
+            current_board=["2c", "7d", "Jh"],
+            new_board=["2c", "7d", "Jh"],
+        )
+        is False
+    )
 
 
 def test_validate_stack_read_rate_limits_duplicate_warnings_per_seat(monkeypatch, caplog):
@@ -226,7 +247,11 @@ def test_validate_stack_read_rate_limits_duplicate_warnings_per_seat(monkeypatch
         fake_now["value"] = 100.2
         assert checker.validate_stack_read(100.0, 45507.0, 100.0, 0.0, seat_id="seat_1") == 100.0
 
-    warning_messages = [record.getMessage() for record in caplog.records if "Anomalie Stack bloquée" in record.getMessage()]
+    warning_messages = [
+        record.getMessage()
+        for record in caplog.records
+        if "Anomalie Stack bloquée" in record.getMessage()
+    ]
     assert len(warning_messages) == 1
 
     fake_now["value"] = 101.3

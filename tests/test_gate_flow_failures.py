@@ -1,4 +1,5 @@
 """Tests des enregistreurs d'échec runtime et du gate flow (src/bot/gate_flow.py)."""
+
 import sys
 from collections import deque
 from pathlib import Path
@@ -23,7 +24,9 @@ class Controller(GateFlowMixin, LiveExecutionMixin, RuntimeSessionMixin):
         self.last_tracker_snapshot = {}
         self.last_resolved_runtime_state = None
         self.last_valid_frame = np.zeros((4, 4, 3), dtype=np.uint8)
-        self.runtime_failure_dataset = SimpleNamespace(record_incident=lambda payload: self.incidents.append(payload))
+        self.runtime_failure_dataset = SimpleNamespace(
+            record_incident=lambda payload: self.incidents.append(payload)
+        )
         self.incidents = []
         self.shadow_calls = []
         self.events = []
@@ -31,7 +34,9 @@ class Controller(GateFlowMixin, LiveExecutionMixin, RuntimeSessionMixin):
         self.metric_snapshot_history = deque()
 
     def _build_operator_snapshot(self):
-        return {"shadow_mode_enabled": bool(self.operator_controls.get("shadow_mode_enabled", False))}
+        return {
+            "shadow_mode_enabled": bool(self.operator_controls.get("shadow_mode_enabled", False))
+        }
 
     def _build_runtime_failure_crops(self):
         return {"pot": self.last_valid_frame}

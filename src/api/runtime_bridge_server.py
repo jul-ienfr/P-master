@@ -81,7 +81,10 @@ class ObservationExporter:
             pass
 
     def export(self, player_limit: int = 50, hand_limit: int = 100) -> dict:
-        return dict(self.db.export_observation_dataset(player_limit=player_limit, hand_limit=hand_limit) or {})
+        return dict(
+            self.db.export_observation_dataset(player_limit=player_limit, hand_limit=hand_limit)
+            or {}
+        )
 
     def summary(self) -> dict:
         return dict(self.db.summarize_observation(limit=5) or {})
@@ -92,7 +95,9 @@ async def _watch_parent(parent_pid: int, stop_event: asyncio.Event) -> None:
         return
     while not stop_event.is_set():
         if not _parent_process_alive(parent_pid):
-            logger.warning("Le process runtime parent %s est termine. Arret de l'API bridge.", parent_pid)
+            logger.warning(
+                "Le process runtime parent %s est termine. Arret de l'API bridge.", parent_pid
+            )
             stop_event.set()
             return
         await asyncio.sleep(1.0)
@@ -118,7 +123,11 @@ async def _serve_runtime_bridge(args) -> None:
         observation_provider=observation_exporter.summary,
     )
     timesfm_service = RuntimeTimesFMService(
-        enabled=bool(timesfm_cfg.get("enabled", False) or str(os.getenv("POKER_ENABLE_TIMESFM", "")).strip().lower() in {"1", "true", "yes", "on"}),
+        enabled=bool(
+            timesfm_cfg.get("enabled", False)
+            or str(os.getenv("POKER_ENABLE_TIMESFM", "")).strip().lower()
+            in {"1", "true", "yes", "on"}
+        ),
         history_path=args.history_path or runtime_cfg.get("file_path", "log/runtime_history.jsonl"),
         default_horizon=int(timesfm_cfg.get("default_horizon", 12) or 12),
         default_max_context=int(timesfm_cfg.get("default_max_context", 256) or 256),
@@ -130,7 +139,9 @@ async def _serve_runtime_bridge(args) -> None:
         runtime_operator_handler=bridge_store.queue_operator_patch,
         runtime_observation_provider=runtime_provider.get_observation_snapshot,
         runtime_observation_exporter=observation_exporter.export,
-        runtime_timesfm_provider=timesfm_service.forecast_runtime_metrics if timesfm_service.enabled else None,
+        runtime_timesfm_provider=timesfm_service.forecast_runtime_metrics
+        if timesfm_service.enabled
+        else None,
         host=args.host,
         port=args.port,
         runtime_history_store=history_store,
@@ -160,11 +171,20 @@ async def _serve_runtime_bridge(args) -> None:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="PokerMaster runtime bridge API server")
     parser.add_argument("--host", default=os.getenv("POKER_RUNTIME_API_HOST", "127.0.0.1"))
-    parser.add_argument("--port", type=int, default=int(os.getenv("POKER_RUNTIME_API_PORT", "8005")))
-    parser.add_argument("--bridge-dir", default=os.getenv("POKER_RUNTIME_BRIDGE_DIR", "log/runtime_bridge"))
-    parser.add_argument("--history-path", default=os.getenv("POKER_RUNTIME_HISTORY_PATH", "log/runtime_history.jsonl"))
+    parser.add_argument(
+        "--port", type=int, default=int(os.getenv("POKER_RUNTIME_API_PORT", "8005"))
+    )
+    parser.add_argument(
+        "--bridge-dir", default=os.getenv("POKER_RUNTIME_BRIDGE_DIR", "log/runtime_bridge")
+    )
+    parser.add_argument(
+        "--history-path",
+        default=os.getenv("POKER_RUNTIME_HISTORY_PATH", "log/runtime_history.jsonl"),
+    )
     parser.add_argument("--config", default=os.getenv("POKER_RUNTIME_CONFIG_PATH", "config.json"))
-    parser.add_argument("--parent-pid", type=int, default=int(os.getenv("POKER_RUNTIME_PARENT_PID", "0") or 0))
+    parser.add_argument(
+        "--parent-pid", type=int, default=int(os.getenv("POKER_RUNTIME_PARENT_PID", "0") or 0)
+    )
     return parser
 
 

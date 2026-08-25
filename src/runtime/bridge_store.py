@@ -4,8 +4,8 @@ import os
 import threading
 import time
 import uuid
-from pathlib import Path
 from collections.abc import Callable
+from pathlib import Path
 
 try:
     from datetime import UTC, datetime
@@ -243,7 +243,9 @@ class RuntimeBridgeStore:
                 return False
         return True
 
-    def queue_operator_patch(self, patch: dict, timeout_s: float = 0.75, poll_interval_s: float = 0.05) -> dict:
+    def queue_operator_patch(
+        self, patch: dict, timeout_s: float = 0.75, poll_interval_s: float = 0.05
+    ) -> dict:
         normalized_patch = dict(patch or {})
         self.queue_command("operator_patch", normalized_patch)
         deadline = time.monotonic() + max(0.0, float(timeout_s))
@@ -263,7 +265,9 @@ class RuntimeBridgeStore:
 
 
 class BridgeHitlProxy:
-    def __init__(self, bridge_store: RuntimeBridgeStore, default_target_dataset_size: int = 100) -> None:
+    def __init__(
+        self, bridge_store: RuntimeBridgeStore, default_target_dataset_size: int = 100
+    ) -> None:
         self.bridge_store = bridge_store
         self._default_target_dataset_size = int(default_target_dataset_size or 100)
 
@@ -278,7 +282,10 @@ class BridgeHitlProxy:
 
     @property
     def target_dataset_size(self) -> int:
-        return int(self._snapshot().get("target_samples", self._default_target_dataset_size) or self._default_target_dataset_size)
+        return int(
+            self._snapshot().get("target_samples", self._default_target_dataset_size)
+            or self._default_target_dataset_size
+        )
 
     @property
     def is_waiting_for_human(self) -> bool:
@@ -334,18 +341,13 @@ class BridgeRuntimeStatusProvider:
         if self.history_store is None:
             return {stream: [] for stream in KNOWN_STREAMS}
         history = {
-            stream: self.history_store.read_recent(stream, limit=10)
-            for stream in KNOWN_STREAMS
+            stream: self.history_store.read_recent(stream, limit=10) for stream in KNOWN_STREAMS
         }
         self._persisted_history_cache = {
-            stream: list(history.get(stream, []) or [])
-            for stream in KNOWN_STREAMS
+            stream: list(history.get(stream, []) or []) for stream in KNOWN_STREAMS
         }
         self._persisted_history_cached_at = now
-        return {
-            stream: list(history.get(stream, []) or [])
-            for stream in KNOWN_STREAMS
-        }
+        return {stream: list(history.get(stream, []) or []) for stream in KNOWN_STREAMS}
 
     def _history_summary(self, runtime_history: dict, persisted_history: dict) -> dict:
         persistence = self.history_store.summarize() if self.history_store is not None else {}
@@ -362,10 +364,18 @@ class BridgeRuntimeStatusProvider:
             "persisted_decision_count": len(persisted_history.get("decisions", []) or []),
             "persisted_incident_count": len(persisted_history.get("incidents", []) or []),
             "persisted_metrics_count": len(persisted_history.get("metrics", []) or []),
-            "latest_persisted_event_at": _latest_timestamp(persisted_history.get("events", []) or []),
-            "latest_persisted_decision_at": _latest_timestamp(persisted_history.get("decisions", []) or []),
-            "latest_persisted_incident_at": _latest_timestamp(persisted_history.get("incidents", []) or []),
-            "latest_persisted_metrics_at": _latest_timestamp(persisted_history.get("metrics", []) or []),
+            "latest_persisted_event_at": _latest_timestamp(
+                persisted_history.get("events", []) or []
+            ),
+            "latest_persisted_decision_at": _latest_timestamp(
+                persisted_history.get("decisions", []) or []
+            ),
+            "latest_persisted_incident_at": _latest_timestamp(
+                persisted_history.get("incidents", []) or []
+            ),
+            "latest_persisted_metrics_at": _latest_timestamp(
+                persisted_history.get("metrics", []) or []
+            ),
             "persistence": persistence,
         }
 
@@ -392,7 +402,10 @@ class BridgeRuntimeStatusProvider:
 
     def get_observation_snapshot(self) -> dict:
         now = time.monotonic()
-        if self._observation_cache and (now - self._observation_cached_at) <= self._observation_cache_ttl_seconds:
+        if (
+            self._observation_cache
+            and (now - self._observation_cached_at) <= self._observation_cache_ttl_seconds
+        ):
             return dict(self._observation_cache)
 
         state = self.bridge_store.read_runtime_state()

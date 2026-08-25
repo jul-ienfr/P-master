@@ -13,7 +13,7 @@ import re
 import shutil
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +40,7 @@ try:  # pragma: no cover - depends on local runtime packages
     from poker.tools.screen_operations import (
         is_template_in_search_area as _is_template_in_search_area,
     )
+
     _SCREEN_OPS_AVAILABLE = True
 except Exception:  # pragma: no cover - fallback for lightweight test/runtime environments
     _binary_pil_to_cv2 = None
@@ -113,19 +114,35 @@ _PRESET_REPOSITORY = None
 def read_room_manager_settings() -> dict[str, Any]:
     config = get_config().config
     return {
-        "enable_drift_watcher": config.getboolean("room_manager", "enable_drift_watcher", fallback=False),
-        "drift_check_interval_seconds": config.getint("room_manager", "drift_check_interval_seconds", fallback=300),
+        "enable_drift_watcher": config.getboolean(
+            "room_manager", "enable_drift_watcher", fallback=False
+        ),
+        "drift_check_interval_seconds": config.getint(
+            "room_manager", "drift_check_interval_seconds", fallback=300
+        ),
         "ai_mode": config.get("room_manager", "ai_mode", fallback="local"),
         "ai_cloud_opt_in": config.getboolean("room_manager", "ai_cloud_opt_in", fallback=False),
-        "ai_provider_type": config.get("room_manager", "ai_provider_type", fallback="openai_compatible"),
+        "ai_provider_type": config.get(
+            "room_manager", "ai_provider_type", fallback="openai_compatible"
+        ),
         "ai_endpoint": config.get("room_manager", "ai_endpoint", fallback="").strip(),
         "ai_model": config.get("room_manager", "ai_model", fallback="").strip(),
-        "ai_api_key_env": config.get("room_manager", "ai_api_key_env", fallback="ROOM_MANAGER_AI_API_KEY").strip(),
+        "ai_api_key_env": config.get(
+            "room_manager", "ai_api_key_env", fallback="ROOM_MANAGER_AI_API_KEY"
+        ).strip(),
         "ai_api_key": config.get("room_manager", "ai_api_key", fallback="").strip(),
-        "ai_timeout_seconds": config.getint("room_manager", "ai_timeout_seconds", fallback=DEFAULT_AI_TIMEOUT_SECONDS),
-        "ai_max_images": config.getint("room_manager", "ai_max_images", fallback=DEFAULT_AI_MAX_IMAGES),
-        "ai_allow_full_screenshot": config.getboolean("room_manager", "ai_allow_full_screenshot", fallback=False),
-        "ai_extra_headers_json": config.get("room_manager", "ai_extra_headers_json", fallback="").strip(),
+        "ai_timeout_seconds": config.getint(
+            "room_manager", "ai_timeout_seconds", fallback=DEFAULT_AI_TIMEOUT_SECONDS
+        ),
+        "ai_max_images": config.getint(
+            "room_manager", "ai_max_images", fallback=DEFAULT_AI_MAX_IMAGES
+        ),
+        "ai_allow_full_screenshot": config.getboolean(
+            "room_manager", "ai_allow_full_screenshot", fallback=False
+        ),
+        "ai_extra_headers_json": config.get(
+            "room_manager", "ai_extra_headers_json", fallback=""
+        ).strip(),
     }
 
 
@@ -149,10 +166,7 @@ def _utc_now() -> str:
 
 
 def _slugify(value: str) -> str:
-    cleaned = [
-        ch.lower() if ch.isalnum() else "-"
-        for ch in str(value).strip()
-    ]
+    cleaned = [ch.lower() if ch.isalnum() else "-" for ch in str(value).strip()]
     slug = "".join(cleaned).strip("-")
     while "--" in slug:
         slug = slug.replace("--", "-")
@@ -217,11 +231,11 @@ def _fallback_find_template(template: Image.Image, screenshot: Image.Image):
     template_row_stride = width * 3
     screenshot_row_stride = screenshot_width * 3
     template_rows = [
-        template_bytes[row * template_row_stride:(row + 1) * template_row_stride]
+        template_bytes[row * template_row_stride : (row + 1) * template_row_stride]
         for row in range(height)
     ]
     screenshot_rows = [
-        screenshot_bytes[row * screenshot_row_stride:(row + 1) * screenshot_row_stride]
+        screenshot_bytes[row * screenshot_row_stride : (row + 1) * screenshot_row_stride]
         for row in range(screenshot_height)
     ]
     points = []
@@ -238,7 +252,7 @@ def _fallback_find_template(template: Image.Image, screenshot: Image.Image):
                 if x + width <= screenshot_width:
                     matched = True
                     for row_index in range(1, height):
-                        segment = screenshot_rows[y + row_index][x * 3:(x + width) * 3]
+                        segment = screenshot_rows[y + row_index][x * 3 : (x + width) * 3]
                         if segment != template_rows[row_index]:
                             matched = False
                             break
@@ -277,13 +291,19 @@ def _resolve_search_area(table_dict: dict[str, Any], image_area: str, player: st
     return table_dict[image_area]
 
 
-def _template_in_search_area(table_dict, screenshot, image_name, image_area, player=None, extended=False):
+def _template_in_search_area(
+    table_dict, screenshot, image_name, image_area, player=None, extended=False
+):
     _ = extended
     if _SCREEN_OPS_AVAILABLE:
-        return _is_template_in_search_area(table_dict, screenshot, image_name, image_area, player=player)
+        return _is_template_in_search_area(
+            table_dict, screenshot, image_name, image_area, player=player
+        )
     template = Image.open(io.BytesIO(table_dict[image_name])).convert("RGB")
     search_area = _resolve_search_area(table_dict, image_area, player)
-    cropped = screenshot.crop((search_area["x1"], search_area["y1"], search_area["x2"], search_area["y2"]))
+    cropped = screenshot.crop(
+        (search_area["x1"], search_area["y1"], search_area["x2"], search_area["y2"])
+    )
     count, _, _, _ = _fallback_find_template(template, cropped)
     return count >= 1
 
@@ -371,7 +391,9 @@ class AiAssistProvider:
 
     provider_name = "none"
 
-    def suggest(self, table_name: str, screenshots: list[Image.Image], manifest: dict[str, Any]) -> dict[str, Any]:
+    def suggest(
+        self, table_name: str, screenshots: list[Image.Image], manifest: dict[str, Any]
+    ) -> dict[str, Any]:
         return {
             "provider": self.provider_name,
             "site_guess": None,
@@ -386,7 +408,9 @@ class LocalAiAssistProvider(AiAssistProvider):
     def __init__(self, repository: HybridPresetRepository):
         self.repository = repository
 
-    def suggest(self, table_name: str, screenshots: list[Image.Image], manifest: dict[str, Any]) -> dict[str, Any]:
+    def suggest(
+        self, table_name: str, screenshots: list[Image.Image], manifest: dict[str, Any]
+    ) -> dict[str, Any]:
         related = self.repository.local_repository.find_related_family_names(table_name)
         site = infer_supported_site(table_name)
         notes = []
@@ -395,7 +419,9 @@ class LocalAiAssistProvider(AiAssistProvider):
         if related:
             notes.append(f"Closest existing preset: {related[0]}")
         if screenshots:
-            notes.append(f"{len(screenshots)} screenshot(s) available for local validation and sample publishing.")
+            notes.append(
+                f"{len(screenshots)} screenshot(s) available for local validation and sample publishing."
+            )
         return {
             "provider": self.provider_name,
             "site_guess": site.display_name if site else None,
@@ -419,7 +445,7 @@ def _extract_json_object(text: str) -> dict[str, Any] | None:
         pass
     for match in re.finditer(r"\{", stripped):
         try:
-            return decoder.raw_decode(stripped[match.start():])[0]
+            return decoder.raw_decode(stripped[match.start() :])[0]
         except Exception:
             continue
     return None
@@ -427,7 +453,7 @@ def _extract_json_object(text: str) -> dict[str, Any] | None:
 
 def _truncate_text(value: Any, limit: int = 400) -> str:
     text = str(value or "")
-    return text if len(text) <= limit else text[:limit - 3] + "..."
+    return text if len(text) <= limit else text[: limit - 3] + "..."
 
 
 class CompositeAiAssistProvider(AiAssistProvider):
@@ -436,7 +462,9 @@ class CompositeAiAssistProvider(AiAssistProvider):
     def __init__(self, providers: list[AiAssistProvider]):
         self.providers = [provider for provider in providers if provider is not None]
 
-    def suggest(self, table_name: str, screenshots: list[Image.Image], manifest: dict[str, Any]) -> dict[str, Any]:
+    def suggest(
+        self, table_name: str, screenshots: list[Image.Image], manifest: dict[str, Any]
+    ) -> dict[str, Any]:
         combined = super().suggest(table_name, screenshots, manifest)
         providers_used = []
         notes = []
@@ -452,7 +480,9 @@ class CompositeAiAssistProvider(AiAssistProvider):
                 combined["cloud_response"] = suggestion["cloud_response"]
             if suggestion.get("request_summary"):
                 combined["request_summary"] = suggestion["request_summary"]
-        combined["provider"] = "+".join(dict.fromkeys(providers_used)) if providers_used else self.provider_name
+        combined["provider"] = (
+            "+".join(dict.fromkeys(providers_used)) if providers_used else self.provider_name
+        )
         combined["notes"] = notes
         return combined
 
@@ -472,7 +502,9 @@ class CloudAiAssistProvider(AiAssistProvider):
 
     @property
     def enabled(self) -> bool:
-        return self.settings.get("ai_mode", "local") == "cloud" and self.settings.get("ai_cloud_opt_in", False)
+        return self.settings.get("ai_mode", "local") == "cloud" and self.settings.get(
+            "ai_cloud_opt_in", False
+        )
 
     def _build_headers(self) -> dict[str, str]:
         headers = {"Content-Type": "application/json"}
@@ -482,7 +514,9 @@ class CloudAiAssistProvider(AiAssistProvider):
             if api_key_env:
                 api_key = os.environ.get(api_key_env, "")
         if api_key:
-            headers["Authorization"] = api_key if api_key.lower().startswith("bearer ") else f"Bearer {api_key}"
+            headers["Authorization"] = (
+                api_key if api_key.lower().startswith("bearer ") else f"Bearer {api_key}"
+            )
         extra_headers_raw = self.settings.get("ai_extra_headers_json", "")
         if extra_headers_raw:
             try:
@@ -538,7 +572,9 @@ class CloudAiAssistProvider(AiAssistProvider):
         payload = []
         table_dict = None
         try:
-            table_dict = self.repository.local_repository._manifest_to_table_dict(table_name, manifest)
+            table_dict = self.repository.local_repository._manifest_to_table_dict(
+                table_name, manifest
+            )
         except Exception:
             table_dict = None
 
@@ -562,11 +598,18 @@ class CloudAiAssistProvider(AiAssistProvider):
                 )
             else:
                 extracted = 0
-                for area_name in ("buttons_search_area", "table_cards_area", "my_cards_area", "total_pot_area"):
+                for area_name in (
+                    "buttons_search_area",
+                    "table_cards_area",
+                    "my_cards_area",
+                    "total_pot_area",
+                ):
                     coords = manifest.get("table_data", {}).get(area_name)
                     if not isinstance(coords, dict) or "x1" not in coords:
                         continue
-                    crop = working_image.crop((coords["x1"], coords["y1"], coords["x2"], coords["y2"]))
+                    crop = working_image.crop(
+                        (coords["x1"], coords["y1"], coords["x2"], coords["y2"])
+                    )
                     payload.append(
                         {
                             "label": f"{area_name}_{screenshot_index + 1}",
@@ -656,8 +699,7 @@ class CloudAiAssistProvider(AiAssistProvider):
             message = response_body.get("text", "")
         if isinstance(message, list):
             message = "\n".join(
-                item.get("text", "") if isinstance(item, dict) else str(item)
-                for item in message
+                item.get("text", "") if isinstance(item, dict) else str(item) for item in message
             )
         parsed = _extract_json_object(message if isinstance(message, str) else str(message))
         if parsed:
@@ -672,7 +714,9 @@ class CloudAiAssistProvider(AiAssistProvider):
             return response_body
         return {"notes": [_truncate_text(response_body)]}
 
-    def suggest(self, table_name: str, screenshots: list[Image.Image], manifest: dict[str, Any]) -> dict[str, Any]:
+    def suggest(
+        self, table_name: str, screenshots: list[Image.Image], manifest: dict[str, Any]
+    ) -> dict[str, Any]:
         response = super().suggest(table_name, screenshots, manifest)
         if not self.enabled:
             response["notes"] = ["Cloud AI assist is disabled. Only local assistance is active."]
@@ -681,13 +725,21 @@ class CloudAiAssistProvider(AiAssistProvider):
             response["notes"] = ["Cloud AI assist is enabled but no API endpoint is configured."]
             return response
 
-        local_hint = LocalAiAssistProvider(self.repository).suggest(table_name, screenshots, manifest)
-        screenshot_payload, capture_notes = self._collect_screenshot_payload(table_name, screenshots, manifest)
+        local_hint = LocalAiAssistProvider(self.repository).suggest(
+            table_name, screenshots, manifest
+        )
+        screenshot_payload, capture_notes = self._collect_screenshot_payload(
+            table_name, screenshots, manifest
+        )
         provider_type = self.settings.get("ai_provider_type", "openai_compatible")
         if provider_type == "generic_json":
-            payload = self._build_generic_payload(table_name, manifest, screenshot_payload, local_hint)
+            payload = self._build_generic_payload(
+                table_name, manifest, screenshot_payload, local_hint
+            )
         else:
-            payload = self._build_openai_payload(table_name, manifest, screenshot_payload, local_hint)
+            payload = self._build_openai_payload(
+                table_name, manifest, screenshot_payload, local_hint
+            )
 
         try:
             body = self._post_json(payload)
@@ -778,7 +830,9 @@ class RemotePresetSync:
 
     def get_available_tables(self, computer_name: str) -> list[str]:
         try:
-            tables = self._post_json("get_available_tables", params={"computer_name": computer_name})
+            tables = self._post_json(
+                "get_available_tables", params={"computer_name": computer_name}
+            )
             return list(tables)
         except Exception as exc:  # pragma: no cover - network dependent
             log.debug("Remote preset listing failed: %s", exc)
@@ -804,7 +858,9 @@ class RemotePresetSync:
             log.debug("Remote create_new_table failed for %s: %s", table_name, exc)
             return False
 
-    def create_new_table_from_old(self, table_name: str, old_table_name: str, computer_name: str) -> Any:
+    def create_new_table_from_old(
+        self, table_name: str, old_table_name: str, computer_name: str
+    ) -> Any:
         try:
             return self._post_json(
                 "create_new_table_from_old",
@@ -827,7 +883,9 @@ class RemotePresetSync:
 
             for key, value in table_dict.items():
                 if isinstance(value, bytes):
-                    encoded = jsonable_encoder(value, custom_encoder={bytes: lambda v: base64.b64encode(v).decode("utf-8")})
+                    encoded = jsonable_encoder(
+                        value, custom_encoder={bytes: lambda v: base64.b64encode(v).decode("utf-8")}
+                    )
                     requests.post(
                         self.url + "update_table_image",
                         json={"pil_image": encoded, "label": key, "table_name": table_name},
@@ -863,7 +921,9 @@ class LocalPresetRepository:
     """Versioned local storage for room presets."""
 
     def __init__(self, base_dir: str | Path | None = None):
-        resolved_base = Path(base_dir) if base_dir else Path(get_dir("codebase", ROOM_PRESET_DIRNAME))
+        resolved_base = (
+            Path(base_dir) if base_dir else Path(get_dir("codebase", ROOM_PRESET_DIRNAME))
+        )
         self.base_dir = resolved_base
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
@@ -941,7 +1001,9 @@ class LocalPresetRepository:
         self._write_manifest(self._draft_dir(table_name), manifest)
         return True
 
-    def create_new_table_from_old(self, table_name: str, old_table_name: str, owner: str = COMPUTER_NAME) -> bool:
+    def create_new_table_from_old(
+        self, table_name: str, old_table_name: str, owner: str = COMPUTER_NAME
+    ) -> bool:
         if not self.create_new_table(table_name, owner=owner):
             return False
 
@@ -958,7 +1020,9 @@ class LocalPresetRepository:
         cloned_manifest["owner"] = owner
         cloned_manifest["lifecycle"]["status"] = "draft"
         cloned_manifest["lifecycle"]["version_id"] = None
-        cloned_manifest["lifecycle"]["parent_version_id"] = source_manifest["lifecycle"].get("version_id")
+        cloned_manifest["lifecycle"]["parent_version_id"] = source_manifest["lifecycle"].get(
+            "version_id"
+        )
         cloned_manifest["lifecycle"]["updated_at"] = _utc_now()
         cloned_manifest["reference_samples"] = []
         source_dir = self._manifest_dir_from_loaded_manifest(old_table_name, source_manifest)
@@ -1020,7 +1084,9 @@ class LocalPresetRepository:
         self._write_manifest(self._draft_dir(table_name), manifest)
         return True
 
-    def save_coordinates(self, table_name: str, label: str, coordinates_dict: dict[str, Any]) -> bool:
+    def save_coordinates(
+        self, table_name: str, label: str, coordinates_dict: dict[str, Any]
+    ) -> bool:
         manifest = self._load_manifest_for_edit(table_name)
         table_data = manifest.setdefault("table_data", {})
         _set_nested_mapping(table_data, label, _json_safe(coordinates_dict))
@@ -1064,24 +1130,38 @@ class LocalPresetRepository:
         asset_path = manifest.get("assets", {}).get(image_name)
         if not asset_path:
             raise KeyError(image_name)
-        return Image.open(self._manifest_dir_from_loaded_manifest(table_name, manifest) / asset_path)
+        return Image.open(
+            self._manifest_dir_from_loaded_manifest(table_name, manifest) / asset_path
+        )
 
     def get_table(self, table_name: str, prefer_draft: bool = True) -> dict[str, Any]:
-        manifest = self._load_manifest_for_edit(table_name) if prefer_draft else self._load_manifest_for_runtime(table_name)
+        manifest = (
+            self._load_manifest_for_edit(table_name)
+            if prefer_draft
+            else self._load_manifest_for_runtime(table_name)
+        )
         return self._manifest_to_table_dict(table_name, manifest)
 
-    def get_runtime_versions(self, table_name: str) -> list[tuple[str, dict[str, Any], dict[str, Any]]]:
+    def get_runtime_versions(
+        self, table_name: str
+    ) -> list[tuple[str, dict[str, Any], dict[str, Any]]]:
         if not self.has_local_table(table_name):
             return []
         family = self._load_family(table_name)
         active_versions = []
         active_version_id = family.get("active_version_id")
         if active_version_id:
-            manifest = self._load_manifest(self._version_manifest_path(table_name, active_version_id))
-            active_versions.append((table_name, manifest, self._manifest_to_table_dict(table_name, manifest)))
+            manifest = self._load_manifest(
+                self._version_manifest_path(table_name, active_version_id)
+            )
+            active_versions.append(
+                (table_name, manifest, self._manifest_to_table_dict(table_name, manifest))
+            )
         elif self._draft_manifest_path(table_name).exists():
             manifest = self._load_manifest(self._draft_manifest_path(table_name))
-            active_versions.append((table_name, manifest, self._manifest_to_table_dict(table_name, manifest)))
+            active_versions.append(
+                (table_name, manifest, self._manifest_to_table_dict(table_name, manifest))
+            )
 
         identity = active_versions[0][1].get("identity", {}) if active_versions else {}
         site_key = identity.get("site") or self._infer_site_key(table_name)
@@ -1093,8 +1173,12 @@ class LocalPresetRepository:
             other_active = other_family.get("active_version_id")
             if not other_active:
                 continue
-            other_manifest = self._load_manifest(self._version_manifest_path(family_name, other_active))
-            other_site_key = other_manifest.get("identity", {}).get("site") or self._infer_site_key(family_name)
+            other_manifest = self._load_manifest(
+                self._version_manifest_path(family_name, other_active)
+            )
+            other_site_key = other_manifest.get("identity", {}).get("site") or self._infer_site_key(
+                family_name
+            )
             if site_key and other_site_key == site_key:
                 active_versions.append(
                     (
@@ -1106,7 +1190,9 @@ class LocalPresetRepository:
 
         return active_versions
 
-    def get_all_runtime_versions(self, exclude_names: set[str] | None = None) -> list[tuple[str, dict[str, Any], dict[str, Any]]]:
+    def get_all_runtime_versions(
+        self, exclude_names: set[str] | None = None
+    ) -> list[tuple[str, dict[str, Any], dict[str, Any]]]:
         exclude_names = exclude_names or set()
         active_versions = []
         for family_name in self.list_family_names():
@@ -1116,7 +1202,9 @@ class LocalPresetRepository:
             other_active = other_family.get("active_version_id")
             if not other_active:
                 continue
-            other_manifest = self._load_manifest(self._version_manifest_path(family_name, other_active))
+            other_manifest = self._load_manifest(
+                self._version_manifest_path(family_name, other_active)
+            )
             active_versions.append(
                 (
                     family_name,
@@ -1199,8 +1287,17 @@ class LocalPresetRepository:
         _write_json(self._family_file(table_name), family)
         return True
 
-    def validate(self, table_name: str, live_screenshots: list[Image.Image] | None = None, use_draft: bool = True) -> ValidationResult:
-        manifest = self._load_manifest_for_edit(table_name) if use_draft else self._load_manifest_for_runtime(table_name)
+    def validate(
+        self,
+        table_name: str,
+        live_screenshots: list[Image.Image] | None = None,
+        use_draft: bool = True,
+    ) -> ValidationResult:
+        manifest = (
+            self._load_manifest_for_edit(table_name)
+            if use_draft
+            else self._load_manifest_for_runtime(table_name)
+        )
         table_dict = self._manifest_to_table_dict(table_name, manifest)
         issues = []
 
@@ -1213,23 +1310,35 @@ class LocalPresetRepository:
 
         golden_scores = []
         for sample in manifest.get("reference_samples", []):
-            sample_path = self._manifest_dir_from_loaded_manifest(table_name, manifest) / sample["path"]
+            sample_path = (
+                self._manifest_dir_from_loaded_manifest(table_name, manifest) / sample["path"]
+            )
             if not sample_path.exists():
                 issues.append(f"Missing reference sample file: {sample['path']}")
                 golden_scores.append(0.0)
                 continue
             sample_image = Image.open(sample_path)
-            golden_scores.append(self._score_screenshot_against_table(table_dict, sample_image, sample=sample))
+            golden_scores.append(
+                self._score_screenshot_against_table(table_dict, sample_image, sample=sample)
+            )
 
-        live_reference_sample = manifest.get("reference_samples", [None])[0] if manifest.get("reference_samples") else None
+        live_reference_sample = (
+            manifest.get("reference_samples", [None])[0]
+            if manifest.get("reference_samples")
+            else None
+        )
         live_scores = [
-            self._score_screenshot_against_table(table_dict, screenshot, sample=live_reference_sample)
+            self._score_screenshot_against_table(
+                table_dict, screenshot, sample=live_reference_sample
+            )
             for screenshot in (live_screenshots or [])
         ]
 
         golden_pass_rate = min(golden_scores) if golden_scores else 1.0
         live_pass_rate = sum(live_scores) / len(live_scores) if live_scores else golden_pass_rate
-        critical_anchor_score = self._score_critical_anchors(table_dict, (live_screenshots or [None])[0])
+        critical_anchor_score = self._score_critical_anchors(
+            table_dict, (live_screenshots or [None])[0]
+        )
 
         if issues:
             status = "red"
@@ -1253,7 +1362,9 @@ class LocalPresetRepository:
         if use_draft:
             self._write_manifest(self._draft_dir(table_name), manifest)
         else:
-            self._write_manifest(self._manifest_dir_from_loaded_manifest(table_name, manifest), manifest)
+            self._write_manifest(
+                self._manifest_dir_from_loaded_manifest(table_name, manifest), manifest
+            )
         return result
 
     def publish_draft(
@@ -1266,7 +1377,9 @@ class LocalPresetRepository:
         if ai_suggestion:
             manifest.setdefault("ai_assist", {})["last_suggestion"] = ai_suggestion
         if screenshots:
-            manifest["reference_samples"] = self._build_reference_samples(table_name, manifest, screenshots)
+            manifest["reference_samples"] = self._build_reference_samples(
+                table_name, manifest, screenshots
+            )
         validation = self.validate(table_name, live_screenshots=screenshots or [], use_draft=True)
         manifest = self._load_manifest_for_edit(table_name)
 
@@ -1312,19 +1425,31 @@ class LocalPresetRepository:
         owner = self.get_table_owner(table_name) or COMPUTER_NAME
         return remote_sync.push_table(table_name, table_dict, owner)
 
-    def import_remote_table(self, table_name: str, remote_sync: RemotePresetSync) -> dict[str, Any] | None:
+    def import_remote_table(
+        self, table_name: str, remote_sync: RemotePresetSync
+    ) -> dict[str, Any] | None:
         remote_table = remote_sync.fetch_table(table_name)
         if not self.has_local_table(table_name):
-            self.create_new_table(table_name, owner=remote_sync.get_table_owner(table_name) or COMPUTER_NAME)
+            self.create_new_table(
+                table_name, owner=remote_sync.get_table_owner(table_name) or COMPUTER_NAME
+            )
         manifest = self._load_manifest_for_edit(table_name)
-        imported = self._manifest_from_table_dict(table_name, remote_table, owner=self.get_table_owner(table_name) or COMPUTER_NAME)
+        imported = self._manifest_from_table_dict(
+            table_name, remote_table, owner=self.get_table_owner(table_name) or COMPUTER_NAME
+        )
         imported["identity"] = manifest.get("identity", imported.get("identity", {}))
         self._write_manifest(self._draft_dir(table_name), imported)
         publish_result = self.publish_draft(table_name, screenshots=[])
-        log.info("Imported remote preset %s into local storage as %s", table_name, publish_result["version_id"])
+        log.info(
+            "Imported remote preset %s into local storage as %s",
+            table_name,
+            publish_result["version_id"],
+        )
         return self.get_table(table_name, prefer_draft=False)
 
-    def resolve_runtime_table(self, table_name: str, screenshot: Image.Image | None = None) -> tuple[dict[str, Any], RuntimeResolution]:
+    def resolve_runtime_table(
+        self, table_name: str, screenshot: Image.Image | None = None
+    ) -> tuple[dict[str, Any], RuntimeResolution]:
         if not screenshot or not self.has_local_table(table_name):
             table_dict = self.get_table(table_name, prefer_draft=False)
             manifest = self._load_manifest_for_runtime(table_name)
@@ -1341,9 +1466,18 @@ class LocalPresetRepository:
         best_match = None
         candidates = self.get_runtime_versions(table_name)
         for candidate_name, manifest, table_dict in candidates:
-            score, fingerprint_hash, diagnostics = self._score_runtime_candidate(table_dict, screenshot)
+            score, fingerprint_hash, diagnostics = self._score_runtime_candidate(
+                table_dict, screenshot
+            )
             if best_match is None or score > best_match[0]:
-                best_match = (score, fingerprint_hash, diagnostics, candidate_name, manifest, table_dict)
+                best_match = (
+                    score,
+                    fingerprint_hash,
+                    diagnostics,
+                    candidate_name,
+                    manifest,
+                    table_dict,
+                )
 
         if best_match is None:
             table_dict = self.get_table(table_name, prefer_draft=False)
@@ -1359,15 +1493,26 @@ class LocalPresetRepository:
 
         requested_candidate_names = {candidate_name for candidate_name, _, _ in candidates}
         if best_match[0] < 0.75:
-            fallback_candidates = self.get_all_runtime_versions(exclude_names=requested_candidate_names)
+            fallback_candidates = self.get_all_runtime_versions(
+                exclude_names=requested_candidate_names
+            )
             for candidate_name, manifest, table_dict in fallback_candidates:
-                score, fingerprint_hash, diagnostics = self._score_runtime_candidate(table_dict, screenshot)
+                score, fingerprint_hash, diagnostics = self._score_runtime_candidate(
+                    table_dict, screenshot
+                )
                 if best_match is None or score > best_match[0]:
                     diagnostics = list(diagnostics)
                     diagnostics.append(
                         f"Resolved outside the requested preset family after scanning all local presets from {table_name}."
                     )
-                    best_match = (score, fingerprint_hash, diagnostics, candidate_name, manifest, table_dict)
+                    best_match = (
+                        score,
+                        fingerprint_hash,
+                        diagnostics,
+                        candidate_name,
+                        manifest,
+                        table_dict,
+                    )
 
         score, fingerprint_hash, diagnostics, resolved_name, manifest, table_dict = best_match
         resolution = RuntimeResolution(
@@ -1383,7 +1528,12 @@ class LocalPresetRepository:
 
     def observe_runtime_drift(self, table_name: str, screenshot: Image.Image) -> DriftResult:
         if not self.has_local_table(table_name):
-            return DriftResult(status="red", table_name=table_name, score=0.0, diagnostics=["No local preset available."])
+            return DriftResult(
+                status="red",
+                table_name=table_name,
+                score=0.0,
+                diagnostics=["No local preset available."],
+            )
 
         runtime_manifest = self._load_manifest_for_runtime(table_name)
         runtime_table = self._manifest_to_table_dict(table_name, runtime_manifest)
@@ -1393,9 +1543,17 @@ class LocalPresetRepository:
         diagnostics.extend(validation.issues)
 
         if validation.status == "green":
-            new_version = self._create_auto_update_version(table_name, runtime_manifest, runtime_table, screenshot, validation)
+            new_version = self._create_auto_update_version(
+                table_name, runtime_manifest, runtime_table, screenshot, validation
+            )
             diagnostics.append(f"Auto-updated preset activated as version {new_version}.")
-            return DriftResult("green", table_name, validation.live_pass_rate, version_id=new_version, diagnostics=diagnostics)
+            return DriftResult(
+                "green",
+                table_name,
+                validation.live_pass_rate,
+                version_id=new_version,
+                diagnostics=diagnostics,
+            )
         if validation.status == "yellow":
             candidate_version = self._create_auto_update_version(
                 table_name,
@@ -1406,9 +1564,17 @@ class LocalPresetRepository:
                 candidate_only=True,
             )
             diagnostics.append(f"Candidate version created: {candidate_version}.")
-            return DriftResult("yellow", table_name, validation.live_pass_rate, version_id=candidate_version, diagnostics=diagnostics)
+            return DriftResult(
+                "yellow",
+                table_name,
+                validation.live_pass_rate,
+                version_id=candidate_version,
+                diagnostics=diagnostics,
+            )
         diagnostics.append("Critical anchors failed; no automatic update was applied.")
-        return DriftResult("red", table_name, validation.live_pass_rate, version_id=None, diagnostics=diagnostics)
+        return DriftResult(
+            "red", table_name, validation.live_pass_rate, version_id=None, diagnostics=diagnostics
+        )
 
     def _create_auto_update_version(
         self,
@@ -1462,7 +1628,9 @@ class LocalPresetRepository:
         _write_json(self._family_file(table_name), family)
         return version_id
 
-    def _refresh_template_assets(self, table_dict: dict[str, Any], screenshot: Image.Image) -> dict[str, bytes]:
+    def _refresh_template_assets(
+        self, table_dict: dict[str, Any], screenshot: Image.Image
+    ) -> dict[str, bytes]:
         cropped, _ = _crop_with_topleft_corner(screenshot, table_dict["topleft_corner"])
         if not cropped:
             return {}
@@ -1485,7 +1653,9 @@ class LocalPresetRepository:
                 continue
             template = Image.open(io.BytesIO(table_dict[label]))
             template_cv2 = _template_to_internal(table_dict[label])
-            cropped_area = cropped.crop((search_area["x1"], search_area["y1"], search_area["x2"], search_area["y2"]))
+            cropped_area = cropped.crop(
+                (search_area["x1"], search_area["y1"], search_area["x2"], search_area["y2"])
+            )
             cropped_area_cv2 = _template_to_internal(_image_to_bytes(cropped_area))
             _, _, best_fit, _ = _find_template(template_cv2, cropped_area_cv2, 0.05)
             if best_fit is None:
@@ -1495,7 +1665,9 @@ class LocalPresetRepository:
             refreshed_assets[label] = _image_to_bytes(refreshed)
         return refreshed_assets
 
-    def _score_runtime_candidate(self, table_dict: dict[str, Any], screenshot: Image.Image) -> tuple[float, str, list[str]]:
+    def _score_runtime_candidate(
+        self, table_dict: dict[str, Any], screenshot: Image.Image
+    ) -> tuple[float, str, list[str]]:
         diagnostics = []
         try:
             cropped, _ = _crop_with_topleft_corner(screenshot, table_dict["topleft_corner"])
@@ -1512,7 +1684,9 @@ class LocalPresetRepository:
         fingerprint_hash = _hash_image(cropped.resize((320, 240)))
         return round(anchor_score, 4), fingerprint_hash, diagnostics
 
-    def _score_critical_anchors(self, table_dict: dict[str, Any], screenshot: Image.Image | None) -> float:
+    def _score_critical_anchors(
+        self, table_dict: dict[str, Any], screenshot: Image.Image | None
+    ) -> float:
         if screenshot is None:
             return 1.0
         try:
@@ -1531,14 +1705,26 @@ class LocalPresetRepository:
             player = None
             if label == "dealer_button":
                 area_name = "button_search_area"
-                player = "1" if isinstance(table_dict.get(area_name), dict) and "x1" not in table_dict.get(area_name, {}) else None
+                player = (
+                    "1"
+                    if isinstance(table_dict.get(area_name), dict)
+                    and "x1" not in table_dict.get(area_name, {})
+                    else None
+                )
             elif label == "covered_card":
                 area_name = "covered_card_area"
-                player = "1" if isinstance(table_dict.get(area_name), dict) and "x1" not in table_dict.get(area_name, {}) else None
+                player = (
+                    "1"
+                    if isinstance(table_dict.get(area_name), dict)
+                    and "x1" not in table_dict.get(area_name, {})
+                    else None
+                )
             try:
                 checks.append(
                     1.0
-                    if _template_in_search_area(table_dict, cropped, label, area_name, player=player)
+                    if _template_in_search_area(
+                        table_dict, cropped, label, area_name, player=player
+                    )
                     else 0.0
                 )
             except Exception:
@@ -1559,25 +1745,43 @@ class LocalPresetRepository:
             return 0.0
 
         checks = []
-        expected_assets = sample.get("expected_assets", []) if sample else list(CRITICAL_TEMPLATE_LABELS)
+        expected_assets = (
+            sample.get("expected_assets", []) if sample else list(CRITICAL_TEMPLATE_LABELS)
+        )
         for label in expected_assets:
             area_name = "buttons_search_area"
             player = None
             if label == "dealer_button":
                 area_name = "button_search_area"
-                player = "1" if isinstance(table_dict.get(area_name), dict) and "x1" not in table_dict.get(area_name, {}) else None
+                player = (
+                    "1"
+                    if isinstance(table_dict.get(area_name), dict)
+                    and "x1" not in table_dict.get(area_name, {})
+                    else None
+                )
             elif label == "covered_card":
                 area_name = "covered_card_area"
-                player = "1" if isinstance(table_dict.get(area_name), dict) and "x1" not in table_dict.get(area_name, {}) else None
+                player = (
+                    "1"
+                    if isinstance(table_dict.get(area_name), dict)
+                    and "x1" not in table_dict.get(area_name, {})
+                    else None
+                )
             try:
-                found = _template_in_search_area(table_dict, cropped, label, area_name, player=player)
+                found = _template_in_search_area(
+                    table_dict, cropped, label, area_name, player=player
+                )
             except Exception:
                 found = False
             checks.append(1.0 if found else 0.0)
 
         for area in (sample or {}).get("expected_numeric_areas", []):
             try:
-                checks.append(1.0 if _ocr_float(cropped.crop(self._coords_to_tuple(table_dict[area]))) != -1.0 else 0.0)
+                checks.append(
+                    1.0
+                    if _ocr_float(cropped.crop(self._coords_to_tuple(table_dict[area]))) != -1.0
+                    else 0.0
+                )
             except Exception:
                 checks.append(0.0)
 
@@ -1621,12 +1825,24 @@ class LocalPresetRepository:
                     player = None
                     if label == "dealer_button":
                         area_name = "button_search_area"
-                        player = "1" if isinstance(table_dict.get(area_name), dict) and "x1" not in table_dict.get(area_name, {}) else None
+                        player = (
+                            "1"
+                            if isinstance(table_dict.get(area_name), dict)
+                            and "x1" not in table_dict.get(area_name, {})
+                            else None
+                        )
                     elif label == "covered_card":
                         area_name = "covered_card_area"
-                        player = "1" if isinstance(table_dict.get(area_name), dict) and "x1" not in table_dict.get(area_name, {}) else None
+                        player = (
+                            "1"
+                            if isinstance(table_dict.get(area_name), dict)
+                            and "x1" not in table_dict.get(area_name, {})
+                            else None
+                        )
                     try:
-                        if _template_in_search_area(table_dict, cropped, label, area_name, player=player):
+                        if _template_in_search_area(
+                            table_dict, cropped, label, area_name, player=player
+                        ):
                             expected_assets.append(label)
                     except Exception:
                         continue
@@ -1634,7 +1850,9 @@ class LocalPresetRepository:
                     if area_name not in table_dict:
                         continue
                     try:
-                        value = _ocr_float(cropped.crop(self._coords_to_tuple(table_dict[area_name])))
+                        value = _ocr_float(
+                            cropped.crop(self._coords_to_tuple(table_dict[area_name]))
+                        )
                     except Exception:
                         value = -1.0
                     if value != -1.0:
@@ -1728,7 +1946,9 @@ class LocalPresetRepository:
             },
         }
 
-    def _build_manifest_fingerprint(self, manifest: dict[str, Any], manifest_dir_override: Path | None = None) -> dict[str, Any]:
+    def _build_manifest_fingerprint(
+        self, manifest: dict[str, Any], manifest_dir_override: Path | None = None
+    ) -> dict[str, Any]:
         asset_hashes = {}
         manifest_dir = manifest_dir_override or (
             self._draft_dir(manifest["display_name"])
@@ -1778,7 +1998,9 @@ class LocalPresetRepository:
                 manifest["nn"]["class_mapping"] = value
             else:
                 manifest["table_data"][key] = _json_safe(value)
-        manifest["fingerprint"] = self._build_manifest_fingerprint(manifest, manifest_dir_override=target_dir)
+        manifest["fingerprint"] = self._build_manifest_fingerprint(
+            manifest, manifest_dir_override=target_dir
+        )
         return manifest
 
     def _manifest_to_table_dict(self, table_name: str, manifest: dict[str, Any]) -> dict[str, Any]:
@@ -1864,7 +2086,9 @@ class HybridPresetRepository:
 
     def get_available_tables(self, computer_name: str = COMPUTER_NAME) -> list[str]:
         local_tables = self.local_repository.get_available_tables(computer_name)
-        remote_tables = self.remote_sync.get_available_tables(computer_name) if self.remote_sync else []
+        remote_tables = (
+            self.remote_sync.get_available_tables(computer_name) if self.remote_sync else []
+        )
         ordered = []
         seen = set()
         for name in local_tables + remote_tables:
@@ -1890,7 +2114,9 @@ class HybridPresetRepository:
             return self.remote_sync.fetch_table(table_name)
         raise RuntimeError(f"No preset found for {table_name}")
 
-    def get_runtime_table(self, table_name: str, screenshot: Image.Image | None = None) -> tuple[dict[str, Any], RuntimeResolution]:
+    def get_runtime_table(
+        self, table_name: str, screenshot: Image.Image | None = None
+    ) -> tuple[dict[str, Any], RuntimeResolution]:
         if self.local_repository.has_local_table(table_name):
             return self.local_repository.resolve_runtime_table(table_name, screenshot=screenshot)
         table_dict = self.get_table(table_name, prefer_draft=False)
@@ -1912,15 +2138,23 @@ class HybridPresetRepository:
     def create_new_table(self, table_name: str, owner: str = COMPUTER_NAME) -> bool:
         return self.local_repository.create_new_table(table_name, owner=owner)
 
-    def create_new_table_from_old(self, table_name: str, old_table_name: str, owner: str = COMPUTER_NAME) -> bool:
+    def create_new_table_from_old(
+        self, table_name: str, old_table_name: str, owner: str = COMPUTER_NAME
+    ) -> bool:
         if self.local_repository.has_local_table(old_table_name):
-            return self.local_repository.create_new_table_from_old(table_name, old_table_name, owner=owner)
+            return self.local_repository.create_new_table_from_old(
+                table_name, old_table_name, owner=owner
+            )
         if self.remote_sync:
             remote_table = self.remote_sync.fetch_table(old_table_name)
             if not self.local_repository.create_new_table(table_name, owner=owner):
                 return False
-            manifest = self.local_repository._manifest_from_table_dict(table_name, remote_table, owner=owner)
-            self.local_repository._write_manifest(self.local_repository._draft_dir(table_name), manifest)
+            manifest = self.local_repository._manifest_from_table_dict(
+                table_name, remote_table, owner=owner
+            )
+            self.local_repository._write_manifest(
+                self.local_repository._draft_dir(table_name), manifest
+            )
             return True
         return False
 
@@ -1939,15 +2173,21 @@ class HybridPresetRepository:
             self._ensure_local_copy(table_name)
         return self.local_repository.update_state(table_name, label, state)
 
-    def save_coordinates(self, table_name: str, label: str, coordinates_dict: dict[str, Any]) -> bool:
+    def save_coordinates(
+        self, table_name: str, label: str, coordinates_dict: dict[str, Any]
+    ) -> bool:
         if not self.local_repository.has_local_table(table_name):
             self._ensure_local_copy(table_name)
         return self.local_repository.save_coordinates(table_name, label, coordinates_dict)
 
-    def update_tensorflow_model(self, table_name: str, hdf5_file: bytes | None, model_str: str | None, class_mapping: Any) -> bool:
+    def update_tensorflow_model(
+        self, table_name: str, hdf5_file: bytes | None, model_str: str | None, class_mapping: Any
+    ) -> bool:
         if not self.local_repository.has_local_table(table_name):
             self._ensure_local_copy(table_name)
-        return self.local_repository.update_tensorflow_model(table_name, hdf5_file, model_str, class_mapping)
+        return self.local_repository.update_tensorflow_model(
+            table_name, hdf5_file, model_str, class_mapping
+        )
 
     def load_table_nn_weights(self, table_name: str) -> bytes | None:
         if self.local_repository.has_local_table(table_name):
@@ -1962,19 +2202,32 @@ class HybridPresetRepository:
             return Image.open(io.BytesIO(remote_table[image_name]))
         raise KeyError(image_name)
 
-    def validate(self, table_name: str, live_screenshots: list[Image.Image] | None = None, use_draft: bool = True) -> ValidationResult:
+    def validate(
+        self,
+        table_name: str,
+        live_screenshots: list[Image.Image] | None = None,
+        use_draft: bool = True,
+    ) -> ValidationResult:
         if not self.local_repository.has_local_table(table_name):
             self._ensure_local_copy(table_name)
-        return self.local_repository.validate(table_name, live_screenshots=live_screenshots, use_draft=use_draft)
+        return self.local_repository.validate(
+            table_name, live_screenshots=live_screenshots, use_draft=use_draft
+        )
 
-    def publish_draft(self, table_name: str, screenshots: list[Image.Image] | None = None) -> dict[str, Any]:
+    def publish_draft(
+        self, table_name: str, screenshots: list[Image.Image] | None = None
+    ) -> dict[str, Any]:
         if not self.local_repository.has_local_table(table_name):
             self._ensure_local_copy(table_name)
         manifest = self.local_repository._load_manifest_for_edit(table_name)
         ai_suggestion = self.ai_provider.suggest(table_name, screenshots or [], manifest)
-        return self.local_repository.publish_draft(table_name, screenshots=screenshots, ai_suggestion=ai_suggestion)
+        return self.local_repository.publish_draft(
+            table_name, screenshots=screenshots, ai_suggestion=ai_suggestion
+        )
 
-    def suggest(self, table_name: str, screenshots: list[Image.Image] | None = None) -> dict[str, Any]:
+    def suggest(
+        self, table_name: str, screenshots: list[Image.Image] | None = None
+    ) -> dict[str, Any]:
         if not self.local_repository.has_local_table(table_name):
             self._ensure_local_copy(table_name)
         manifest = self.local_repository._load_manifest_for_edit(table_name)

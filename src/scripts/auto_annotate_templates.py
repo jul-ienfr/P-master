@@ -29,9 +29,12 @@ def create_annotations(dataset_name: str):
     images = list(img_dir.glob("*.png")) + list(img_dir.glob("*.jpg"))
     total_images = len(images)
     for img_path in images:
-        print(f"[{count+1}/{total_images}] Analyse et detection des cartes sur {img_path.name}...")
+        print(
+            f"[{count + 1}/{total_images}] Analyse et detection des cartes sur {img_path.name}..."
+        )
         img = cv2.imread(str(img_path))
-        if img is None: continue
+        if img is None:
+            continue
 
         height, width = img.shape[:2]
 
@@ -45,9 +48,11 @@ def create_annotations(dataset_name: str):
             if not isinstance(detections, list):
                 detections = [detections] if detections else []
             for d in detections:
-                if not d: continue
-                opt_bbox = getattr(d, 'bbox', None)
-                if not opt_bbox: continue
+                if not d:
+                    continue
+                opt_bbox = getattr(d, "bbox", None)
+                if not opt_bbox:
+                    continue
                 x1, y1, x2, y2 = opt_bbox
                 cls_id = YOLO_CLASS_MAP.get(class_name)
 
@@ -57,7 +62,9 @@ def create_annotations(dataset_name: str):
                 x_center = x1 + (box_w / 2)
                 y_center = y1 + (box_h / 2)
 
-                yolo_lines.append(f"{cls_id} {x_center/width:.6f} {y_center/height:.6f} {box_w/width:.6f} {box_h/height:.6f}")
+                yolo_lines.append(
+                    f"{cls_id} {x_center / width:.6f} {y_center / height:.6f} {box_w / width:.6f} {box_h / height:.6f}"
+                )
 
         # Mapping de toutes les classes
         for card in state.board_cards:
@@ -91,14 +98,20 @@ def create_annotations(dataset_name: str):
         output_path=yaml_path,
         dataset_root=dataset_dir,
         train_images_dir=img_dir,
-        val_images_dir=img_dir, # Use same for now since small dataset
+        val_images_dir=img_dir,  # Use same for now since small dataset
     )
     print(f"✅ Fichier de configuration YOLO généré : {yaml_path}")
-    print(f"👉 Tu peux maintenant lancer: python src/scripts/train_yolo.py --data dataset/{dataset_name}/dataset.yaml\n")
+    print(
+        f"👉 Tu peux maintenant lancer: python src/scripts/train_yolo.py --data dataset/{dataset_name}/dataset.yaml\n"
+    )
+
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", type=str, default="PokerStars_NLHE_6Max", help="Nom du dossier dans dataset/")
+    parser.add_argument(
+        "--dataset", type=str, default="PokerStars_NLHE_6Max", help="Nom du dossier dans dataset/"
+    )
     args = parser.parse_args()
     create_annotations(args.dataset)

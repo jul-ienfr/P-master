@@ -45,7 +45,9 @@ def test_cli_runner_reports_series_length_and_respects_max_context(tmp_path, mon
         calls.append(split)
         return _FakeResult(split.metric_name)
 
-    monkeypatch.setattr(run_timesfm_experiment, "forecast_runtime_metric", _fake_forecast_runtime_metric)
+    monkeypatch.setattr(
+        run_timesfm_experiment, "forecast_runtime_metric", _fake_forecast_runtime_metric
+    )
     monkeypatch.setattr(
         sys,
         "argv",
@@ -72,7 +74,9 @@ def test_cli_runner_reports_series_length_and_respects_max_context(tmp_path, mon
     assert calls[0].target_values == [0.4, 0.5]
 
     payload = json.loads(capsys.readouterr().out)
-    output_payload = json.loads((tmp_path / "results" / "timesfm_summary.json").read_text(encoding="utf-8"))
+    output_payload = json.loads(
+        (tmp_path / "results" / "timesfm_summary.json").read_text(encoding="utf-8")
+    )
     assert output_payload == payload
     assert datetime.fromisoformat(payload["generated_at"]).tzinfo is not None
     assert payload["config"] == {
@@ -98,7 +102,9 @@ def test_cli_runner_reports_series_length_and_respects_max_context(tmp_path, mon
     assert round(payload["mae"]["timesfm"], 6) == 0.01
     assert round(payload["relative_mae"]["timesfm"], 6) == round(0.01 / 0.35, 6)
     assert round(payload["baseline_comparison"]["last_value"]["absolute_mae_delta"], 6) == 0.14
-    assert round(payload["baseline_comparison"]["last_value"]["relative_improvement"], 6) == round(14 / 15, 6)
+    assert round(payload["baseline_comparison"]["last_value"]["relative_improvement"], 6) == round(
+        14 / 15, 6
+    )
     assert round(payload["average_relative_improvement"]["last_value"], 6) == round(14 / 15, 6)
 
 
@@ -123,7 +129,9 @@ def test_cli_runner_can_report_all_available_metrics(tmp_path, monkeypatch, caps
         calls.append(split)
         return _FakeResult(split.metric_name)
 
-    monkeypatch.setattr(run_timesfm_experiment, "forecast_runtime_metric", _fake_forecast_runtime_metric)
+    monkeypatch.setattr(
+        run_timesfm_experiment, "forecast_runtime_metric", _fake_forecast_runtime_metric
+    )
     monkeypatch.setattr(
         sys,
         "argv",
@@ -196,4 +204,9 @@ def test_cli_runner_reports_empty_all_metrics_as_errors(tmp_path, monkeypatch, c
     assert payload["success_rate"] == 0.0
     assert payload["timesfm_win_count"] == 0
     assert payload["timesfm_win_rate"] == 0.0
-    assert sorted(payload["errors"]) == ["block_rate", "decision_rate", "fallback_rate", "rolling_latency_ms"]
+    assert sorted(payload["errors"]) == [
+        "block_rate",
+        "decision_rate",
+        "fallback_rate",
+        "rolling_latency_ms",
+    ]

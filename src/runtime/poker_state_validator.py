@@ -48,7 +48,16 @@ class PokerStateValidator:
         if legal_actions and not canonical_state.action_buttons:
             reasons.append("legal_actions_without_buttons")
 
-        if any(reason in {"board_count_invalid", "street_board_mismatch", "hero_cards_unconfirmed", "negative_pot"} for reason in reasons):
+        if any(
+            reason
+            in {
+                "board_count_invalid",
+                "street_board_mismatch",
+                "hero_cards_unconfirmed",
+                "negative_pot",
+            }
+            for reason in reasons
+        ):
             state = "hard_invalid"
         elif reasons:
             state = "soft_invalid"

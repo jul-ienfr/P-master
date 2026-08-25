@@ -5,8 +5,8 @@ streets/actions/slugs, comparaison multi-politiques (GTO vs RL vs branches
 A/B), synthèse AB. Déplacé à l'identique ; les délégations du contrôleur
 conservernt l'API historique.
 """
-from __future__ import annotations
 
+from __future__ import annotations
 
 
 def normalize_runtime_street_name(value: object) -> str:
@@ -132,7 +132,9 @@ def build_runtime_ab_summary(decisions: list[dict]) -> dict:
         if ab_decision.get("rl_differs_from_gto") or ab_decision.get("would_override"):
             diff_count += 1
 
-        comparison = ab_decision.get("comparison") if isinstance(ab_decision.get("comparison"), dict) else {}
+        comparison = (
+            ab_decision.get("comparison") if isinstance(ab_decision.get("comparison"), dict) else {}
+        )
         action_changed = bool(comparison.get("action_changed"))
         if action_changed:
             action_change_count += 1
@@ -155,9 +157,13 @@ def build_runtime_ab_summary(decisions: list[dict]) -> dict:
     summary["diff_count"] = diff_count
     summary["action_change_count"] = action_change_count
     summary["avg_delta_ev"] = round(ev_delta_total / ev_delta_count, 4) if ev_delta_count else None
-    summary["avg_delta_freq"] = round(freq_delta_total / freq_delta_count, 4) if freq_delta_count else None
+    summary["avg_delta_freq"] = (
+        round(freq_delta_total / freq_delta_count, 4) if freq_delta_count else None
+    )
     summary["impacted_streets"] = sorted(impacted_streets)
-    summary["street_counts"] = {street: impacted_streets[street] for street in sorted(impacted_streets)}
+    summary["street_counts"] = {
+        street: impacted_streets[street] for street in sorted(impacted_streets)
+    }
     return summary
 
 
@@ -177,11 +183,15 @@ def extract_policy_compare_actions(entry: dict) -> dict[str, str]:
     if gto_action:
         policy_actions.setdefault("gto_solver", gto_action)
 
-    comparison = ab_decision.get("comparison") if isinstance(ab_decision.get("comparison"), dict) else {}
+    comparison = (
+        ab_decision.get("comparison") if isinstance(ab_decision.get("comparison"), dict) else {}
+    )
     final_action = normalize_runtime_action_name(ab_decision.get("final_action"))
     rl_action = normalize_runtime_action_name(ab_decision.get("rl_action"))
     for branch in ("rl_off", "rl_on"):
-        branch_action = normalize_runtime_action_name((comparison.get(branch, {}) or {}).get("action"))
+        branch_action = normalize_runtime_action_name(
+            (comparison.get(branch, {}) or {}).get("action")
+        )
         if not branch_action and branch == "rl_off":
             branch_action = gto_action or chosen_action
         if not branch_action and branch == "rl_on":
@@ -212,7 +222,9 @@ def extract_policy_compare_ev_by_action(entry: dict) -> dict[str, float]:
         remember(item.get("action", item.get("raw_action")), item.get("ev", item.get("hero_ev")))
 
     ab_decision = extract_runtime_ab_decision(entry) or {}
-    comparison = ab_decision.get("comparison") if isinstance(ab_decision.get("comparison"), dict) else {}
+    comparison = (
+        ab_decision.get("comparison") if isinstance(ab_decision.get("comparison"), dict) else {}
+    )
     for branch in ("rl_off", "rl_on"):
         branch_snapshot = dict(comparison.get(branch, {}) or {})
         remember(branch_snapshot.get("action"), branch_snapshot.get("ev"))
@@ -389,8 +401,13 @@ def build_policy_compare_summary(decisions: list[dict]) -> dict:
                 )
                 pair_summary["sample_count"] += 1
                 pair_key = f"{baseline_action}->{challenger_action}"
-                pair_summary["action_pairs"][pair_key] = pair_summary["action_pairs"].get(pair_key, 0) + 1
-                if sample_id not in pair_summary["sample_ids"] and len(pair_summary["sample_ids"]) < 3:
+                pair_summary["action_pairs"][pair_key] = (
+                    pair_summary["action_pairs"].get(pair_key, 0) + 1
+                )
+                if (
+                    sample_id not in pair_summary["sample_ids"]
+                    and len(pair_summary["sample_ids"]) < 3
+                ):
                     pair_summary["sample_ids"].append(sample_id)
 
                 example = policy_compare_spot_example(
@@ -416,12 +433,16 @@ def build_policy_compare_summary(decisions: list[dict]) -> dict:
                     pair_summary["challenger_ev_sum"] += float(challenger_ev)
 
     summary["disagreement_count"] = summary["comparable_count"] - summary["agreement_count"]
-    summary["agreement_rate"] = round(
-        summary["agreement_count"] / summary["comparable_count"], 4
-    ) if summary["comparable_count"] else 0.0
-    summary["changed_action_rate"] = round(
-        summary["changed_action_count"] / summary["comparable_count"], 4
-    ) if summary["comparable_count"] else 0.0
+    summary["agreement_rate"] = (
+        round(summary["agreement_count"] / summary["comparable_count"], 4)
+        if summary["comparable_count"]
+        else 0.0
+    )
+    summary["changed_action_rate"] = (
+        round(summary["changed_action_count"] / summary["comparable_count"], 4)
+        if summary["comparable_count"]
+        else 0.0
+    )
 
     comparison_rows = []
     for pair_summary in comparisons.values():
@@ -439,9 +460,13 @@ def build_policy_compare_summary(decisions: list[dict]) -> dict:
                 "sample_count": sample_count,
                 "agreement_count": pair_summary["agreement_count"],
                 "disagreement_count": pair_summary["disagreement_count"],
-                "agreement_rate": round(pair_summary["agreement_count"] / sample_count, 4) if sample_count else 0.0,
+                "agreement_rate": round(pair_summary["agreement_count"] / sample_count, 4)
+                if sample_count
+                else 0.0,
                 "ev_coverage_count": ev_coverage_count,
-                "ev_coverage_rate": round(ev_coverage_count / sample_count, 4) if sample_count else 0.0,
+                "ev_coverage_rate": round(ev_coverage_count / sample_count, 4)
+                if sample_count
+                else 0.0,
                 "challenger_ev_delta": round(
                     pair_summary["challenger_ev_sum"] - pair_summary["baseline_ev_sum"],
                     4,
@@ -459,17 +484,26 @@ def build_policy_compare_summary(decisions: list[dict]) -> dict:
         )
 
     total_pair_samples = sum(item["sample_count"] for item in comparison_rows)
-    summary["ev_coverage_rate"] = round(
-        summary["ev_coverage_count"] / total_pair_samples,
-        4,
-    ) if total_pair_samples else 0.0
+    summary["ev_coverage_rate"] = (
+        round(
+            summary["ev_coverage_count"] / total_pair_samples,
+            4,
+        )
+        if total_pair_samples
+        else 0.0
+    )
     summary["policies"] = sorted(policy_counts)
     summary["policy_counts"] = {policy: policy_counts[policy] for policy in sorted(policy_counts)}
     summary["street_counts"] = {street: street_counts[street] for street in sorted(street_counts)}
     summary["source_counts"] = {name: source_counts[name] for name in sorted(source_counts)}
     summary["comparisons"] = sorted(
         comparison_rows,
-        key=lambda item: (-item["sample_count"], item["agreement_rate"], item["baseline_policy"], item["challenger_policy"]),
+        key=lambda item: (
+            -item["sample_count"],
+            item["agreement_rate"],
+            item["baseline_policy"],
+            item["challenger_policy"],
+        ),
     )[:6]
     top_spots = sorted(
         spot_counts.values(),
@@ -478,7 +512,12 @@ def build_policy_compare_summary(decisions: list[dict]) -> dict:
     if summary["comparisons"]:
         most_divergent = min(
             summary["comparisons"],
-            key=lambda item: (item["agreement_rate"], -item["sample_count"], item["baseline_policy"], item["challenger_policy"]),
+            key=lambda item: (
+                item["agreement_rate"],
+                -item["sample_count"],
+                item["baseline_policy"],
+                item["challenger_policy"],
+            ),
         )
         summary["highlights"] = {
             "most_compared_pair": {

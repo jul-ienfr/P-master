@@ -59,7 +59,9 @@ def _estimate_table_bounds(table_data: dict[str, Any]) -> tuple[int, int]:
     return max_x + 48, max_y + 48
 
 
-def _normalize_region(area: dict[str, Any] | None, table_size: tuple[int, int]) -> tuple[float, float, float, float] | None:
+def _normalize_region(
+    area: dict[str, Any] | None, table_size: tuple[int, int]
+) -> tuple[float, float, float, float] | None:
     if not _is_area(area):
         return None
     table_width, table_height = table_size
@@ -231,15 +233,13 @@ def build_dynamic_coordinates(
                 "bbox": [int(value) for value in button.bbox],
                 "confidence": round(float(getattr(button, "confidence", 0.0) or 0.0), 3),
             }
-    slot_boxes = state.metadata.get("button_slot_boxes", {}) if isinstance(state.metadata, dict) else {}
+    slot_boxes = (
+        state.metadata.get("button_slot_boxes", {}) if isinstance(state.metadata, dict) else {}
+    )
     if isinstance(slot_boxes, dict):
         for key in _COORD_KEYS:
             bbox = slot_boxes.get(key)
-            if (
-                key not in mapping
-                and isinstance(bbox, (list, tuple))
-                and len(bbox) == 4
-            ):
+            if key not in mapping and isinstance(bbox, (list, tuple)) and len(bbox) == 4:
                 x1, y1, x2, y2 = [int(value) for value in bbox]
                 mapping[key] = (int((x1 + x2) / 2), int((y1 + y2) / 2))
                 diagnostics[key] = {

@@ -1,4 +1,5 @@
 """Tests du chemin OCR complet du players builder (_pair_stack_and_name, _build_players)."""
+
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -77,8 +78,12 @@ def stack_det(x, y):
 def test_pair_stack_and_name_builds_canonical_player():
     c = make_controller()
     state = TableState(
-        player_names=[DetectionResult(class_name="player_name", confidence=0.8, bbox=(70, 10, 160, 25))],
-        dealer_button=DetectionResult(class_name="dealer_button", confidence=0.9, bbox=(75, 15, 95, 25)),
+        player_names=[
+            DetectionResult(class_name="player_name", confidence=0.8, bbox=(70, 10, 160, 25))
+        ],
+        dealer_button=DetectionResult(
+            class_name="dealer_button", confidence=0.9, bbox=(75, 15, 95, 25)
+        ),
     )
     player = c._pair_stack_and_name(
         stack_det(0, 0),
@@ -133,10 +138,13 @@ def test_pair_stack_quick_seeds_from_cached_player_and_seat_cache():
 def test_read_player_stack_quarantine_returns_known_fallback():
     c = make_controller(numeric_value=None)
     tracked = SimpleNamespace(current_stack=1750.0)
-    c.tracker = SimpleNamespace(players={"seat_5": tracked}, sanity=SimpleNamespace(
-        is_stack_read_quarantined=lambda seat: True,
-        get_stack_read_quarantine_remaining=lambda seat: 3.0,
-    ))
+    c.tracker = SimpleNamespace(
+        players={"seat_5": tracked},
+        sanity=SimpleNamespace(
+            is_stack_read_quarantined=lambda seat: True,
+            get_stack_read_quarantine_remaining=lambda seat: 3.0,
+        ),
+    )
     value, meta = c._read_player_stack(np.zeros((20, 40, 3), dtype=np.uint8), "seat_5")
     assert value == 1750.0
     assert meta["skipped_due_to_quarantine"] is True

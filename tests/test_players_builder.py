@@ -1,4 +1,5 @@
 """Tests du players builder extrait dans src/bot/players_builder.py."""
+
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -66,7 +67,9 @@ def test_runtime_players_have_meaningful_stacks_rules():
 
 def test_refresh_cached_player_runtime_flags_recomputes_hero_and_button():
     state = TableState(
-        dealer_button=DetectionResult(class_name="dealer_button", confidence=0.9, bbox=(500, 500, 520, 520)),
+        dealer_button=DetectionResult(
+            class_name="dealer_button", confidence=0.9, bbox=(500, 500, 520, 520)
+        ),
     )
     players = (
         SimpleNamespace(

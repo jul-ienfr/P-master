@@ -15,7 +15,9 @@ def test_field_criticality_mapping_marks_hero_cards_as_critical():
 
 
 def test_field_evidence_serializes_selected_candidate_and_crop_quality():
-    candidate = FieldCandidate(field_name="pot", value=1250.0, raw_text="1 250", confidence=0.94, source="ocr")
+    candidate = FieldCandidate(
+        field_name="pot", value=1250.0, raw_text="1 250", confidence=0.94, source="ocr"
+    )
     crop_quality = CropQualityReport(field_name="pot", width=120, height=40, quality_score=0.88)
     evidence = FieldEvidence(
         field_name="pot",

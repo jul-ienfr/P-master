@@ -51,6 +51,7 @@ def test_runtime_bridge_store_preserves_command_order_in_same_microsecond(tmp_pa
     kinds = [f"cmd_{i}" for i in range(8)]
     try:
         import src.runtime.bridge_store as bridge_module
+
         bridge_module.time.time = constant_time
         for kind in kinds:
             store.queue_command(kind, {})
@@ -92,7 +93,11 @@ def test_bridge_runtime_status_provider_combines_runtime_and_persisted_history(t
     )
     history_store.append(
         "events",
-        {"timestamp": "2026-04-13T10:00:00Z", "session_id": "persisted-session", "message": "persisted-event"},
+        {
+            "timestamp": "2026-04-13T10:00:00Z",
+            "session_id": "persisted-session",
+            "message": "persisted-event",
+        },
     )
     history_store.append(
         "decisions",
@@ -129,7 +134,9 @@ def test_bridge_runtime_status_provider_combines_runtime_and_persisted_history(t
             "observation": {"mode_enabled": False, "collecting": True},
             "history": {
                 "events": [{"timestamp": "2026-04-13T10:00:02Z", "message": "runtime-event"}],
-                "decisions": [{"timestamp": "2026-04-13T10:00:03Z", "source": "solver", "latency_ms": 18}],
+                "decisions": [
+                    {"timestamp": "2026-04-13T10:00:03Z", "source": "solver", "latency_ms": 18}
+                ],
                 "incidents": [],
                 "metrics": [{"timestamp": "2026-04-13T10:00:04Z", "decision_count": 1}],
             },

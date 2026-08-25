@@ -1,6 +1,6 @@
 """Tests du suivi de ranges villain (ratchet coverage, module V2 legacy)."""
-from types import SimpleNamespace
 
+from types import SimpleNamespace
 
 from poker.decisionmaker.range_tracker import (
     DEFAULT_RANGE,
@@ -168,22 +168,31 @@ def test_manager_infers_postflop_actions():
     manager = RangeTrackerManager()
 
     check_table = _make_table(
-        game_id="g1", board=["2C", "7D", "JH"], stage="Flop",
-        players=[{"status": 1}], minCall=0.0,
+        game_id="g1",
+        board=["2C", "7D", "JH"],
+        stage="Flop",
+        players=[{"status": 1}],
+        minCall=0.0,
     )
     manager.update_from_table(check_table)
     assert manager.trackers[0].postflop_actions[-1] == PostflopAction.CHECK
 
     call_table = _make_table(
-        game_id="g1", board=["2C", "7D", "JH"], stage="Turn",
-        players=[{"status": 1}], minCall=4.0,
+        game_id="g1",
+        board=["2C", "7D", "JH"],
+        stage="Turn",
+        players=[{"status": 1}],
+        minCall=4.0,
     )
     manager.update_from_table(call_table)
     assert manager.trackers[0].postflop_actions[-1] == PostflopAction.CALL
 
     fold_table = _make_table(
-        game_id="g1", board=["2C", "7D", "JH"], stage="River",
-        players=[{"status": 0}], minCall=4.0,
+        game_id="g1",
+        board=["2C", "7D", "JH"],
+        stage="River",
+        players=[{"status": 0}],
+        minCall=4.0,
     )
     manager.update_from_table(fold_table)
     assert manager.trackers[0].postflop_actions[-1] == PostflopAction.FOLD

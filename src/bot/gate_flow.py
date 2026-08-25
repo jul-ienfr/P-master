@@ -1,4 +1,5 @@
 """Flux de décision/gate live (extrait de src/main.py)."""
+
 import logging
 import time
 from collections import deque
@@ -23,14 +24,24 @@ def compact_solver_payload(payload: object) -> dict:
         alternatives = []
     compact["alternatives"] = [dict(item) for item in alternatives if isinstance(item, dict)]
 
-    if "alternatives_complete" in original and isinstance(compact.get("alternatives_complete"), list):
+    if "alternatives_complete" in original and isinstance(
+        compact.get("alternatives_complete"), list
+    ):
         compact["alternatives_complete"] = [
-            dict(item) for item in compact.get("alternatives_complete", []) if isinstance(item, dict)
+            dict(item)
+            for item in compact.get("alternatives_complete", [])
+            if isinstance(item, dict)
         ]
     else:
         compact.pop("alternatives_complete", None)
 
-    for map_key in ("ev_by_action", "freq_by_action", "action_metadata", "backend_details", "cache_details"):
+    for map_key in (
+        "ev_by_action",
+        "freq_by_action",
+        "action_metadata",
+        "backend_details",
+        "cache_details",
+    ):
         value = compact.get(map_key)
         if not isinstance(value, dict):
             compact.pop(map_key, None)
@@ -64,7 +75,11 @@ def compact_solver_payload(payload: object) -> dict:
     for list_key in ("warning_details", "action_buckets"):
         values = compact.get(list_key)
         if isinstance(values, list):
-            compact[list_key] = [dict(item) if isinstance(item, dict) else str(item) for item in values if str(item).strip()]
+            compact[list_key] = [
+                dict(item) if isinstance(item, dict) else str(item)
+                for item in values
+                if str(item).strip()
+            ]
         elif values is not None:
             compact.pop(list_key, None)
 
@@ -92,15 +107,25 @@ class GateFlowMixin:
             "context": dict(context or {}),
             "decision": dict(self.last_decision_summary or {}),
             "tracker": dict(self.last_tracker_snapshot or {}),
-            "canonical_spot": dict(self.last_resolved_runtime_state or {}) if isinstance(getattr(self, "last_resolved_runtime_state", None), dict) else None,
-            "runtime_readiness": dict(self.last_decision_summary.get("runtime_readiness", {}) or {}),
-            "fallback_execution_readiness": dict(self.last_decision_summary.get("fallback_execution_readiness", {}) or {}),
-            "frame": self.last_valid_frame.copy() if isinstance(getattr(self, "last_valid_frame", None), np.ndarray) else None,
+            "canonical_spot": dict(self.last_resolved_runtime_state or {})
+            if isinstance(getattr(self, "last_resolved_runtime_state", None), dict)
+            else None,
+            "runtime_readiness": dict(
+                self.last_decision_summary.get("runtime_readiness", {}) or {}
+            ),
+            "fallback_execution_readiness": dict(
+                self.last_decision_summary.get("fallback_execution_readiness", {}) or {}
+            ),
+            "frame": self.last_valid_frame.copy()
+            if isinstance(getattr(self, "last_valid_frame", None), np.ndarray)
+            else None,
             "crops": self._build_runtime_failure_crops(),
         }
         dataset.record_incident(payload)
 
-        operator = self._build_operator_snapshot() if hasattr(self, "_build_operator_snapshot") else {}
+        operator = (
+            self._build_operator_snapshot() if hasattr(self, "_build_operator_snapshot") else {}
+        )
         shadow_mode_enabled = bool(operator.get("shadow_mode_enabled", False))
         hitl = getattr(self, "hitl", None)
         if shadow_mode_enabled and hitl is not None and hasattr(hitl, "record_shadow_failure"):
@@ -108,7 +133,12 @@ class GateFlowMixin:
                 hitl.record_shadow_failure(
                     payload.get("frame"),
                     issue_type=str(incident_id or category or "runtime_failure"),
-                    reason=str((context or {}).get("reason") or incident_id or category or "runtime_failure"),
+                    reason=str(
+                        (context or {}).get("reason")
+                        or incident_id
+                        or category
+                        or "runtime_failure"
+                    ),
                     context={
                         "category": str(category or "incident"),
                         "severity": str(severity or "warning"),
@@ -126,7 +156,11 @@ class GateFlowMixin:
         hitl = getattr(self, "hitl", None)
         if hitl is None or not hasattr(hitl, "record_shadow_failure"):
             return
-        frame = self.last_valid_frame.copy() if isinstance(getattr(self, "last_valid_frame", None), np.ndarray) else None
+        frame = (
+            self.last_valid_frame.copy()
+            if isinstance(getattr(self, "last_valid_frame", None), np.ndarray)
+            else None
+        )
         hitl.record_shadow_failure(frame, issue_type=issue_type, reason=reason, context=context)
 
     def _on_action_gate_failure(
@@ -136,7 +170,17 @@ class GateFlowMixin:
         action_intent: ActionIntent,
     ) -> None:
         reason_codes = [reason.code for reason in (gate_result.reasons or [])]
-        if any(code in {"HERO_CARDS_UNCERTAIN", "STATE_INCOHERENT", "BOARD_UNCERTAIN", "MISSING_POSTFLOP_POT", "LOW_STATE_CONFIDENCE"} for code in reason_codes):
+        if any(
+            code
+            in {
+                "HERO_CARDS_UNCERTAIN",
+                "STATE_INCOHERENT",
+                "BOARD_UNCERTAIN",
+                "MISSING_POSTFLOP_POT",
+                "LOW_STATE_CONFIDENCE",
+            }
+            for code in reason_codes
+        ):
             self._record_shadow_mode_failure(
                 issue_type="sanity_gate_failure",
                 reason=gate_result.reason,
@@ -186,7 +230,9 @@ class GateFlowMixin:
                     "gate_allowed": True,
                     "trace_updated_at": self._utc_now(),
                     "history": {
-                        "fallback": list(self.last_decision_summary.get("history", {}).get("fallback", []) or []),
+                        "fallback": list(
+                            self.last_decision_summary.get("history", {}).get("fallback", []) or []
+                        ),
                         "warnings": [],
                         "incidents": [reason],
                     },
@@ -213,7 +259,9 @@ class GateFlowMixin:
                     spot_id=canonical_state.spot_id,
                 )
             return {
-                "decision": self._build_minimal_skipped_decision(canonical_state, action_name, reason),
+                "decision": self._build_minimal_skipped_decision(
+                    canonical_state, action_name, reason
+                ),
                 "gate_result": self.last_gate_result,
                 "dynamic_coords": dynamic_coords,
             }
@@ -264,12 +312,16 @@ class GateFlowMixin:
         }
 
         action_intent = ActionIntent.from_payload(decision)
-        gate_tracker_state = dict(gate_tracker_snapshot or self._build_gate_tracker_snapshot(canonical_state))
+        gate_tracker_state = dict(
+            gate_tracker_snapshot or self._build_gate_tracker_snapshot(canonical_state)
+        )
         gate_result = self.runtime_sanity.evaluate_action_gate(
             action_intent=action_intent,
             tracker_state=gate_tracker_state,
             coords_mapping=dynamic_coords,
-            on_failure=lambda result: self._on_action_gate_failure(result, canonical_state, action_intent),
+            on_failure=lambda result: self._on_action_gate_failure(
+                result, canonical_state, action_intent
+            ),
         )
         fallback_execution_readiness = self._evaluate_fallback_execution_readiness(
             canonical_state,
@@ -284,9 +336,13 @@ class GateFlowMixin:
         self.last_decision_summary["assisted"] = assisted_result
         self.last_decision_summary["trace_updated_at"] = self._utc_now()
         self.last_decision_summary["history"] = {
-            "fallback": [decision.get("fallback_reason")] if decision.get("fallback_reason") else [],
+            "fallback": [decision.get("fallback_reason")]
+            if decision.get("fallback_reason")
+            else [],
             "warnings": list(decision.get("warnings", [])),
-            "incidents": self._normalize_incidents(normalized_incidents + (["gate_blocked"] if not gate_result.allowed else [])),
+            "incidents": self._normalize_incidents(
+                normalized_incidents + (["gate_blocked"] if not gate_result.allowed else [])
+            ),
         }
         logger.info(
             "DECISION | street=%s hero=%s board=%s action=%s source=%s conf=%.2f fallback=%s gate=%s/%s assisted=%s",
@@ -340,7 +396,13 @@ class GateFlowMixin:
         else:
             operator_mode = self._operator_action_mode()
             self.last_decision_summary["operator_status"] = operator_mode
-            if operator_mode in {"paused", "observation", "shadow", "manual_override", "go_live_blocked"}:
+            if operator_mode in {
+                "paused",
+                "observation",
+                "shadow",
+                "manual_override",
+                "go_live_blocked",
+            }:
                 self.last_decision_summary["execution"] = {
                     "status": "suppressed_by_operator",
                     "reason": operator_mode,
@@ -381,8 +443,19 @@ class GateFlowMixin:
             else:
                 action_name = str(decision.get("action", "") or "").strip().upper()
                 if self._should_suppress_recent_live_execution(canonical_state):
-                    suppression_reason = "same_spot_unconfirmed" if str(getattr(self, "_last_live_execution_settle_status", "") or "").strip().lower() == "timeout" else "same_hand_post_action_guard"
-                    self._remember_locked_decision(canonical_state, action_name or decision.get("action", ""), suppression_reason)
+                    suppression_reason = (
+                        "same_spot_unconfirmed"
+                        if str(getattr(self, "_last_live_execution_settle_status", "") or "")
+                        .strip()
+                        .lower()
+                        == "timeout"
+                        else "same_hand_post_action_guard"
+                    )
+                    self._remember_locked_decision(
+                        canonical_state,
+                        action_name or decision.get("action", ""),
+                        suppression_reason,
+                    )
                     self.last_decision_summary["execution"] = {
                         "status": "suppressed_recent_execution",
                         "reason": suppression_reason,
@@ -408,7 +481,11 @@ class GateFlowMixin:
                         "dynamic_coords": dynamic_coords,
                     }
                 if self._should_suppress_duplicate_live_action(canonical_state, action_name):
-                    self._remember_locked_decision(canonical_state, action_name or decision.get("action", ""), "same_live_spot_cooldown")
+                    self._remember_locked_decision(
+                        canonical_state,
+                        action_name or decision.get("action", ""),
+                        "same_live_spot_cooldown",
+                    )
                     self.last_decision_summary["execution"] = {
                         "status": "suppressed_duplicate",
                         "reason": "same_live_spot_cooldown",
@@ -433,6 +510,7 @@ class GateFlowMixin:
                         "gate_result": gate_result,
                         "dynamic_coords": dynamic_coords,
                     }
+
                 async def _update_jit_baseline():
                     frame = self.camera.get_latest_frame()
                     if frame is not None:
@@ -444,7 +522,7 @@ class GateFlowMixin:
                             action_intent,
                             dynamic_coords,
                             jit_check=self._jit_action_validator,
-                            update_jit_baseline=_update_jit_baseline
+                            update_jit_baseline=_update_jit_baseline,
                         )
                     except TypeError as action_err:
                         if "update_jit_baseline" not in str(action_err):
@@ -462,14 +540,18 @@ class GateFlowMixin:
                             "reason": "JIT Check Failed",
                         }
                         logger.warning("CLICK | aborted_jit action=%s", decision.get("action", ""))
-                        self._push_incident("jit_abort", severity="warning", reason="Actions region mutated")
+                        self._push_incident(
+                            "jit_abort", severity="warning", reason="Actions region mutated"
+                        )
                         execution_result = {"ok": False, "reason": "JIT Abort"}
                     else:
                         raise
                 execution_ok = bool((execution_result or {}).get("ok"))
                 execution_reason = (
-                    "assisted_runtime" if operator_mode == "assisted" else "live_runtime"
-                ) if execution_ok else str((execution_result or {}).get("reason", "click_failed"))
+                    ("assisted_runtime" if operator_mode == "assisted" else "live_runtime")
+                    if execution_ok
+                    else str((execution_result or {}).get("reason", "click_failed"))
+                )
                 self.last_decision_summary["execution"] = {
                     "status": "executed" if execution_ok else "click_failed",
                     "reason": execution_reason,
@@ -501,7 +583,11 @@ class GateFlowMixin:
                         settle_status=settle_status,
                     )
                     if settle_status == "timeout":
-                        self._remember_locked_decision(canonical_state, action_name or decision.get("action", ""), "same_spot_unconfirmed")
+                        self._remember_locked_decision(
+                            canonical_state,
+                            action_name or decision.get("action", ""),
+                            "same_spot_unconfirmed",
+                        )
                     else:
                         self._clear_live_decision_lock()
                     if settle_status == "timeout":
@@ -571,22 +657,41 @@ class GateFlowMixin:
         *,
         frame_age_ms: float | None = None,
     ) -> dict[str, object]:
-        legal_actions = {str(action).strip().upper() for action in (canonical_state.legal_actions or ())}
-        action_buttons = tuple(sorted(str(button).strip().lower() for button in (canonical_state.action_buttons or ()) if str(button).strip()))
-        target_action = "CHECK" if "CHECK" in legal_actions else ("FOLD" if "FOLD" in legal_actions else "")
-        target_button = "check_button" if target_action == "CHECK" else ("fold_button" if target_action == "FOLD" else "")
+        legal_actions = {
+            str(action).strip().upper() for action in (canonical_state.legal_actions or ())
+        }
+        action_buttons = tuple(
+            sorted(
+                str(button).strip().lower()
+                for button in (canonical_state.action_buttons or ())
+                if str(button).strip()
+            )
+        )
+        target_action = (
+            "CHECK" if "CHECK" in legal_actions else ("FOLD" if "FOLD" in legal_actions else "")
+        )
+        target_button = (
+            "check_button"
+            if target_action == "CHECK"
+            else ("fold_button" if target_action == "FOLD" else "")
+        )
 
         signature_history = getattr(self, "_recent_runtime_action_button_signatures", None)
         if signature_history is None:
             signature_history = deque(maxlen=5)
             self._recent_runtime_action_button_signatures = signature_history
         signature_history.append(action_buttons)
-        stable_signature_count = sum(1 for signature in signature_history if signature and signature == action_buttons)
+        stable_signature_count = sum(
+            1 for signature in signature_history if signature and signature == action_buttons
+        )
         button_signature_stable = bool(action_buttons) and stable_signature_count >= 3
 
         metadata = dict(getattr(canonical_state, "metadata", {}) or {})
         vision_metadata = dict(metadata.get("vision", {}) or {})
-        visual_changed_regions = {str(region).lower() for region in (vision_metadata.get("visual_changed_regions", []) or [])}
+        visual_changed_regions = {
+            str(region).lower()
+            for region in (vision_metadata.get("visual_changed_regions", []) or [])
+        }
         actions_region_stable = "actions" not in visual_changed_regions
 
         action_controller = getattr(self, "action_controller", None)
@@ -660,11 +765,15 @@ class GateFlowMixin:
                 "actions_region_stable": actions_region_stable,
                 "stable_signature_count": stable_signature_count,
                 "visual_changed_regions": sorted(visual_changed_regions),
-                "frame_age_ms": None if frame_age_ms is None else round(float(frame_age_ms or 0.0), 1),
+                "frame_age_ms": None
+                if frame_age_ms is None
+                else round(float(frame_age_ms or 0.0), 1),
             },
         }
 
-    def _handle_stale_live_frame(self, canonical_state: CanonicalTableState, frame_age_s: float) -> None:
+    def _handle_stale_live_frame(
+        self, canonical_state: CanonicalTableState, frame_age_s: float
+    ) -> None:
         frame_age_ms = round(max(frame_age_s, 0.0) * 1000.0, 1)
         max_age_ms = round(self._max_live_frame_age_s * 1000.0, 1)
         self._clear_live_decision_summary(canonical_state)
@@ -687,9 +796,11 @@ class GateFlowMixin:
         self.last_decision_summary["gate_reason"] = "STALE_FRAME"
         self.last_decision_summary["gate_allowed"] = False
         self.last_decision_summary["frame_age_ms"] = frame_age_ms
-        self.last_decision_summary["fallback_execution_readiness"] = self._evaluate_fallback_execution_readiness(
-            canonical_state,
-            frame_age_ms=frame_age_ms,
+        self.last_decision_summary["fallback_execution_readiness"] = (
+            self._evaluate_fallback_execution_readiness(
+                canonical_state,
+                frame_age_ms=frame_age_ms,
+            )
         )
         self.last_decision_summary["assisted"] = {
             **dict(self.last_decision_summary.get("assisted", {}) or {}),
@@ -726,6 +837,7 @@ class GateFlowMixin:
             max_age_ms=max_age_ms,
             spot_id=canonical_state.spot_id,
         )
+
     def _push_runtime_event(self, kind: str, message: str, **context) -> None:
         event = {
             "timestamp": self._utc_now(),

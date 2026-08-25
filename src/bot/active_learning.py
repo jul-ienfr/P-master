@@ -14,6 +14,7 @@ from src.vision.auto_annotator import AutoAnnotator
 
 logger = logging.getLogger("ActiveLearning")
 
+
 class HumanInTheLoop:
     def __init__(self, target_dataset_size: int = 100):
         self.target_dataset_size = target_dataset_size
@@ -28,7 +29,9 @@ class HumanInTheLoop:
         self.shadow_dir.mkdir(parents=True, exist_ok=True)
 
         # Compter les images déjà annotées
-        self.annotations_count = len([f for f in os.listdir(self.dataset_dir_labels) if f.endswith('.txt')])
+        self.annotations_count = len(
+            [f for f in os.listdir(self.dataset_dir_labels) if f.endswith(".txt")]
+        )
 
         # États de synchronisation
         self.intervention_event = asyncio.Event()
@@ -43,6 +46,7 @@ class HumanInTheLoop:
         if providers:
             self.ai_fallback = AutoAnnotator(providers=providers)
             logger.info(f"Auto-Adaptation API configurée avec {len(providers)} fournisseurs.")
+
     def _save_to_dataset(self, frame: np.ndarray, yolo_label_content: str):
         """Sauvegarde la frame et le label pour le prochain entraînement local."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
@@ -54,7 +58,9 @@ class HumanInTheLoop:
             f.write(yolo_label_content)
 
         self.annotations_count += 1
-        logger.info(f"Nouvelle donnée ajoutée au dataset ({self.annotations_count}/{self.target_dataset_size})")
+        logger.info(
+            f"Nouvelle donnée ajoutée au dataset ({self.annotations_count}/{self.target_dataset_size})"
+        )
 
     async def request_intervention_async(self, frame: np.ndarray, issue_type: str, reason: str):
         """
@@ -76,7 +82,9 @@ class HumanInTheLoop:
                     logger.info("Tentative d'Auto-Guérison via l'API Vision (Arrière-plan)...")
                     temp_path = "temp_fallback.jpg"
                     cv2.imwrite(temp_path, frame)
-                    boxes = await asyncio.to_thread(self.ai_fallback.ask_ai_with_fallbacks, temp_path, width, height)
+                    boxes = await asyncio.to_thread(
+                        self.ai_fallback.ask_ai_with_fallbacks, temp_path, width, height
+                    )
 
                     if os.path.exists(temp_path):
                         os.remove(temp_path)
@@ -90,15 +98,19 @@ class HumanInTheLoop:
 
                 # SAVE ALWAYS IF API FAILS
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
-                debug_img_path = os.path.join("dataset", "needs_annotation", f"failed_{timestamp}.jpg")
+                debug_img_path = os.path.join(
+                    "dataset", "needs_annotation", f"failed_{timestamp}.jpg"
+                )
                 os.makedirs(os.path.dirname(debug_img_path), exist_ok=True)
                 cv2.imwrite(debug_img_path, frame)
                 logger.info(f"Image sauvegardée pour annotation manuelle dans {debug_img_path}")
 
                 # ETAPE 2: Fallback Humain GUI
-                logger.info("Auto-Guérison API échouée ou absente. Envoi de l'image à la GUI Operator.")
-                _, buffer = cv2.imencode('.jpg', frame)
-                base64_image = base64.b64encode(buffer).decode('utf-8')
+                logger.info(
+                    "Auto-Guérison API échouée ou absente. Envoi de l'image à la GUI Operator."
+                )
+                _, buffer = cv2.imencode(".jpg", frame)
+                base64_image = base64.b64encode(buffer).decode("utf-8")
 
                 self.current_issue = {
                     "type": issue_type,
@@ -106,7 +118,7 @@ class HumanInTheLoop:
                     "image_base64": base64_image,
                     "width": width,
                     "height": height,
-                    "raw_frame": frame
+                    "raw_frame": frame,
                 }
                 self.intervention_event.clear()
             except Exception as e:
@@ -123,10 +135,14 @@ class HumanInTheLoop:
         """
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
-            debug_img_path = os.path.join("dataset", "needs_annotation", f"silently_failed_{timestamp}.jpg")
+            debug_img_path = os.path.join(
+                "dataset", "needs_annotation", f"silently_failed_{timestamp}.jpg"
+            )
             os.makedirs(os.path.dirname(debug_img_path), exist_ok=True)
             cv2.imwrite(debug_img_path, frame)
-            logger.info(f"Anomalie silencieuse ({issue_type}) : Image sauvegardée pour annotation dans {debug_img_path}")
+            logger.info(
+                f"Anomalie silencieuse ({issue_type}) : Image sauvegardée pour annotation dans {debug_img_path}"
+            )
         except Exception as e:
             logger.error(f"Erreur lors de la capture silencieuse: {e}")
 

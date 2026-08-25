@@ -1,4 +1,5 @@
 """Tests des snapshots opérateur et du bridge runtime (src/bot/operator_snapshot.py)."""
+
 import sys
 from pathlib import Path
 from types import SimpleNamespace

@@ -9,7 +9,9 @@ import numpy as np
 
 
 class RuntimeFailureDataset:
-    def __init__(self, *, enabled: bool = True, dataset_dir: str = "dataset/runtime_failures") -> None:
+    def __init__(
+        self, *, enabled: bool = True, dataset_dir: str = "dataset/runtime_failures"
+    ) -> None:
         self.enabled = bool(enabled)
         self.dataset_root = Path(dataset_dir)
         self.manifest_path = self.dataset_root / "incidents.jsonl"
@@ -23,7 +25,10 @@ class RuntimeFailureDataset:
     @staticmethod
     def _safe_stem(value: object) -> str:
         text = str(value or "incident").strip()
-        return "".join(char if char.isalnum() or char in ("-", "_") else "_" for char in text)[:80] or "incident"
+        return (
+            "".join(char if char.isalnum() or char in ("-", "_") else "_" for char in text)[:80]
+            or "incident"
+        )
 
     def _write_image(self, image: np.ndarray, destination: Path) -> Path | None:
         if image is None or not isinstance(image, np.ndarray) or image.size == 0:
@@ -37,7 +42,9 @@ class RuntimeFailureDataset:
             return None
         record = dict(payload or {})
         artifact_paths = {}
-        artifact_key = self._safe_stem(record.get("timestamp") or record.get("incident_id") or "incident")
+        artifact_key = self._safe_stem(
+            record.get("timestamp") or record.get("incident_id") or "incident"
+        )
 
         frame = record.pop("frame", None)
         if isinstance(frame, np.ndarray):
@@ -51,7 +58,9 @@ class RuntimeFailureDataset:
             for crop_name, crop_image in crops.items():
                 if not isinstance(crop_image, np.ndarray):
                     continue
-                crop_path = self._write_image(crop_image, self.crops_dir / f"{artifact_key}_{self._safe_stem(crop_name)}.png")
+                crop_path = self._write_image(
+                    crop_image, self.crops_dir / f"{artifact_key}_{self._safe_stem(crop_name)}.png"
+                )
                 if crop_path is not None:
                     crop_paths[str(crop_name)] = str(crop_path)
 

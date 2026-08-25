@@ -1,4 +1,5 @@
 """Tests Phase 2.6 — circuit breaker solver exponentiel et métriqué."""
+
 import asyncio
 import sys
 from pathlib import Path

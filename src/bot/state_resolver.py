@@ -1,4 +1,5 @@
 """Résolution de l'état runtime : rues, participation, lissage, snapshot tracker (extrait de src/main.py)."""
+
 import logging
 import time
 from collections.abc import Iterable
@@ -30,7 +31,9 @@ class StateResolverMixin:
             return "BET_BOX"
         return "BET_BTN"
 
-    def _get_action_coord_diagnostic(self, state: TableState, action_name: str) -> dict[str, object]:
+    def _get_action_coord_diagnostic(
+        self, state: TableState, action_name: str
+    ) -> dict[str, object]:
         metadata = dict(getattr(state, "metadata", {}) or {})
         diagnostics = dict(metadata.get("dynamic_coord_diagnostics", {}) or {})
         coord_key = self._resolve_action_coord_key(action_name)
@@ -39,17 +42,31 @@ class StateResolverMixin:
         diagnostic.setdefault("slot_boxes", dict(metadata.get("button_slot_boxes", {}) or {}))
         return diagnostic
 
-    def _build_resolved_runtime_state(self, canonical_state: CanonicalTableState) -> CanonicalTableState:
-        tracker_snapshot = dict(self._build_tracker_snapshot(canonical_state.to_tracker_payload()) or {})
+    def _build_resolved_runtime_state(
+        self, canonical_state: CanonicalTableState
+    ) -> CanonicalTableState:
+        tracker_snapshot = dict(
+            self._build_tracker_snapshot(canonical_state.to_tracker_payload()) or {}
+        )
         fast_pot_snapshot = self._get_recent_fast_pot_snapshot()
         metadata = dict(getattr(canonical_state, "metadata", {}) or {})
-        tracker_street = str(tracker_snapshot.get("street", canonical_state.street) or canonical_state.street)
+        tracker_street = str(
+            tracker_snapshot.get("street", canonical_state.street) or canonical_state.street
+        )
         tracker_board = tuple(tracker_snapshot.get("board", []) or [])
         tracker_hero_cards = tuple(tracker_snapshot.get("hero_cards", []) or [])
-        tracker_legal_actions = tuple(str(action).upper() for action in (tracker_snapshot.get("legal_actions", []) or []))
-        tracker_pot = float(tracker_snapshot.get("pot", canonical_state.pot) or canonical_state.pot or 0.0)
+        tracker_legal_actions = tuple(
+            str(action).upper() for action in (tracker_snapshot.get("legal_actions", []) or [])
+        )
+        tracker_pot = float(
+            tracker_snapshot.get("pot", canonical_state.pot) or canonical_state.pot or 0.0
+        )
         fast_pot_value = float(fast_pot_snapshot.get("value", 0.0) or 0.0)
-        tracker_confidence = float(tracker_snapshot.get("state_confidence", canonical_state.state_confidence) or canonical_state.state_confidence or 0.0)
+        tracker_confidence = float(
+            tracker_snapshot.get("state_confidence", canonical_state.state_confidence)
+            or canonical_state.state_confidence
+            or 0.0
+        )
         hero_participation = str(metadata.get("hero_participation", "") or "idle")
         observation_mode = bool(metadata.get("observation_mode", False))
         use_tracker_street = (
@@ -61,24 +78,41 @@ class StateResolverMixin:
             spot_id=str(
                 canonical_state.spot_id
                 if observation_mode
-                else (tracker_snapshot.get("spot_id", canonical_state.spot_id) or canonical_state.spot_id)
+                else (
+                    tracker_snapshot.get("spot_id", canonical_state.spot_id)
+                    or canonical_state.spot_id
+                )
             ),
             street=tracker_street if use_tracker_street else canonical_state.street,
             pot=(
-                fast_pot_value if fast_pot_value > 0.0 else (
-                    tracker_pot if tracker_pot > 0.0 or canonical_state.pot <= 0.0 else canonical_state.pot
+                fast_pot_value
+                if fast_pot_value > 0.0
+                else (
+                    tracker_pot
+                    if tracker_pot > 0.0 or canonical_state.pot <= 0.0
+                    else canonical_state.pot
                 )
-            ) if not observation_mode else canonical_state.pot,
-            board=(tracker_board if tracker_board else canonical_state.board) if not observation_mode else canonical_state.board,
+            )
+            if not observation_mode
+            else canonical_state.pot,
+            board=(tracker_board if tracker_board else canonical_state.board)
+            if not observation_mode
+            else canonical_state.board,
             hero_cards=(
                 tracker_hero_cards if len(tracker_hero_cards) == 2 else canonical_state.hero_cards
-            ) if not observation_mode else canonical_state.hero_cards,
+            )
+            if not observation_mode
+            else canonical_state.hero_cards,
             players=canonical_state.players,
-            legal_actions=(tracker_legal_actions or canonical_state.legal_actions) if not observation_mode else canonical_state.legal_actions,
+            legal_actions=(tracker_legal_actions or canonical_state.legal_actions)
+            if not observation_mode
+            else canonical_state.legal_actions,
             action_buttons=canonical_state.action_buttons,
             state_confidence=(
                 tracker_confidence if tracker_confidence > 0.0 else canonical_state.state_confidence
-            ) if not observation_mode else canonical_state.state_confidence,
+            )
+            if not observation_mode
+            else canonical_state.state_confidence,
             metadata={
                 **metadata,
                 "observed_street": canonical_state.street,
@@ -86,7 +120,9 @@ class StateResolverMixin:
                 "resolved_street": tracker_street if use_tracker_street else canonical_state.street,
                 "raw_board": list(canonical_state.board),
                 "validated_board": list(tracker_board or canonical_state.board),
-                "pending_street_promotion": str(getattr(self.tracker, "pending_street_promotion", "") or ""),
+                "pending_street_promotion": str(
+                    getattr(self.tracker, "pending_street_promotion", "") or ""
+                ),
                 "hero_participation": hero_participation,
                 "observation_mode": observation_mode,
                 "fast_pot_snapshot": fast_pot_snapshot,
@@ -239,7 +275,8 @@ class StateResolverMixin:
             not self.last_canonical_spot_snapshot
             or (
                 list(board) == list(self.last_canonical_spot_snapshot.get("board", []))
-                and list(hero_cards) == list(self.last_canonical_spot_snapshot.get("hero_cards", []))
+                and list(hero_cards)
+                == list(self.last_canonical_spot_snapshot.get("hero_cards", []))
             )
         )
         if not same_runtime_context:
@@ -297,14 +334,18 @@ class StateResolverMixin:
                 return "", ""
             return card_text[0].upper(), card_text[1].lower()
 
-        def _is_suspicious_rank_flip(previous_cards: tuple[str, ...], candidate_cards: tuple[str, ...]) -> bool:
+        def _is_suspicious_rank_flip(
+            previous_cards: tuple[str, ...], candidate_cards: tuple[str, ...]
+        ) -> bool:
             if len(previous_cards) != 2 or len(candidate_cards) != 2:
                 return False
             if previous_cards == candidate_cards:
                 return False
             changed_indexes = [
                 index
-                for index, (previous_card, candidate_card) in enumerate(zip(previous_cards, candidate_cards))
+                for index, (previous_card, candidate_card) in enumerate(
+                    zip(previous_cards, candidate_cards)
+                )
                 if previous_card != candidate_card
             ]
             if len(changed_indexes) != 1:
@@ -321,7 +362,8 @@ class StateResolverMixin:
         if (
             len(hero_cards) == 2
             and len(previous_hero_cards) == 2
-            and (now - self._last_good_runtime_hero_cards_at) <= float(getattr(self, "_runtime_hero_cards_rank_flip_ttl_s", 1.0) or 1.0)
+            and (now - self._last_good_runtime_hero_cards_at)
+            <= float(getattr(self, "_runtime_hero_cards_rank_flip_ttl_s", 1.0) or 1.0)
             and _is_suspicious_rank_flip(previous_hero_cards, hero_cards)
         ):
             logger.info(
@@ -351,7 +393,9 @@ class StateResolverMixin:
             self._last_good_runtime_hero_cards_at = 0.0
         return hero_cards
 
-    def _convert_state_for_tracker(self, state: TableState, frame: np.ndarray) -> CanonicalTableState:
+    def _convert_state_for_tracker(
+        self, state: TableState, frame: np.ndarray
+    ) -> CanonicalTableState:
         return self._get_frame_pipeline()._convert_state_for_tracker(state, frame)
 
     def _build_tracker_snapshot(self, tracker_data: dict) -> dict:
@@ -359,9 +403,13 @@ class StateResolverMixin:
         fallback_board = list((tracker_data or {}).get("board", []) or [])
         fallback_pot = float((tracker_data or {}).get("pot", 0.0) or 0.0)
         fallback_hero_cards = list((tracker_data or {}).get("hero_cards", []) or [])
-        fallback_legal_actions = [str(action).upper() for action in ((tracker_data or {}).get("legal_actions", []) or [])]
+        fallback_legal_actions = [
+            str(action).upper() for action in ((tracker_data or {}).get("legal_actions", []) or [])
+        ]
         fallback_state_confidence = float((tracker_data or {}).get("state_confidence", 0.0) or 0.0)
-        fallback_hero_seat_id = str(((tracker_data or {}).get("metadata", {}) or {}).get("hero_seat_id", "") or "")
+        fallback_hero_seat_id = str(
+            ((tracker_data or {}).get("metadata", {}) or {}).get("hero_seat_id", "") or ""
+        )
 
         hero_seat_id = next(
             (seat_id for seat_id, player in self.tracker.players.items() if player.is_hero),
@@ -384,11 +432,15 @@ class StateResolverMixin:
             turn_probe_metadata = {}
             raw_board_count = 0
 
-        tracker_street = str(self.tracker.state or "") if getattr(self, "tracker", None) is not None else ""
+        tracker_street = (
+            str(self.tracker.state or "") if getattr(self, "tracker", None) is not None else ""
+        )
         tracker_board = list(getattr(self.tracker, "current_board", []) or [])
         tracker_pot = float(getattr(self.tracker, "pot_total", 0.0) or 0.0)
         tracker_hero_cards = list(getattr(self.tracker, "hero_cards", []) or [])
-        tracker_legal_actions = [str(action).upper() for action in (getattr(self.tracker, "legal_actions", []) or [])]
+        tracker_legal_actions = [
+            str(action).upper() for action in (getattr(self.tracker, "legal_actions", []) or [])
+        ]
         tracker_state_confidence = float(getattr(self.tracker, "state_confidence", 0.0) or 0.0)
         fast_pot_snapshot = self._get_recent_fast_pot_snapshot()
         fast_pot_value = float(fast_pot_snapshot.get("value", 0.0) or 0.0)
@@ -396,22 +448,24 @@ class StateResolverMixin:
         observed_pot_fast_value = float(observed_pot_fast_metadata.get("value", 0.0) or 0.0)
         observed_pot_fast_age_s = max(
             0.0,
-            time.monotonic() - float(observed_pot_fast_metadata.get("observed_at_monotonic", 0.0) or 0.0),
+            time.monotonic()
+            - float(observed_pot_fast_metadata.get("observed_at_monotonic", 0.0) or 0.0),
         )
-        prefer_fast_pot_snapshot = (
-            fast_pot_value > 0.0
-            and fast_pot_age_s <= float(getattr(self, "_fast_pot_stale_after_s", 0.35) or 0.35)
+        prefer_fast_pot_snapshot = fast_pot_value > 0.0 and fast_pot_age_s <= float(
+            getattr(self, "_fast_pot_stale_after_s", 0.35) or 0.35
         )
         observed_pot_value = float(observed_pot_metadata.get("value", 0.0) or 0.0)
         observed_pot_age_s = max(
             0.0,
-            time.monotonic() - float(observed_pot_metadata.get("observed_at_monotonic", 0.0) or 0.0),
+            time.monotonic()
+            - float(observed_pot_metadata.get("observed_at_monotonic", 0.0) or 0.0),
         )
         prefer_observed_pot_fast = (
             observed_pot_fast_value > 0.0
             and observed_pot_fast_age_s <= 0.20
             and str(observed_pot_fast_metadata.get("ocr_focus", "") or "") == "top_label"
-            and str(observed_pot_fast_metadata.get("source_region", "") or "") == "fast_lane_geometry"
+            and str(observed_pot_fast_metadata.get("source_region", "") or "")
+            == "fast_lane_geometry"
         )
         observed_pot_ocr_focus = str(observed_pot_metadata.get("ocr_focus", "") or "")
         observed_pot_source_region = str(observed_pot_metadata.get("source_region", "") or "")
@@ -449,7 +503,11 @@ class StateResolverMixin:
                 pot = tracker_pot if tracker_pot > 0.0 else fallback_pot
             hero_cards = tracker_hero_cards if len(tracker_hero_cards) == 2 else fallback_hero_cards
             legal_actions = tracker_legal_actions or fallback_legal_actions
-            state_confidence = tracker_state_confidence if tracker_state_confidence > 0.0 else fallback_state_confidence
+            state_confidence = (
+                tracker_state_confidence
+                if tracker_state_confidence > 0.0
+                else fallback_state_confidence
+            )
 
         return {
             "street": street,
@@ -476,4 +534,3 @@ class StateResolverMixin:
             },
             "spot_id": str((tracker_data or {}).get("spot_id", "") or ""),
         }
-

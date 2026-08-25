@@ -41,6 +41,8 @@ class TableSession:
             "visual_state": dict(self.visual_state),
             "temporal_state": dict(self.temporal_state),
             "incident_count": len(self.incidents),
-            "last_valid_state": dict(self.last_valid_state) if isinstance(self.last_valid_state, dict) else self.last_valid_state,
+            "last_valid_state": dict(self.last_valid_state)
+            if isinstance(self.last_valid_state, dict)
+            else self.last_valid_state,
             "metadata": dict(self.metadata),
         }

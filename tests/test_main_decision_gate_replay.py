@@ -14,19 +14,17 @@ if str(ROOT) not in sys.path:
 
 
 if "aiohttp_cors" not in sys.modules:
+
     class _StubResourceOptions:
         def __init__(self, **kwargs):
             self.kwargs = kwargs
-
 
     class _StubCors:
         def add(self, route):
             return route
 
-
     def _stub_setup(app, defaults=None):
         return _StubCors()
-
 
     sys.modules["aiohttp_cors"] = types.SimpleNamespace(
         setup=_stub_setup,
@@ -35,15 +33,16 @@ if "aiohttp_cors" not in sys.modules:
 
 
 if "src.vision.capture" not in sys.modules:
+
     class _StubScreenCapture:
         def __init__(self, *args, **kwargs):
             pass
-
 
     sys.modules["src.vision.capture"] = types.SimpleNamespace(ScreenCapture=_StubScreenCapture)
 
 
 if "src.vision.detector" not in sys.modules:
+
     class _StubTableState:
         def __init__(self, **kwargs):
             self.board_cards = kwargs.get("board_cards", [])
@@ -54,7 +53,6 @@ if "src.vision.detector" not in sys.modules:
             self.player_names = kwargs.get("player_names", [])
             self.action_buttons = kwargs.get("action_buttons", [])
             self.metadata = kwargs.get("metadata", {})
-
 
     class _StubDetectionResult:
         def __init__(self, bbox=(0, 0, 0, 0), confidence=0.0, class_name=""):
@@ -67,11 +65,9 @@ if "src.vision.detector" not in sys.modules:
             x1, y1, x2, y2 = self.bbox
             return ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
 
-
     class _StubPokerDetector:
         def __init__(self, *args, **kwargs):
             pass
-
 
     def _stub_decode_card_token(token):
         return token
@@ -82,10 +78,8 @@ if "src.vision.detector" not in sys.modules:
     def _stub_detection_sort_key(det):
         return (0, 0)
 
-
     def _stub_build_detection_quality_metadata(state, pixel_regions):
         return {}
-
 
     sys.modules["src.vision.detector"] = types.SimpleNamespace(
         PokerDetector=_StubPokerDetector,
@@ -99,10 +93,10 @@ if "src.vision.detector" not in sys.modules:
 
 
 if "src.vision.ocr" not in sys.modules:
+
     class _StubPokerOCR:
         def __init__(self, *args, **kwargs):
             pass
-
 
     sys.modules["src.vision.ocr"] = types.SimpleNamespace(PokerOCR=_StubPokerOCR)
 
@@ -152,7 +146,9 @@ class FixtureActionController:
         self.calls = []
         self.result = result
 
-    async def execute_action(self, action_intent, dynamic_coords, jit_check=None, bet_validation_callback=None):
+    async def execute_action(
+        self, action_intent, dynamic_coords, jit_check=None, bet_validation_callback=None
+    ):
         self.calls.append(
             {
                 "action": action_intent.action,
@@ -247,6 +243,7 @@ def test_main_decision_gate_trace_replay_fixture_matches_expected_output(monkeyp
         return f"2026-04-11T12:00:{tick['value']:02d}Z"
 
     controller._utc_now = fake_utc_now
+
     async def _fast_sleep(_delay):
         await _ORIGINAL_ASYNCIO_SLEEP(0)
 
@@ -276,16 +273,24 @@ def test_main_decision_gate_trace_replay_fixture_matches_expected_output(monkeyp
     assert trace["source"] == expected["trace_source"]
     assert trace["incidents"] == expected["trace_incidents"]
     assert trace["gate_result"]["reason"] == expected["trace_gate_reason"]
-    assert [event["message"] for event in controller.runtime_event_history] == list(reversed(expected["runtime_event_messages"]))
+    assert [event["message"] for event in controller.runtime_event_history] == list(
+        reversed(expected["runtime_event_messages"])
+    )
     assert [entry["id"] for entry in controller.incident_history] == expected["incident_ids"]
     assert controller.action_controller.calls == [
         {
             "action": expected["executed_action"],
             "bet_size": fixture["decision"]["bet_size"],
-            "dynamic_coords": {key: tuple(value) for key, value in fixture["dynamic_coords"].items()},
+            "dynamic_coords": {
+                key: tuple(value) for key, value in fixture["dynamic_coords"].items()
+            },
         }
     ]
-    assert [record["stream"] for record in controller.runtime_history_store.records] == ["decisions", "events", "events"]
+    assert [record["stream"] for record in controller.runtime_history_store.records] == [
+        "decisions",
+        "events",
+        "events",
+    ]
 
 
 def test_process_frame_reuses_cached_state_when_visual_regions_are_unchanged():
@@ -294,8 +299,14 @@ def test_process_frame_reuses_cached_state_when_visual_regions_are_unchanged():
     controller._last_visual_state_at = 10_000.0
     controller._visual_state_refresh_interval_s = 10**9
     controller._last_visual_previews = {"table": np.zeros((8, 8), dtype=np.uint8)}
-    controller._detect_relevant_visual_change = lambda frame: (False, {"table": np.zeros((8, 8), dtype=np.uint8)}, ())
-    controller.detector = types.SimpleNamespace(analyze_frame=lambda frame: (_ for _ in ()).throw(AssertionError("detector should not run")))
+    controller._detect_relevant_visual_change = lambda frame: (
+        False,
+        {"table": np.zeros((8, 8), dtype=np.uint8)},
+        (),
+    )
+    controller.detector = types.SimpleNamespace(
+        analyze_frame=lambda frame: (_ for _ in ()).throw(AssertionError("detector should not run"))
+    )
 
     state = asyncio.run(controller._process_frame(np.zeros((32, 32, 3), dtype=np.uint8)))
 
@@ -310,7 +321,14 @@ def test_process_frame_reuses_cached_state_when_only_actions_region_changes():
     controller._last_visual_previews = {"actions": np.zeros((10, 10), dtype=np.uint8)}
     cached_state = types.SimpleNamespace(
         metadata={"runtime_geometry": {"regions": {}}},
-        action_buttons=[types.SimpleNamespace(class_name="action_button_generic", bbox=(0, 0, 10, 10), confidence=1.0, center=(5, 5))],
+        action_buttons=[
+            types.SimpleNamespace(
+                class_name="action_button_generic",
+                bbox=(0, 0, 10, 10),
+                confidence=1.0,
+                center=(5, 5),
+            )
+        ],
         pots=[],
     )
     controller._last_visual_state = cached_state
@@ -319,7 +337,11 @@ def test_process_frame_reuses_cached_state_when_only_actions_region_changes():
         action_buttons=list(getattr(state, "action_buttons", []) or []),
         pots=list(getattr(state, "pots", []) or []),
     )
-    controller._detect_relevant_visual_change = lambda frame: (True, {"actions": np.ones((10, 10), dtype=np.uint8)}, ("actions",))
+    controller._detect_relevant_visual_change = lambda frame: (
+        True,
+        {"actions": np.ones((10, 10), dtype=np.uint8)},
+        ("actions",),
+    )
     controller._label_generic_action_buttons = lambda state, frame: state
     controller._try_update_cached_fast_pot = lambda frame, state: state
     controller._set_loop_stage = lambda *args, **kwargs: None
@@ -327,7 +349,9 @@ def test_process_frame_reuses_cached_state_when_only_actions_region_changes():
 
     from src.runtime.frame_pipeline import FramePipeline
 
-    state = asyncio.run(FramePipeline(controller)._process_frame(np.zeros((20, 20, 3), dtype=np.uint8)))
+    state = asyncio.run(
+        FramePipeline(controller)._process_frame(np.zeros((20, 20, 3), dtype=np.uint8))
+    )
 
     assert state.metadata["reused_visual_state"] is True
     assert state.metadata["fast_action_refresh"] is True
@@ -340,14 +364,18 @@ def test_wait_for_action_settle_finishes_as_soon_as_buttons_disappear(monkeypatc
     controller._post_action_settle_timeout_s = 0.3
     controller._post_action_settle_poll_interval_s = 0.01
     controller._refresh_capture_region = lambda *args, **kwargs: None
-    controller.camera = types.SimpleNamespace(get_latest_frame=lambda: np.zeros((24, 24, 3), dtype=np.uint8))
+    controller.camera = types.SimpleNamespace(
+        get_latest_frame=lambda: np.zeros((24, 24, 3), dtype=np.uint8)
+    )
     controller._label_generic_action_buttons = lambda state, frame: state
     calls = {"value": 0}
 
     def analyze_frame(_frame):
         calls["value"] += 1
         if calls["value"] == 1:
-            return _ReusableFrameState(action_buttons=[types.SimpleNamespace(class_name="call_button")])
+            return _ReusableFrameState(
+                action_buttons=[types.SimpleNamespace(class_name="call_button")]
+            )
         return _ReusableFrameState(action_buttons=[])
 
     controller.detector = types.SimpleNamespace(analyze_frame=analyze_frame)
@@ -557,7 +585,9 @@ def test_unsettled_timeout_locks_same_material_spot_until_it_changes():
         metadata={},
     )
 
-    controller._remember_live_execution(canonical_state, "FOLD", "executed", settle_status="timeout")
+    controller._remember_live_execution(
+        canonical_state, "FOLD", "executed", settle_status="timeout"
+    )
 
     assert controller._should_suppress_recent_live_execution(canonical_state) is True
     assert controller._should_suppress_recent_live_execution(changed_state) is False
@@ -584,7 +614,16 @@ def test_recent_live_execution_guard_ignores_button_order_noise_on_same_spot():
         legal_actions=("FOLD", "CALL", "BET"),
         action_buttons=("fold_button", "call_button", "bet_button"),
         state_confidence=0.83,
-        metadata={"spot_signature": ["PREFLOP", ["Th", "5s"], [], 3.0, ["FOLD", "CALL", "BET"], ["fold_button", "call_button", "bet_button"]]},
+        metadata={
+            "spot_signature": [
+                "PREFLOP",
+                ["Th", "5s"],
+                [],
+                3.0,
+                ["FOLD", "CALL", "BET"],
+                ["fold_button", "call_button", "bet_button"],
+            ]
+        },
     )
     reordered_buttons_state = CanonicalTableState(
         spot_id=canonical_state.spot_id,
@@ -596,10 +635,21 @@ def test_recent_live_execution_guard_ignores_button_order_noise_on_same_spot():
         legal_actions=canonical_state.legal_actions,
         action_buttons=("call_button", "bet_button", "fold_button"),
         state_confidence=canonical_state.state_confidence,
-        metadata={"spot_signature": ["PREFLOP", ["Th", "5s"], [], 3.0, ["FOLD", "CALL", "BET"], ["call_button", "bet_button", "fold_button"]]},
+        metadata={
+            "spot_signature": [
+                "PREFLOP",
+                ["Th", "5s"],
+                [],
+                3.0,
+                ["FOLD", "CALL", "BET"],
+                ["call_button", "bet_button", "fold_button"],
+            ]
+        },
     )
 
-    controller._remember_live_execution(canonical_state, "FOLD", "executed", settle_status="timeout")
+    controller._remember_live_execution(
+        canonical_state, "FOLD", "executed", settle_status="timeout"
+    )
 
     assert controller._should_suppress_recent_live_execution(reordered_buttons_state) is True
 
@@ -638,7 +688,9 @@ def test_run_decision_gate_flow_skips_decision_maker_for_locked_same_spot():
     controller._derive_live_hero_position = lambda villain: "BB"
     controller._utc_now = lambda: "2026-04-14T12:00:00Z"
     controller._push_runtime_event = lambda *args, **kwargs: None
-    controller._record_decision_trace = lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("trace should not be recorded for locked skip"))
+    controller._record_decision_trace = lambda *args, **kwargs: (_ for _ in ()).throw(
+        AssertionError("trace should not be recorded for locked skip")
+    )
     controller._format_log_cards = lambda cards: " ".join(cards) if cards else "-"
     controller._format_log_list = lambda values: ", ".join(values) if values else "-"
     controller._operator_action_mode = lambda: "assisted"
@@ -659,7 +711,9 @@ def test_run_decision_gate_flow_skips_decision_maker_for_locked_same_spot():
         "legal_actions": list(canonical_state.legal_actions),
     }
     controller.runtime_sanity = SanityChecker()
-    controller.runtime_sanity.evaluate_action_gate = lambda **kwargs: GateResult(allowed=True, status="ready", reasons=[])
+    controller.runtime_sanity.evaluate_action_gate = lambda **kwargs: GateResult(
+        allowed=True, status="ready", reasons=[]
+    )
     controller.tracker = types.SimpleNamespace(current_hand_actions=[])
     controller.decision_maker = FixtureDecisionMaker(
         {
@@ -685,7 +739,16 @@ def test_run_decision_gate_flow_skips_decision_maker_for_locked_same_spot():
         legal_actions=("FOLD", "CALL", "BET"),
         action_buttons=("fold_button", "call_button", "bet_button"),
         state_confidence=0.83,
-        metadata={"spot_signature": ["PREFLOP", ["9s", "7d"], [], 3.0, ["FOLD", "CALL", "BET"], ["fold_button", "call_button", "bet_button"]]},
+        metadata={
+            "spot_signature": [
+                "PREFLOP",
+                ["9s", "7d"],
+                [],
+                3.0,
+                ["FOLD", "CALL", "BET"],
+                ["fold_button", "call_button", "bet_button"],
+            ]
+        },
     )
     controller._remember_locked_decision(canonical_state, "FOLD", "same_spot_unconfirmed")
 
@@ -756,7 +819,9 @@ def test_run_decision_gate_flow_reuses_cached_decision_for_same_spot():
         "legal_actions": list(canonical_state.legal_actions),
     }
     controller.runtime_sanity = SanityChecker()
-    controller.runtime_sanity.evaluate_action_gate = lambda **kwargs: GateResult(allowed=True, status="ready", reasons=[])
+    controller.runtime_sanity.evaluate_action_gate = lambda **kwargs: GateResult(
+        allowed=True, status="ready", reasons=[]
+    )
     controller.tracker = types.SimpleNamespace(current_hand_actions=[])
     controller.decision_maker = FixtureDecisionMaker(
         {
@@ -782,7 +847,16 @@ def test_run_decision_gate_flow_reuses_cached_decision_for_same_spot():
         legal_actions=("FOLD", "CALL", "BET"),
         action_buttons=("fold_button", "call_button", "bet_button"),
         state_confidence=0.83,
-        metadata={"spot_signature": ["PREFLOP", ["9s", "7d"], [], 3.0, ["FOLD", "CALL", "BET"], ["fold_button", "call_button", "bet_button"]]},
+        metadata={
+            "spot_signature": [
+                "PREFLOP",
+                ["9s", "7d"],
+                [],
+                3.0,
+                ["FOLD", "CALL", "BET"],
+                ["fold_button", "call_button", "bet_button"],
+            ]
+        },
     )
 
     asyncio.run(
@@ -811,7 +885,9 @@ def test_run_decision_gate_flow_reuses_cached_decision_for_same_spot():
 
 def test_jit_action_validator_can_ignore_action_region_changes():
     controller = object.__new__(SuperBotController)
-    controller.camera = types.SimpleNamespace(get_latest_frame=lambda: np.zeros((24, 24, 3), dtype=np.uint8))
+    controller.camera = types.SimpleNamespace(
+        get_latest_frame=lambda: np.zeros((24, 24, 3), dtype=np.uint8)
+    )
 
     # Simuler un changement important
     base_preview = np.zeros((18, 24), dtype=np.uint8)
@@ -884,10 +960,17 @@ def test_main_decision_gate_trace_gate_blocked_replay_fixture_matches_expected_o
     assert trace["incidents"] == expected["trace_incidents"]
     assert trace["gate_result"]["reason"] == expected["trace_gate_reason"]
     assert trace["gate_result"]["allowed"] is expected["gate_allowed"]
-    assert [event["message"] for event in controller.runtime_event_history] == list(reversed(expected["runtime_event_messages"]))
+    assert [event["message"] for event in controller.runtime_event_history] == list(
+        reversed(expected["runtime_event_messages"])
+    )
     assert [entry["id"] for entry in controller.incident_history] == expected["incident_ids"]
     assert controller.action_controller.calls == []
-    assert [record["stream"] for record in controller.runtime_history_store.records] == ["decisions", "events", "incidents", "events"]
+    assert [record["stream"] for record in controller.runtime_history_store.records] == [
+        "decisions",
+        "events",
+        "incidents",
+        "events",
+    ]
 
 
 def test_main_decision_summary_keeps_compact_enriched_metadata(monkeypatch):
@@ -978,7 +1061,10 @@ def test_main_decision_summary_keeps_compact_enriched_metadata(monkeypatch):
         )
     )
 
-    assert controller.last_decision_summary["profile"] == {"style": "Balanced", "observed_hands": 55}
+    assert controller.last_decision_summary["profile"] == {
+        "style": "Balanced",
+        "observed_hands": 55,
+    }
     assert controller.last_decision_summary["solver"] == {
         "has_alternatives": True,
         "action_count": 2,
@@ -987,7 +1073,10 @@ def test_main_decision_summary_keeps_compact_enriched_metadata(monkeypatch):
             {"action": "BET", "raw_action": "BET_75", "freq": 0.38},
         ],
     }
-    assert controller.last_decision_summary["confidence_details"] == {"value": 0.88, "source": "solver"}
+    assert controller.last_decision_summary["confidence_details"] == {
+        "value": 0.88,
+        "source": "solver",
+    }
     assert controller.last_decision_summary["ab_decision"] == {"eligible": True, "applied": True}
 
 
@@ -1135,7 +1224,9 @@ def test_main_decision_trace_persists_runtime_ab_metadata(monkeypatch):
         "BET": {"raw_action": "BET_75", "freq": 0.38, "ev": 0.27},
     }
     assert trace["solver_warnings"] == ["subtree_reused"]
-    assert trace["solver_warning_details"] == [{"code": "subtree_reused", "detail": "cache line reused"}]
+    assert trace["solver_warning_details"] == [
+        {"code": "subtree_reused", "detail": "cache line reused"}
+    ]
     assert trace["backend_details"] == {"name": "solver_stub", "node_count": 123}
     assert trace["cache_details"] == {"hit": False, "tier": "memory"}
     assert trace["node_count"] == 123
@@ -1149,11 +1240,24 @@ def test_main_decision_trace_persists_runtime_ab_metadata(monkeypatch):
         {"action": "BET", "raw_action": "BET_75", "freq": 0.38, "ev": 0.27},
     ]
     assert "alternatives_complete" not in trace["metadata"]["solver"]
-    assert controller.runtime_history_store.records[0]["metadata"]["solver"]["alternatives"][1]["action"] == "BET"
-    assert controller.runtime_history_store.records[0]["ev_by_action"] == {"FOLD": -0.15, "BET": 0.27}
+    assert (
+        controller.runtime_history_store.records[0]["metadata"]["solver"]["alternatives"][1][
+            "action"
+        ]
+        == "BET"
+    )
+    assert controller.runtime_history_store.records[0]["ev_by_action"] == {
+        "FOLD": -0.15,
+        "BET": 0.27,
+    }
     assert controller.runtime_history_store.records[0]["solver_warnings"] == ["subtree_reused"]
-    assert controller.runtime_history_store.records[0]["solver_warning_details"] == [{"code": "subtree_reused", "detail": "cache line reused"}]
-    assert controller.runtime_history_store.records[0]["ab_decision"]["comparison"]["action_changed"] is True
+    assert controller.runtime_history_store.records[0]["solver_warning_details"] == [
+        {"code": "subtree_reused", "detail": "cache line reused"}
+    ]
+    assert (
+        controller.runtime_history_store.records[0]["ab_decision"]["comparison"]["action_changed"]
+        is True
+    )
 
 
 def test_main_runtime_status_includes_compact_rl_ab_summary():
@@ -1317,8 +1421,18 @@ def test_main_runtime_status_includes_compact_rl_ab_summary():
     assert policy_compare["runtime"]["changed_action_count"] == 1
     assert policy_compare["runtime"]["ev_coverage_count"] == 12
     assert policy_compare["runtime"]["ev_coverage_rate"] == 1.0
-    assert policy_compare["runtime"]["policies"] == ["gto_solver", "rl_off", "rl_on", "validated_rl"]
-    assert policy_compare["runtime"]["policy_counts"] == {"gto_solver": 2, "rl_off": 2, "rl_on": 2, "validated_rl": 2}
+    assert policy_compare["runtime"]["policies"] == [
+        "gto_solver",
+        "rl_off",
+        "rl_on",
+        "validated_rl",
+    ]
+    assert policy_compare["runtime"]["policy_counts"] == {
+        "gto_solver": 2,
+        "rl_off": 2,
+        "rl_on": 2,
+        "validated_rl": 2,
+    }
     assert policy_compare["runtime"]["street_counts"] == {"FLOP": 1, "TURN": 1}
     assert policy_compare["runtime"]["source_counts"] == {"validated_rl": 2}
     assert any(
@@ -1330,8 +1444,7 @@ def test_main_runtime_status_includes_compact_rl_ab_summary():
     runtime_rl_pair = next(
         comparison
         for comparison in policy_compare["runtime"]["comparisons"]
-        if comparison["baseline_policy"] == "rl_off"
-        and comparison["challenger_policy"] == "rl_on"
+        if comparison["baseline_policy"] == "rl_off" and comparison["challenger_policy"] == "rl_on"
     )
     assert sorted(runtime_rl_pair["sample_ids"]) == ["2026-04-11T12:04:00Z", "2026-04-11T12:05:00Z"]
     assert runtime_rl_pair["top_spots"][0]["action_pair"] == "CALL->BET"
@@ -1348,7 +1461,12 @@ def test_main_runtime_status_includes_compact_rl_ab_summary():
         "2026-04-11T12:04:00Z",
         "2026-04-11T12:05:00Z",
     ]
-    assert policy_compare["runtime"]["highlights"]["most_divergent_pair"]["divergence_examples"][0]["sample_id"] == "2026-04-11T12:05:00Z"
+    assert (
+        policy_compare["runtime"]["highlights"]["most_divergent_pair"]["divergence_examples"][0][
+            "sample_id"
+        ]
+        == "2026-04-11T12:05:00Z"
+    )
     assert policy_compare["combined"]["highlights"]["top_spots"][0]["sample_count"] == 1
 
 
@@ -1492,6 +1610,7 @@ def test_main_decision_gate_trace_normalizes_structured_incidents(monkeypatch):
         "BET_BTN": (460, 200),
     }
     controller._utc_now = lambda: "2026-04-11T12:01:00Z"
+
     async def _fast_sleep(_delay):
         await _ORIGINAL_ASYNCIO_SLEEP(0)
 
@@ -1540,8 +1659,12 @@ def test_resolve_live_decision_context_falls_back_to_canonical_players_when_trac
         board=("8d", "8h", "7d"),
         hero_cards=("3h", "Kh"),
         players=(
-            CanonicalPlayer(seat_id="seat_0", seat_index=0, stack=7800.0, name="Hero", is_hero=True),
-            CanonicalPlayer(seat_id="seat_1", seat_index=1, stack=5124.0, name="SBM1970", has_button=True),
+            CanonicalPlayer(
+                seat_id="seat_0", seat_index=0, stack=7800.0, name="Hero", is_hero=True
+            ),
+            CanonicalPlayer(
+                seat_id="seat_1", seat_index=1, stack=5124.0, name="SBM1970", has_button=True
+            ),
             CanonicalPlayer(seat_id="seat_2", seat_index=2, stack=20000.0, name="xavisousa86"),
         ),
         legal_actions=("FOLD", "CHECK"),
@@ -1765,7 +1888,9 @@ def test_run_decision_gate_flow_reports_click_failure_instead_of_fake_executed(m
             },
         }
     )
-    controller.action_controller = FixtureActionController(result={"ok": False, "reason": "call_click_failed"})
+    controller.action_controller = FixtureActionController(
+        result={"ok": False, "reason": "call_click_failed"}
+    )
     controller.tracker = types.SimpleNamespace(current_hand_actions=[])
     controller.last_tracker_snapshot = {
         "street": "FLOP",
@@ -1961,7 +2086,9 @@ def test_convert_state_for_tracker_ignores_actionable_buttons_without_live_conte
         legal_actions,
         action_buttons,
     )
-    controller._smooth_runtime_state_confidence = lambda confidence, street, board, hero_cards: confidence
+    controller._smooth_runtime_state_confidence = lambda confidence, street, board, hero_cards: (
+        confidence
+    )
     controller.last_canonical_spot_snapshot = None
 
     state = types.SimpleNamespace(
@@ -2112,13 +2239,17 @@ def test_convert_state_for_tracker_ignores_fast_fold_preselect_buttons():
         ("FOLD", "CALL"),
         ("fast_fold_button", "call_button"),
     )
-    controller._derive_runtime_street = SuperBotController._derive_runtime_street.__get__(controller, SuperBotController)
+    controller._derive_runtime_street = SuperBotController._derive_runtime_street.__get__(
+        controller, SuperBotController
+    )
     controller._normalize_board_for_street = lambda board, street: board
     controller._smooth_legal_actions = lambda legal_actions, action_buttons, board, hero_cards: (
         legal_actions,
         action_buttons,
     )
-    controller._smooth_runtime_state_confidence = lambda confidence, street, board, hero_cards: confidence
+    controller._smooth_runtime_state_confidence = lambda confidence, street, board, hero_cards: (
+        confidence
+    )
     controller._recent_runtime_streets = deque(maxlen=6)
     controller.last_canonical_spot_snapshot = None
 
@@ -2178,9 +2309,17 @@ def test_handle_stale_live_frame_marks_execution_as_stale():
     controller._format_log_cards = lambda cards: " ".join(cards) if cards else "-"
     controller._format_log_list = lambda values: ", ".join(values) if values else "-"
     controller._recent_runtime_action_button_signatures = deque(maxlen=5)
-    controller.action_controller = types.SimpleNamespace(hwnd=123, _get_foreground_window=lambda: 123)
-    controller._clear_live_decision_summary = SuperBotController._clear_live_decision_summary.__get__(controller, SuperBotController)
-    controller._evaluate_fallback_execution_readiness = SuperBotController._evaluate_fallback_execution_readiness.__get__(controller, SuperBotController)
+    controller.action_controller = types.SimpleNamespace(
+        hwnd=123, _get_foreground_window=lambda: 123
+    )
+    controller._clear_live_decision_summary = (
+        SuperBotController._clear_live_decision_summary.__get__(controller, SuperBotController)
+    )
+    controller._evaluate_fallback_execution_readiness = (
+        SuperBotController._evaluate_fallback_execution_readiness.__get__(
+            controller, SuperBotController
+        )
+    )
 
     canonical_state = _build_canonical_state(
         {
@@ -2203,14 +2342,22 @@ def test_handle_stale_live_frame_marks_execution_as_stale():
     assert controller.last_decision_summary["execution"]["status"] == "stale_frame"
     assert controller.last_decision_summary["gate_reason"] == "STALE_FRAME"
     assert controller.last_decision_summary["fallback_execution_readiness"]["status"] == "blocked"
-    assert "stale_frame" in controller.last_decision_summary["fallback_execution_readiness"]["reasons"]
+    assert (
+        "stale_frame" in controller.last_decision_summary["fallback_execution_readiness"]["reasons"]
+    )
 
 
 def test_fallback_execution_readiness_requires_stable_buttons_across_frames():
     controller = object.__new__(SuperBotController)
     controller._recent_runtime_action_button_signatures = deque(maxlen=5)
-    controller.action_controller = types.SimpleNamespace(hwnd=777, _get_foreground_window=lambda: 777)
-    controller._evaluate_fallback_execution_readiness = SuperBotController._evaluate_fallback_execution_readiness.__get__(controller, SuperBotController)
+    controller.action_controller = types.SimpleNamespace(
+        hwnd=777, _get_foreground_window=lambda: 777
+    )
+    controller._evaluate_fallback_execution_readiness = (
+        SuperBotController._evaluate_fallback_execution_readiness.__get__(
+            controller, SuperBotController
+        )
+    )
 
     canonical_state = _build_canonical_state(
         {
@@ -2246,19 +2393,25 @@ def test_classify_slot_button_label_skips_ocr_for_standard_three_button_layout()
 
     controller._read_action_button_text = fail_if_called
 
-    assert controller._classify_slot_button_label(
-        image_crop=None,
-        slot_key="CALL",
-        visible_slot_keys={"FOLD", "CALL", "BET_BTN"},
-        fallback_label="action_button_generic",
-    ) == "call_button"
+    assert (
+        controller._classify_slot_button_label(
+            image_crop=None,
+            slot_key="CALL",
+            visible_slot_keys={"FOLD", "CALL", "BET_BTN"},
+            fallback_label="action_button_generic",
+        )
+        == "call_button"
+    )
 
-    assert controller._classify_slot_button_label(
-        image_crop=None,
-        slot_key="BET_BTN",
-        visible_slot_keys={"FOLD", "CALL", "BET_BTN"},
-        fallback_label="action_button_generic",
-    ) == "raise_button"
+    assert (
+        controller._classify_slot_button_label(
+            image_crop=None,
+            slot_key="BET_BTN",
+            visible_slot_keys={"FOLD", "CALL", "BET_BTN"},
+            fallback_label="action_button_generic",
+        )
+        == "raise_button"
+    )
 
 
 def test_classify_slot_button_label_skips_ocr_for_standard_check_bet_layout():
@@ -2269,19 +2422,25 @@ def test_classify_slot_button_label_skips_ocr_for_standard_check_bet_layout():
 
     controller._read_action_button_text = fail_if_called
 
-    assert controller._classify_slot_button_label(
-        image_crop=None,
-        slot_key="CALL",
-        visible_slot_keys={"CALL", "BET_BTN"},
-        fallback_label="action_button_generic",
-    ) == "check_button"
+    assert (
+        controller._classify_slot_button_label(
+            image_crop=None,
+            slot_key="CALL",
+            visible_slot_keys={"CALL", "BET_BTN"},
+            fallback_label="action_button_generic",
+        )
+        == "check_button"
+    )
 
-    assert controller._classify_slot_button_label(
-        image_crop=None,
-        slot_key="BET_BTN",
-        visible_slot_keys={"CALL", "BET_BTN"},
-        fallback_label="action_button_generic",
-    ) == "bet_button"
+    assert (
+        controller._classify_slot_button_label(
+            image_crop=None,
+            slot_key="BET_BTN",
+            visible_slot_keys={"CALL", "BET_BTN"},
+            fallback_label="action_button_generic",
+        )
+        == "bet_button"
+    )
 
 
 def test_runtime_readiness_becomes_actionable_for_coherent_runtime_state():
@@ -2354,7 +2513,9 @@ def test_build_resolved_runtime_state_records_near_miss_when_validation_is_not_f
     controller.last_resolved_runtime_state = None
     controller._utc_now = lambda: "2026-04-11T12:10:00Z"
     controller._get_runtime_session_id = lambda: "runtime-test"
-    controller._record_runtime_failure = SuperBotController._record_runtime_failure.__get__(controller, SuperBotController)
+    controller._record_runtime_failure = SuperBotController._record_runtime_failure.__get__(
+        controller, SuperBotController
+    )
     controller._build_tracker_snapshot = lambda payload: {
         "street": "FLOP",
         "board": ["Ah", "7d", "2c"],
@@ -2391,7 +2552,10 @@ def test_build_resolved_runtime_state_records_near_miss_when_validation_is_not_f
     assert resolved.metadata["runtime_readiness"]["state"] in {"conservative", "blocked_local"}
     assert controller.runtime_failure_dataset.records
     assert controller.runtime_failure_dataset.records[0]["category"] == "near_miss"
-    assert controller.runtime_failure_dataset.records[0]["incident_id"] == "runtime_readiness_not_fully_valid"
+    assert (
+        controller.runtime_failure_dataset.records[0]["incident_id"]
+        == "runtime_readiness_not_fully_valid"
+    )
 
 
 def test_build_resolved_runtime_state_skips_near_miss_for_idle_observation_states():
@@ -2404,7 +2568,9 @@ def test_build_resolved_runtime_state_skips_near_miss_for_idle_observation_state
     controller.last_resolved_runtime_state = None
     controller._utc_now = lambda: "2026-04-11T12:12:00Z"
     controller._get_runtime_session_id = lambda: "runtime-test"
-    controller._record_runtime_failure = SuperBotController._record_runtime_failure.__get__(controller, SuperBotController)
+    controller._record_runtime_failure = SuperBotController._record_runtime_failure.__get__(
+        controller, SuperBotController
+    )
     controller._build_tracker_snapshot = lambda payload: {
         "street": "IDLE",
         "board": [],
@@ -2525,7 +2691,11 @@ def test_operator_snapshot_exposes_go_live_blocked_when_gate_fails():
         "auto_refresh_enabled": True,
     }
     controller.is_running = True
-    controller.last_go_live_gate = {"passed": False, "status": "blocked", "reasons": ["insufficient_decision_count"]}
+    controller.last_go_live_gate = {
+        "passed": False,
+        "status": "blocked",
+        "reasons": ["insufficient_decision_count"],
+    }
     controller._utc_now = lambda: "2026-04-11T12:20:00Z"
 
     snapshot = controller._build_operator_snapshot()
@@ -2545,7 +2715,11 @@ def test_operator_snapshot_keeps_assisted_mode_even_when_go_live_gate_is_blocked
         "auto_refresh_enabled": True,
     }
     controller.is_running = True
-    controller.last_go_live_gate = {"passed": False, "status": "blocked", "reasons": ["insufficient_decision_count"]}
+    controller.last_go_live_gate = {
+        "passed": False,
+        "status": "blocked",
+        "reasons": ["insufficient_decision_count"],
+    }
     controller._utc_now = lambda: "2026-04-11T12:20:00Z"
 
     snapshot = controller._build_operator_snapshot()

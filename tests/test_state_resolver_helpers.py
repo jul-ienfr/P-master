@@ -1,4 +1,5 @@
 """Tests des helpers de résolution d'état (src/bot/state_resolver.py)."""
+
 import sys
 from collections import deque
 from pathlib import Path
@@ -20,7 +21,13 @@ def make_controller():
             self._last_good_runtime_hero_cards_at = 0.0
 
         def _extract_actionable_runtime_buttons(self, buttons):
-            actionable = {"fold_button", "check_button", "call_button", "bet_button", "raise_button"}
+            actionable = {
+                "fold_button",
+                "check_button",
+                "call_button",
+                "bet_button",
+                "raise_button",
+            }
             return tuple(b for b in buttons if b in actionable)
 
     return Controller()
@@ -51,7 +58,9 @@ def test_derive_hero_participation_mode_matrix():
     assert c._derive_hero_participation_mode((), (), 0.0, ()) == "idle"
     assert c._derive_hero_participation_mode((), (), 0.0, ("resume_hand",)) == "waiting_next_hand"
     assert c._derive_hero_participation_mode((), (), 0.0, ("im_back",)) == "sitting_out"
-    assert c._derive_hero_participation_mode((), (), 0.0, ("bet_button",)) == "actionable_without_hero"
+    assert (
+        c._derive_hero_participation_mode((), (), 0.0, ("bet_button",)) == "actionable_without_hero"
+    )
     assert c._derive_hero_participation_mode(("As",), (), 10.0, ()) == "observing_hand"
     assert c._derive_hero_participation_mode((), ("Ah", "Kd"), 0.0, ()) == "active_hand"
 

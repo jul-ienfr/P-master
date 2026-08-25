@@ -14,7 +14,9 @@ from src.vision.runtime_failure_dataset import RuntimeFailureDataset
 def test_runtime_failure_dataset_writes_jsonl_records(tmp_path):
     dataset = RuntimeFailureDataset(dataset_dir=str(tmp_path))
 
-    manifest_path = dataset.record_incident({"incident_id": "gate_blocked", "category": "incident", "severity": "warning"})
+    manifest_path = dataset.record_incident(
+        {"incident_id": "gate_blocked", "category": "incident", "severity": "warning"}
+    )
 
     assert manifest_path is not None
     payload = json.loads(Path(manifest_path).read_text(encoding="utf-8").strip())
@@ -26,14 +28,24 @@ def test_replay_runtime_failures_filters_and_summarizes_records(tmp_path):
     manifest.write_text(
         "\n".join(
             [
-                json.dumps({"incident_id": "gate_blocked", "category": "incident", "severity": "warning"}),
-                json.dumps({"incident_id": "runtime_readiness_not_fully_valid", "category": "near_miss", "severity": "error"}),
+                json.dumps(
+                    {"incident_id": "gate_blocked", "category": "incident", "severity": "warning"}
+                ),
+                json.dumps(
+                    {
+                        "incident_id": "runtime_readiness_not_fully_valid",
+                        "category": "near_miss",
+                        "severity": "error",
+                    }
+                ),
             ]
         ),
         encoding="utf-8",
     )
 
-    replay = replay_runtime_failures(str(manifest), incident_id="runtime_readiness_not_fully_valid", severity="error")
+    replay = replay_runtime_failures(
+        str(manifest), incident_id="runtime_readiness_not_fully_valid", severity="error"
+    )
 
     assert replay["summary"]["record_count"] == 1
     assert replay["summary"]["categories"] == {"near_miss": 1}
@@ -46,8 +58,16 @@ def test_export_runtime_failure_review_bundle_writes_filtered_bundle(tmp_path):
     manifest.write_text(
         "\n".join(
             [
-                json.dumps({"incident_id": "gate_blocked", "category": "incident", "severity": "warning"}),
-                json.dumps({"incident_id": "runtime_readiness_not_fully_valid", "category": "near_miss", "severity": "error"}),
+                json.dumps(
+                    {"incident_id": "gate_blocked", "category": "incident", "severity": "warning"}
+                ),
+                json.dumps(
+                    {
+                        "incident_id": "runtime_readiness_not_fully_valid",
+                        "category": "near_miss",
+                        "severity": "error",
+                    }
+                ),
             ]
         ),
         encoding="utf-8",
@@ -103,7 +123,9 @@ def test_replay_runtime_failures_resolves_artifact_paths(tmp_path):
         }
     )
 
-    replay = replay_runtime_failures(str(manifest_path), incident_id="runtime_readiness_not_fully_valid")
+    replay = replay_runtime_failures(
+        str(manifest_path), incident_id="runtime_readiness_not_fully_valid"
+    )
 
     assert replay["summary"]["artifacts"]["frame_count"] == 1
     assert replay["summary"]["artifacts"]["crop_count"] == 1

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
-from collections.abc import Callable, Mapping
 
 
 class RuntimeTimesFMService:
@@ -19,7 +19,9 @@ class RuntimeTimesFMService:
         self.enabled = bool(enabled)
         self.history_path = str(history_path)
         self.default_horizon = int(default_horizon)
-        self.default_max_context = int(default_max_context) if default_max_context is not None else None
+        self.default_max_context = (
+            int(default_max_context) if default_max_context is not None else None
+        )
         self._series_loader = series_loader
         self._forecaster = forecaster
 
@@ -116,6 +118,8 @@ class RuntimeTimesFMService:
             "errors": errors,
             "attempted_metric_count": attempted_metric_count,
             "error_count": len(errors),
-            "success_rate": len(payload_results) / float(attempted_metric_count) if attempted_metric_count else 0.0,
+            "success_rate": len(payload_results) / float(attempted_metric_count)
+            if attempted_metric_count
+            else 0.0,
             **summarize_forecast_evaluations(payload_results),
         }

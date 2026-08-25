@@ -10,6 +10,7 @@ import torch.optim as optim
 
 logger = logging.getLogger(__name__)
 
+
 class ExploitValueNetwork(nn.Module):
     """
     Réseau de neurones pour évaluer l'espérance de gain d'un état.
@@ -17,6 +18,7 @@ class ExploitValueNetwork(nn.Module):
     - L'état brut du jeu (cartes en main, cartes communes, taille du pot, stack effectif)
     - Le profil de l'adversaire (VPIP, PFR, Agression Freq, Fold to CBet, etc.)
     """
+
     def __init__(self, state_dim, action_dim):
         super().__init__()
 
@@ -24,8 +26,8 @@ class ExploitValueNetwork(nn.Module):
         self.fc1 = nn.Linear(state_dim, 256)
         self.fc2 = nn.Linear(256, 256)
         self.fc3 = nn.Linear(256, 128)
-        self.fc_val = nn.Linear(128, 1)          # Valeur de l'état (V)
-        self.fc_adv = nn.Linear(128, action_dim) # Avantage des actions (A)
+        self.fc_val = nn.Linear(128, 1)  # Valeur de l'état (V)
+        self.fc_adv = nn.Linear(128, action_dim)  # Avantage des actions (A)
 
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(0.2)
@@ -52,9 +54,12 @@ class RLAdapterAgent:
     Son but n'est pas d'être parfaitement GTO (le solver Rust s'en charge),
     mais de DÉVIER de la GTO pour exploiter les faiblesses d'un adversaire spécifique.
     """
-    def __init__(self, state_dim=50, action_dim=5, learning_rate=1e-4, gamma=0.99, buffer_size=100000):
+
+    def __init__(
+        self, state_dim=50, action_dim=5, learning_rate=1e-4, gamma=0.99, buffer_size=100000
+    ):
         self.state_dim = state_dim
-        self.action_dim = action_dim # Ex: Fold, Check/Call, MinRaise, HalfPot, All-in
+        self.action_dim = action_dim  # Ex: Fold, Check/Call, MinRaise, HalfPot, All-in
         self.gamma = gamma
         self.batch_size = 64
 
@@ -71,7 +76,7 @@ class RLAdapterAgent:
 
         self.memory = deque(maxlen=buffer_size)
 
-        self.epsilon = 1.0       # Exploration rate
+        self.epsilon = 1.0  # Exploration rate
         self.epsilon_min = 0.05
         self.epsilon_decay = 0.995
         self.update_target_freq = 1000
@@ -89,7 +94,7 @@ class RLAdapterAgent:
             valid_indices = np.where(valid_actions_mask == 1)[0]
             if len(valid_indices) > 0:
                 return np.random.choice(valid_indices)
-            return 0 # Default (souvent Fold)
+            return 0  # Default (souvent Fold)
 
         with torch.no_grad():
             state_tensor = torch.FloatTensor(state_vector).unsqueeze(0).to(self.device)
@@ -124,7 +129,7 @@ class RLAdapterAgent:
 
         with torch.no_grad():
             next_q_values_online = self.q_network(next_states)
-            next_q_values_online[next_masks == 0] = -float('inf')
+            next_q_values_online[next_masks == 0] = -float("inf")
             best_next_actions = next_q_values_online.max(1)[1].unsqueeze(1)
 
             next_q_values_target = self.target_network(next_states).gather(1, best_next_actions)
@@ -134,7 +139,9 @@ class RLAdapterAgent:
 
         self.optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), 1.0) # Prévenir l'explosion des gradients
+        torch.nn.utils.clip_grad_norm_(
+            self.q_network.parameters(), 1.0
+        )  # Prévenir l'explosion des gradients
         self.optimizer.step()
 
         self.step_count += 1
@@ -153,11 +160,15 @@ class RLAdapterAgent:
     def load_model(self, filepath="models/rl/exploit_model.pth"):
         if os.path.exists(filepath):
             try:
-                self.q_network.load_state_dict(torch.load(filepath, map_location=self.device, weights_only=True))
+                self.q_network.load_state_dict(
+                    torch.load(filepath, map_location=self.device, weights_only=True)
+                )
             except Exception:
-                self.q_network.load_state_dict(torch.load(filepath, map_location=self.device, weights_only=False))
+                self.q_network.load_state_dict(
+                    torch.load(filepath, map_location=self.device, weights_only=False)
+                )
             self.target_network.load_state_dict(self.q_network.state_dict())
             logger.info(f"Modèle RL chargé depuis {filepath}")
-            self.epsilon = self.epsilon_min # Une fois chargé, on explore moins
+            self.epsilon = self.epsilon_min  # Une fois chargé, on explore moins
         else:
             logger.warning(f"Aucun modèle trouvé à {filepath}, initialisation d'un nouveau modèle.")

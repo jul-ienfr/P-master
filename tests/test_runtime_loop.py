@@ -60,7 +60,9 @@ def test_runtime_loop_starts_and_shuts_down_when_no_frame_is_available():
         _publish_runtime_bridge_state=lambda force=False: publish_calls.append(force),
         _start_runtime_api_process=lambda: events.append(("api", "start")),
         _stop_runtime_api_process=lambda: events.append(("api", "stop")),
-        _push_runtime_event=lambda kind, message, **context: events.append((kind, message, context)),
+        _push_runtime_event=lambda kind, message, **context: events.append(
+            (kind, message, context)
+        ),
         _persist_runtime_metrics_snapshot=lambda force=False: persist_calls.append(force),
         _refresh_capture_region=lambda force=False: (0, 0, 100, 100),
         _set_loop_stage=lambda stage, publish=False: stages.append((stage, publish)),
@@ -85,6 +87,7 @@ def test_runtime_loop_starts_and_shuts_down_when_no_frame_is_available():
 
     runtime_loop = RuntimeLoop(controller)
     import asyncio
+
     asyncio.run(runtime_loop.run())
 
     assert controller.db.connected is True
@@ -94,7 +97,9 @@ def test_runtime_loop_starts_and_shuts_down_when_no_frame_is_available():
     assert ("api", "start") in events
     assert ("api", "stop") in events
     runtime_events = [entry for entry in events if len(entry) == 3]
-    assert any(kind == "lifecycle" and message == "bot_started" for kind, message, _ in runtime_events)
+    assert any(
+        kind == "lifecycle" and message == "bot_started" for kind, message, _ in runtime_events
+    )
     assert any(stage == "capture_frame" for stage, _ in stages)
     assert publish_calls
     assert persist_calls
@@ -125,8 +130,17 @@ def test_runtime_loop_updates_tracker_before_logging_and_decision():
         action_buttons=(),
         state_confidence=0.8,
         metadata={},
-        to_dict=lambda: {"street": "PREFLOP", "hero_cards": ["Ah", "Kd"], "legal_actions": ["CHECK", "BET"]},
-        to_tracker_payload=lambda: {"street": "PREFLOP", "hero_cards": ["Ah", "Kd"], "legal_actions": ["CHECK", "BET"], "spot_id": "live:PREFLOP:test"},
+        to_dict=lambda: {
+            "street": "PREFLOP",
+            "hero_cards": ["Ah", "Kd"],
+            "legal_actions": ["CHECK", "BET"],
+        },
+        to_tracker_payload=lambda: {
+            "street": "PREFLOP",
+            "hero_cards": ["Ah", "Kd"],
+            "legal_actions": ["CHECK", "BET"],
+            "spot_id": "live:PREFLOP:test",
+        },
     )
     resolved_state = types.SimpleNamespace(
         hero_cards=("Ah", "Kd"),
@@ -134,7 +148,12 @@ def test_runtime_loop_updates_tracker_before_logging_and_decision():
         street="FLOP",
         pot=1.5,
         board=(),
-        to_tracker_payload=lambda: {"street": "FLOP", "hero_cards": ["Ah", "Kd"], "legal_actions": ["CHECK", "BET"], "spot_id": "live:FLOP:test"},
+        to_tracker_payload=lambda: {
+            "street": "FLOP",
+            "hero_cards": ["Ah", "Kd"],
+            "legal_actions": ["CHECK", "BET"],
+            "spot_id": "live:FLOP:test",
+        },
     )
     tracker = types.SimpleNamespace(
         update_from_vision=None,
@@ -174,16 +193,23 @@ def test_runtime_loop_updates_tracker_before_logging_and_decision():
         _build_resolved_runtime_state=lambda state: resolved_state,
         _handle_stale_live_frame=lambda canonical_state, frame_age_s: None,
         _build_gate_tracker_snapshot=lambda canonical_state: {},
-        _resolve_live_decision_context=lambda canonical_state: (types.SimpleNamespace(name="villain", has_button=False), 50.0),
+        _resolve_live_decision_context=lambda canonical_state: (
+            types.SimpleNamespace(name="villain", has_button=False),
+            50.0,
+        ),
         _run_decision_gate_flow=_run_decision_gate_flow,
         _clear_live_decision_summary=lambda canonical_state: None,
         _clear_live_execution_guard=lambda: None,
         tracker=tracker,
         _build_tracker_snapshot=lambda tracker_data: {"street": "FLOP"},
-        _record_runtime_transition=lambda tracker_snapshot: call_order.append(f"transition:{tracker_snapshot['street']}"),
+        _record_runtime_transition=lambda tracker_snapshot: call_order.append(
+            f"transition:{tracker_snapshot['street']}"
+        ),
         _log_loop_timing=lambda **kwargs: None,
         _max_live_frame_age_s=1.0,
-        _log_live_details=lambda canonical_state, state: call_order.append(f"log:{canonical_state.street}"),
+        _log_live_details=lambda canonical_state, state: call_order.append(
+            f"log:{canonical_state.street}"
+        ),
         _push_incident=lambda *args, **kwargs: None,
         _get_live_loop_sleep_interval=lambda actionable_spot: 0.01 if actionable_spot else 0.05,
         last_tracker_snapshot={},
@@ -195,6 +221,7 @@ def test_runtime_loop_updates_tracker_before_logging_and_decision():
     controller.camera.controller = controller
 
     import asyncio
+
     asyncio.run(RuntimeLoop(controller).run())
 
     assert call_order[:4] == ["tracker_update", "log:FLOP", "transition:FLOP", "decision:FLOP"]
@@ -205,7 +232,9 @@ def test_live_loop_sleep_interval_slows_down_when_decision_is_locked():
 
     controller = object.__new__(SuperBotController)
     controller._locked_spot_poll_interval_s = 0.1
-    controller.last_decision_summary = {"execution": {"status": "decision_locked", "reason": "same_spot_unconfirmed"}}
+    controller.last_decision_summary = {
+        "execution": {"status": "decision_locked", "reason": "same_spot_unconfirmed"}
+    }
 
     assert controller._get_live_loop_sleep_interval(True) == 0.1
     assert controller._get_live_loop_sleep_interval(False) == 0.05
@@ -243,8 +272,15 @@ def test_runtime_loop_updates_fast_pot_snapshot_before_main_pipeline():
         action_controller=types.SimpleNamespace(hwnd=None),
         runtime_api_port=8005,
         is_running=False,
-        frame_pipeline=types.SimpleNamespace(_read_live_pot_fast=lambda frame, pot_box: {"value": 1234.0, "observed_at_monotonic": 1.0}),
-        _update_fast_pot_snapshot=lambda snapshot: call_order.append(f"fast_pot:{snapshot['value']}"),
+        frame_pipeline=types.SimpleNamespace(
+            _read_live_pot_fast=lambda frame, pot_box: {
+                "value": 1234.0,
+                "observed_at_monotonic": 1.0,
+            }
+        ),
+        _update_fast_pot_snapshot=lambda snapshot: call_order.append(
+            f"fast_pot:{snapshot['value']}"
+        ),
         _publish_runtime_bridge_state=lambda force=False: None,
         _start_runtime_api_process=lambda: None,
         _stop_runtime_api_process=lambda: None,
@@ -255,8 +291,16 @@ def test_runtime_loop_updates_fast_pot_snapshot_before_main_pipeline():
         _process_bridge_commands=lambda: None,
         _operator_action_mode=lambda: "ready",
         _process_frame=_process_frame,
-        _convert_state_for_tracker=lambda state, frame: types.SimpleNamespace(to_dict=lambda: {}, to_tracker_payload=lambda: {}, hero_cards=(), legal_actions=(), street="IDLE"),
-        _build_resolved_runtime_state=lambda state: types.SimpleNamespace(hero_cards=(), legal_actions=(), street="IDLE", pot=0.0, board=(), metadata={}),
+        _convert_state_for_tracker=lambda state, frame: types.SimpleNamespace(
+            to_dict=lambda: {},
+            to_tracker_payload=lambda: {},
+            hero_cards=(),
+            legal_actions=(),
+            street="IDLE",
+        ),
+        _build_resolved_runtime_state=lambda state: types.SimpleNamespace(
+            hero_cards=(), legal_actions=(), street="IDLE", pot=0.0, board=(), metadata={}
+        ),
         _handle_stale_live_frame=lambda canonical_state, frame_age_s: None,
         _build_gate_tracker_snapshot=lambda canonical_state: {},
         _resolve_live_decision_context=lambda canonical_state: (None, 0.0),
@@ -278,6 +322,7 @@ def test_runtime_loop_updates_fast_pot_snapshot_before_main_pipeline():
     controller.camera.controller = controller
 
     import asyncio
+
     asyncio.run(RuntimeLoop(controller).run())
 
     assert call_order[0] == "fast_pot:1234.0"
@@ -334,8 +379,23 @@ def test_runtime_loop_uses_fast_pixel_probe_to_trigger_hitl_without_turn_layout(
         _process_bridge_commands=lambda: None,
         _operator_action_mode=lambda: "ready",
         _process_frame=_process_frame,
-        _convert_state_for_tracker=lambda state, frame: types.SimpleNamespace(to_dict=lambda: {}, to_tracker_payload=lambda: {}, hero_cards=(), legal_actions=(), street="IDLE", spot_id="live:IDLE:test", pot=0.0, board=(), players=(), action_buttons=(), state_confidence=0.0, metadata={}),
-        _build_resolved_runtime_state=lambda state: types.SimpleNamespace(hero_cards=(), legal_actions=(), street="IDLE", pot=0.0, board=(), metadata={}),
+        _convert_state_for_tracker=lambda state, frame: types.SimpleNamespace(
+            to_dict=lambda: {},
+            to_tracker_payload=lambda: {},
+            hero_cards=(),
+            legal_actions=(),
+            street="IDLE",
+            spot_id="live:IDLE:test",
+            pot=0.0,
+            board=(),
+            players=(),
+            action_buttons=(),
+            state_confidence=0.0,
+            metadata={},
+        ),
+        _build_resolved_runtime_state=lambda state: types.SimpleNamespace(
+            hero_cards=(), legal_actions=(), street="IDLE", pot=0.0, board=(), metadata={}
+        ),
         _handle_stale_live_frame=lambda canonical_state, frame_age_s: None,
         _build_gate_tracker_snapshot=lambda canonical_state: {},
         _resolve_live_decision_context=lambda canonical_state: (None, 0.0),
@@ -357,6 +417,7 @@ def test_runtime_loop_uses_fast_pixel_probe_to_trigger_hitl_without_turn_layout(
     controller.camera.controller = controller
 
     import asyncio
+
     asyncio.run(RuntimeLoop(controller).run())
 
     assert hitl_calls
@@ -393,7 +454,12 @@ def test_runtime_loop_measures_actionable_frame_age_from_state_ready_time(monkey
         state_confidence=0.8,
         metadata={},
         to_dict=lambda: {},
-        to_tracker_payload=lambda: {"street": "PREFLOP", "hero_cards": ["Tc", "2s"], "legal_actions": ["CALL"], "spot_id": "live:PREFLOP:test"},
+        to_tracker_payload=lambda: {
+            "street": "PREFLOP",
+            "hero_cards": ["Tc", "2s"],
+            "legal_actions": ["CALL"],
+            "spot_id": "live:PREFLOP:test",
+        },
     )
 
     tracker = types.SimpleNamespace(current_hand_actions=[])
@@ -422,9 +488,14 @@ def test_runtime_loop_measures_actionable_frame_age_from_state_ready_time(monkey
         _process_frame=_process_frame,
         _convert_state_for_tracker=lambda state, frame: canonical_state,
         _build_resolved_runtime_state=lambda state: canonical_state,
-        _handle_stale_live_frame=lambda canonical_state, frame_age_s: stale_calls.append(frame_age_s),
+        _handle_stale_live_frame=lambda canonical_state, frame_age_s: stale_calls.append(
+            frame_age_s
+        ),
         _build_gate_tracker_snapshot=lambda canonical_state: {},
-        _resolve_live_decision_context=lambda canonical_state: (types.SimpleNamespace(name="villain", has_button=False), 10.0),
+        _resolve_live_decision_context=lambda canonical_state: (
+            types.SimpleNamespace(name="villain", has_button=False),
+            10.0,
+        ),
         _run_decision_gate_flow=None,
         _clear_live_decision_summary=lambda canonical_state: None,
         _clear_live_execution_guard=lambda: None,
@@ -447,6 +518,7 @@ def test_runtime_loop_measures_actionable_frame_age_from_state_ready_time(monkey
     controller.camera.controller = controller
 
     import asyncio
+
     asyncio.run(RuntimeLoop(controller).run())
 
     assert stale_calls == []

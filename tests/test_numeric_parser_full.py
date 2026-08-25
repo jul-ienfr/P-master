@@ -1,4 +1,5 @@
 """Tests du parseur numérique (src/vision/numeric_parser.py)."""
+
 import sys
 from pathlib import Path
 

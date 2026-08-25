@@ -1,4 +1,5 @@
 """Tests de l'évaluateur de mains MonteCarlo legacy (pur, haute valeur)."""
+
 import sys
 from pathlib import Path
 
@@ -40,8 +41,14 @@ def test_get_two_short_notation_suited_pairs_offsuit(mc):
 
 def test_eval_best_hand_picks_winner_and_type(mc):
     hands = [
-        ["2C", "3D", "4H", "5S", "6C"],          # suite 6-high... battue par la paire ? Non : straight > paire
-        ["AC", "AD", "4H", "5S", "9C"],           # paire d'as
+        [
+            "2C",
+            "3D",
+            "4H",
+            "5S",
+            "6C",
+        ],  # suite 6-high... battue par la paire ? Non : straight > paire
+        ["AC", "AD", "4H", "5S", "9C"],  # paire d'as
     ]
     winner, hand_type = mc.eval_best_hand(hands)
     assert winner == hands[0]
@@ -49,7 +56,7 @@ def test_eval_best_hand_picks_winner_and_type(mc):
 
 
 HAND_CASES = [
-    (["AC", "KC", "QH", "JS", "9D"], ((1,), ), "HighCard"),
+    (["AC", "KC", "QH", "JS", "9D"], ((1,),), "HighCard"),
     (["AC", "AD", "KH", "QS", "9D"], ((2, 1, 1, 1),), "Pair"),
     (["AC", "AD", "KH", "KS", "9D"], ((2, 2, 1),), "TwoPair"),
     (["AC", "AD", "AH", "KS", "9D"], ((3, 1, 1),), "ThreeOfAKind"),

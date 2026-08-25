@@ -52,7 +52,9 @@ class FixtureRLAgent:
     [(False, "rl_off"), (True, "rl_on")],
     ids=["rl-off", "rl-on"],
 )
-def test_runtime_decision_fixture_compares_rl_on_off_on_same_inputs(enable_validated_rl, expected_key):
+def test_runtime_decision_fixture_compares_rl_on_off_on_same_inputs(
+    enable_validated_rl, expected_key
+):
     fixture = _load_fixture("decision_ab_runtime_validated_rl.json")
     decision_maker = DecisionMaker(
         FixtureDB(fixture["profile"]),
@@ -74,9 +76,13 @@ def test_runtime_decision_fixture_compares_rl_on_off_on_same_inputs(enable_valid
     assert decision["metadata"]["rl_ab"]["final_action"] == expected["action"]
     assert decision["metadata"]["rl_ab"]["applied"] is enable_validated_rl
     assert decision["ab_decision"] == decision["metadata"]["rl_ab"]
-    expected_eligibility_reasons = ["validated_rl_ready"] if enable_validated_rl else ["validated_rl_disabled"]
+    expected_eligibility_reasons = (
+        ["validated_rl_ready"] if enable_validated_rl else ["validated_rl_disabled"]
+    )
     assert decision["metadata"]["rl_ab"]["eligibility_reasons"] == expected_eligibility_reasons
-    assert decision["metadata"]["profile"]["style"] == fixture["profile"]["derived_profile"]["style"]
+    assert (
+        decision["metadata"]["profile"]["style"] == fixture["profile"]["derived_profile"]["style"]
+    )
     assert decision["metadata"]["solver"]["has_alternatives"] is True
     assert decision["metadata"]["solver"]["alternatives"] == [
         {"action": "FOLD", "raw_action": "FOLD", "freq": 0.62},
@@ -111,7 +117,11 @@ def test_runtime_decision_fixture_ab_difference_is_explicit():
     assert rl_on["source"] == "RL_VALIDATED"
     assert rl_off["backend"] == rl_on["backend"] == fixture["solver_response"]["backend"]
     assert rl_off["details"] == rl_on["details"] == fixture["solver_response"]["actions"]
-    assert rl_off["confidence"] == rl_on["confidence"] == fixture["solver_response"]["decision_confidence"]
+    assert (
+        rl_off["confidence"]
+        == rl_on["confidence"]
+        == fixture["solver_response"]["decision_confidence"]
+    )
     assert rl_off["metadata"]["rl_ab"]["applied"] is False
     assert rl_off["metadata"]["rl_ab"]["would_override"] is False
     assert rl_off["metadata"]["rl_ab"]["rl_differs_from_gto"] is True

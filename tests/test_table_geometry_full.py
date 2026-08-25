@@ -1,4 +1,5 @@
 """Tests de la géométrie de table (src/vision/table_geometry.py)."""
+
 import sys
 from pathlib import Path
 

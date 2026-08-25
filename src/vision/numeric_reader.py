@@ -47,7 +47,9 @@ class NumericReader:
             return filtered or variants[:2]
         return variants
 
-    def read_amount(self, field_name: str, image_crop: np.ndarray, *, previous_value: float = 0.0) -> NumericReadResult:
+    def read_amount(
+        self, field_name: str, image_crop: np.ndarray, *, previous_value: float = 0.0
+    ) -> NumericReadResult:
         crop_quality = analyze_crop_quality(field_name, image_crop)
         if image_crop is None or not isinstance(image_crop, np.ndarray) or image_crop.size == 0:
             evidence = FieldEvidence(
@@ -57,7 +59,9 @@ class NumericReader:
                 state="empty",
                 rejection_reason="empty_crop",
             )
-            return NumericReadResult(selected_value=None, evidence=evidence, metadata={"variants": []})
+            return NumericReadResult(
+                selected_value=None, evidence=evidence, metadata={"variants": []}
+            )
 
         candidates = []
         best_value: float | None = None
@@ -66,7 +70,11 @@ class NumericReader:
         variant_rows = []
         for variant_name, variant_crop in self._iter_live_variants(field_name, image_crop):
             value = self.ocr_engine.read_and_parse_amount(variant_crop)
-            ocr_metadata = dict(self.ocr_engine.get_metadata() or {}) if hasattr(self.ocr_engine, "get_metadata") else {}
+            ocr_metadata = (
+                dict(self.ocr_engine.get_metadata() or {})
+                if hasattr(self.ocr_engine, "get_metadata")
+                else {}
+            )
             parse_result = self.parser.parse(str(ocr_metadata.get("selected_text", "") or ""))
             parsed_value = parse_result.value if parse_result.valid else value
             confidence = float(ocr_metadata.get("selected_confidence", 0.0) or 0.0)
@@ -81,13 +89,15 @@ class NumericReader:
                 metadata={"ocr": ocr_metadata, "parse_result": parse_result.__dict__},
             )
             candidates.append(candidate)
-            variant_rows.append({
-                "variant": variant_name,
-                "value": parsed_value,
-                "selected_engine": ocr_metadata.get("selected_engine", ""),
-                "selected_confidence": confidence,
-                "parse_valid": parse_result.valid,
-            })
+            variant_rows.append(
+                {
+                    "variant": variant_name,
+                    "value": parsed_value,
+                    "selected_engine": ocr_metadata.get("selected_engine", ""),
+                    "selected_confidence": confidence,
+                    "parse_valid": parse_result.valid,
+                }
+            )
             if parsed_value is not None and confidence >= best_confidence:
                 best_confidence = confidence
                 best_value = parsed_value
@@ -106,7 +116,11 @@ class NumericReader:
         final_value = consensus_result.value
         final_candidate = best_candidate if validation_result.valid else None
         final_state = consensus_result.state if validation_result.valid else "quarantined"
-        rejection_reason = "" if validation_result.valid else validation_result.reject_reason or "no_valid_numeric_candidate"
+        rejection_reason = (
+            ""
+            if validation_result.valid
+            else validation_result.reject_reason or "no_valid_numeric_candidate"
+        )
 
         evidence = FieldEvidence(
             field_name=field_name,

@@ -61,13 +61,16 @@ class Preflight:
     def run(self) -> dict:
         config = self._load_config()
 
-        runtime_bridge_dir = Path(os.getenv("POKER_RUNTIME_BRIDGE_DIR") or (self.root / "log" / "runtime_bridge"))
+        runtime_bridge_dir = Path(
+            os.getenv("POKER_RUNTIME_BRIDGE_DIR") or (self.root / "log" / "runtime_bridge")
+        )
         runtime_history_path = Path(
-            os.getenv("POKER_RUNTIME_HISTORY_PATH")
-            or self.root / "log" / "runtime_history.jsonl"
+            os.getenv("POKER_RUNTIME_HISTORY_PATH") or self.root / "log" / "runtime_history.jsonl"
         )
         observation_store_path = Path(
-            (config.get("database", {}) or {}).get("observation_persistence_path", "log/observation_store.json")
+            (config.get("database", {}) or {}).get(
+                "observation_persistence_path", "log/observation_store.json"
+            )
         )
         if not observation_store_path.is_absolute():
             observation_store_path = self.root / observation_store_path
@@ -90,7 +93,9 @@ class Preflight:
         self._assert_writable_path(observation_store_path, "Persistance observation")
 
         native_solver_available = importlib.util.find_spec("postflop_solver_py") is not None
-        http_solver_url = str(os.getenv("POKER_GTO_SERVER_URL") or "http://127.0.0.1:8765/v2/solve").strip()
+        http_solver_url = str(
+            os.getenv("POKER_GTO_SERVER_URL") or "http://127.0.0.1:8765/v2/solve"
+        ).strip()
         fallback_only = not native_solver_available and not http_solver_url
 
         if fallback_only:

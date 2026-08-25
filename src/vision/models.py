@@ -1,4 +1,5 @@
 """Modèles pydantic et helpers de détection (extrait de src/vision/detector.py)."""
+
 import re
 from typing import Any
 
@@ -85,4 +86,3 @@ def dedupe_nearby_detections(
         if not duplicate:
             kept.append(det)
     return kept
-

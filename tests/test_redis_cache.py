@@ -1,4 +1,5 @@
 """Tests Phase 3.3 — cache Redis optionnel (profil L2)."""
+
 import asyncio
 import sys
 from pathlib import Path
@@ -118,7 +119,9 @@ def test_profile_miss_writes_through_and_second_read_skips_db(monkeypatch):
     assert "pkm:profile:Villain" in client.store
 
     # Nouveau DecisionMaker (caches locaux vides) partageant le même Redis.
-    dm2 = DecisionMaker(FakeDB(profile=None), solver_backend=None, rl_agent=None, redis_cache=_cache_with(client))
+    dm2 = DecisionMaker(
+        FakeDB(profile=None), solver_backend=None, rl_agent=None, redis_cache=_cache_with(client)
+    )
     second = asyncio.run(dm2._get_cached_profile("Villain", allow_fetch=True))
 
     assert second == profile_data
@@ -127,7 +130,9 @@ def test_profile_miss_writes_through_and_second_read_skips_db(monkeypatch):
 
 def test_broken_redis_falls_back_to_db(monkeypatch):
     db = FakeDB(profile={"player_type": "Balanced"})
-    dm = DecisionMaker(db, solver_backend=None, rl_agent=None, redis_cache=_cache_with(BrokenRedisClient()))
+    dm = DecisionMaker(
+        db, solver_backend=None, rl_agent=None, redis_cache=_cache_with(BrokenRedisClient())
+    )
 
     profile = asyncio.run(dm._get_cached_profile("Villain", allow_fetch=True))
 

@@ -34,7 +34,9 @@ class FakeHTTPResponse:
 
 
 def test_solver_provider_prefers_native_before_http():
-    native = FakeNativeSolver(response={"chosen_action": "BET", "backend": "native_solver", "elapsed_ms": 4})
+    native = FakeNativeSolver(
+        response={"chosen_action": "BET", "backend": "native_solver", "elapsed_ms": 4}
+    )
     http_calls = []
 
     def fake_post(*args, **kwargs):
@@ -43,7 +45,9 @@ def test_solver_provider_prefers_native_before_http():
 
     provider = SolverProvider(native_backend=native, request_post=fake_post)
 
-    result = provider.solve_spot_v2(hero_range="AsKd", villain_ranges=["QQ+,AK"], board=[], legal_actions=["CHECK", "BET"])
+    result = provider.solve_spot_v2(
+        hero_range="AsKd", villain_ranges=["QQ+,AK"], board=[], legal_actions=["CHECK", "BET"]
+    )
 
     assert result["chosen_action"] == "BET"
     assert provider.active_backend() == "native_solver"
@@ -57,11 +61,15 @@ def test_solver_provider_uses_http_when_native_is_unavailable():
 
     def fake_post(url, json, timeout):
         http_calls.append({"url": url, "json": json, "timeout": timeout})
-        return FakeHTTPResponse({"chosen_action": "CHECK", "backend": "gto_server", "elapsed_ms": 12})
+        return FakeHTTPResponse(
+            {"chosen_action": "CHECK", "backend": "gto_server", "elapsed_ms": 12}
+        )
 
     provider = SolverProvider(native_backend=native, request_post=fake_post)
 
-    result = provider.solve_spot_v2(hero_range="AsKd", villain_ranges=["QQ+,AK"], board=[], legal_actions=["CHECK", "BET"])
+    result = provider.solve_spot_v2(
+        hero_range="AsKd", villain_ranges=["QQ+,AK"], board=[], legal_actions=["CHECK", "BET"]
+    )
 
     assert result["chosen_action"] == "CHECK"
     assert provider.active_backend() == "gto_server"
@@ -78,7 +86,9 @@ def test_solver_provider_returns_safe_fallback_when_all_backends_fail():
 
     provider = SolverProvider(native_backend=native, request_post=fake_post)
 
-    result = provider.solve_spot_v2(hero_range="AsKd", villain_ranges=["QQ+,AK"], board=[], legal_actions=["CHECK", "BET"])
+    result = provider.solve_spot_v2(
+        hero_range="AsKd", villain_ranges=["QQ+,AK"], board=[], legal_actions=["CHECK", "BET"]
+    )
 
     assert result["backend"] == "fallback"
     assert result["fallback_used"] is True

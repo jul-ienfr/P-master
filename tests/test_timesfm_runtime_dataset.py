@@ -30,7 +30,12 @@ def test_load_runtime_metric_series_map_extracts_known_metrics_in_timestamp_orde
 
     series_map = load_runtime_metric_series_map(history_path)
 
-    assert sorted(series_map) == ["block_rate", "decision_rate", "fallback_rate", "rolling_latency_ms"]
+    assert sorted(series_map) == [
+        "block_rate",
+        "decision_rate",
+        "fallback_rate",
+        "rolling_latency_ms",
+    ]
     assert series_map["fallback_rate"].timestamps == [
         "2026-04-17T10:00:01Z",
         "2026-04-17T10:00:02Z",

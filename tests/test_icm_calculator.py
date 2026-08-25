@@ -1,4 +1,5 @@
 """Tests de l'ICMCalculator (Malmuth-Harville) et du risk premium tournoi."""
+
 import sys
 from pathlib import Path
 
@@ -64,8 +65,14 @@ def test_get_icm_risk_premium_infinite_when_no_gain(icm):
 
 
 def test_adjust_gto_for_tournament_ignores_non_committing_actions(icm):
-    assert icm.adjust_gto_for_tournament("FOLD", 5000, 5000, [5000, 5000], [100.0, 50.0], 100.0) == "FOLD"
-    assert icm.adjust_gto_for_tournament("CHECK", 5000, 5000, [5000, 5000], [100.0, 50.0], 100.0) == "CHECK"
+    assert (
+        icm.adjust_gto_for_tournament("FOLD", 5000, 5000, [5000, 5000], [100.0, 50.0], 100.0)
+        == "FOLD"
+    )
+    assert (
+        icm.adjust_gto_for_tournament("CHECK", 5000, 5000, [5000, 5000], [100.0, 50.0], 100.0)
+        == "CHECK"
+    )
 
 
 def test_adjust_gto_for_tournament_folds_under_extreme_pressure(icm):

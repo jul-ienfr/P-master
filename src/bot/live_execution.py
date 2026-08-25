@@ -1,9 +1,10 @@
 """Signatures, verrous et caches de décision live (extrait de src/main.py)."""
+
 import asyncio
 import logging
 import time
-from types import SimpleNamespace
 from collections.abc import Iterable
+from types import SimpleNamespace
 
 from src.bot.gate_flow import compact_solver_payload as _compact_solver_payload
 from src.bot.runtime_types import CanonicalTableState
@@ -64,13 +65,19 @@ class LiveExecutionMixin:
             if str(button_name) in actionable_button_labels
         )
 
-    def _build_live_execution_material_signature(self, canonical_state: CanonicalTableState) -> tuple:
+    def _build_live_execution_material_signature(
+        self, canonical_state: CanonicalTableState
+    ) -> tuple:
         metadata = dict(getattr(canonical_state, "metadata", {}) or {})
         metadata_signature = metadata.get("spot_signature")
         if isinstance(metadata_signature, (list, tuple)) and len(metadata_signature) >= 6:
             normalized_metadata_signature = list(metadata_signature)
-            normalized_metadata_signature[4] = list(self._normalize_live_execution_actions(metadata_signature[4]))
-            normalized_metadata_signature[5] = list(self._normalize_live_execution_buttons(metadata_signature[5]))
+            normalized_metadata_signature[4] = list(
+                self._normalize_live_execution_actions(metadata_signature[4])
+            )
+            normalized_metadata_signature[5] = list(
+                self._normalize_live_execution_buttons(metadata_signature[5])
+            )
             metadata_signature = tuple(normalized_metadata_signature)
         actionable_buttons = self._normalize_live_execution_buttons(
             self._extract_actionable_runtime_buttons(canonical_state.action_buttons)
@@ -89,18 +96,18 @@ class LiveExecutionMixin:
             self._normalize_live_execution_actions(canonical_state.legal_actions),
             actionable_buttons,
             hero_seat_id,
-            tuple(metadata_signature) if isinstance(metadata_signature, (list, tuple)) else metadata_signature,
+            tuple(metadata_signature)
+            if isinstance(metadata_signature, (list, tuple))
+            else metadata_signature,
         )
 
     def _build_live_execution_signature(self, canonical_state: CanonicalTableState) -> tuple:
-        return (
-            self._build_live_execution_material_signature(canonical_state),
-        )
+        return (self._build_live_execution_material_signature(canonical_state),)
 
-    def _build_live_execution_context_signature(self, canonical_state: CanonicalTableState) -> tuple:
-        return (
-            self._build_live_execution_material_signature(canonical_state),
-        )
+    def _build_live_execution_context_signature(
+        self, canonical_state: CanonicalTableState
+    ) -> tuple:
+        return (self._build_live_execution_material_signature(canonical_state),)
 
     def _build_live_decision_signature(self, canonical_state: CanonicalTableState) -> tuple:
         return self._build_live_execution_material_signature(canonical_state)
@@ -128,31 +135,44 @@ class LiveExecutionMixin:
         self._clear_live_decision_lock()
         self._clear_live_decision_cache()
 
-    def _remember_locked_decision(self, canonical_state: CanonicalTableState, action_name: str, reason: str) -> None:
+    def _remember_locked_decision(
+        self, canonical_state: CanonicalTableState, action_name: str, reason: str
+    ) -> None:
         self._last_locked_decision_signature = self._build_live_decision_signature(canonical_state)
         self._last_locked_decision_action = str(action_name or "").strip().upper()
         self._last_locked_decision_reason = str(reason or "").strip()
         self._last_locked_decision_at = time.monotonic()
 
-    def _should_log_locked_decision(self, canonical_state: CanonicalTableState, reason: str) -> bool:
-        signature = (self._build_live_decision_signature(canonical_state), str(reason or "").strip())
+    def _should_log_locked_decision(
+        self, canonical_state: CanonicalTableState, reason: str
+    ) -> bool:
+        signature = (
+            self._build_live_decision_signature(canonical_state),
+            str(reason or "").strip(),
+        )
         interval_s = float(getattr(self, "_locked_spot_log_interval_s", 1.0) or 1.0)
         now = time.monotonic()
         if (
             signature == getattr(self, "_last_locked_decision_log_signature", ())
-            and (now - float(getattr(self, "_last_locked_decision_log_at", 0.0) or 0.0)) < interval_s
+            and (now - float(getattr(self, "_last_locked_decision_log_at", 0.0) or 0.0))
+            < interval_s
         ):
             return False
         self._last_locked_decision_log_signature = signature
         self._last_locked_decision_log_at = now
         return True
 
-    def _build_locked_decision_skip(self, canonical_state: CanonicalTableState) -> dict[str, object] | None:
+    def _build_locked_decision_skip(
+        self, canonical_state: CanonicalTableState
+    ) -> dict[str, object] | None:
         decision_signature = self._build_live_decision_signature(canonical_state)
         locked_signature = getattr(self, "_last_locked_decision_signature", ())
         if not locked_signature or decision_signature != locked_signature:
             return None
-        reason = str(getattr(self, "_last_locked_decision_reason", "") or "").strip() or "same_spot_locked"
+        reason = (
+            str(getattr(self, "_last_locked_decision_reason", "") or "").strip()
+            or "same_spot_locked"
+        )
         action_name = str(getattr(self, "_last_locked_decision_action", "") or "").strip().upper()
         return {
             "signature": decision_signature,
@@ -185,7 +205,9 @@ class LiveExecutionMixin:
             },
         }
 
-    def _get_cached_live_decision(self, canonical_state: CanonicalTableState) -> dict[str, object] | None:
+    def _get_cached_live_decision(
+        self, canonical_state: CanonicalTableState
+    ) -> dict[str, object] | None:
         decision_signature = self._build_live_decision_signature(canonical_state)
         if decision_signature != getattr(self, "_last_decision_signature", ()):
             return None
@@ -198,7 +220,9 @@ class LiveExecutionMixin:
             return None
         return dict(payload)
 
-    def _remember_cached_live_decision(self, canonical_state: CanonicalTableState, decision: dict[str, object]) -> None:
+    def _remember_cached_live_decision(
+        self, canonical_state: CanonicalTableState, decision: dict[str, object]
+    ) -> None:
         self._last_decision_signature = self._build_live_decision_signature(canonical_state)
         self._last_decision_payload = dict(decision)
         self._last_decision_cached_at = time.monotonic()
@@ -227,7 +251,9 @@ class LiveExecutionMixin:
             return False
         if self._build_live_execution_context_signature(canonical_state) != last_context_signature:
             return False
-        last_settle_status = str(getattr(self, "_last_live_execution_settle_status", "") or "").strip().lower()
+        last_settle_status = (
+            str(getattr(self, "_last_live_execution_settle_status", "") or "").strip().lower()
+        )
         last_at = float(getattr(self, "_last_live_execution_at", 0.0) or 0.0)
         if last_settle_status == "timeout":
             # Si l'action a expiré sans que l'interface ne valide (miss-click, lag serveur),
@@ -249,7 +275,9 @@ class LiveExecutionMixin:
         if not normalized_action:
             return
         self._last_live_execution_signature = self._build_live_execution_signature(canonical_state)
-        self._last_live_execution_context_signature = self._build_live_execution_context_signature(canonical_state)
+        self._last_live_execution_context_signature = self._build_live_execution_context_signature(
+            canonical_state
+        )
         self._last_live_execution_action = normalized_action
         self._last_live_execution_at = time.monotonic()
         self._last_live_execution_status = str(status or "")
@@ -266,10 +294,12 @@ class LiveExecutionMixin:
         confidence_details = dict(decision_metadata.get("confidence", {}) or {})
         decision_source = str(decision.get("source", "unknown") or "unknown").strip().upper()
         observed_hands = int(
-            profile.get("observed_hands", decision.get("profile", {}).get("observed_hands", 0) or 0) or 0
+            profile.get("observed_hands", decision.get("profile", {}).get("observed_hands", 0) or 0)
+            or 0
         )
         profile_reliability = float(
-            profile.get("reliability", confidence_details.get("profile_reliability", 0.0) or 0.0) or 0.0
+            profile.get("reliability", confidence_details.get("profile_reliability", 0.0) or 0.0)
+            or 0.0
         )
         exploit_confidence = float(profile.get("exploit_confidence", 0.0) or 0.0)
         decision_confidence = float(decision.get("confidence", 0.0) or 0.0)
@@ -277,16 +307,23 @@ class LiveExecutionMixin:
         final_action = str(decision.get("action", "") or "").strip().upper()
         legal_actions = {str(action).strip().upper() for action in canonical_state.legal_actions}
         state_confidence = float(
-            confidence_details.get("state_confidence", canonical_state.state_confidence or 0.0) or 0.0
+            confidence_details.get("state_confidence", canonical_state.state_confidence or 0.0)
+            or 0.0
         )
         fallback_used = bool(decision.get("fallback_used", False))
         requires_profile_sample = decision_source in ASSISTED_PROFILE_REQUIRED_SOURCES
-        runtime_readiness = dict((canonical_state.metadata or {}).get("runtime_readiness", {}) or {})
+        runtime_readiness = dict(
+            (canonical_state.metadata or {}).get("runtime_readiness", {}) or {}
+        )
         readiness_state = str(runtime_readiness.get("state") or "")
-        readiness_score = float(runtime_readiness.get("score", state_confidence) or state_confidence or 0.0)
+        readiness_score = float(
+            runtime_readiness.get("score", state_confidence) or state_confidence or 0.0
+        )
 
         result = {
-            "enabled": bool((getattr(self, "operator_controls", {}) or {}).get("assisted_mode_enabled", False)),
+            "enabled": bool(
+                (getattr(self, "operator_controls", {}) or {}).get("assisted_mode_enabled", False)
+            ),
             "learning_live": True,
             "auto_execute": False,
             "requires_operator_action": True,
@@ -386,8 +423,12 @@ class LiveExecutionMixin:
         actionable_buttons = self._extract_actionable_runtime_buttons(button_names)
         metadata = dict(getattr(canonical_state, "metadata", {}) or {})
         hero_participation = str(metadata.get("hero_participation", "idle") or "idle")
-        observed_street = str(metadata.get("observed_street", canonical_state.street) or canonical_state.street)
-        tracker_street = str(metadata.get("tracker_street", canonical_state.street) or canonical_state.street)
+        observed_street = str(
+            metadata.get("observed_street", canonical_state.street) or canonical_state.street
+        )
+        tracker_street = str(
+            metadata.get("tracker_street", canonical_state.street) or canonical_state.street
+        )
         background_idle = (
             hero_participation == "idle"
             and table_detected
@@ -406,7 +447,7 @@ class LiveExecutionMixin:
             tuple() if background_idle else tuple(canonical_state.board),
             0.0 if background_idle else round(float(canonical_state.pot or 0.0), 1),
             tuple() if background_idle else tuple(canonical_state.legal_actions),
-            tuple(sorted(set(button_names))), # Toujours ignorer l'ordre d'apparition
+            tuple(sorted(set(button_names))),  # Toujours ignorer l'ordre d'apparition
             # Ne pas inclure la confidence dans la signature pour éviter le spam aux micro-décimales
         )
 
@@ -471,7 +512,11 @@ class LiveExecutionMixin:
             return primary_villain, effective_stack
 
         hero_tracker = next(
-            (player for player in self.tracker.players.values() if getattr(player, "is_hero", False)),
+            (
+                player
+                for player in self.tracker.players.values()
+                if getattr(player, "is_hero", False)
+            ),
             None,
         )
         tracker_villains = [
@@ -479,14 +524,24 @@ class LiveExecutionMixin:
             for player in self.tracker.players.values()
             if not getattr(player, "is_hero", False) and not getattr(player, "has_folded", False)
         ]
-        canonical_hero = next((player for player in canonical_state.players if player.is_hero), None)
-        canonical_villains = [player for player in canonical_state.players if not player.is_hero and not player.has_folded]
+        canonical_hero = next(
+            (player for player in canonical_state.players if player.is_hero), None
+        )
+        canonical_villains = [
+            player
+            for player in canonical_state.players
+            if not player.is_hero and not player.has_folded
+        ]
 
         if primary_villain is None:
             if tracker_villains:
                 primary_villain = min(
                     tracker_villains,
-                    key=lambda player: getattr(player, "current_stack", 0.0) or getattr(player, "starting_stack", 0.0) or float("inf"),
+                    key=lambda player: (
+                        getattr(player, "current_stack", 0.0)
+                        or getattr(player, "starting_stack", 0.0)
+                        or float("inf")
+                    ),
                 )
             elif canonical_villains:
                 chosen = min(
@@ -511,7 +566,10 @@ class LiveExecutionMixin:
         villain_stack_candidates = [
             float(value)
             for value in (
-                [getattr(player, "current_stack", 0.0) or getattr(player, "starting_stack", 0.0) for player in tracker_villains]
+                [
+                    getattr(player, "current_stack", 0.0) or getattr(player, "starting_stack", 0.0)
+                    for player in tracker_villains
+                ]
                 + [player.stack for player in canonical_villains]
             )
             if float(value or 0.0) > 0.0
@@ -534,7 +592,9 @@ class LiveExecutionMixin:
         )
         if actionable_preflop:
             hero_has_button = bool(
-                canonical_hero.has_button if canonical_hero is not None else getattr(hero_tracker, "has_button", False)
+                canonical_hero.has_button
+                if canonical_hero is not None
+                else getattr(hero_tracker, "has_button", False)
             )
             if primary_villain is None:
                 fallback_villain_name = (
@@ -546,23 +606,38 @@ class LiveExecutionMixin:
                         ),
                         "",
                     )
-                    or next((str(player.name or "").strip() for player in canonical_villains if str(player.name or "").strip()), "")
+                    or next(
+                        (
+                            str(player.name or "").strip()
+                            for player in canonical_villains
+                            if str(player.name or "").strip()
+                        ),
+                        "",
+                    )
                     or "live_villain"
                 )
                 primary_villain = SimpleNamespace(
                     name=fallback_villain_name,
                     has_button=not hero_has_button,
-                    current_stack=float(villain_stack or effective_stack or hero_stack or canonical_state.pot or 1.0),
+                    current_stack=float(
+                        villain_stack or effective_stack or hero_stack or canonical_state.pot or 1.0
+                    ),
                 )
             if effective_stack <= 0.0:
-                effective_stack = max(hero_stack, villain_stack, float(canonical_state.pot or 0.0), 1.0)
+                effective_stack = max(
+                    hero_stack, villain_stack, float(canonical_state.pot or 0.0), 1.0
+                )
 
         return primary_villain, max(0.0, float(effective_stack or 0.0))
 
-    def _record_decision_trace(self, canonical_state: CanonicalTableState, decision: dict, gate_result: GateResult) -> None:
+    def _record_decision_trace(
+        self, canonical_state: CanonicalTableState, decision: dict, gate_result: GateResult
+    ) -> None:
         warnings = list(decision.get("warnings", []))
         incidents = self._normalize_incidents(list(decision.get("incidents", [])))
-        ab_decision = decision.get("ab_decision") if isinstance(decision.get("ab_decision"), dict) else None
+        ab_decision = (
+            decision.get("ab_decision") if isinstance(decision.get("ab_decision"), dict) else None
+        )
         metadata = decision.get("metadata") if isinstance(decision.get("metadata"), dict) else {}
         solver_metadata = _compact_solver_payload(metadata.get("solver", {}) or {})
         trace_metadata = dict(metadata)
@@ -600,7 +675,9 @@ class LiveExecutionMixin:
             "solver_warning_details": list(solver_metadata.get("warning_details", []) or []),
             "backend_details": dict(solver_metadata.get("backend_details", {}) or {}),
             "cache_details": dict(solver_metadata.get("cache_details", {}) or {}),
-            "node_count": solver_metadata.get("node_count", (solver_metadata.get("backend_details", {}) or {}).get("node_count")),
+            "node_count": solver_metadata.get(
+                "node_count", (solver_metadata.get("backend_details", {}) or {}).get("node_count")
+            ),
             "exploitability": solver_metadata.get("exploitability"),
             "solver_elapsed_ms": solver_metadata.get("elapsed_ms"),
             "solver_id": solver_metadata.get("solver_id"),
@@ -630,7 +707,9 @@ class LiveExecutionMixin:
             return {"settled": True, "elapsed_ms": 0.0, "buttons": []}
 
         timeout_s = max(0.1, float(getattr(self, "_post_action_settle_timeout_s", 0.9) or 0.9))
-        poll_interval_s = max(0.01, float(getattr(self, "_post_action_settle_poll_interval_s", 0.03) or 0.03))
+        poll_interval_s = max(
+            0.01, float(getattr(self, "_post_action_settle_poll_interval_s", 0.03) or 0.03)
+        )
         started_at = time.monotonic()
         actionable_buttons: tuple[str, ...] = ()
 
@@ -698,7 +777,9 @@ class LiveExecutionMixin:
                 "signals": {},
             },
             "assisted": {
-                "enabled": bool(self._build_operator_snapshot().get("assisted_mode_enabled", False)),
+                "enabled": bool(
+                    self._build_operator_snapshot().get("assisted_mode_enabled", False)
+                ),
                 "learning_live": True,
                 "auto_execute": False,
                 "requires_operator_action": False,
@@ -725,4 +806,3 @@ class LiveExecutionMixin:
                 "reason": "no_live_action",
             },
         }
-

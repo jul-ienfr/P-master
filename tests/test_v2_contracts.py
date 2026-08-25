@@ -1,4 +1,5 @@
 """Tests des contrats V2 (sérialisation, coercions, builders)."""
+
 import json
 from types import SimpleNamespace
 

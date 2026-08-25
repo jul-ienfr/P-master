@@ -1,7 +1,7 @@
 import math
 from collections import Counter
-from typing import TypeVar
 from collections.abc import Iterable, Sequence
+from typing import TypeVar
 
 T = TypeVar("T")
 
@@ -11,7 +11,9 @@ def center_from_bbox(bbox: tuple[int, int, int, int]) -> tuple[float, float]:
     return ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
 
 
-def derive_legal_actions(action_button_names: Iterable[str]) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def derive_legal_actions(
+    action_button_names: Iterable[str],
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     action_buttons: list[str] = []
     legal_actions: list[str] = []
     has_check = False
@@ -131,7 +133,7 @@ def ordered_stacks_by_table_geometry(
     # We use a slight static offset because the pot isn't perfectly the center of the seat ellipse
     if pot_bbox is not None:
         center_x, center_y = center_from_bbox(pot_bbox)
-        center_y -= frame_h * 0.05 # L'ellipse des joueurs est souvent un peu plus haute
+        center_y -= frame_h * 0.05  # L'ellipse des joueurs est souvent un peu plus haute
 
     # Elliptical projection mapping rather than raw polar
     # Tables are generally wider than they are tall
@@ -151,7 +153,9 @@ def ordered_stacks_by_table_geometry(
         angular_entries.append((angle, distance, stack_bbox))
 
     angular_entries.sort(key=lambda item: (item[0], item[1]))
-    return [(f"seat_{index}", stack_bbox) for index, (_, _, stack_bbox) in enumerate(angular_entries)]
+    return [
+        (f"seat_{index}", stack_bbox) for index, (_, _, stack_bbox) in enumerate(angular_entries)
+    ]
 
 
 def infer_hero_seat_id(

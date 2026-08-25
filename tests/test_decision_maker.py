@@ -257,7 +257,9 @@ def test_get_best_action_uses_http_solver_provider_when_native_backend_fails():
         )
 
     provider = SolverProvider(native_backend=solver, request_post=fake_post)
-    decision_maker = DecisionMaker(FakeDB(), solver_backend=solver, solver_provider=provider, rl_agent=None)
+    decision_maker = DecisionMaker(
+        FakeDB(), solver_backend=solver, solver_provider=provider, rl_agent=None
+    )
 
     decision = run(
         decision_maker.get_best_action(
@@ -336,7 +338,9 @@ def test_get_best_action_enriches_metadata_with_solver_profile_and_confidence_de
             "rl_ready": True,
         },
     }
-    decision_maker = DecisionMaker(FakeDB(profile), solver_backend=solver, rl_agent=FakeRLAgent(action_idx=2))
+    decision_maker = DecisionMaker(
+        FakeDB(profile), solver_backend=solver, rl_agent=FakeRLAgent(action_idx=2)
+    )
 
     decision = run(
         decision_maker.get_best_action(
@@ -361,7 +365,10 @@ def test_get_best_action_enriches_metadata_with_solver_profile_and_confidence_de
         {"action": "CHECK", "raw_action": "CHECK", "freq": 0.15, "ev": 0.4},
         {"action": "BET", "raw_action": "BET_75", "freq": 0.85, "ev": 1.2},
     ]
-    assert decision["metadata"]["solver"]["alternatives_complete"] == decision["metadata"]["solver"]["alternatives"]
+    assert (
+        decision["metadata"]["solver"]["alternatives_complete"]
+        == decision["metadata"]["solver"]["alternatives"]
+    )
     assert decision["metadata"]["solver"]["ev_by_action"] == {"CHECK": 0.4, "BET": 1.2}
     assert decision["metadata"]["solver"]["freq_by_action"] == {"CHECK": 0.15, "BET": 0.85}
     assert decision["metadata"]["solver"]["action_metadata"] == {
@@ -510,7 +517,9 @@ def test_get_best_action_uses_dynamic_villain_position_from_history():
     )
 
     assert solver.calls
-    assert solver.calls[0]["villain_ranges"] == [decision_maker.preflop_manager.get_villain_range("CO")]
+    assert solver.calls[0]["villain_ranges"] == [
+        decision_maker.preflop_manager.get_villain_range("CO")
+    ]
 
 
 def test_get_best_action_keeps_optional_solver_backend_cache_and_warning_details_when_present():

@@ -1,4 +1,5 @@
 """Tests Phase 2.2 — capture hybride WGC avec fallback."""
+
 import sys
 import time
 from pathlib import Path
@@ -42,9 +43,7 @@ def capture():
 def test_wgc_selected_when_session_produces_frame(monkeypatch, capture):
     # La première frame est consommée par la sonde de démarrage.
     frames = [np.zeros((4, 4, 3), dtype=np.uint8), np.full((4, 4, 3), 7, dtype=np.uint8)]
-    monkeypatch.setattr(
-        "src.vision.capture.WgcWindowCapture", lambda hwnd: FakeWgcSession(frames)
-    )
+    monkeypatch.setattr("src.vision.capture.WgcWindowCapture", lambda hwnd: FakeWgcSession(frames))
 
     assert capture.start(region=(10, 10, 100, 100), hwnd=12345) is True
     assert capture.capture_mode == "wgc"
@@ -98,9 +97,7 @@ def test_wgc_consumes_each_frame_once(monkeypatch, capture):
         np.full((3, 3, 3), 1, dtype=np.uint8),
         np.full((3, 3, 3), 2, dtype=np.uint8),
     ]
-    monkeypatch.setattr(
-        "src.vision.capture.WgcWindowCapture", lambda hwnd: FakeWgcSession(frames)
-    )
+    monkeypatch.setattr("src.vision.capture.WgcWindowCapture", lambda hwnd: FakeWgcSession(frames))
 
     capture.start(hwnd=42)
     first = capture.get_latest_frame()[0, 0, 0]

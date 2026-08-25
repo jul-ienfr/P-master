@@ -7,6 +7,7 @@ class FastPixelProbe:
     Sonde ultra-légère au niveau pixel pour de la détection rapide (ex: à qui est le tour)
     sans avoir besoin d'invoquer tout l'OCR ou YOLO.
     """
+
     def __init__(self):
         pass
 

@@ -88,7 +88,11 @@ class ObservationDatasetCollector:
         if canonical_state.hero_cards or canonical_state.legal_actions:
             return None
 
-        visual_metadata = dict(getattr(detector_state, "metadata", {}) or {}) if detector_state is not None else {}
+        visual_metadata = (
+            dict(getattr(detector_state, "metadata", {}) or {})
+            if detector_state is not None
+            else {}
+        )
         if self.require_visual_change:
             if bool(visual_metadata.get("reused_visual_state", False)):
                 return None
@@ -122,7 +126,10 @@ class ObservationDatasetCollector:
             tuple(canonical_state.action_buttons),
         )
         frame_digest = self._frame_digest(frame)
-        if capture_signature == self._last_capture_signature and frame_digest == self._last_capture_digest:
+        if (
+            capture_signature == self._last_capture_signature
+            and frame_digest == self._last_capture_digest
+        ):
             return None
 
         timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S_%f")[:-3]

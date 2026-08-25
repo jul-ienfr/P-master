@@ -1,4 +1,5 @@
 """Tests des builders de payloads mock (gros volume, déterministes)."""
+
 import json
 
 from poker.decisionmaker.v2_contracts import (

@@ -4,8 +4,8 @@ import os
 import subprocess
 import sys
 import time
-from pathlib import Path
 from collections.abc import Callable
+from pathlib import Path
 
 from src.runtime.health import HealthMonitor
 
@@ -56,7 +56,9 @@ class OperatorBridge:
                 self.health_monitor.record_success("bridge")
         except Exception as exc:
             if self.health_monitor is not None:
-                self.health_monitor.record_error("bridge", str(exc) or "bridge_publish_error", status="degraded", cooldown_s=1.0)
+                self.health_monitor.record_error(
+                    "bridge", str(exc) or "bridge_publish_error", status="degraded", cooldown_s=1.0
+                )
             return
 
         self._last_runtime_state_published_at = now
@@ -68,7 +70,9 @@ class OperatorBridge:
                 self.health_monitor.record_success("bridge")
         except Exception as exc:
             if self.health_monitor is not None:
-                self.health_monitor.record_error("bridge", str(exc) or "bridge_consume_error", status="degraded", cooldown_s=1.0)
+                self.health_monitor.record_error(
+                    "bridge", str(exc) or "bridge_consume_error", status="degraded", cooldown_s=1.0
+                )
             raise
 
         if not commands:
@@ -118,7 +122,9 @@ class OperatorBridge:
         self.sleep_fn(0.35)
         if self.api_process.poll() is not None:
             if self.health_monitor is not None:
-                self.health_monitor.record_error("api", "api_process_exited_early", status="unavailable", cooldown_s=2.0)
+                self.health_monitor.record_error(
+                    "api", "api_process_exited_early", status="unavailable", cooldown_s=2.0
+                )
             raise RuntimeError(
                 f"Le process API bridge a quitte immediatement avec le code {self.api_process.returncode}."
             )
@@ -136,7 +142,9 @@ class OperatorBridge:
                     self.health_monitor.record_success("api")
             except Exception:
                 if self.health_monitor is not None:
-                    self.health_monitor.record_error("api", "api_process_stop_error", status="degraded")
+                    self.health_monitor.record_error(
+                        "api", "api_process_stop_error", status="degraded"
+                    )
                 try:
                     process.kill()
                 except Exception:

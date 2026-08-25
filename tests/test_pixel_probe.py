@@ -1,4 +1,5 @@
 """Tests de la sonde pixel rapide (src/bot/pixel_probe.py)."""
+
 import sys
 from pathlib import Path
 

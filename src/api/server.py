@@ -66,18 +66,20 @@ class BotAPI(
         self._setup_cors()
 
     def _setup_routes(self):
-        self.app.router.add_get('/api/hitl/status', self.handle_get_status)
-        self.app.router.add_post('/api/hitl/resolve', self.handle_resolve)
-        self.app.router.add_get('/runtime-snapshot', self.handle_runtime_snapshot)
-        self.app.router.add_get('/runtime-observation', self.handle_runtime_observation)
-        self.app.router.add_get('/runtime-observation/export', self.handle_runtime_observation_export)
-        self.app.router.add_get('/runtime-forecast/timesfm', self.handle_runtime_timesfm_forecast)
-        self.app.router.add_get('/runtime-history', self.handle_runtime_history)
-        self.app.router.add_get('/runtime-history/export', self.handle_runtime_history_export)
-        self.app.router.add_post('/runtime-history/import', self.handle_runtime_history_import)
-        self.app.router.add_get('/bot-cockpit/payload', self.handle_runtime_snapshot)
-        self.app.router.add_get('/bot-cockpit/refresh', self.handle_runtime_snapshot)
-        self.app.router.add_post('/bot-cockpit/operator', self.handle_operator_control)
+        self.app.router.add_get("/api/hitl/status", self.handle_get_status)
+        self.app.router.add_post("/api/hitl/resolve", self.handle_resolve)
+        self.app.router.add_get("/runtime-snapshot", self.handle_runtime_snapshot)
+        self.app.router.add_get("/runtime-observation", self.handle_runtime_observation)
+        self.app.router.add_get(
+            "/runtime-observation/export", self.handle_runtime_observation_export
+        )
+        self.app.router.add_get("/runtime-forecast/timesfm", self.handle_runtime_timesfm_forecast)
+        self.app.router.add_get("/runtime-history", self.handle_runtime_history)
+        self.app.router.add_get("/runtime-history/export", self.handle_runtime_history_export)
+        self.app.router.add_post("/runtime-history/import", self.handle_runtime_history_import)
+        self.app.router.add_get("/bot-cockpit/payload", self.handle_runtime_snapshot)
+        self.app.router.add_get("/bot-cockpit/refresh", self.handle_runtime_snapshot)
+        self.app.router.add_post("/bot-cockpit/operator", self.handle_operator_control)
 
     @staticmethod
     def _now_iso() -> str:
@@ -101,13 +103,16 @@ class BotAPI(
             logger.warning("aiohttp_cors n'est pas installe. Configuration CORS desactivee.")
             return
 
-        cors = aiohttp_cors.setup(self.app, defaults={
-            "*": aiohttp_cors.ResourceOptions(
-                allow_credentials=True,
-                expose_headers="*",
-                allow_headers="*",
-            )
-        })
+        cors = aiohttp_cors.setup(
+            self.app,
+            defaults={
+                "*": aiohttp_cors.ResourceOptions(
+                    allow_credentials=True,
+                    expose_headers="*",
+                    allow_headers="*",
+                )
+            },
+        )
         for route in list(self.app.router.routes()):
             cors.add(route)
 

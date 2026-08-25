@@ -38,13 +38,17 @@ class MetricsMixin:
             if isinstance(latency_ms, (int, float)):
                 latencies.append(float(latency_ms))
 
-        rolling_latency_ms = round(sum(latencies[:5]) / min(len(latencies), 5), 1) if latencies else 0.0
+        rolling_latency_ms = (
+            round(sum(latencies[:5]) / min(len(latencies), 5), 1) if latencies else 0.0
+        )
         block_rate = round(blocked_count / decision_count, 3) if decision_count else 0.0
         fallback_rate = round(fallback_count / decision_count, 3) if decision_count else 0.0
 
         timestamps = [
             parsed
-            for parsed in (self._parse_runtime_timestamp(entry.get("timestamp")) for entry in decisions)
+            for parsed in (
+                self._parse_runtime_timestamp(entry.get("timestamp")) for entry in decisions
+            )
             if parsed is not None
         ]
         if len(timestamps) >= 2:
@@ -72,7 +76,9 @@ class MetricsMixin:
             return entries[0].get("timestamp")
         return None
 
-    def _build_persisted_metrics_snapshot(self, local_metrics: dict, history: dict, persistence: dict) -> dict:
+    def _build_persisted_metrics_snapshot(
+        self, local_metrics: dict, history: dict, persistence: dict
+    ) -> dict:
         runtime_history = {
             "events": history.get("events", []) or [],
             "decisions": history.get("decisions", []) or [],
@@ -100,13 +106,29 @@ class MetricsMixin:
                 "latest_incident_at": self._latest_timestamp(runtime_history["incidents"]),
             },
             "persisted": {
-                "event_count": int(store_summary["counts"].get("events", len(persisted_history.get("events", []))) or 0),
-                "decision_count": int(store_summary["counts"].get("decisions", len(persisted_history.get("decisions", []))) or 0),
-                "incident_count": int(store_summary["counts"].get("incidents", len(persisted_history.get("incidents", []))) or 0),
+                "event_count": int(
+                    store_summary["counts"].get("events", len(persisted_history.get("events", [])))
+                    or 0
+                ),
+                "decision_count": int(
+                    store_summary["counts"].get(
+                        "decisions", len(persisted_history.get("decisions", []))
+                    )
+                    or 0
+                ),
+                "incident_count": int(
+                    store_summary["counts"].get(
+                        "incidents", len(persisted_history.get("incidents", []))
+                    )
+                    or 0
+                ),
                 "metrics_count": int(store_summary["counts"].get("metrics", 0) or 0),
-                "latest_event_at": store_summary["latest_at"].get("events") or self._latest_timestamp(persisted_history.get("events", [])),
-                "latest_decision_at": store_summary["latest_at"].get("decisions") or self._latest_timestamp(persisted_history.get("decisions", [])),
-                "latest_incident_at": store_summary["latest_at"].get("incidents") or self._latest_timestamp(persisted_history.get("incidents", [])),
+                "latest_event_at": store_summary["latest_at"].get("events")
+                or self._latest_timestamp(persisted_history.get("events", [])),
+                "latest_decision_at": store_summary["latest_at"].get("decisions")
+                or self._latest_timestamp(persisted_history.get("decisions", [])),
+                "latest_incident_at": store_summary["latest_at"].get("incidents")
+                or self._latest_timestamp(persisted_history.get("incidents", [])),
                 "latest_metrics_at": store_summary["latest_at"].get("metrics"),
             },
             "storage": {

@@ -1,4 +1,5 @@
 """Détecteur template (fallback calibration) : matching par région et scoring (extrait de src/vision/detector.py)."""
+
 import logging
 from pathlib import Path
 from typing import Any
@@ -27,7 +28,9 @@ logger = logging.getLogger(__name__)
 FALLBACK_SCALE_FACTORS = (0.75, 0.85, 0.95, 1.0, 1.1, 1.2, 1.35)
 
 
-def _find_template_sqdiff(haystack: np.ndarray, template: np.ndarray) -> tuple[float, tuple[int, int]]:
+def _find_template_sqdiff(
+    haystack: np.ndarray, template: np.ndarray
+) -> tuple[float, tuple[int, int]]:
     if haystack is None or template is None:
         return 1.0, (0, 0)
     if haystack.shape[0] < template.shape[0] or haystack.shape[1] < template.shape[1]:
@@ -71,7 +74,9 @@ def _find_template_candidates(
     return candidates
 
 
-def _clip_bbox(bbox: tuple[int, int, int, int], frame_shape: tuple[int, int]) -> tuple[int, int, int, int]:
+def _clip_bbox(
+    bbox: tuple[int, int, int, int], frame_shape: tuple[int, int]
+) -> tuple[int, int, int, int]:
     height, width = frame_shape[:2]
     x1, y1, x2, y2 = bbox
     return (
@@ -98,7 +103,9 @@ def _bbox_overlap_ratio(
 
 
 def _center_inside_region(center: tuple[float, float], region: tuple[int, int, int, int]) -> bool:
-    return float(region[0]) <= center[0] <= float(region[2]) and float(region[1]) <= center[1] <= float(region[3])
+    return float(region[0]) <= center[0] <= float(region[2]) and float(region[1]) <= center[
+        1
+    ] <= float(region[3])
 
 
 def _distance_score(center: tuple[float, float], region: tuple[int, int, int, int]) -> float:
@@ -106,7 +113,9 @@ def _distance_score(center: tuple[float, float], region: tuple[int, int, int, in
     ry = (float(region[1]) + float(region[3])) / 2.0
     half_w = max(1.0, (float(region[2]) - float(region[0])) / 2.0)
     half_h = max(1.0, (float(region[3]) - float(region[1])) / 2.0)
-    normalized_distance = (((center[0] - rx) / half_w) ** 2 + ((center[1] - ry) / half_h) ** 2) ** 0.5
+    normalized_distance = (
+        ((center[0] - rx) / half_w) ** 2 + ((center[1] - ry) / half_h) ** 2
+    ) ** 0.5
     return max(0.0, min(1.0, 1.0 - (normalized_distance / 1.6)))
 
 
@@ -143,7 +152,9 @@ def score_detection_geometry(
     }
     if visual_kind == "card":
         result["visual_score"] = _card_shape_score(detection, region)
-        result["score"] = round((result["geometry_score"] * 0.8) + (result["visual_score"] * 0.2), 4)
+        result["score"] = round(
+            (result["geometry_score"] * 0.8) + (result["visual_score"] * 0.2), 4
+        )
     else:
         result["score"] = result["geometry_score"]
     return result
@@ -164,7 +175,11 @@ def build_detection_quality_metadata(
     for field_name, region_name in region_map.items():
         region = pixel_regions.get(region_name)
         raw_detections = getattr(state, field_name, None)
-        detections = raw_detections if isinstance(raw_detections, list) else ([raw_detections] if raw_detections is not None else [])
+        detections = (
+            raw_detections
+            if isinstance(raw_detections, list)
+            else ([raw_detections] if raw_detections is not None else [])
+        )
         items = [
             score_detection_geometry(
                 detection,
@@ -177,7 +192,9 @@ def build_detection_quality_metadata(
         quality[field_name] = {
             "region": region_name,
             "count": len(detections),
-            "average_score": round(sum(item["score"] for item in items) / len(items), 4) if items else 0.0,
+            "average_score": round(sum(item["score"] for item in items) / len(items), 4)
+            if items
+            else 0.0,
             "detections": items,
         }
     return quality
@@ -252,13 +269,7 @@ def _has_visible_card_signal(crop: np.ndarray | None) -> bool:
     bright_ratio = float((gray > 140).mean())
     high_bright_ratio = float((gray > 180).mean())
     gray_std = float(gray.std())
-    green_ratio = float(
-        (
-            (hsv[:, :, 0] > 35)
-            & (hsv[:, :, 0] < 95)
-            & (hsv[:, :, 1] > 40)
-        ).mean()
-    )
+    green_ratio = float(((hsv[:, :, 0] > 35) & (hsv[:, :, 0] < 95) & (hsv[:, :, 1] > 40)).mean())
 
     if bright_ratio >= 0.12 or high_bright_ratio >= 0.08:
         return True
@@ -298,7 +309,6 @@ def _dedupe_card_detections(detections: list[DetectionResult], sort_key) -> list
 
 def _resolved_card_detections(detections: list[DetectionResult]) -> list[DetectionResult]:
     return [detection for detection in detections if decode_card_token(detection.class_name)]
-
 
 
 class TemplateFallbackDetector:
@@ -367,7 +377,9 @@ class TemplateFallbackDetector:
         region_scale_x = effective_width / max(float(preset.table_width), 1.0)
         region_scale_y = effective_height / max(float(preset.table_height), 1.0)
         region_scale = (region_scale_x, region_scale_y)
-        content_scale = max(0.55, min(float(template_scale), (region_scale_x + region_scale_y) / 2.0))
+        content_scale = max(
+            0.55, min(float(template_scale), (region_scale_x + region_scale_y) / 2.0)
+        )
 
         state.metadata.update(
             {
@@ -379,7 +391,10 @@ class TemplateFallbackDetector:
                 "topleft_match_score": round(max(0.0, 1.0 - anchor_error), 4),
                 "topleft_match_scale": round(float(template_scale), 3),
                 "content_match_scale": round(float(content_scale), 3),
-                "content_region_scale": [round(float(region_scale_x), 3), round(float(region_scale_y), 3)],
+                "content_region_scale": [
+                    round(float(region_scale_x), 3),
+                    round(float(region_scale_y), 3),
+                ],
                 "table_bbox": [int(value) for value in clipped_table_bbox],
                 "button_slot_boxes": {
                     key: [int(value) for value in bbox]
@@ -393,10 +408,18 @@ class TemplateFallbackDetector:
             }
         )
 
-        state.action_buttons = self._detect_action_buttons(frame, table_frame, preset, table_origin, content_scale, region_scale)
-        state.dealer_button = self._detect_dealer_button(frame, table_frame, preset, table_origin, content_scale, region_scale)
-        state.hero_cards = self._detect_hero_cards(frame, table_frame, preset, table_origin, content_scale, region_scale)
-        state.board_cards = self._detect_board_cards(frame, table_frame, preset, table_origin, content_scale, region_scale)
+        state.action_buttons = self._detect_action_buttons(
+            frame, table_frame, preset, table_origin, content_scale, region_scale
+        )
+        state.dealer_button = self._detect_dealer_button(
+            frame, table_frame, preset, table_origin, content_scale, region_scale
+        )
+        state.hero_cards = self._detect_hero_cards(
+            frame, table_frame, preset, table_origin, content_scale, region_scale
+        )
+        state.board_cards = self._detect_board_cards(
+            frame, table_frame, preset, table_origin, content_scale, region_scale
+        )
         if state.hero_cards or state.board_cards:
             best_board_by_label = {card.class_name: card for card in state.board_cards}
             best_hero_by_label = {card.class_name: card for card in state.hero_cards}
@@ -405,9 +428,13 @@ class TemplateFallbackDetector:
                 board_card = best_board_by_label[label]
                 hero_card = best_hero_by_label[label]
                 if board_card.confidence >= hero_card.confidence:
-                    state.hero_cards = [card for card in state.hero_cards if card.class_name != label]
+                    state.hero_cards = [
+                        card for card in state.hero_cards if card.class_name != label
+                    ]
                 else:
-                    state.board_cards = [card for card in state.board_cards if card.class_name != label]
+                    state.board_cards = [
+                        card for card in state.board_cards if card.class_name != label
+                    ]
             state.hero_cards = _dedupe_card_detections(state.hero_cards, detection_sort_key)
             state.board_cards = _dedupe_card_detections(state.board_cards, board_sort_key)
             if len(state.hero_cards) == 0:
@@ -573,7 +600,9 @@ class TemplateFallbackDetector:
             "anchor_name": anchor_name,
             "location": (int(location[0]), int(location[1])),
             "scale": float(scale),
-            "frame_shape": tuple(int(value) for value in preset.anchor_templates[anchor_name].shape[:2]),
+            "frame_shape": tuple(
+                int(value) for value in preset.anchor_templates[anchor_name].shape[:2]
+            ),
             "error": float(error),
         }
         return match
@@ -603,7 +632,9 @@ class TemplateFallbackDetector:
             return None
 
         best_match: tuple[TemplatePreset, tuple[int, int], float, str, float] | None = None
-        for scale in self._ordered_candidate_scales(frame, preset, prior_scale=prior_scale, limit=5):
+        for scale in self._ordered_candidate_scales(
+            frame, preset, prior_scale=prior_scale, limit=5
+        ):
             scaled_template = _resize_template(anchor_template, scale)
             if (
                 scaled_template.shape[1] >= frame.shape[1]
@@ -702,7 +733,9 @@ class TemplateFallbackDetector:
             prior_scale = None
             if self._last_match and self._last_match.get("preset_name") == preset.name:
                 prior_scale = self._last_match.get("scale")
-            scale_candidates = self._ordered_candidate_scales(frame, preset, prior_scale=prior_scale, limit=6)
+            scale_candidates = self._ordered_candidate_scales(
+                frame, preset, prior_scale=prior_scale, limit=6
+            )
             for anchor_name, anchor_template in preset.anchor_templates.items():
                 expected_location = None
                 if (
@@ -725,7 +758,9 @@ class TemplateFallbackDetector:
                         scaled_template.shape[:2],
                         expected_location=expected_location,
                     ):
-                        candidate = self._find_template_sqdiff_in_region(frame, scaled_template, region)
+                        candidate = self._find_template_sqdiff_in_region(
+                            frame, scaled_template, region
+                        )
                         if candidate is None:
                             continue
                         error, location = candidate
@@ -741,7 +776,9 @@ class TemplateFallbackDetector:
             prior_scale = None
             if self._last_match and self._last_match.get("preset_name") == preset.name:
                 prior_scale = self._last_match.get("scale")
-            scale_candidates = self._ordered_candidate_scales(frame, preset, prior_scale=prior_scale)
+            scale_candidates = self._ordered_candidate_scales(
+                frame, preset, prior_scale=prior_scale
+            )
             for anchor_name, anchor_template in preset.anchor_templates.items():
                 for scale in scale_candidates:
                     scaled_template = _resize_template(anchor_template, scale)
@@ -755,12 +792,9 @@ class TemplateFallbackDetector:
                         max_x, max_y = preset.anchor_match_bounds[anchor_name]
                         # Compact anchors were originally calibrated on pre-cropped table captures,
                         # but the live runtime searches inside window and multi-screen frames.
-                        strong_global_match = (
-                            error <= 0.02
-                            and (
-                                frame.shape[1] > preset.table_width + 80
-                                or frame.shape[0] > preset.table_height + 80
-                            )
+                        strong_global_match = error <= 0.02 and (
+                            frame.shape[1] > preset.table_width + 80
+                            or frame.shape[0] > preset.table_height + 80
                         )
                         if (location[0] > max_x or location[1] > max_y) and not strong_global_match:
                             continue
@@ -980,11 +1014,7 @@ class TemplateFallbackDetector:
             slot_crop = _crop_frame(full_frame, slot_bbox)
             slot_visibility[slot_key] = self._has_generic_button_signal(slot_crop)
 
-        visible_slots = {
-            slot_key
-            for slot_key, visible in slot_visibility.items()
-            if visible
-        }
+        visible_slots = {slot_key for slot_key, visible in slot_visibility.items() if visible}
         if not visible_slots:
             return detections
 
@@ -1014,9 +1044,13 @@ class TemplateFallbackDetector:
             best_detection: DetectionResult | None = None
             priorities = slot_priorities.get(slot_key, ())
             for label in priorities:
-                labeled_candidates = [candidate for candidate in slot_candidates if candidate.class_name == label]
+                labeled_candidates = [
+                    candidate for candidate in slot_candidates if candidate.class_name == label
+                ]
                 if labeled_candidates:
-                    best_detection = max(labeled_candidates, key=lambda candidate: candidate.confidence)
+                    best_detection = max(
+                        labeled_candidates, key=lambda candidate: candidate.confidence
+                    )
                     break
 
             if best_detection is None and slot_candidates:
@@ -1083,7 +1117,7 @@ class TemplateFallbackDetector:
         dark_ratio = float((gray < 105).mean())
         red_ratio = float(
             (
-                (((hsv[:, :, 0] < 12) | (hsv[:, :, 0] > 168)))
+                ((hsv[:, :, 0] < 12) | (hsv[:, :, 0] > 168))
                 & (hsv[:, :, 1] > 70)
                 & (hsv[:, :, 2] > 75)
             ).mean()
@@ -1093,7 +1127,12 @@ class TemplateFallbackDetector:
 
         if red_ratio >= 0.035 and bright_ratio >= 0.01:
             return True
-        if bright_ratio >= 0.018 and dark_ratio >= 0.18 and contrast >= 18.0 and edge_ratio >= 0.018:
+        if (
+            bright_ratio >= 0.018
+            and dark_ratio >= 0.18
+            and contrast >= 18.0
+            and edge_ratio >= 0.018
+        ):
             return True
         return False
 
@@ -1107,7 +1146,9 @@ class TemplateFallbackDetector:
 
         gray = cv2.cvtColor(search_crop, cv2.COLOR_BGR2GRAY)
         white_mask = (gray > 140).astype(np.uint8) * 255
-        component_count, _labels, stats, _centroids = cv2.connectedComponentsWithStats(white_mask, 8)
+        component_count, _labels, stats, _centroids = cv2.connectedComponentsWithStats(
+            white_mask, 8
+        )
         if component_count <= 1:
             return []
 
@@ -1122,14 +1163,18 @@ class TemplateFallbackDetector:
                 if region_mask.size > 0:
                     column_strength = (region_mask > 0).sum(axis=0).astype(np.float32)
                     if column_strength.size >= 12:
-                        smoothed = cv2.GaussianBlur(column_strength.reshape(1, -1), (1, 9), 0).reshape(-1)
+                        smoothed = cv2.GaussianBlur(
+                            column_strength.reshape(1, -1), (1, 9), 0
+                        ).reshape(-1)
                         search_start = int(round(w * 0.22))
                         search_end = int(round(w * 0.78))
                         if search_end > search_start:
                             valley_offset = int(np.argmin(smoothed[search_start:search_end]))
                             valley_index = search_start + valley_offset
                             max_strength = float(smoothed.max()) if smoothed.size else 0.0
-                            valley_strength = float(smoothed[valley_index]) if smoothed.size else max_strength
+                            valley_strength = (
+                                float(smoothed[valley_index]) if smoothed.size else max_strength
+                            )
                             if max_strength > 0.0 and valley_strength <= (max_strength * 0.45):
                                 split_index = valley_index
 
@@ -1254,7 +1299,11 @@ class TemplateFallbackDetector:
                     and template_corner is not None
                     and template_corner.size > 0
                 ):
-                    interpolation = cv2.INTER_AREA if crop_corner.shape[0] >= template_corner.shape[0] else cv2.INTER_CUBIC
+                    interpolation = (
+                        cv2.INTER_AREA
+                        if crop_corner.shape[0] >= template_corner.shape[0]
+                        else cv2.INTER_CUBIC
+                    )
                     resized_corner = cv2.resize(
                         crop_corner,
                         (template_corner.shape[1], template_corner.shape[0]),
@@ -1262,14 +1311,13 @@ class TemplateFallbackDetector:
                     )
                     corner_error = float(
                         np.mean(
-                            (
-                                resized_corner.astype(np.float32)
-                                - template_corner.astype(np.float32)
-                            )
+                            (resized_corner.astype(np.float32) - template_corner.astype(np.float32))
                             ** 2
                         )
-                    ) / (255.0 ** 2)
-                    combined_error = (adjusted_error * (1.0 - corner_weight)) + (corner_error * corner_weight)
+                    ) / (255.0**2)
+                    combined_error = (adjusted_error * (1.0 - corner_weight)) + (
+                        corner_error * corner_weight
+                    )
 
                 if best_error is None or combined_error < best_error:
                     best_error = combined_error
@@ -1331,7 +1379,9 @@ class TemplateFallbackDetector:
                 template_scale,
             )
             candidate_crop = _crop_frame(search_crop, normalized_bbox)
-            classified = self._classify_card_crop(candidate_crop, preset, template_scale, corner_weight=corner_weight)
+            classified = self._classify_card_crop(
+                candidate_crop, preset, template_scale, corner_weight=corner_weight
+            )
             if classified is None:
                 continue
 
@@ -1354,7 +1404,9 @@ class TemplateFallbackDetector:
                 )
             )
 
-        detections = _dedupe_card_detections(dedupe_nearby_detections(detections, 18.0, 18.0), sort_key)
+        detections = _dedupe_card_detections(
+            dedupe_nearby_detections(detections, 18.0, 18.0), sort_key
+        )
         return detections[:limit]
 
     def _detect_generic_action_buttons(
@@ -1375,7 +1427,9 @@ class TemplateFallbackDetector:
         upper_red_1 = np.array([12, 255, 255], dtype=np.uint8)
         lower_red_2 = np.array([168, 70, 80], dtype=np.uint8)
         upper_red_2 = np.array([180, 255, 255], dtype=np.uint8)
-        red_mask = cv2.inRange(hsv, lower_red_1, upper_red_1) | cv2.inRange(hsv, lower_red_2, upper_red_2)
+        red_mask = cv2.inRange(hsv, lower_red_1, upper_red_1) | cv2.inRange(
+            hsv, lower_red_2, upper_red_2
+        )
         kernel = np.ones((5, 5), dtype=np.uint8)
         red_mask = cv2.morphologyEx(red_mask, cv2.MORPH_CLOSE, kernel, iterations=2)
         red_mask = cv2.morphologyEx(red_mask, cv2.MORPH_OPEN, kernel, iterations=1)
@@ -1772,7 +1826,10 @@ class TemplateFallbackDetector:
                 DetectionResult(
                     class_name=class_name,
                     confidence=1.0,
-                    bbox=_clip_bbox((origin_x + x1, origin_y + y1, origin_x + x2, origin_y + y2), full_frame.shape[:2]),
+                    bbox=_clip_bbox(
+                        (origin_x + x1, origin_y + y1, origin_x + x2, origin_y + y2),
+                        full_frame.shape[:2],
+                    ),
                 )
             )
 
@@ -1787,7 +1844,9 @@ class TemplateFallbackDetector:
         template_scale: float,
         region_scale: tuple[float, float],
     ) -> list[DetectionResult]:
-        board_slot_map = preset.table_data.get("board_card_areas") or preset.table_data.get("table_card_areas")
+        board_slot_map = preset.table_data.get("board_card_areas") or preset.table_data.get(
+            "table_card_areas"
+        )
         if isinstance(board_slot_map, dict):
             detections: list[DetectionResult] = []
             for _, candidate in self._sorted_area_items(board_slot_map):
@@ -1936,7 +1995,12 @@ class TemplateFallbackDetector:
                     ]
                     crop_corner = _extract_card_corner(matched_crop)
                     template_corner = _extract_card_corner(scaled_template)
-                    if crop_corner is not None and template_corner is not None and crop_corner.size and template_corner.size:
+                    if (
+                        crop_corner is not None
+                        and template_corner is not None
+                        and crop_corner.size
+                        and template_corner.size
+                    ):
                         if crop_corner.shape[:2] != template_corner.shape[:2]:
                             crop_corner = cv2.resize(
                                 crop_corner,
@@ -1945,10 +2009,16 @@ class TemplateFallbackDetector:
                             )
                         corner_error = float(
                             np.mean(
-                                (crop_corner.astype(np.float32) - template_corner.astype(np.float32)) ** 2
+                                (
+                                    crop_corner.astype(np.float32)
+                                    - template_corner.astype(np.float32)
+                                )
+                                ** 2
                             )
-                        ) / (255.0 ** 2)
-                        combined_error = (adjusted_error * (1.0 - corner_weight)) + (corner_error * corner_weight)
+                        ) / (255.0**2)
+                        combined_error = (adjusted_error * (1.0 - corner_weight)) + (
+                            corner_error * corner_weight
+                        )
 
                 if best_error is None or combined_error < best_error:
                     best_error = combined_error
@@ -1957,7 +2027,11 @@ class TemplateFallbackDetector:
                     best_location = location
                     best_scale = scale_candidate
 
-        if best_label is None or best_error is None or best_error > (0.24 if abs(template_scale - 1.0) > 0.05 else 0.18):
+        if (
+            best_label is None
+            or best_error is None
+            or best_error > (0.24 if abs(template_scale - 1.0) > 0.05 else 0.18)
+        ):
             return None
 
         template = _resize_template(preset.card_templates[best_label], best_scale)
@@ -1969,7 +2043,9 @@ class TemplateFallbackDetector:
         y2 = y1 + template.shape[0]
         return DetectionResult(
             class_name=best_label,
-            confidence=max(0.0, 1.0 - float(best_raw_error if best_raw_error is not None else best_error)),
+            confidence=max(
+                0.0, 1.0 - float(best_raw_error if best_raw_error is not None else best_error)
+            ),
             bbox=_clip_bbox((x1, y1, x2, y2), full_frame.shape[:2]),
         )
 
@@ -2008,7 +2084,9 @@ class TemplateFallbackDetector:
                 for error, location in _find_template_candidates(
                     search_crop,
                     scaled_template,
-                    threshold=max(threshold, 0.18 if abs(scale_candidate - 1.0) > 0.05 else threshold),
+                    threshold=max(
+                        threshold, 0.18 if abs(scale_candidate - 1.0) > 0.05 else threshold
+                    ),
                     max_candidates=max(2, limit),
                 ):
                     adjusted_error = _location_adjusted_error(
@@ -2037,5 +2115,3 @@ class TemplateFallbackDetector:
         )
         detections.sort(key=board_sort_key)
         return detections[:limit]
-
-

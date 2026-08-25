@@ -169,11 +169,21 @@ def test_memory_backend_respects_explicit_vpip_and_pfr_flags():
         await manager.record_observed_hand("Villain", "PREFLOP")
         await manager.update_player_action(
             "Villain",
-            {"action": "RAISE/BET", "street": "PREFLOP", "counts_towards_vpip": 1, "counts_towards_pfr": 1},
+            {
+                "action": "RAISE/BET",
+                "street": "PREFLOP",
+                "counts_towards_vpip": 1,
+                "counts_towards_pfr": 1,
+            },
         )
         await manager.update_player_action(
             "Villain",
-            {"action": "RAISE/BET", "street": "PREFLOP", "counts_towards_vpip": 0, "counts_towards_pfr": 0},
+            {
+                "action": "RAISE/BET",
+                "street": "PREFLOP",
+                "counts_towards_vpip": 0,
+                "counts_towards_pfr": 0,
+            },
         )
 
         profile = await manager.get_player_profile("Villain")

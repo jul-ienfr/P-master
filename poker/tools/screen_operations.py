@@ -1,4 +1,5 @@
 """Operations to help identify items on screen."""
+
 import io
 import logging
 import os
@@ -30,29 +31,31 @@ from poker.tools.vbox_manager import VirtualBoxController
 log = logging.getLogger(__name__)
 is_debug = False  # used for saving images for debug purposes
 
-if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-    tesserpath = os.path.join(get_dir('codebase'), 'tessdata')
+if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+    tesserpath = os.path.join(get_dir("codebase"), "tessdata")
 else:
-    tesserpath = os.path.join(get_dir('codebase'), '..', 'tessdata')
+    tesserpath = os.path.join(get_dir("codebase"), "..", "tessdata")
 
 rapidocr_engine = None
 tesserocr_api = None
 
-OCR_SANITIZE_MAP = str.maketrans({
-    '$': '',
-    '£': '',
-    '€': '',
-    'B': '',
-    'b': '',
-    ',': '.',
-    ':': '.',
-    '\n': '',
-    '\r': '',
-    ' ': '',
-    'O': '0',
-    'o': '0',
-    '|': '1',
-})
+OCR_SANITIZE_MAP = str.maketrans(
+    {
+        "$": "",
+        "£": "",
+        "€": "",
+        "B": "",
+        "b": "",
+        ",": ".",
+        ":": ".",
+        "\n": "",
+        "\r": "",
+        " ": "",
+        "O": "0",
+        "o": "0",
+        "|": "1",
+    }
+)
 
 
 def get_rapidocr_engine():
@@ -112,7 +115,7 @@ def load_table_template_cached(table_name):
     return table
 
 
-def get_table_template_image(table_name='default', label='topleft_corner'):
+def get_table_template_image(table_name="default", label="topleft_corner"):
     """Load template from mongodb as cv2 image."""
     mongo = MongoManager()
     table = mongo.get_table(table_name=table_name)
@@ -139,7 +142,7 @@ def prepareImage(img_orig, binarize=True, threshold=76):
     basewidth = 300
     wpercent = basewidth / float(img_orig.size[0])
     hsize = int(float(img_orig.size[1]) * float(wpercent))
-    img_resized = img_orig.convert('L').resize((basewidth, hsize), Image.LANCZOS)
+    img_resized = img_orig.convert("L").resize((basewidth, hsize), Image.LANCZOS)
     if binarize:
         img_resized = binarize_array_opencv(img_resized, threshold)
 
@@ -152,8 +155,8 @@ def prepareImage(img_orig, binarize=True, threshold=76):
             log.error("Creation of the directory %s failed", pics_path)
             sys.exit(1)
 
-        img_orig.save('log/pics/img_orig.png')
-        img_resized.save('log/pics/img_resized.png')
+        img_orig.save("log/pics/img_orig.png")
+        img_resized.save("log/pics/img_resized.png")
         log.debug("ocr images prepared")
 
     return img_resized
@@ -161,11 +164,11 @@ def prepareImage(img_orig, binarize=True, threshold=76):
 
 def _extract_rapidocr_text(result):
     """Return the first text/confidence pair from a RapidOCR result object."""
-    texts = getattr(result, 'txts', None) or ()
-    scores = getattr(result, 'scores', None) or ()
+    texts = getattr(result, "txts", None) or ()
+    scores = getattr(result, "scores", None) or ()
     if not texts:
-        return '', None
-    text = ''.join(part for part in texts if part)
+        return "", None
+    text = "".join(part for part in texts if part)
     score = max(scores) if scores else None
     return text, score
 
@@ -207,16 +210,16 @@ def _recognize_numeric_text(img_orig):
 def _normalize_ocr_number_text(text):
     """Normalize OCR output before float conversion."""
     if text is None:
-        return ''
+        return ""
 
     cleaned = str(text).strip()
-    cleaned = cleaned.replace('Â', '').replace('Ã‚', '').replace('â‚¬', '')
+    cleaned = cleaned.replace("Â", "").replace("Ã‚", "").replace("â‚¬", "")
     cleaned = cleaned.translate(OCR_SANITIZE_MAP)
-    cleaned = re.sub(r'[^0-9.\-]', '', cleaned)
+    cleaned = re.sub(r"[^0-9.\-]", "", cleaned)
 
-    if cleaned.count('.') > 1:
-        head, *tail = cleaned.split('.')
-        cleaned = head + '.' + ''.join(tail)
+    if cleaned.count(".") > 1:
+        head, *tail = cleaned.split(".")
+        cleaned = head + "." + "".join(tail)
 
     return cleaned
 
@@ -344,9 +347,7 @@ def crop_screenshot_with_topleft_corner(original_screenshot, topleft_corner, use
         return cropped_screenshot, tlc
 
     if count > 1:
-        log.warning(
-            "Multiple top left corners found. Make sure only one table is visible."
-        )
+        log.warning("Multiple top left corners found. Make sure only one table is visible.")
         return None, None
 
     log.warning("No top left corner found")
@@ -381,7 +382,9 @@ def check_if_image_in_range(img, screenshot, x1, y1, x2, y2, extended=False):
     return count >= 1
 
 
-def is_template_in_search_area(table_dict, screenshot, image_name, image_area, player=None, extended=False):
+def is_template_in_search_area(
+    table_dict, screenshot, image_name, image_area, player=None, extended=False
+):
     template_cv2 = binary_pil_to_cv2(table_dict[image_name])
     if player:
         try:
@@ -398,15 +401,15 @@ def is_template_in_search_area(table_dict, screenshot, image_name, image_area, p
         is_in_range = check_if_image_in_range(
             template_cv2,
             screenshot,
-            search_area['x1'],
-            search_area['y1'],
-            search_area['x2'],
-            search_area['y2'],
+            search_area["x1"],
+            search_area["y1"],
+            search_area["x2"],
+            search_area["y2"],
             extended=extended,
         )
     except Exception as exc:
-        x = search_area['x2'] - search_area['x1']
-        y = search_area['y2'] - search_area['y1']
+        x = search_area["x2"] - search_area["x1"]
+        y = search_area["y2"] - search_area["y1"]
         xt = template_cv2.shape[1]
         yt = template_cv2.shape[0]
         if x < xt or y < yt:
@@ -446,6 +449,6 @@ def ocr(screenshot, image_area, table_dict, player=None, fast=False):
         search_area = table_dict[image_area]
 
     cropped_screenshot = screenshot.crop(
-        (search_area['x1'], search_area['y1'], search_area['x2'], search_area['y2'])
+        (search_area["x1"], search_area["y1"], search_area["x2"], search_area["y2"])
     )
     return get_ocr_float(cropped_screenshot, fast)

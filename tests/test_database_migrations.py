@@ -1,4 +1,5 @@
 """Tests Phase 3.1 — migrations versionnées et index hot-paths."""
+
 import asyncio
 import sys
 from pathlib import Path
@@ -68,7 +69,9 @@ def test_already_applied_migrations_are_skipped():
 
     assert conn.inserted == []
     migration_sql = [
-        s for s in conn.executed if "CREATE INDEX IF NOT EXISTS" in s or "INSERT INTO schema_migrations" in s
+        s
+        for s in conn.executed
+        if "CREATE INDEX IF NOT EXISTS" in s or "INSERT INTO schema_migrations" in s
     ]
     assert migration_sql == []
 
@@ -92,7 +95,9 @@ def test_migration_table_created_before_select():
 
     executed_normalized = [" ".join(s.split()) for s in conn.executed]
     create_idx = next(
-        i for i, s in enumerate(executed_normalized) if "CREATE TABLE IF NOT EXISTS schema_migrations" in s
+        i
+        for i, s in enumerate(executed_normalized)
+        if "CREATE TABLE IF NOT EXISTS schema_migrations" in s
     )
     select_idx = next(i for i, s in enumerate(executed_normalized) if "SELECT migration_id" in s)
     assert create_idx < select_idx

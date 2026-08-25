@@ -80,7 +80,9 @@ def test_ordered_stacks_by_table_geometry_assigns_stable_clockwise_seats():
         (820, 300, 880, 340),
     ]
 
-    ordered = ordered_stacks_by_table_geometry(stacks, frame_shape=(600, 1000), pot_bbox=(470, 280, 530, 320))
+    ordered = ordered_stacks_by_table_geometry(
+        stacks, frame_shape=(600, 1000), pot_bbox=(470, 280, 530, 320)
+    )
 
     assert ordered == [
         ("seat_0", (470, 80, 530, 120)),
@@ -108,12 +110,15 @@ def test_infer_hero_seat_id_reuses_last_seen_seat_when_cards_missing():
         ("seat_1", (120, 300, 180, 340)),
     ]
 
-    assert infer_hero_seat_id(
-        ordered_stacks,
-        hero_card_bboxes=[],
-        frame_shape=(600, 1000),
-        last_hero_seat_id="seat_1",
-    ) == "seat_1"
+    assert (
+        infer_hero_seat_id(
+            ordered_stacks,
+            hero_card_bboxes=[],
+            frame_shape=(600, 1000),
+            last_hero_seat_id="seat_1",
+        )
+        == "seat_1"
+    )
 
 
 def test_infer_hero_seat_id_keeps_prior_seat_when_it_remains_top_two_candidate():
@@ -124,12 +129,15 @@ def test_infer_hero_seat_id_keeps_prior_seat_when_it_remains_top_two_candidate()
     ]
     hero_cards = [(520, 500, 550, 560), (560, 500, 590, 560)]
 
-    assert infer_hero_seat_id(
-        ordered_stacks,
-        hero_cards,
-        frame_shape=(600, 1000),
-        last_hero_seat_id="seat_0",
-    ) == "seat_0"
+    assert (
+        infer_hero_seat_id(
+            ordered_stacks,
+            hero_cards,
+            frame_shape=(600, 1000),
+            last_hero_seat_id="seat_0",
+        )
+        == "seat_0"
+    )
 
 
 def test_infer_hero_seat_id_keeps_prior_seat_when_scores_are_still_close():
@@ -140,9 +148,12 @@ def test_infer_hero_seat_id_keeps_prior_seat_when_scores_are_still_close():
     ]
     hero_cards = [(590, 490, 620, 560), (625, 490, 655, 560)]
 
-    assert infer_hero_seat_id(
-        ordered_stacks,
-        hero_cards,
-        frame_shape=(600, 1000),
-        last_hero_seat_id="seat_0",
-    ) == "seat_0"
+    assert (
+        infer_hero_seat_id(
+            ordered_stacks,
+            hero_cards,
+            frame_shape=(600, 1000),
+            last_hero_seat_id="seat_0",
+        )
+        == "seat_0"
+    )

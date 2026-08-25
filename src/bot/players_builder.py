@@ -1,4 +1,5 @@
 """Construction des joueurs runtime : pairing stacks/noms, quarantaine OCR (extrait de src/main.py)."""
+
 import time
 from collections.abc import Iterable
 
@@ -22,12 +23,17 @@ class PlayersBuilderMixin:
             return float(cached_player.stack or 0.0)
 
         tracked_player = getattr(getattr(self, "tracker", None), "players", {}).get(seat_id)
-        if tracked_player is not None and float(getattr(tracked_player, "current_stack", 0.0) or 0.0) > 0.0:
+        if (
+            tracked_player is not None
+            and float(getattr(tracked_player, "current_stack", 0.0) or 0.0) > 0.0
+        ):
             return float(getattr(tracked_player, "current_stack", 0.0) or 0.0)
 
         return 0.0
 
-    def _build_stack_quarantine_metadata(self, seat_id: str, fallback_value: float, remaining_s: float) -> dict:
+    def _build_stack_quarantine_metadata(
+        self, seat_id: str, fallback_value: float, remaining_s: float
+    ) -> dict:
         return {
             "field": "amount",
             "mode": "quarantine",
@@ -62,7 +68,9 @@ class PlayersBuilderMixin:
         if tracker_sanity is not None and tracker_sanity.is_stack_read_quarantined(seat_id):
             fallback_value = self._known_stack_fallback(seat_id, cached_player)
             remaining_s = tracker_sanity.get_stack_read_quarantine_remaining(seat_id)
-            return fallback_value, self._build_stack_quarantine_metadata(seat_id, fallback_value, remaining_s)
+            return fallback_value, self._build_stack_quarantine_metadata(
+                seat_id, fallback_value, remaining_s
+            )
 
         numeric_reader = getattr(self, "numeric_reader", None)
         if numeric_reader is None:
@@ -70,7 +78,9 @@ class PlayersBuilderMixin:
             self.numeric_reader = numeric_reader
 
         previous_value = self._known_stack_fallback(seat_id, cached_player)
-        numeric_result = numeric_reader.read_amount("stack", stack_crop, previous_value=previous_value)
+        numeric_result = numeric_reader.read_amount(
+            "stack", stack_crop, previous_value=previous_value
+        )
         metadata = {
             **dict(self.amount_ocr.get_metadata() or {}),
             "numeric_reader": {
@@ -122,8 +132,12 @@ class PlayersBuilderMixin:
         raw_player_name = ""
         if nearest_name is not None:
             # Remplacement des padding pixels fixes (14, 6) par un ratio dynamique (15% en x, 25% en y)
-            name_crop = self._safe_crop(frame, nearest_name.bbox, pad_ratio_x=0.15, pad_ratio_y=0.25)
-            name_result = self._get_player_name_reader().read_name(seat_id, name_crop, self._last_valid_player_names_by_seat)
+            name_crop = self._safe_crop(
+                frame, nearest_name.bbox, pad_ratio_x=0.15, pad_ratio_y=0.25
+            )
+            name_result = self._get_player_name_reader().read_name(
+                seat_id, name_crop, self._last_valid_player_names_by_seat
+            )
             raw_player_name = str(name_result.metadata.get("raw_text", "") or "")
             name_ocr_metadata = dict(name_result.metadata.get("ocr", {}) or {})
             name_confidence = nearest_name.confidence
@@ -139,7 +153,9 @@ class PlayersBuilderMixin:
                 candidate_name=raw_player_name,
                 seat_cache=self._last_valid_player_names_by_seat,
             )
-        identity_state = self.player_identity_state.update(seat_id, player_name, name_resolution_source)
+        identity_state = self.player_identity_state.update(
+            seat_id, player_name, name_resolution_source
+        )
 
         has_button = False
         if state.dealer_button is not None:
@@ -167,7 +183,9 @@ class PlayersBuilderMixin:
                     "resolved_text": player_name,
                     "resolution_source": name_resolution_source,
                     "identity_state": identity_state,
-                    "player_name_reader": name_result.evidence.to_dict() if name_result is not None else None,
+                    "player_name_reader": name_result.evidence.to_dict()
+                    if name_result is not None
+                    else None,
                 },
             },
         )
@@ -239,12 +257,16 @@ class PlayersBuilderMixin:
         if len(positive_stacks) < 2:
             return False
         if hero_seat_id:
-            hero_player = next((player for player in players if player.seat_id == hero_seat_id), None)
+            hero_player = next(
+                (player for player in players if player.seat_id == hero_seat_id), None
+            )
             if hero_player is not None and float(hero_player.stack or 0.0) <= 0.0:
                 return False
         return True
 
-    def _ordered_stacks_by_table_geometry(self, state: TableState, frame: np.ndarray) -> list[tuple[str, DetectionResult]]:
+    def _ordered_stacks_by_table_geometry(
+        self, state: TableState, frame: np.ndarray
+    ) -> list[tuple[str, DetectionResult]]:
         ordered = ordered_stacks_by_table_geometry(
             stack_bboxes=[stack_det.bbox for stack_det in state.stacks],
             frame_shape=frame.shape[:2],
@@ -304,7 +326,7 @@ class PlayersBuilderMixin:
         for player in players:
             has_button = False
             if dealer_center is not None:
-                stack_bbox = (((player.metadata or {}).get("stack_bbox")) or ())
+                stack_bbox = ((player.metadata or {}).get("stack_bbox")) or ()
                 if len(stack_bbox) == 4:
                     sx = (stack_bbox[0] + stack_bbox[2]) / 2.0
                     sy = (stack_bbox[1] + stack_bbox[3]) / 2.0
@@ -335,7 +357,9 @@ class PlayersBuilderMixin:
         signature = self._player_detection_signature(ordered_stacks, state)
         now = time.monotonic()
         responsive_live_path = bool(state.action_buttons)
-        reused_visual_state = bool((getattr(state, "metadata", {}) or {}).get("reused_visual_state", False))
+        reused_visual_state = bool(
+            (getattr(state, "metadata", {}) or {}).get("reused_visual_state", False)
+        )
         cached_by_seat = {player.seat_id: player for player in self._cached_runtime_players}
         if (
             self._cached_runtime_players
@@ -346,10 +370,16 @@ class PlayersBuilderMixin:
                 or (now - self._cached_runtime_players_at) <= self._player_ocr_refresh_interval_s
             )
         ):
-            return list(self._refresh_cached_player_runtime_flags(self._cached_runtime_players, hero_seat_id, state))
+            return list(
+                self._refresh_cached_player_runtime_flags(
+                    self._cached_runtime_players, hero_seat_id, state
+                )
+            )
 
         if responsive_live_path:
-            if not self._runtime_players_have_meaningful_stacks(self._cached_runtime_players, hero_seat_id):
+            if not self._runtime_players_have_meaningful_stacks(
+                self._cached_runtime_players, hero_seat_id
+            ):
                 quick_players: list[CanonicalPlayer] = []
                 for index, (seat_id, stack_det) in enumerate(ordered_stacks):
                     quick_players.append(
@@ -399,7 +429,9 @@ class PlayersBuilderMixin:
                         has_folded=False,
                         is_hero=seat_id == hero_seat_id,
                         has_button=has_button,
-                        confidence=float(cached_player.confidence if cached_player else stack_det.confidence),
+                        confidence=float(
+                            cached_player.confidence if cached_player else stack_det.confidence
+                        ),
                         metadata=metadata,
                     )
                 )
@@ -421,4 +453,3 @@ class PlayersBuilderMixin:
         self._cached_runtime_players_signature = signature
         self._cached_runtime_players_at = now
         return players
-

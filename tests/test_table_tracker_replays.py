@@ -80,8 +80,7 @@ def _tracker_snapshot(tracker: TableTracker) -> dict:
         "current_hand_actions": list(tracker.current_hand_actions),
         "observed_players_this_hand": sorted(tracker.observed_players_this_hand),
         "players": [
-            _player_snapshot(tracker.players[seat_id])
-            for seat_id in sorted(tracker.players)
+            _player_snapshot(tracker.players[seat_id]) for seat_id in sorted(tracker.players)
         ],
     }
 
@@ -91,8 +90,7 @@ def _db_snapshot(db: StubDB) -> dict:
         "observed_calls": [list(call) for call in db.observed_calls],
         "action_updates": [[name, data] for name, data in db.action_updates],
         "hand_history_calls": [
-            [table_name, board, actions]
-            for table_name, board, actions in db.hand_history_calls
+            [table_name, board, actions] for table_name, board, actions in db.hand_history_calls
         ],
     }
 

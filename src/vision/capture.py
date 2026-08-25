@@ -88,13 +88,14 @@ class WgcWindowCapture:
             except Exception:
                 pass
 
+
 class ScreenCapture:
     def __init__(self, target_fps: int = 2, prefer_window_capture: bool = False):
         """
         Initialise la capture d'écran via DirectX.
-        
+
         Args:
-            target_fps: Le nombre d'images par seconde souhaité. 
+            target_fps: Le nombre d'images par seconde souhaité.
                         Pour le poker, 2 fps (une frame toutes les 0.5s) est l'idéal absolu
                         pour économiser 100% du CPU tout en réagissant assez vite.
         """
@@ -147,7 +148,7 @@ class ScreenCapture:
     def start(self, region: tuple[int, int, int, int] | None = None, hwnd: int | None = None):
         """
         Démarre la capture d'écran en continu.
-        
+
         Args:
             region: Tuple (left, top, right, bottom) définissant la zone de la table de poker.
                     Si None, capture tout l'écran.
@@ -164,7 +165,15 @@ class ScreenCapture:
             # backends existants si la session ne démarre pas.
             if hwnd and WINDOWS_CAPTURE_AVAILABLE and self._try_start_wgc(hwnd):
                 self.capture_mode = "wgc"
-            elif hwnd and WINDOW_CAPTURE_AVAILABLE and not (self.backend == "dxcam" and valid_dxcam_region and not self.prefer_window_capture):
+            elif (
+                hwnd
+                and WINDOW_CAPTURE_AVAILABLE
+                and not (
+                    self.backend == "dxcam"
+                    and valid_dxcam_region
+                    and not self.prefer_window_capture
+                )
+            ):
                 self.capture_mode = "window"
             elif self.backend == "dxcam" and valid_dxcam_region:
                 self.capture_mode = "dxcam"
@@ -179,7 +188,9 @@ class ScreenCapture:
                 area = f"Région: {region}" if region else f"Fenetre HWND: {hwnd}"
             else:
                 area = f"Région: {region}" if region else "Plein écran"
-            logger.info(f"Capture demarree a {self.target_fps} FPS ({area}) via {self.capture_mode}")
+            logger.info(
+                f"Capture demarree a {self.target_fps} FPS ({area}) via {self.capture_mode}"
+            )
         return True
 
     def _try_start_wgc(self, hwnd: int) -> bool:
@@ -210,7 +221,9 @@ class ScreenCapture:
         mem_dc = None
         bitmap = None
         try:
-            client_left, client_top, client_right, client_bottom = win32gui.GetClientRect(self.window_hwnd)
+            client_left, client_top, client_right, client_bottom = win32gui.GetClientRect(
+                self.window_hwnd
+            )
             width = max(0, client_right - client_left)
             height = max(0, client_bottom - client_top)
             if width <= 0 or height <= 0:
@@ -247,7 +260,9 @@ class ScreenCapture:
                 user32 = ctypes.windll.user32
                 for flags in (3, 2, 1, 0):
                     try:
-                        render_result = int(user32.PrintWindow(self.window_hwnd, mem_dc.GetSafeHdc(), flags))
+                        render_result = int(
+                            user32.PrintWindow(self.window_hwnd, mem_dc.GetSafeHdc(), flags)
+                        )
                     except Exception:
                         render_result = 0
                     if render_result == 1:
@@ -373,6 +388,7 @@ class ScreenCapture:
             self.is_capturing = False
             logger.info("Capture ecran arretee.")
 
+
 # Exemple d'utilisation rapide si le script est exécuté directement
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
@@ -389,7 +405,7 @@ if __name__ == "__main__":
                     preview = cv2.resize(frame, (960, 540))
                     cv2.imshow("Poker Bot - DXcam Preview", preview)
 
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+                if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
         finally:
             cap.stop()

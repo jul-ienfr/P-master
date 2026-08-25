@@ -86,7 +86,9 @@ def _stage_labeled_observation_dataset(images_dir: Path, labels_dir: Path) -> tu
     return staged_root, copied_count
 
 
-def _write_augmented_dataset_yaml(output_path: Path, train_dirs: list[Path], val_dirs: list[Path]) -> Path:
+def _write_augmented_dataset_yaml(
+    output_path: Path, train_dirs: list[Path], val_dirs: list[Path]
+) -> Path:
     lines = [f"path: {ROOT.resolve().as_posix()}", "train:"]
     lines.extend(f"  - {directory.resolve().as_posix()}" for directory in train_dirs)
     lines.append("val:")
@@ -99,7 +101,9 @@ def _write_augmented_dataset_yaml(output_path: Path, train_dirs: list[Path], val
     return output_path
 
 
-def _build_training_dataset_yaml(base_dataset_yaml: Path, observation_dataset_dir: Path, include_observation: bool) -> Path:
+def _build_training_dataset_yaml(
+    base_dataset_yaml: Path, observation_dataset_dir: Path, include_observation: bool
+) -> Path:
     if not include_observation:
         return base_dataset_yaml
 
@@ -109,14 +113,20 @@ def _build_training_dataset_yaml(base_dataset_yaml: Path, observation_dataset_di
     if not dataset_root.is_absolute():
         dataset_root = (base_dataset_yaml.parent / dataset_root).resolve()
 
-    base_train_dir = _resolve_dataset_entry(dataset_root, dataset_config.get("train", "images"), "images")
-    base_val_dir = _resolve_dataset_entry(dataset_root, dataset_config.get("val", dataset_config.get("train", "images")), "images")
+    base_train_dir = _resolve_dataset_entry(
+        dataset_root, dataset_config.get("train", "images"), "images"
+    )
+    base_val_dir = _resolve_dataset_entry(
+        dataset_root, dataset_config.get("val", dataset_config.get("train", "images")), "images"
+    )
     train_dirs = [base_train_dir]
     val_dirs = [base_val_dir]
 
     observation_images_dir = observation_dataset_dir / "images"
     observation_labels_dir = observation_dataset_dir / "labels"
-    observation_images, observation_labeled = _count_labeled_samples(observation_images_dir, observation_labels_dir)
+    observation_images, observation_labeled = _count_labeled_samples(
+        observation_images_dir, observation_labels_dir
+    )
     observation_unlabeled = max(0, observation_images - observation_labeled)
 
     if observation_images and not observation_labeled:
@@ -146,10 +156,17 @@ def _build_training_dataset_yaml(base_dataset_yaml: Path, observation_dataset_di
 
     return base_dataset_yaml
 
+
 def main():
     import argparse
+
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", type=str, default="dataset/PokerStars_NLHE_6Max/dataset.yaml", help="Chemin vers le fichier dataset.yaml")
+    parser.add_argument(
+        "--data",
+        type=str,
+        default="dataset/PokerStars_NLHE_6Max/dataset.yaml",
+        help="Chemin vers le fichier dataset.yaml",
+    )
     parser.add_argument("--epochs", type=int, default=50, help="Nombre d'epochs")
     parser.add_argument(
         "--include-observation",
@@ -203,7 +220,7 @@ def main():
         imgsz=640,
         batch=16,
         name="poker_yolo_finetune",
-        device="0" # Utilise le GPU
+        device="0",  # Utilise le GPU
     )
 
     # 4. Exportation ONNX
@@ -213,6 +230,7 @@ def main():
     print("\n✅ Entrainement et export terminés !")
     print("-> Pour l'utiliser, deplacez le nouveau fichier .onnx dans le dossier 'models/'")
     print("-> et mettez a jour 'config.json' : 'yolo.model_path'")
+
 
 if __name__ == "__main__":
     main()

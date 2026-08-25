@@ -115,7 +115,9 @@ def test_read_and_parse_amount_stops_after_first_valid_engine(monkeypatch):
             self.calls += 1
             return self.response
 
-    ocr = ocr_module.PokerOCR(enabled_engines=["rapidocr", "tesseract"], mode="fallback", parallel=True)
+    ocr = ocr_module.PokerOCR(
+        enabled_engines=["rapidocr", "tesseract"], mode="fallback", parallel=True
+    )
     first = FakeAmountEngine("rapidocr", "$42")
     second = FakeAmountEngine("tesseract", "$99")
     ocr.engines = [first, second]

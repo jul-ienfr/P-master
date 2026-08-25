@@ -48,6 +48,7 @@ _SOLVER_BREAKER_MAX_COOLDOWN_S = 300.0
 
 try:
     from .rl_agent import RLAdapterAgent
+
     RL_AVAILABLE = True
 except ImportError:
     RL_AVAILABLE = False
@@ -56,16 +57,28 @@ except ImportError:
 # On essaye d'importer le binding Rust compilé par PyO3
 try:
     import postflop_solver_py
+
     RUST_SOLVER_AVAILABLE = True
 except ImportError:
     postflop_solver_py = None
     RUST_SOLVER_AVAILABLE = False
-    logging.warning("Le module Rust 'postflop_solver_py' n'est pas disponible. Mode simulation activé.")
+    logging.warning(
+        "Le module Rust 'postflop_solver_py' n'est pas disponible. Mode simulation activé."
+    )
 
 logger = logging.getLogger(__name__)
 
 # Mapping des actions possibles
-ACTION_MAP = {"FOLD": 0, "CHECK": 1, "CALL": 1, "BET": 2, "RAISE": 2, "BET_50": 2, "BET_75": 3, "ALL_IN": 4}
+ACTION_MAP = {
+    "FOLD": 0,
+    "CHECK": 1,
+    "CALL": 1,
+    "BET": 2,
+    "RAISE": 2,
+    "BET_50": 2,
+    "BET_75": 3,
+    "ALL_IN": 4,
+}
 REVERSE_ACTION_MAP = {0: "FOLD", 1: "CHECK", 2: "BET", 3: "BET_75", 4: "ALL_IN"}
 
 # Phase 2.7 — constantes et helpers preflop déplacés dans preflop_support.py ;
@@ -81,21 +94,29 @@ PROFILE_RANGES = {
     "Balanced": BASE_GTO_RANGE,
     "Maniac": "22+, A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 72s+, 62s+, 52s+, 42s+, 32s+, A2o+, K2o+, Q2o+, J2o+, T2o+",
     "Whale": "22+, A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 72s+, 62s+, 52s+, 42s+, 32s+, A2o+, K2o+, Q2o+, J2o+, T2o+",
-    "Nit": "99+, AJs+, AKo"
+    "Nit": "99+, AJs+, AKo",
 }
+
 
 def _clamp(value: float, lower: float, upper: float) -> float:
     return max(lower, min(upper, value))
+
 
 def _rate_from_profile(profile: dict, raw_key: str, derived_key: str) -> float:
     derived = profile.get("derived_profile") or {}
     if derived_key in derived:
         return float(derived.get(derived_key, 0.0) or 0.0)
     sample_hands = max(
-        int(derived.get("observed_hands", 0) or profile.get("observed_hands", 0) or profile.get("hands_played", 0) or 0),
+        int(
+            derived.get("observed_hands", 0)
+            or profile.get("observed_hands", 0)
+            or profile.get("hands_played", 0)
+            or 0
+        ),
         1,
     )
     return float(profile.get(raw_key, 0) or 0) / float(sample_hands)
+
 
 def _profile_sample_hands(profile: dict) -> int:
     derived = profile.get("derived_profile") or {}
@@ -106,6 +127,7 @@ def _profile_sample_hands(profile: dict) -> int:
         or profile.get("hands_played", 0)
         or 0
     )
+
 
 def _normalize_action_name(action: str | None) -> str | None:
     if not action:
@@ -219,10 +241,11 @@ def _build_structured_profile_cached(profile_blob: str) -> dict:
         "rl_ready": bool(derived.get("rl_ready", False)),
     }
 
+
 def _analyze_board_texture(board: list[str]) -> str:
     """Analyse la texture des cartes communes (board) pour ajuster le bet sizing."""
     if not board or len(board) < 3:
-        return "DRY" # Préflop
+        return "DRY"  # Préflop
 
     ranks = "23456789TJQKA"
     board_suits = [card[-1] for card in board if len(card) == 2]
@@ -232,6 +255,7 @@ def _analyze_board_texture(board: list[str]) -> str:
         return "DRY"
 
     from collections import Counter
+
     suit_counts = Counter(board_suits)
     max_suit_count = max(suit_counts.values())
 
@@ -239,14 +263,17 @@ def _analyze_board_texture(board: list[str]) -> str:
         return "MONOTONE"
 
     board_ranks = sorted(board_ranks)
-    gaps = sum(board_ranks[i+1] - board_ranks[i] for i in range(len(board_ranks)-1))
+    gaps = sum(board_ranks[i + 1] - board_ranks[i] for i in range(len(board_ranks) - 1))
 
     if gaps <= 3 or max_suit_count == 2:
         return "WET"
 
     return "DRY"
 
-def _bet_size_from_action(action_name: str | None, pot: float, effective_stack: float, board: list[str] = None) -> float | None:
+
+def _bet_size_from_action(
+    action_name: str | None, pot: float, effective_stack: float, board: list[str] = None
+) -> float | None:
     normalized = _normalize_action_name(action_name)
     if not normalized:
         return None
@@ -285,6 +312,7 @@ def _bet_size_from_action(action_name: str | None, pot: float, effective_stack: 
 
     return None
 
+
 def _safe_float(value: Any) -> float | None:
     try:
         if value is None:
@@ -292,6 +320,7 @@ def _safe_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
 
 def _safe_int(value: Any) -> int | None:
     try:
@@ -301,11 +330,13 @@ def _safe_int(value: Any) -> int | None:
     except (TypeError, ValueError):
         return None
 
+
 def _safe_string(value: Any) -> str | None:
     if value in (None, ""):
         return None
     text = str(value).strip()
     return text or None
+
 
 def _compact_solver_list(value: Any) -> list | None:
     if not isinstance(value, list):
@@ -320,6 +351,7 @@ def _compact_solver_list(value: Any) -> list | None:
             if text is not None:
                 compact.append(text)
     return compact
+
 
 class DecisionMaker:
     def __init__(
@@ -355,7 +387,6 @@ class DecisionMaker:
         self._consecutive_solver_timeouts = 0
         self._solver_cooldown_until = 0.0
 
-
         if rl_agent is _DEFAULT_DEPENDENCY:
             self.rl_agent = RLAdapterAgent() if create_rl_agent and RL_AVAILABLE else None
         else:
@@ -371,14 +402,19 @@ class DecisionMaker:
         self._solve_cache: OrderedDict[str, tuple[float, dict]] = OrderedDict()
         self._solve_cache_ttl_s = 10.0
         self._solve_cache_max_entries = 256
-        self.enable_llm_assist = False # Par défaut, le LLM est désactivé (100% local)
+        self.enable_llm_assist = False  # Par défaut, le LLM est désactivé (100% local)
 
         # Configuration de la Rake (Commission du Casino) - NL2 à NL10 = 5%
         self.rake_percentage = 0.05
         self._profile_cache: dict[str, tuple[float, dict | None]] = {}
         self._profile_cache_ttl_s = 30.0
 
-        if self.rl_agent and rl_agent is _DEFAULT_DEPENDENCY and self.create_rl_agent and self.autoload_rl_model:
+        if (
+            self.rl_agent
+            and rl_agent is _DEFAULT_DEPENDENCY
+            and self.create_rl_agent
+            and self.autoload_rl_model
+        ):
             self.rl_agent.load_model()
 
     def _solver_backend_name(self) -> str:
@@ -499,7 +535,9 @@ class DecisionMaker:
         while len(self._solve_cache) > self._solve_cache_max_entries:
             self._solve_cache.popitem(last=False)
 
-    def _state_to_vector(self, hero_hand: str, board: list[str], pot: float, effective_stack: float, profile: dict) -> np.ndarray:
+    def _state_to_vector(
+        self, hero_hand: str, board: list[str], pot: float, effective_stack: float, profile: dict
+    ) -> np.ndarray:
         derived = profile.get("derived_profile") or {}
         sample_hands = max(_profile_sample_hands(profile), 1)
         vpip = float(derived.get("vpip_rate", profile.get("vpip_count", 0) / sample_hands) or 0.0)
@@ -540,7 +578,11 @@ class DecisionMaker:
             or not self.db
             or not getattr(self.db, "is_available", bool(getattr(self.db, "pool", None)))
         ):
-            return dict(cached_entry[1]) if cached_entry and isinstance(cached_entry[1], dict) else None
+            return (
+                dict(cached_entry[1])
+                if cached_entry and isinstance(cached_entry[1], dict)
+                else None
+            )
 
         # Phase 3.3 — L2 Redis (opt-in POKER_REDIS_URL) devant le fetch DB.
         profile = None
@@ -588,7 +630,11 @@ class DecisionMaker:
             action_name = _normalize_action_name(item.get("action"))
             if not action_name:
                 continue
-            if action_name.startswith("BET") or action_name.startswith("RAISE") or action_name in {"OPEN", "3BET"}:
+            if (
+                action_name.startswith("BET")
+                or action_name.startswith("RAISE")
+                or action_name in {"OPEN", "3BET"}
+            ):
                 return True
         return False
 
@@ -615,9 +661,8 @@ class DecisionMaker:
     ) -> tuple[str, dict]:
         # Phase 2.7 — logique déléguée à preflop_support.run_preflop_fast_path.
         facing_raise = (
-            ("CALL" in legal_actions and "CHECK" not in legal_actions)
-            or self._has_aggressive_preflop_history(action_history)
-        )
+            "CALL" in legal_actions and "CHECK" not in legal_actions
+        ) or self._has_aggressive_preflop_history(action_history)
         aggressive_action = self._preferred_aggressive_action(legal_actions)
         return _run_preflop_fast_path_impl(
             hero_hand=hero_hand,
@@ -646,13 +691,19 @@ class DecisionMaker:
         rl_action_name: str | None,
         structured_profile: dict,
     ) -> tuple[str, str]:
-        normalized_legal_actions = {_normalize_action_name(action): action for action in legal_actions}
+        normalized_legal_actions = {
+            _normalize_action_name(action): action for action in legal_actions
+        }
         normalized_gto = _normalize_action_name(gto_action)
         normalized_rl = _normalize_action_name(rl_action_name)
         deviation_cap = float(structured_profile.get("deviation_cap", 0.0) or 0.0)
 
         if self._should_allow_rl_override(structured_profile):
-            if normalized_rl and normalized_rl in normalized_legal_actions and normalized_rl != normalized_gto:
+            if (
+                normalized_rl
+                and normalized_rl in normalized_legal_actions
+                and normalized_rl != normalized_gto
+            ):
                 return normalized_legal_actions[normalized_rl], "RL_VALIDATED"
 
         if deviation_cap < 0.08:
@@ -668,7 +719,11 @@ class DecisionMaker:
                 if candidate in normalized_legal_actions and candidate != normalized_gto:
                     return normalized_legal_actions[candidate], "EXPLOIT_PROFILE"
 
-        if structured_profile.get("call_bias", 0.0) >= 0.12 and "CALL" in normalized_legal_actions and normalized_gto == "FOLD":
+        if (
+            structured_profile.get("call_bias", 0.0) >= 0.12
+            and "CALL" in normalized_legal_actions
+            and normalized_gto == "FOLD"
+        ):
             return normalized_legal_actions["CALL"], "EXPLOIT_PROFILE"
 
         return gto_action, "GTO_RUST"
@@ -688,7 +743,9 @@ class DecisionMaker:
         if not rl_available:
             return {}
 
-        normalized_rl = self._normalize_solver_action(rl_action_name, legal_actions) if rl_action_name else None
+        normalized_rl = (
+            self._normalize_solver_action(rl_action_name, legal_actions) if rl_action_name else None
+        )
         rl_eligible = self._should_allow_rl_override(structured_profile)
         compared = bool(rl_available and normalized_legal_actions)
         rl_differs_from_gto = bool(normalized_rl and normalized_rl != gto_action)
@@ -732,13 +789,17 @@ class DecisionMaker:
                 "style": structured_profile.get("style", "Unknown"),
                 "observed_hands": int(structured_profile.get("observed_hands", 0) or 0),
                 "reliability": float(structured_profile.get("reliability", 0.0) or 0.0),
-                "exploit_confidence": float(structured_profile.get("exploit_confidence", 0.0) or 0.0),
+                "exploit_confidence": float(
+                    structured_profile.get("exploit_confidence", 0.0) or 0.0
+                ),
                 "deviation_cap": float(structured_profile.get("deviation_cap", 0.0) or 0.0),
                 "rl_ready": bool(structured_profile.get("rl_ready", False)),
             },
         }
 
-    def _extract_solver_alternatives(self, gto_details: dict, legal_actions: list[str]) -> list[dict]:
+    def _extract_solver_alternatives(
+        self, gto_details: dict, legal_actions: list[str]
+    ) -> list[dict]:
         alternatives: list[dict] = []
         for item in gto_details.get("actions", []) or []:
             if not isinstance(item, dict):
@@ -833,7 +894,9 @@ class DecisionMaker:
 
         return enriched
 
-    def _find_alternative_for_action(self, alternatives: list[dict], action_name: str | None) -> dict:
+    def _find_alternative_for_action(
+        self, alternatives: list[dict], action_name: str | None
+    ) -> dict:
         normalized_action = _normalize_action_name(action_name)
         if not normalized_action:
             return {}
@@ -866,7 +929,9 @@ class DecisionMaker:
         structured_profile: dict,
         alternatives: list[dict],
     ) -> dict:
-        normalized_rl = self._normalize_solver_action(rl_action_name, legal_actions) if rl_action_name else None
+        normalized_rl = (
+            self._normalize_solver_action(rl_action_name, legal_actions) if rl_action_name else None
+        )
         rl_eligible = self._should_allow_rl_override(structured_profile)
         rl_on_action = normalized_rl if rl_eligible and normalized_rl else gto_action
         rl_off_snapshot = self._build_ab_branch_snapshot("rl_off", gto_action, alternatives)
@@ -897,7 +962,9 @@ class DecisionMaker:
             "vpip": float(structured_profile.get("vpip", 0.0) or 0.0),
             "pfr": float(structured_profile.get("pfr", 0.0) or 0.0),
             "gap": float(structured_profile.get("gap", 0.0) or 0.0),
-            "aggression_frequency": float(structured_profile.get("aggression_frequency", 0.0) or 0.0),
+            "aggression_frequency": float(
+                structured_profile.get("aggression_frequency", 0.0) or 0.0
+            ),
             "exploit_confidence": float(structured_profile.get("exploit_confidence", 0.0) or 0.0),
             "range_hint": structured_profile.get("range_hint", BASE_GTO_RANGE),
             "pressure_bias": float(structured_profile.get("pressure_bias", 0.0) or 0.0),
@@ -1083,9 +1150,17 @@ class DecisionMaker:
             return "BET"
         if normalized and normalized.startswith("RAISE") and "RAISE" in normalized_legal_actions:
             return "RAISE"
-        if normalized == "CHECK" and "CALL" in normalized_legal_actions and "CHECK" not in normalized_legal_actions:
+        if (
+            normalized == "CHECK"
+            and "CALL" in normalized_legal_actions
+            and "CHECK" not in normalized_legal_actions
+        ):
             return "CALL"
-        if normalized == "CALL" and "CHECK" in normalized_legal_actions and "CALL" not in normalized_legal_actions:
+        if (
+            normalized == "CALL"
+            and "CHECK" in normalized_legal_actions
+            and "CALL" not in normalized_legal_actions
+        ):
             return "CHECK"
         if "FOLD" in normalized_legal_actions:
             return "FOLD"
@@ -1093,12 +1168,12 @@ class DecisionMaker:
 
     def _apply_node_locking(self, base_villain_range: str, profile: dict, board: list[str]) -> str:
         """
-        NODE-LOCKING GTO PROFOND : 
+        NODE-LOCKING GTO PROFOND :
         Modifie mathématiquement la range de l'adversaire envoyée au Solveur Rust
         en fonction de son profil IA (K-Means) pour forcer la Maximal Exploitative Strategy (MES).
         """
         if not profile or profile.get("hands_played", 0) < 30:
-            return base_villain_range # Pas assez de données, on joue GTO pur.
+            return base_villain_range  # Pas assez de données, on joue GTO pur.
 
         player_type = profile.get("player_type", "Balanced")
 
@@ -1128,14 +1203,22 @@ class DecisionMaker:
         final_range = ", ".join(list(dict.fromkeys(locked_range)))
         return final_range if final_range else base_villain_range
 
-    async def get_best_action(self, hero_hand: str, board: list[str], pot: float,
-                              effective_stack: float, villain_name: str,
-                              legal_actions: list[str], spot_id: str = "",
-                              hero_position: str = "ip", state_confidence: float = 0.0,
-                              action_history: list[dict[str, Any]] | None = None,
-                              tournament_data: dict[str, Any] | None = None) -> dict:
+    async def get_best_action(
+        self,
+        hero_hand: str,
+        board: list[str],
+        pot: float,
+        effective_stack: float,
+        villain_name: str,
+        legal_actions: list[str],
+        spot_id: str = "",
+        hero_position: str = "ip",
+        state_confidence: float = 0.0,
+        action_history: list[dict[str, Any]] | None = None,
+        tournament_data: dict[str, Any] | None = None,
+    ) -> dict:
         """
-        Détermine la meilleure action à prendre en combinant GTO (Solver Rust), 
+        Détermine la meilleure action à prendre en combinant GTO (Solver Rust),
         Reinforcement Learning (Agent RL), Node-Locking, et ICM.
         """
         logger.info(f"Calcul de décision contre {villain_name}. Board: {board}, Pot: {pot}")
@@ -1149,15 +1232,11 @@ class DecisionMaker:
             logger.error("🛑 CIRCUIT BREAKER ACTIF: Solver en cooldown. Auto-Fallback.")
             return self._fallback_action(legal_actions)
 
-
         is_preflop = len(board or []) == 0
         use_preflop_fast_path = bool(
             is_preflop
             and self.solver_backend is not None
-            and (
-                not self._solver_backend_explicit
-                or _normalize_preflop_position(hero_position)
-            )
+            and (not self._solver_backend_explicit or _normalize_preflop_position(hero_position))
             and not self.enable_validated_rl
         )
 
@@ -1179,14 +1258,18 @@ class DecisionMaker:
         rl_action_name = None
         preflop_fast_used = False
         if self.rl_agent and not use_preflop_fast_path:
-            state_vector = self._state_to_vector(hero_hand, board, pot, effective_stack, profile or {})
+            state_vector = self._state_to_vector(
+                hero_hand, board, pot, effective_stack, profile or {}
+            )
 
             valid_mask = np.zeros(self.rl_agent.action_dim)
             for action in legal_actions:
                 if action in ACTION_MAP:
                     valid_mask[ACTION_MAP[action]] = 1
 
-            rl_action_idx = self.rl_agent.select_action(state_vector, valid_mask, exploit_mode=False)
+            rl_action_idx = self.rl_agent.select_action(
+                state_vector, valid_mask, exploit_mode=False
+            )
 
             if "CALL" in legal_actions and rl_action_idx == 1:
                 rl_action_name = "CALL"
@@ -1232,9 +1315,13 @@ class DecisionMaker:
                 )
                 fallback_used = bool(response.get("fallback_used", False))
                 fallback_reason = str(response.get("fallback_reason") or "") or None
-                gto_action = self._normalize_solver_action(response.get("chosen_action", "FOLD"), legal_actions)
+                gto_action = self._normalize_solver_action(
+                    response.get("chosen_action", "FOLD"), legal_actions
+                )
                 gto_details = response
-                logger.info(f"Réponse GTO Rust reçue en {response.get('elapsed_ms')}ms : {gto_action}")
+                logger.info(
+                    f"Réponse GTO Rust reçue en {response.get('elapsed_ms')}ms : {gto_action}"
+                )
             except TimeoutError:
                 logger.error("Solver Rust timeout (>10s). Fail-safe to FOLD/CHECK.")
                 self._register_solver_timeout()
@@ -1252,7 +1339,6 @@ class DecisionMaker:
         # Résilience: si la requête réussit, on reset le circuit breaker
         if not fallback_used:
             self._consecutive_solver_timeouts = 0
-
 
         # 4. Orchestration exploitative bornée
         final_action, decision_source = self._select_exploit_action(
@@ -1276,7 +1362,11 @@ class DecisionMaker:
 
         # 4.5 Assistance LLM (Optionnelle et asynchrone)
         llm_advice = None
-        if self.enable_llm_assist and self.solver_backend and hasattr(self.solver_backend, "llm_assist_stub"):
+        if (
+            self.enable_llm_assist
+            and self.solver_backend
+            and hasattr(self.solver_backend, "llm_assist_stub")
+        ):
             try:
                 # On utilise l'API LLM embarquée dans le bridge Rust pour demander une explication de la décision
                 prompt_context = f"Hero: {hero_hand}, Board: {board}, Pot: {pot}. L'adversaire est classé '{structured_profile.get('style')}'. Le solver GTO propose {gto_action}, mais le bot d'exploitation a choisi {final_action}. Peux-tu expliquer pourquoi en une phrase ?"
@@ -1288,7 +1378,7 @@ class DecisionMaker:
                             prompt=prompt_context,
                             enabled=True,
                             provider_mode="openai_compatible_remote",
-                            spot_summary=f"Decision: {final_action} vs GTO: {gto_action}"
+                            spot_summary=f"Decision: {final_action} vs GTO: {gto_action}",
                         )
                         if isinstance(llm_res, dict):
                             advice = llm_res.get("summary")
@@ -1314,7 +1404,7 @@ class DecisionMaker:
                     villain_stack=villain_stack,
                     all_stacks=all_stacks,
                     payouts=payouts,
-                    pot_size=pot
+                    pot_size=pot,
                 )
                 if icm_action != final_action:
                     decision_source = "ICM_SURVIVAL"
@@ -1324,7 +1414,9 @@ class DecisionMaker:
         # Geometric Sizing + SPR Optimization
         bet_size = gto_details.get("dynamic_amount")
         if bet_size is None:
-            bet_size = _bet_size_from_action(gto_details.get("chosen_action", final_action), pot, effective_stack, board)
+            bet_size = _bet_size_from_action(
+                gto_details.get("chosen_action", final_action), pot, effective_stack, board
+            )
 
         if final_action not in {"BET", "RAISE", "ALL_IN"}:
             bet_size = None
@@ -1351,14 +1443,22 @@ class DecisionMaker:
         decision_confidence = float(gto_details.get("decision_confidence", 0.0) or 0.0)
         if decision_confidence <= 0.0:
             decision_confidence = round(
-                _clamp((state_confidence * 0.55) + (structured_profile.get("reliability", 0.0) * 0.45), 0.0, 1.0),
+                _clamp(
+                    (state_confidence * 0.55) + (structured_profile.get("reliability", 0.0) * 0.45),
+                    0.0,
+                    1.0,
+                ),
                 3,
             )
 
-        confidence_source = "solver" if gto_details.get("decision_confidence") is not None else "derived"
+        confidence_source = (
+            "solver" if gto_details.get("decision_confidence") is not None else "derived"
+        )
         confidence_gap = None
         if rl_ab_metadata:
-            profile_exploit_confidence = _safe_float(rl_ab_metadata.get("profile_snapshot", {}).get("exploit_confidence"))
+            profile_exploit_confidence = _safe_float(
+                rl_ab_metadata.get("profile_snapshot", {}).get("exploit_confidence")
+            )
             if profile_exploit_confidence is not None:
                 confidence_gap = round(decision_confidence - profile_exploit_confidence, 3)
 
@@ -1390,7 +1490,8 @@ class DecisionMaker:
             ),
             "preflop": {
                 "fast_path": preflop_fast_used,
-                "hero_position": _normalize_preflop_position(hero_position) or str(hero_position or "").strip().upper(),
+                "hero_position": _normalize_preflop_position(hero_position)
+                or str(hero_position or "").strip().upper(),
                 "villain_position": villain_position,
                 "hero_combo": _hero_combo_notation(hero_hand),
             },
@@ -1400,19 +1501,23 @@ class DecisionMaker:
 
         incidents: list[dict] = []
         if fallback_used:
-            incidents.append({
-                "id": "solver_fallback",
-                "severity": "warning",
-                "kind": "fallback",
-                "label": fallback_reason or "fallback_used",
-            })
+            incidents.append(
+                {
+                    "id": "solver_fallback",
+                    "severity": "warning",
+                    "kind": "fallback",
+                    "label": fallback_reason or "fallback_used",
+                }
+            )
         if state_confidence < 0.6:
-            incidents.append({
-                "id": "low_state_confidence",
-                "severity": "warning",
-                "kind": "runtime",
-                "label": f"state_confidence={state_confidence:.2f}",
-            })
+            incidents.append(
+                {
+                    "id": "low_state_confidence",
+                    "severity": "warning",
+                    "kind": "runtime",
+                    "label": f"state_confidence={state_confidence:.2f}",
+                }
+            )
 
         warnings: list[str] = []
         if fallback_used:
@@ -1471,7 +1576,13 @@ class DecisionMaker:
     def _fallback_action(self, legal_actions: list[str]) -> dict:
         logger.warning("Utilisation de l'action de Fallback (FOLD).")
         normalized_legal_actions = self._normalize_runtime_actions(legal_actions)
-        action = "FOLD" if "FOLD" in normalized_legal_actions else normalized_legal_actions[0] if normalized_legal_actions else "CHECK"
+        action = (
+            "FOLD"
+            if "FOLD" in normalized_legal_actions
+            else normalized_legal_actions[0]
+            if normalized_legal_actions
+            else "CHECK"
+        )
         return {
             "action": action,
             "bet_size": None,
@@ -1484,7 +1595,14 @@ class DecisionMaker:
             "fallback_used": True,
             "fallback_reason": "solver_unavailable",
             "warnings": ["fallback_used"],
-            "incidents": [{"id": "solver_fallback", "severity": "warning", "kind": "fallback", "label": "solver_unavailable"}],
+            "incidents": [
+                {
+                    "id": "solver_fallback",
+                    "severity": "warning",
+                    "kind": "fallback",
+                    "label": "solver_unavailable",
+                }
+            ],
             "backend": "fallback",
             "elapsed_ms": 0,
             "metadata": {

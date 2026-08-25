@@ -72,11 +72,17 @@ def replay_runtime_failures(
 ) -> dict[str, Any]:
     records = load_runtime_failure_records(manifest_path)
     if incident_id:
-        records = [record for record in records if str(record.get("incident_id") or "") == str(incident_id)]
+        records = [
+            record for record in records if str(record.get("incident_id") or "") == str(incident_id)
+        ]
     if category:
-        records = [record for record in records if str(record.get("category") or "") == str(category)]
+        records = [
+            record for record in records if str(record.get("category") or "") == str(category)
+        ]
     if severity:
-        records = [record for record in records if str(record.get("severity") or "") == str(severity)]
+        records = [
+            record for record in records if str(record.get("severity") or "") == str(severity)
+        ]
     enriched_records = []
     for record in records:
         enriched = dict(record)

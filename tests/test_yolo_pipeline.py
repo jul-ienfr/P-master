@@ -1,4 +1,3 @@
-
 import pytest
 
 from scripts.bootstrap_yolo_labels_from_template import state_to_yolo_lines
@@ -58,8 +57,12 @@ def test_state_to_yolo_lines_maps_runtime_groups_to_generic_yolo_classes():
         pots = [DetectionResult(class_name="pot_area", confidence=1.0, bbox=(70, 10, 110, 40))]
         stacks = []
         player_names = []
-        action_buttons = [DetectionResult(class_name="fold_button", confidence=1.0, bbox=(20, 60, 80, 100))]
-        dealer_button = DetectionResult(class_name="dealer_button", confidence=1.0, bbox=(120, 20, 140, 40))
+        action_buttons = [
+            DetectionResult(class_name="fold_button", confidence=1.0, bbox=(20, 60, 80, 100))
+        ]
+        dealer_button = DetectionResult(
+            class_name="dealer_button", confidence=1.0, bbox=(120, 20, 140, 40)
+        )
 
     lines = state_to_yolo_lines(DummyState(), width=200, height=100)
 
@@ -100,7 +103,9 @@ def test_write_validated_labels_can_drop_generic_cards_for_zones_only_dataset(tm
     )
     (labels_dir / "sample.json").write_text('{"status": "proposed"}\n', encoding="utf-8")
 
-    summary = write_validated_labels(labels_dir, output_dir, drop_generic_cards=True, overwrite=False)
+    summary = write_validated_labels(
+        labels_dir, output_dir, drop_generic_cards=True, overwrite=False
+    )
 
     assert summary["files"] == 1
     assert summary["dropped_generic_card_labels"] == 1
@@ -120,7 +125,9 @@ def test_write_validated_labels_can_exclude_generic_only_images_after_drop(tmp_p
         f"{YOLO_CLASS_MAP['hero_card']} 0.5 0.5 0.1 0.1\n",
         encoding="utf-8",
     )
-    (labels_dir / "sample.json").write_text('{"status": "proposed", "empty": false}\n', encoding="utf-8")
+    (labels_dir / "sample.json").write_text(
+        '{"status": "proposed", "empty": false}\n', encoding="utf-8"
+    )
 
     summary = write_validated_labels(
         labels_dir,
