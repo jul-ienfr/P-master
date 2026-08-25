@@ -58,7 +58,7 @@ class UpdateChecker:
 
     def downloader(self):
         with open(self.file_name, "wb") as f:
-            print("Downloading %s" % self.file_name)
+            print(f"Downloading {self.file_name}")
             response = _http_get(self.dl_link, stream=True, timeout=10)
             total_length = response.headers.get("content-length")
 
@@ -71,7 +71,7 @@ class UpdateChecker:
                     dl += len(data)
                     f.write(data)
                     done = int(50 * dl / total_length)
-                    sys.stdout.write("\r[%s%s]" % ("=" * done, " " * (50 - done)))
+                    sys.stdout.write(f"\r[{'=' * done}{' ' * (50 - done)}]")
                     sys.stdout.flush()
 
     def check_update(self, version):

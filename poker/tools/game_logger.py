@@ -107,7 +107,7 @@ class GameLogger(metaclass=Singleton):
         rec["other_players"] = t.other_players
         rec["logging_timestamp"] = datetime.datetime.utcnow()
         del rec["logger"]
-        response = _http_post(
+        _response = _http_post(
             URL + "insert_round", json={"rec": json.dumps(rec, default=str)}, timeout=10
         )
 
@@ -157,10 +157,10 @@ class GameLogger(metaclass=Singleton):
                 # result = self.mongodb.games.insert_one(summary_dict)
 
     def insert_log(self, rec):
-        response = _http_post(URL + "insert_games", json={"rec": json.dumps(rec)}, timeout=10)
+        _response = _http_post(URL + "insert_games", json={"rec": json.dumps(rec)}, timeout=10)
 
     def insert_collusion(self, rec):
-        response = _http_post(URL + "insert_collusion", params=jsonable_encoder(rec), timeout=10)
+        _response = _http_post(URL + "insert_collusion", params=jsonable_encoder(rec), timeout=10)
 
     def upload_collusion_data(self, gamenumber, mycards, p, gamestage):
         package = {
@@ -210,7 +210,7 @@ class GameLogger(metaclass=Singleton):
                 parsed = raw_key
             validated_keys.append(parsed)
         k1 = validated_keys
-        self.d = dict(zip(*[k1, v]))
+        self.d = dict(zip(*[k1, v], strict=False))
 
         return response["final_data"]
 

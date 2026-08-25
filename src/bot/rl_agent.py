@@ -115,7 +115,7 @@ class RLAdapterAgent:
             return 0.0
 
         batch = random.sample(self.memory, self.batch_size)
-        states, actions, rewards, next_states, dones, next_masks = zip(*batch)
+        states, actions, rewards, next_states, dones, next_masks = zip(*batch, strict=False)
 
         states = torch.FloatTensor(np.array(states)).to(self.device)
         actions = torch.LongTensor(np.array(actions)).unsqueeze(1).to(self.device)

@@ -167,7 +167,7 @@ class StrategyHandler:
                 params={"name": self.current_strategy, "login": login, "password": password},
                 timeout=10,
             ).json()[0]
-        except:
+        except Exception:
             log.error(f"This Strategy is not available for this user: {login}")
             time.sleep(1)
             output = _http_post(
@@ -227,7 +227,7 @@ class StrategyHandler:
     def update_strategy(self, strategy):
         try:
             del strategy["_id"]
-        except:
+        except Exception:
             pass
         login = config.config.get("main", "login")
         password = config.config.get("main", "password")

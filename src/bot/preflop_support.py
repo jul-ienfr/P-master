@@ -95,7 +95,7 @@ def combo_matches_range_token(combo: str, token: str) -> bool:
     if len(combo) != 3:
         return False
 
-    suited_flag = combo[2].lower()
+    _suited_flag = combo[2].lower()
     raw_token = token.rstrip("+")
     if len(raw_token) != 3:
         return False

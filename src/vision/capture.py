@@ -36,7 +36,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 WINDOW_CAPTURE_AVAILABLE = win32gui is not None and win32ui is not None and win32con is not None
-PRINTWINDOW_AVAILABLE = hasattr(ctypes, "windll") and hasattr(getattr(ctypes, "windll"), "user32")
+PRINTWINDOW_AVAILABLE = hasattr(ctypes, "windll") and hasattr(ctypes.windll, "user32")
 
 
 class WgcWindowCapture:

@@ -344,7 +344,7 @@ class StateResolverMixin:
             changed_indexes = [
                 index
                 for index, (previous_card, candidate_card) in enumerate(
-                    zip(previous_cards, candidate_cards)
+                    zip(previous_cards, candidate_cards, strict=False)
                 )
                 if previous_card != candidate_card
             ]

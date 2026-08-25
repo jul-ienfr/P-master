@@ -127,7 +127,7 @@ def test_memory_tracker_and_decisionmaker_smoke_flow():
             "players": [],
         }
 
-        force_idle_signal = {
+        _force_idle_signal = {
             "street": "PREFLOP",
             "hero_cards": [],  # Pas de hero_cards = plus en main
             "pot": 0.0,

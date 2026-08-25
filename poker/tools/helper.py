@@ -111,7 +111,7 @@ class CustomConfigParser:
     def __init__(self, config_override_filename=None):
         """Load the configuration (usually config.ini)."""
         if config_override_filename and not os.path.isfile(config_override_filename):
-            raise ValueError("Unable to find config file {}".format(config_override_filename))
+            raise ValueError(f"Unable to find config file {config_override_filename}")
 
         main_file = os.path.join(get_dir("codebase"), "config.ini")
 
@@ -191,9 +191,9 @@ def init_logger(screenlevel, filename=None, logdir=None, modulename=""):
         error_filename = os.path.join(logdir, filename + "_errors.log")
         info_filename = os.path.join(logdir, filename + "_info.log")
 
-        print("Saving log file to: {}".format(all_logs_filename))
-        print("Saving info file to: {}".format(info_filename))
-        print("Saving error only file to: {}".format(error_filename))
+        print(f"Saving log file to: {all_logs_filename}")
+        print(f"Saving info file to: {info_filename}")
+        print(f"Saving error only file to: {error_filename}")
 
         file_handler2 = handlers.RotatingFileHandler(
             all_logs_filename, maxBytes=300000, backupCount=20
@@ -239,7 +239,9 @@ def init_logger(screenlevel, filename=None, logdir=None, modulename=""):
     mainlogger = logging.getLogger(modulename)
     mainlogger.setLevel(logging.DEBUG)
 
-    # pd.set_option('display.height', 1000)  # pd.set_option('display.max_rows', 500)  # pd.set_option('display.max_columns', 500)  # pd.set_option('display.width', 1000)
+    # pd.set_option('display.height', 1000)
+    # pd.set_option('display.max_rows', 500)  # pd.set_option('display.max_columns', 500)
+    # pd.set_option('display.width', 1000)
 
 
 def get_dir(*paths):
@@ -263,7 +265,7 @@ def get_dir(*paths):
             thirdparty_dir = config.config.get("Thirdparty", "thirdparty_dir")
             full_path = os.path.abspath(os.path.join(codebase, thirdparty_dir, specified_path))
             return full_path
-        except:  # pylint: disable=bare-except
+        except Exception:  # pylint: disable=bare-except
             # otherwise just return absolute path in codebase
             # if path has multiple entries
             return os.path.abspath(os.path.join(codebase, *paths))
@@ -281,8 +283,7 @@ def flatten(items):
     """Yield items from any nested iterable; see Reference."""
     for x in items:
         if isinstance(x, Iterable) and not isinstance(x, (str, bytes)):
-            for sub_x in flatten(x):
-                yield sub_x
+            yield from flatten(x)
         else:
             yield x
 
@@ -314,7 +315,8 @@ def multi_threading(pool_fn, pool_args, disable_multiprocessing=False, dataframe
         pool_fn: any partial function that takes a single argument. For multi argument functions reduce it with partial
                  to a single argument. The first argument needs to be the list over which the pool can iterate.
         pool_args (list): list of any type that is passed into the pool.map or map.
-        disable_multiprocessing (bool): if set to True, multiprocessing will not be applied, regardless of config.ini entry.
+        disable_multiprocessing (bool): if set to True, multiprocessing will not be applied,
+                 regardless of config.ini entry.
         dataframe_mode (bool): set to true to use starmap, so pd.concat can be used on results,
                                if set to false, the result will be a list of list.
 
@@ -326,7 +328,7 @@ def multi_threading(pool_fn, pool_args, disable_multiprocessing=False, dataframe
 
     parallel, cores = get_multiprocessing_config()
     log.debug(
-        "Start with parallel={} and cores={}, queue size={}".format(parallel, cores, len(pool_args))
+        f"Start with parallel={parallel} and cores={cores}, queue size={len(pool_args)}"
     )
     if parallel and not disable_multiprocessing:
         threadpool = ThreadPool(cores)
@@ -359,21 +361,19 @@ def memory_cache(func):
                 try:
                     res = self.cache[self.func.__name__, args_tuple]
                     log.debug(
-                        "+++ Using memory cacheed item for {} function +++ ".format(
-                            self.func.__name__
-                        )
+                        f"+++ Using memory cacheed item for {self.func.__name__} function +++ "
                     )
                     return res
                 except KeyError:
                     log.debug(
-                        "--- Caching item for {} function in memory ---".format(self.func.__name__)
+                        f"--- Caching item for {self.func.__name__} function in memory ---"
                     )
                     self.cache[self.func.__name__, args_tuple] = res = self.func(*args, **kwargs)
                     return res
             except Exception as err:  # pylint: disable=broad-except
                 raise RuntimeError(
-                    "Error calling cached function {} ".format(self.func.__name__), err
-                )
+                    f"Error calling cached function {self.func.__name__} ", err
+                ) from err
 
     return Memoise(func)
 

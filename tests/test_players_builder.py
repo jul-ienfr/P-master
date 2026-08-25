@@ -53,7 +53,8 @@ def test_build_stack_quarantine_metadata_shape():
 
 
 def test_runtime_players_have_meaningful_stacks_rules():
-    p = lambda seat, stack: SimpleNamespace(seat_id=seat, stack=stack)
+    def p(seat, stack):
+        return SimpleNamespace(seat_id=seat, stack=stack)
     assert PlayersBuilderMixin._runtime_players_have_meaningful_stacks([], "s1") is False
     two_small = [p("s1", 100), p("s2", 200)]
     assert PlayersBuilderMixin._runtime_players_have_meaningful_stacks(two_small, "s1") is True

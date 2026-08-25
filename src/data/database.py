@@ -919,7 +919,7 @@ class DatabaseManager:
             return
 
         query = """
-            INSERT INTO hands_history (table_name, board, actions) 
+            INSERT INTO hands_history (table_name, board, actions)
             VALUES ($1, $2, $3::jsonb)
         """
         try:

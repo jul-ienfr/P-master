@@ -20,7 +20,7 @@ def human_sleep(min_t, max_t):
         ):
             time.sleep(np.random.uniform(min_t, max_t))
             return
-    except:
+    except Exception:
         pass
     mean = (max_t + min_t) / 2.0
     std_dev = (max_t - min_t) / 4.0
@@ -80,7 +80,7 @@ class MouseMover(VirtualBoxController):
             )
             if not enable_scrolling:
                 return
-        except:
+        except Exception:
             return
 
         log.debug(f"Simulating reading/scrolling. Amount: {amount}")
@@ -123,10 +123,10 @@ class MouseMover(VirtualBoxController):
             if self.vbox_mode:
                 try:
                     self.mouse_move_vbox(x, y)
-                except AttributeError:
+                except AttributeError as err:
                     raise RuntimeError(
                         "Virtual box not detected. Switch to direct mouse control in setup or open VirtualBox"
-                    )
+                    ) from err
             else:
                 self.mouse.move(x, y)
 
@@ -148,7 +148,7 @@ class MouseMover(VirtualBoxController):
             enable_typing_delay = get_config().config.getboolean(
                 "antidetection", "enable_typing_delay", fallback=True
             )
-        except:
+        except Exception:
             enable_typing_delay = True
 
         is_windows = sys.platform.startswith("win")
@@ -186,7 +186,7 @@ class MouseMover(VirtualBoxController):
             enable_missclicks = get_config().config.getboolean(
                 "antidetection", "enable_missclicks", fallback=False
             )
-        except:
+        except Exception:
             enable_missclicks = False
 
         if enable_missclicks:
@@ -222,7 +222,7 @@ class MouseMover(VirtualBoxController):
         human_sleep(0.1, 0.2)
 
         self.click(x2 + xrand, y2 + yrand)
-        log.debug("Clicked: {0} {1}".format(x2 + xrand, y2 + yrand))
+        log.debug(f"Clicked: {x2 + xrand} {y2 + yrand}")
 
         human_sleep(0.1, 0.5)
 
@@ -237,7 +237,7 @@ class MouseMoverTableBased(MouseMover):
                 self.vbox_mode = True
             else:
                 self.vbox_mode = False
-        except:
+        except Exception:
             self.vbox_mode = False
 
         super().__init__(self.vbox_mode)
@@ -262,7 +262,7 @@ class MouseMoverTableBased(MouseMover):
                 "Moving mouse away: " + str(x1) + "," + str(y1) + "," + str(x2) + "," + str(y2)
             )
             self.mouse_mover(x1, y1, x2, y2)
-        except Exception as e:
+        except Exception:
             log.warning("Moving mouse away failed")
 
     def move_mouse_away_from_buttons_jump(self):
@@ -321,7 +321,7 @@ class MouseMoverTableBased(MouseMover):
             self.take_action(coo["x1"] + tlx, coo["y1"] + tly, coo["x2"] + tlx, coo["y2"] + tly)
 
         elif decision == "BetPlus":
-            for i in range(int(options["increases_num"])):
+            for _i in range(int(options["increases_num"])):
                 coo = self.table_dict["mouse_increase"]
                 self.take_action(coo["x1"] + tlx, coo["y1"] + tly, coo["x2"] + tlx, coo["y2"] + tly)
 

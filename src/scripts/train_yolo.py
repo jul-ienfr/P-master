@@ -214,7 +214,7 @@ def main():
     print("\n🚀 Demarrage de l'entrainement...")
 
     # 3. Lancement de l'entrainement
-    results = model.train(
+    _results = model.train(
         data=str(dataset_yaml),
         epochs=args.epochs,
         imgsz=640,
@@ -225,7 +225,7 @@ def main():
 
     # 4. Exportation ONNX
     print("\n📦 Exportation du nouveau modele en ONNX pour des performances max...")
-    success = model.export(format="onnx", int8=False, dynamic=False)
+    _success = model.export(format="onnx", int8=False, dynamic=False)
 
     print("\n✅ Entrainement et export terminés !")
     print("-> Pour l'utiliser, deplacez le nouveau fichier .onnx dans le dossier 'models/'")

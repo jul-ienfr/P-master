@@ -816,7 +816,7 @@ class TemplateFallbackDetector:
 
     @staticmethod
     def _candidate_scales(frame: np.ndarray, preset: TemplatePreset) -> list[float]:
-        candidates = set(float(scale) for scale in FALLBACK_SCALE_FACTORS)
+        candidates = {float(scale) for scale in FALLBACK_SCALE_FACTORS}
         width_ratio = frame.shape[1] / max(float(preset.table_width), 1.0)
         height_ratio = frame.shape[0] / max(float(preset.table_height), 1.0)
 

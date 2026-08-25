@@ -44,7 +44,7 @@ def create_annotations(dataset_name: str):
         yolo_lines = []
 
         # 2. Convertir les détections OpenCV en Bboxes YOLO Normalizees
-        def add_boxes(detections, class_name):
+        def add_boxes(detections, class_name, yolo_lines_ref, frame_width, frame_height):
             if not isinstance(detections, list):
                 detections = [detections] if detections else []
             for d in detections:
@@ -62,27 +62,31 @@ def create_annotations(dataset_name: str):
                 x_center = x1 + (box_w / 2)
                 y_center = y1 + (box_h / 2)
 
-                yolo_lines.append(
-                    f"{cls_id} {x_center / width:.6f} {y_center / height:.6f} {box_w / width:.6f} {box_h / height:.6f}"
+                yolo_lines_ref.append(
+                    f"{cls_id} {x_center / frame_width:.6f} {y_center / frame_height:.6f}"
+                    f" {box_w / frame_width:.6f} {box_h / frame_height:.6f}"
                 )
+
+        def add_all(detections, class_name):
+            add_boxes(detections, class_name, yolo_lines, width, height)
 
         # Mapping de toutes les classes
         for card in state.board_cards:
             cls_name = card.class_name if card.class_name in YOLO_CLASS_MAP else "board_card"
-            add_boxes([card], cls_name)
+            add_all([card], cls_name)
 
         for card in state.hero_cards:
             cls_name = card.class_name if card.class_name in YOLO_CLASS_MAP else "hero_card"
-            add_boxes([card], cls_name)
+            add_all([card], cls_name)
 
-        add_boxes(state.pots, "pot_area")
-        add_boxes(state.stacks, "stack_area")
-        add_boxes(state.player_names, "player_name_area")
-        add_boxes([state.dealer_button] if state.dealer_button else [], "dealer_button")
+        add_all(state.pots, "pot_area")
+        add_all(state.stacks, "stack_area")
+        add_all(state.player_names, "player_name_area")
+        add_all([state.dealer_button] if state.dealer_button else [], "dealer_button")
 
         for btn in state.action_buttons:
             # Action buttons contain the specific label class "fold_button" etc. in detection.class_name
-            add_boxes([btn], btn.class_name)
+            add_all([btn], btn.class_name)
 
         # 3. Sauvegarde dans fichier YOLO .txt
         label_file = label_dir / (img_path.stem + ".txt")

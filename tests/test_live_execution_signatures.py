@@ -25,17 +25,17 @@ def make_controller():
 
 
 def canonical(**overrides):
-    base = dict(
-        spot_id="live:TURN:001",
-        street="TURN",
-        pot=14.0,
-        hero_cards=("Ah", "Kd"),
-        board=("As", "Kd", "7h", "2c"),
-        legal_actions=("FOLD", "CALL"),
-        action_buttons=("fold_button", "call_button"),
-        state_confidence=0.95,
-        metadata={},
-    )
+    base = {
+        "spot_id": "live:TURN:001",
+        "street": "TURN",
+        "pot": 14.0,
+        "hero_cards": ("Ah", "Kd"),
+        "board": ("As", "Kd", "7h", "2c"),
+        "legal_actions": ("FOLD", "CALL"),
+        "action_buttons": ("fold_button", "call_button"),
+        "state_confidence": 0.95,
+        "metadata": {},
+    }
     base.update(overrides)
     return CanonicalTableState(**base)
 

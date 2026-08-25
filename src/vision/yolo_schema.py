@@ -216,7 +216,7 @@ def validate_dataset_yaml_schema(
         first_mismatch = next(
             (
                 index
-                for index, (actual, expected) in enumerate(zip(names, expected_names))
+                for index, (actual, expected) in enumerate(zip(names, expected_names, strict=False))
                 if actual != expected
             ),
             None,

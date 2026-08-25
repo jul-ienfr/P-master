@@ -236,7 +236,7 @@ class TableTracker:
     def _board_mismatch_count(left: list[str], right: list[str]) -> int:
         return sum(
             1
-            for left_card, right_card in zip(list(left or []), list(right or []))
+            for left_card, right_card in zip(list(left or []), list(right or []), strict=False)
             if left_card != right_card
         )
 

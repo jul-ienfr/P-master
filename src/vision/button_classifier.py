@@ -397,7 +397,7 @@ class ButtonClassifier:
         if not state.action_buttons:
             return state
 
-        ordered_buttons = sorted(state.action_buttons, key=lambda button: button.center[0])
+        _ordered_buttons = sorted(state.action_buttons, key=lambda button: button.center[0])
         standard_labels = set(STANDARD_ACTION_LABELS)
         slot_boxes = (
             state.metadata.get("button_slot_boxes", {}) if isinstance(state.metadata, dict) else {}

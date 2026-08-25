@@ -173,8 +173,8 @@ def infer_hero_seat_id(
         return last_hero_seat_id if last_hero_seat_id in available_seat_ids else None
 
     # Ellipse parameters for hero tracking relative to overall screen
-    center_x = frame_w / 2.0
-    center_y = frame_h / 2.0
+    _center_x = frame_w / 2.0
+    _center_y = frame_h / 2.0
     rx = frame_w * 0.4
     ry = frame_h * 0.3
 

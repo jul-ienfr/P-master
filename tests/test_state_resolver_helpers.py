@@ -49,12 +49,6 @@ def test_normalize_board_for_street_truncates_to_street_length():
 
 def test_derive_hero_participation_mode_matrix():
     c = make_controller()
-    base = dict(
-        board=(),
-        hero_cards=(),
-        pot_value=0.0,
-        action_buttons=(),
-    )
     assert c._derive_hero_participation_mode((), (), 0.0, ()) == "idle"
     assert c._derive_hero_participation_mode((), (), 0.0, ("resume_hand",)) == "waiting_next_hand"
     assert c._derive_hero_participation_mode((), (), 0.0, ("im_back",)) == "sitting_out"

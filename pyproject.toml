@@ -97,7 +97,22 @@ target-version = ["py311"]
 line-length = 100
 target-version = "py311"
 lint.select = ["E", "F", "W", "I", "B", "C4", "UP"]
-lint.ignore = []
+# E501 : la longueur de ligne est gouvernée par le formateur (ruff format / black,
+# line-length=100). Les littéraux non coupables (prompts, ranges, payloads) ne
+# doivent pas casser la gate de lint.
+lint.ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Points d'entrée : bootstrap sys.path avant les imports (src/main.py, CLI, tests).
+"src/main.py" = ["E402"]
+"src/api/runtime_bridge_server.py" = ["E402"]
+"src/vision/ocr_probe.py" = ["E402"]
+"src/scripts/*" = ["E402"]
+# add_boxes/add_all sont définis et appelés dans la même itération de boucle :
+# la liaison tardive y est sûre par construction.
+"src/scripts/auto_annotate_templates.py" = ["B023"]
+"scripts/*" = ["E402"]
+"tests/*" = ["E402"]
 
 [tool.mypy]
 python_version = "3.11"

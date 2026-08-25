@@ -189,7 +189,7 @@ class RuntimeLoop:
                                 metadata=observed_metadata,
                             )
                         elif hasattr(observed_canonical_state, "to_dict"):
-                            setattr(observed_canonical_state, "metadata", observed_metadata)
+                            observed_canonical_state.metadata = observed_metadata
                     convert_ms = (time.monotonic() - convert_started_at) * 1000.0
                     self.last_canonical_spot_snapshot = (
                         observed_canonical_state.to_dict()

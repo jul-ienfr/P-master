@@ -443,10 +443,10 @@ class LiveExecutionMixin:
             table_detected,
             hero_participation,
             "background_idle" if background_idle else canonical_state.street,
-            tuple() if background_idle else tuple(canonical_state.hero_cards),
-            tuple() if background_idle else tuple(canonical_state.board),
+            () if background_idle else tuple(canonical_state.hero_cards),
+            () if background_idle else tuple(canonical_state.board),
             0.0 if background_idle else round(float(canonical_state.pot or 0.0), 1),
-            tuple() if background_idle else tuple(canonical_state.legal_actions),
+            () if background_idle else tuple(canonical_state.legal_actions),
             tuple(sorted(set(button_names))),  # Toujours ignorer l'ordre d'apparition
             # Ne pas inclure la confidence dans la signature pour éviter le spam aux micro-décimales
         )

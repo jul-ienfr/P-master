@@ -121,21 +121,21 @@ def test_reset_restores_default_range():
 
 
 def _make_table(game_id="g1", board=None, stage="PreFlop", players=None, **extra):
-    kwargs = dict(
-        GameID=game_id,
-        cardsOnTable=board or [],
-        gameStage=stage,
-        totalPotValue=10.0,
-        minCall=0.0,
-        minBet=0.0,
-        position_utg_plus=0,
-        total_players=6,
-        other_players=players or [],
-        first_raiser_utg=0,
-        first_caller_utg=None,
-        second_raiser_utg=None,
-        other_player_has_initiative=False,
-    )
+    kwargs = {
+        "GameID": game_id,
+        "cardsOnTable": board or [],
+        "gameStage": stage,
+        "totalPotValue": 10.0,
+        "minCall": 0.0,
+        "minBet": 0.0,
+        "position_utg_plus": 0,
+        "total_players": 6,
+        "other_players": players or [],
+        "first_raiser_utg": 0,
+        "first_caller_utg": None,
+        "second_raiser_utg": None,
+        "other_player_has_initiative": False,
+    }
     kwargs.update(extra)
     return SimpleNamespace(**kwargs)
 

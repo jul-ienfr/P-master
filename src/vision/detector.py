@@ -322,7 +322,7 @@ class PokerDetector:
                         os.makedirs("dataset/needs_annotation", exist_ok=True)
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
                         cv2.imwrite(f"dataset/needs_annotation/al_openvl_{timestamp}.jpg", frame)
-                    except:
+                    except Exception:
                         pass
                 if fallback_state.board_cards and not state.board_cards:
                     state.board_cards = fallback_state.board_cards
@@ -394,7 +394,7 @@ class PokerDetector:
                                     cv2.imwrite(f"dataset/raw_images/al_llm_{timestamp}.jpg", frame)
                                     with open(f"dataset/labels/al_llm_{timestamp}.txt", "w") as f:
                                         f.write(yolo_txt)
-                                except:
+                                except Exception:
                                     pass
 
         return state

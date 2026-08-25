@@ -101,7 +101,7 @@ def find_template_on_screen(template, screenshot, threshold, extended=False):
     best_fit = min_loc
     count = 0
     points = []
-    for pt in zip(*loc[::-1]):
+    for pt in zip(*loc[::-1], strict=False):
         count += 1
         points.append(pt)
     return count, points, best_fit, min_val
