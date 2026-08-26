@@ -91,7 +91,10 @@ pub use equity_api::{
     RangeStrengthRequest, RangeStrengthResponse, WinnerTypeDetail,
 };
 pub use game::*;
-pub use gto_api::{solve_spot, ActionDetail, SolveError, SolveRequest, SolveResponse, SolveResult};
+pub use gto_api::{
+    measure_best_response_gap, solve_spot, ActionDetail, BestResponseRequest, BestResponseResponse,
+    BetSizeSpec, SolveError, SolveRequest, SolveResponse, SolveResult,
+};
 pub use interface::*;
 pub use mutex_like::*;
 pub use range::*;

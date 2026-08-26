@@ -1,6 +1,8 @@
 use postflop_solver::{
-    evaluate_equity as evaluate_equity_native, llm_assist_stub_response, range_relative_strength as range_relative_strength_native,
-    solve_spot as solve_spot_native, solve_spot_v2 as solve_spot_v2_native, ActionOptionV2,
+    evaluate_equity as evaluate_equity_native, llm_assist_stub_response,
+    measure_best_response_gap as measure_best_response_gap_native,
+    range_relative_strength as range_relative_strength_native, solve_spot as solve_spot_native,
+    solve_spot_v2 as solve_spot_v2_native, ActionOptionV2, BestResponseRequest, BetSizeSpec,
     CachePolicy, CacheTier, DecisionWarning, EquityMode, EquityRequest, EquityResponse,
     LlmAssistResponse, LlmAssistTask, LlmConfig, LlmContextScope, LlmPrivacyMode,
     LlmProviderMode, RangeModelVersion, RangeStrengthRequest, RangeStrengthResponse,
@@ -46,6 +48,12 @@ fn solve_spot(
         max_iterations,
         target_exploitability: target_exploitability as f32,
         use_cache,
+        hero_hand: None,
+        rake_rate: 0.0,
+        rake_cap: 0.0,
+        sample_mixed: false,
+        random_seed: None,
+        bet_size_spec: None,
     };
 
     let response =
@@ -143,6 +151,7 @@ fn range_relative_strength(
     action_history = Vec::new(),
     tree_preset_id = None,
     rake = None,
+    rake_cap = None,
     num_players = None,
     spot_id = None,
     legal_actions = Vec::new(),
@@ -150,7 +159,14 @@ fn range_relative_strength(
     hero_confidence = None,
     state_confidence = None,
     use_cache = true,
-    time_budget_ms = None
+    time_budget_ms = None,
+    hero_hand = None,
+    sample_mixed = false,
+    random_seed = None,
+    bet_sizes = None,
+    raise_sizes = None,
+    turn_donk_sizes = None,
+    river_donk_sizes = None
 ))]
 fn solve_spot_v2(
     py: Python<'_>,
@@ -163,6 +179,7 @@ fn solve_spot_v2(
     action_history: Vec<String>,
     tree_preset_id: Option<String>,
     rake: Option<f64>,
+    rake_cap: Option<f64>,
     num_players: Option<u32>,
     spot_id: Option<String>,
     legal_actions: Vec<String>,
@@ -171,6 +188,13 @@ fn solve_spot_v2(
     state_confidence: Option<f64>,
     use_cache: bool,
     time_budget_ms: Option<u64>,
+    hero_hand: Option<String>,
+    sample_mixed: bool,
+    random_seed: Option<u64>,
+    bet_sizes: Option<String>,
+    raise_sizes: Option<String>,
+    turn_donk_sizes: Option<String>,
+    river_donk_sizes: Option<String>,
 ) -> PyResult<PyObject> {
     let request = SolveRequestV2 {
         spot_id: normalize_optional_string(spot_id),
@@ -185,6 +209,7 @@ fn solve_spot_v2(
             .map(TreePresetId::from)
             .unwrap_or_default(),
         rake: rake.unwrap_or(0.0) as f32,
+        rake_cap: rake_cap.unwrap_or(0.0) as f32,
         num_players: num_players.unwrap_or(2) as u8,
         legal_actions: action_options_from_names(legal_actions),
         cache_policy: parse_cache_policy(cache_policy.as_deref()),
@@ -193,12 +218,83 @@ fn solve_spot_v2(
         range_model_version: RangeModelVersion::BoardAwareV2,
         use_cache,
         time_budget_ms,
+        hero_hand: normalize_optional_string(hero_hand),
+        sample_mixed,
+        random_seed,
+        bet_size_spec: if bet_sizes.is_some()
+            || raise_sizes.is_some()
+            || turn_donk_sizes.is_some()
+            || river_donk_sizes.is_some()
+        {
+            let mut spec = BetSizeSpec::default();
+            if let Some(value) = normalize_optional_string(bet_sizes) {
+                spec.bet_sizes = value;
+            }
+            if let Some(value) = normalize_optional_string(raise_sizes) {
+                spec.raise_sizes = value;
+            }
+            if let Some(value) = normalize_optional_string(turn_donk_sizes) {
+                spec.turn_donk_sizes = value;
+            }
+            if let Some(value) = normalize_optional_string(river_donk_sizes) {
+                spec.river_donk_sizes = value;
+            }
+            Some(spec)
+        } else {
+            None
+        },
     };
     let started = Instant::now();
     let mut response =
         solve_spot_v2_native(request).map_err(|err| PyRuntimeError::new_err(err.to_string()))?;
     response.elapsed_ms = started.elapsed().as_millis() as u64;
     solve_spot_v2_response_to_python(py, response)
+}
+
+#[pyfunction]
+#[pyo3(signature = (
+    oop_range,
+    ip_range,
+    board,
+    starting_pot,
+    effective_stack,
+    hero_is_oop,
+    max_iterations = 200,
+    policy_action = None
+))]
+fn measure_best_response_gap(
+    py: Python<'_>,
+    oop_range: String,
+    ip_range: String,
+    board: Vec<String>,
+    starting_pot: f64,
+    effective_stack: f64,
+    hero_is_oop: bool,
+    max_iterations: u32,
+    policy_action: Option<String>,
+) -> PyResult<PyObject> {
+    let request = BestResponseRequest {
+        oop_range,
+        ip_range,
+        board: trim_cards(board),
+        starting_pot: starting_pot as f32,
+        effective_stack: effective_stack as f32,
+        hero_is_oop,
+        max_iterations,
+        policy_action: normalize_optional_string(policy_action),
+    };
+
+    let response = measure_best_response_gap_native(request)
+        .map_err(|err| PyRuntimeError::new_err(err.to_string()))?;
+
+    let result = PyDict::new(py);
+    result.set_item("policy_action", response.policy_action.as_deref())?;
+    result.set_item("policy_ev", response.policy_ev)?;
+    result.set_item("mes_ev", response.mes_ev)?;
+    result.set_item("best_response_gap", response.best_response_gap)?;
+    result.set_item("exploitability", response.exploitability)?;
+    result.set_item("actions", action_list_to_python(py, response.actions)?)?;
+    Ok(result.into())
 }
 
 #[pyfunction]
@@ -347,6 +443,21 @@ fn solve_spot_v2_response_to_python(
     result.set_item("elapsed_ms", response.elapsed_ms)?;
     result.set_item("preset_id", response.preset_id.to_string())?;
     result.set_item("warnings", warning_list_to_python(py, response.warnings)?)?;
+    result.set_item(
+        "selection",
+        response
+            .metadata
+            .get("selection")
+            .cloned()
+            .unwrap_or_else(|| "range_frequency".to_string()),
+    )?;
+    match response.metadata.get("sample_seed") {
+        Some(seed_text) => match seed_text.parse::<u64>() {
+            Ok(seed) => result.set_item("sample_seed", seed)?,
+            Err(_) => result.set_item("sample_seed", py.None())?,
+        },
+        None => result.set_item("sample_seed", py.None())?,
+    }
     Ok(result.into())
 }
 
@@ -563,6 +674,7 @@ fn postflop_solver_py(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> 
     m.add_function(wrap_pyfunction!(evaluate_equity, m)?)?;
     m.add_function(wrap_pyfunction!(range_relative_strength, m)?)?;
     m.add_function(wrap_pyfunction!(solve_spot_v2, m)?)?;
+    m.add_function(wrap_pyfunction!(measure_best_response_gap, m)?)?;
     m.add_function(wrap_pyfunction!(llm_assist_stub, m)?)?;
     Ok(())
 }

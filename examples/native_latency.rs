@@ -11,6 +11,7 @@ fn build_request(board: &[&str]) -> SolveRequest {
         max_iterations: 10,
         target_exploitability: 1.0,
         use_cache: true,
+        ..SolveRequest::default()
     }
 }
 

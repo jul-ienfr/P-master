@@ -38,6 +38,7 @@ from .preflop_support import (
 from .preflop_support import (
     run_preflop_fast_path as _run_preflop_fast_path_impl,
 )
+from .range_updater import BayesianRangeUpdater
 
 _DEFAULT_DEPENDENCY = object()
 
@@ -271,6 +272,39 @@ def _analyze_board_texture(board: list[str]) -> str:
     return "DRY"
 
 
+def _bet_size_suffix(action_name: str) -> tuple[str, float | None]:
+    """Extrait (préfixe, valeur) d'un nom d'action comme BET_75, RAISE_2.5X, ALLIN_500."""
+    normalized = _normalize_action_name(action_name)
+    if not normalized:
+        return "", None
+
+    for prefix in ("BET", "RAISE", "ALLIN", "ALL_IN"):
+        if normalized == prefix:
+            return prefix, None
+        if normalized.startswith(prefix + "_"):
+            raw = normalized[len(prefix) + 1 :].strip().rstrip("X").rstrip("%")
+            try:
+                return prefix, float(raw)
+            except ValueError:
+                return prefix, None
+    return "", None
+
+
+def _bet_amount_from_value(prefix: str, value: float, pot: float) -> float | None:
+    """Convertit une taille abstraite en fraction de pot exécutable.
+
+    - BET_X   : X <= 1.5 -> fraction de pot ; sinon pourcentage de pot.
+    - RAISE_X : X <= 10  -> multiple de pot ; sinon pourcentage de pot.
+    """
+    if value is None:
+        return None
+    if prefix == "RAISE":
+        ratio = value if value <= 10 else value / 100.0
+        return max(ratio, 0.0) * pot
+    ratio = value if value <= 1.5 else value / 100.0
+    return max(ratio, 0.0) * pot
+
+
 def _bet_size_from_action(
     action_name: str | None, pot: float, effective_stack: float, board: list[str] = None
 ) -> float | None:
@@ -278,8 +312,19 @@ def _bet_size_from_action(
     if not normalized:
         return None
 
-    if normalized == "ALL_IN":
+    if (
+        normalized == "ALL_IN"
+        or normalized.startswith("ALLIN")
+        or normalized.startswith("ALL_IN")
+    ):
         return round(max(effective_stack, 0.0), 2)
+
+    # Tailles explicites du solveur (BET_50, BET_0.75, RAISE_2.5, ALLIN_*, etc.)
+    prefix, value = _bet_size_suffix(normalized)
+    if prefix in {"BET", "RAISE"} and value is not None and pot > 0:
+        amount = _bet_amount_from_value(prefix, value, pot)
+        if amount is not None:
+            return round(min(max(amount, 1.0), effective_stack), 2)
 
     spr = effective_stack / pot if pot > 0 else 100.0
 
@@ -406,6 +451,16 @@ class DecisionMaker:
 
         # Configuration de la Rake (Commission du Casino) - NL2 à NL10 = 5%
         self.rake_percentage = 0.05
+        # Plafond de rake transmis au solveur (0 = pas de cap)
+        self.rake_cap = 0.0
+        # Échantillonnage mixte : jouer parfois les fréquences du combo héro
+        # au lieu de l'action à EV max (défaut: déterministe).
+        self.sample_mixed = False
+        # Phase 1 — préflop dual-mode : "precomputed" (défaut) | "live" | "charts"
+        self.preflop_mode = "precomputed"
+        self.preflop_live_budget_ms = 800
+        self.preflop_solutions_path = "models/preflop"
+        self._preflop_store: Any = None
         self._profile_cache: dict[str, tuple[float, dict | None]] = {}
         self._profile_cache_ttl_s = 30.0
 
@@ -439,10 +494,10 @@ class DecisionMaker:
         hero_position: str,
         state_confidence: float,
         action_history: list[dict[str, Any]] | None,
+        time_budget_ms: int = 1000,
     ) -> dict:
-        # Ajustement du pot pour simuler la Rake (5%)
-        net_pot = pot * (1.0 - self.rake_percentage) if pot > 0 else pot
-
+        # La rake est désormais modélisée DANS l'arbre (rake_rate/rake_cap) et non
+        # plus en déflatant le pot.
         if not self.solver_provider:
             raise RuntimeError("rust_solver_unavailable")
 
@@ -450,11 +505,12 @@ class DecisionMaker:
             hero_hand=hero_hand,
             villain_range=villain_range,
             board=board,
-            net_pot=net_pot,
+            pot=pot,
             effective_stack=effective_stack,
             legal_actions=legal_actions,
             spot_id=spot_id,
             hero_position=hero_position,
+            rake=self.rake_percentage,
             action_history=[
                 f"{item.get('player', '')}:{item.get('action', '')}:{item.get('amount', 0)}"
                 for item in (action_history or [])
@@ -468,7 +524,7 @@ class DecisionMaker:
             hero_range=hero_hand,
             villain_ranges=[villain_range],
             board=board,
-            starting_pot=net_pot,
+            starting_pot=pot,
             effective_stack=effective_stack,
             legal_actions=legal_actions,
             spot_id=spot_id,
@@ -479,7 +535,11 @@ class DecisionMaker:
                 for item in (action_history or [])
             ],
             use_cache=True,
-            time_budget_ms=1000,
+            time_budget_ms=time_budget_ms,
+            rake=self.rake_percentage,
+            rake_cap=self.rake_cap,
+            hero_hand=hero_hand,
+            sample_mixed=self.sample_mixed,
         )
         self._solve_cache_put(cache_key, response)
         return response
@@ -490,24 +550,26 @@ class DecisionMaker:
         hero_hand: str,
         villain_range: str,
         board: list[str],
-        net_pot: float,
+        pot: float,
         effective_stack: float,
         legal_actions: list[str],
         spot_id: str,
         hero_position: str,
         action_history: list[str],
+        rake: float = 0.0,
     ) -> str:
         blob = json.dumps(
             {
                 "hero": hero_hand,
                 "villain": villain_range,
                 "board": list(board or []),
-                "pot": round(float(net_pot), 4),
+                "pot": round(float(pot), 4),
                 "stack": round(float(effective_stack), 4),
                 "legal": list(legal_actions or []),
                 "spot": spot_id,
                 "pos": hero_position,
                 "hist": action_history,
+                "rake": round(float(rake), 4),
             },
             sort_keys=True,
             default=str,
@@ -684,19 +746,167 @@ class DecisionMaker:
             and structured_profile.get("exploit_confidence", 0.0) >= 0.7
         )
 
+    def configure_preflop(
+        self,
+        *,
+        mode: str | None = None,
+        solutions_path: str | None = None,
+        live_budget_ms: int | None = None,
+    ) -> None:
+        """Phase 1 — configure le dual-mode préflop (config/env -> runtime)."""
+        normalized = str(mode or "").strip().lower()
+        if normalized in {"precomputed", "live", "charts"}:
+            self.preflop_mode = normalized
+        if solutions_path:
+            self.preflop_solutions_path = str(solutions_path)
+        if live_budget_ms is not None and int(live_budget_ms) > 0:
+            self.preflop_live_budget_ms = int(live_budget_ms)
+        # Invalide le store si le chemin change.
+        self._preflop_store = None
+
+    def _get_preflop_store(self):
+        if self._preflop_store is None:
+            from .preflop_solutions import PreflopSolutionStore
+
+            self._preflop_store = PreflopSolutionStore(self.preflop_solutions_path)
+        return self._preflop_store
+
+    @staticmethod
+    def _multiway_time_budget(active_villain_count: int) -> int:
+        """Phase 3, garde-fou : budget solve réduit automatiquement en multiway."""
+        if active_villain_count <= 2:
+            return 1000
+        if active_villain_count == 3:
+            return 700
+        return 500
+
+    def _run_preflop_dual_mode(
+        self,
+        *,
+        hero_hand: str,
+        legal_actions: list[str],
+        hero_position: str,
+        action_history: list[dict[str, Any]] | None,
+        effective_stack: float,
+        pot: float,
+        facing_raise: bool,
+        aggressive_action: str | None,
+    ) -> tuple[str, dict]:
+        """Résolution préflop selon preflop_mode, avec repli charts garanti."""
+        can_check = "CHECK" in legal_actions
+
+        def chart_fallback() -> tuple[str, dict]:
+            return self._run_preflop_fast_path(
+                hero_hand=hero_hand,
+                legal_actions=legal_actions,
+                hero_position=hero_position,
+                action_history=action_history,
+                effective_stack=effective_stack,
+                pot=pot,
+            )
+
+        mode = str(self.preflop_mode or "charts").strip().lower()
+
+        if mode == "live":
+            try:
+                from .preflop_solutions import resolve_live_decision
+
+                resolution = resolve_live_decision(
+                    _hero_combo_notation_impl(hero_hand),
+                    context="vs_raise" if facing_raise else "rfi",
+                    depth_bb=effective_stack,
+                    pot=pot,
+                    to_call=pot * 0.5 if facing_raise else 0.0,
+                    effective_stack=effective_stack,
+                    time_budget_ms=self.preflop_live_budget_ms,
+                )
+                chosen = self._normalize_solver_action(
+                    resolution["chosen_action"], legal_actions
+                )
+                return chosen, {
+                    "chosen_action": chosen,
+                    "hero_ev": 0.0,
+                    "exploitability": 0.0,
+                    "decision_confidence": 0.88 if resolution.get("budget_respected") else 0.8,
+                    "dynamic_amount": resolution.get("dynamic_amount"),
+                    "actions": [
+                        {"action": chosen, "freq": 1.0, "source": "preflop_live"}
+                    ],
+                    "elapsed_ms": int(resolution.get("elapsed_ms", 0)),
+                    "backend": "preflop_live",
+                    "cache_hit": False,
+                    "solve_mode": "preflop_live",
+                    "equity": resolution.get("equity"),
+                    "samples": resolution.get("samples"),
+                    "backend_details": {
+                        "name": "preflop_live",
+                        "facing_raise": facing_raise,
+                        "budget_respected": bool(resolution.get("budget_respected")),
+                    },
+                }
+            except Exception as exc:  # pragma: no cover
+                logger.warning("Preflop live échec (%s), repli charts.", exc)
+
+        if mode in {"precomputed", "live"}:
+            try:
+                store = self._get_preflop_store()
+                from random import Random
+
+                chosen, dynamic_amount, metadata = store.decide(
+                    _hero_combo_notation_impl(hero_hand),
+                    context="vs_raise" if facing_raise else "rfi",
+                    position=_normalize_preflop_position_impl(hero_position) or "BTN",
+                    depth_bb=effective_stack,
+                    facing_raise=facing_raise,
+                    aggressive_action=aggressive_action,
+                    can_check=can_check,
+                    sample_mixed=self.sample_mixed,
+                    rng=Random(),
+                )
+                if chosen:
+                    chosen = self._normalize_solver_action(chosen, legal_actions)
+                    return chosen, {
+                        "chosen_action": chosen,
+                        "hero_ev": 0.0,
+                        "exploitability": 0.0,
+                        "decision_confidence": 0.9,
+                        "dynamic_amount": dynamic_amount,
+                        "actions": [
+                            {"action": chosen, "freq": metadata.get("frequencies", {}).get("call", 1.0),
+                             "source": "preflop_precomputed"}
+                        ],
+                        "elapsed_ms": int(metadata.get("elapsed_ms", 0)),
+                        "backend": "preflop_precomputed",
+                        "cache_hit": True,
+                        "solve_mode": "preflop_precomputed",
+                        "preflop_solution": metadata,
+                        "backend_details": {"name": "preflop_precomputed", **metadata},
+                    }
+            except Exception as exc:  # pragma: no cover
+                logger.warning("Preflop precomputed échec (%s), repli charts.", exc)
+
+        return chart_fallback()
+
     def _select_exploit_action(
         self,
         legal_actions: list[str],
         gto_action: str,
         rl_action_name: str | None,
         structured_profile: dict,
+        ev_by_action: dict[str, float] | None = None,
     ) -> tuple[str, str]:
+        """Phase 2.10 — déviation exploitative basée EV-delta (plus de biais scalaires).
+
+        On ne dévie de l'action GTO que si une action légale apporte un gain EV
+        significatif pour le combo héro, proportionnel au profil villain
+        (exploit_confidence) et borné par le deviation_cap. Sans données EV
+        fiables, on reste sur la stratégie GTO.
+        """
         normalized_legal_actions = {
             _normalize_action_name(action): action for action in legal_actions
         }
         normalized_gto = _normalize_action_name(gto_action)
         normalized_rl = _normalize_action_name(rl_action_name)
-        deviation_cap = float(structured_profile.get("deviation_cap", 0.0) or 0.0)
 
         if self._should_allow_rl_override(structured_profile):
             if (
@@ -706,25 +916,32 @@ class DecisionMaker:
             ):
                 return normalized_legal_actions[normalized_rl], "RL_VALIDATED"
 
+        deviation_cap = float(structured_profile.get("deviation_cap", 0.0) or 0.0)
+        exploit_confidence = float(
+            structured_profile.get("exploit_confidence", 0.0) or 0.0
+        )
+
         if deviation_cap < 0.08:
             return gto_action, "GTO_RUST"
 
-        if structured_profile.get("pressure_bias", 0.0) >= 0.1:
-            for candidate in ("RAISE_POT", "RAISE_HALF", "BET"):
-                if candidate in normalized_legal_actions and candidate != normalized_gto:
-                    return normalized_legal_actions[candidate], "EXPLOIT_PROFILE"
-
-        if structured_profile.get("fold_bias", 0.0) >= 0.12:
-            for candidate in ("CHECK", "CALL", "FOLD"):
-                if candidate in normalized_legal_actions and candidate != normalized_gto:
-                    return normalized_legal_actions[candidate], "EXPLOIT_PROFILE"
-
-        if (
-            structured_profile.get("call_bias", 0.0) >= 0.12
-            and "CALL" in normalized_legal_actions
-            and normalized_gto == "FOLD"
-        ):
-            return normalized_legal_actions["CALL"], "EXPLOIT_PROFILE"
+        # Exploitation par EV-delta : uniquement si les EV par action du solveur
+        # sont disponibles et différenciés.
+        if ev_by_action:
+            gto_ev = ev_by_action.get(normalized_gto)
+            if gto_ev is not None and exploit_confidence >= 0.3:
+                gain_threshold = deviation_cap * 0.5
+                candidates = [
+                    (float(ev), action)
+                    for action, ev in ev_by_action.items()
+                    if action in normalized_legal_actions
+                    and action != normalized_gto
+                    and isinstance(ev, (int, float))
+                    and ev - gto_ev >= gain_threshold
+                ]
+                if candidates:
+                    candidates.sort(reverse=True)
+                    best_ev, best_action = candidates[0]
+                    return normalized_legal_actions[best_action], "EXPLOIT_EV"
 
         return gto_action, "GTO_RUST"
 
@@ -986,6 +1203,7 @@ class DecisionMaker:
             "GTO_RUST": "gto_solver",
             "GTO_PREFLOP_FAST": "preflop_fast_path",
             "EXPLOIT_PROFILE": "profile_exploit",
+            "EXPLOIT_EV": "ev_delta_exploit",
             "RL_VALIDATED": "validated_rl",
             "ICM_SURVIVAL": "icm_survival",
         }.get(decision_source, str(decision_source or "unknown").strip().lower() or "unknown")
@@ -1137,6 +1355,8 @@ class DecisionMaker:
                 normalized.append("BET")
             elif raw.startswith("RAISE"):
                 normalized.append("RAISE")
+            elif raw.startswith("ALLIN") or raw.startswith("ALL_IN"):
+                normalized.append("ALL_IN")
             else:
                 normalized.append(raw)
         return list(dict.fromkeys(normalized))
@@ -1144,6 +1364,13 @@ class DecisionMaker:
     def _normalize_solver_action(self, action_name: str | None, legal_actions: list[str]) -> str:
         normalized = _normalize_action_name(action_name)
         normalized_legal_actions = self._normalize_runtime_actions(legal_actions)
+        # allin_* ne doit JAMAIS être traduit en FOLD : toute variante d'all-in
+        # est ramenée vers ALL_IN quand celle-ci est légale.
+        if normalized and (
+            normalized.startswith("ALLIN") or normalized.startswith("ALL_IN")
+        ):
+            if "ALL_IN" in normalized_legal_actions or "ALLIN" in normalized_legal_actions:
+                return "ALL_IN"
         if normalized in normalized_legal_actions:
             return normalized
         if normalized and normalized.startswith("BET") and "BET" in normalized_legal_actions:
@@ -1216,10 +1443,15 @@ class DecisionMaker:
         state_confidence: float = 0.0,
         action_history: list[dict[str, Any]] | None = None,
         tournament_data: dict[str, Any] | None = None,
+        active_villain_count: int | None = None,
     ) -> dict:
         """
         Détermine la meilleure action à prendre en combinant GTO (Solver Rust),
         Reinforcement Learning (Agent RL), Node-Locking, et ICM.
+
+        ``active_villain_count`` (>2) déclenche le mode multiway approché
+        (Phase 3, garde-fous) : solve HU contre le villain principal avec range
+        resserrée et budget d'itérations réduit, signalé dans les métadonnées.
         """
         logger.info(f"Calcul de décision contre {villain_name}. Board: {board}, Pot: {pot}")
         hero_hand = _normalize_hero_hand_string(hero_hand)
@@ -1250,6 +1482,38 @@ class DecisionMaker:
 
         # Obtenir la range théorique via le PreflopManager
         base_villain_range = self.preflop_manager.get_villain_range(villain_position)
+
+        # Phase 2.9 — resserrement bayésien de la range villain par action observée
+        range_updater = BayesianRangeUpdater()
+        villain_range_observed = range_updater.update(
+            base_villain_range,
+            action_history,
+            street=max(len(board or []) - 3, 0),
+            board_texture=_analyze_board_texture(board or []),
+        )
+        if villain_range_observed:
+            base_villain_range = villain_range_observed
+
+        # Phase 3 — garde-fous multiway : le moteur ne supporte que HU. En 3+ way,
+        # on résout en HU contre le villain principal avec une range encore plus
+        # resserrée (les autres joueurs exercent une pression supplémentaire) et un
+        # budget d'itérations réduit ; l'approximation est tracée dans les métadonnées.
+        multiway_players = int(active_villain_count or 2)
+        multiway_approximation = multiway_players > 2
+        if multiway_approximation:
+            second_pass = BayesianRangeUpdater(min_weight=0.6)
+            tightened = second_pass.update(
+                base_villain_range,
+                action_history,
+                street=max(len(board or []) - 3, 0),
+                board_texture=_analyze_board_texture(board or []),
+            )
+            base_villain_range = tightened or base_villain_range
+            logger.warning(
+                "Multiway (%d joueurs) non supporté par le moteur : approximation "
+                "HU vs villain principal activée.",
+                multiway_players,
+            )
 
         # Appliquer le Node-Locking
         villain_range = self._apply_node_locking(base_villain_range, profile, board)
@@ -1285,16 +1549,21 @@ class DecisionMaker:
         fallback_used = False
         fallback_reason = None
         if use_preflop_fast_path:
-            gto_action, gto_details = self._run_preflop_fast_path(
+            facing_raise_preflop = (
+                "CALL" in legal_actions and "CHECK" not in legal_actions
+            ) or self._has_aggressive_preflop_history(action_history)
+            gto_action, gto_details = self._run_preflop_dual_mode(
                 hero_hand=hero_hand,
                 legal_actions=legal_actions,
                 hero_position=hero_position,
                 action_history=action_history,
                 effective_stack=effective_stack,
                 pot=pot,
+                facing_raise=facing_raise_preflop,
+                aggressive_action=self._preferred_aggressive_action(legal_actions),
             )
             preflop_fast_used = True
-            logger.info("Réponse préflop fast-path immédiate : %s", gto_action)
+            logger.info("Réponse préflop (%s) : %s", self.preflop_mode, gto_action)
         elif self.solver_provider:
             try:
                 response = await asyncio.wait_for(
@@ -1310,6 +1579,7 @@ class DecisionMaker:
                         hero_position=hero_position,
                         state_confidence=state_confidence,
                         action_history=action_history,
+                        time_budget_ms=self._multiway_time_budget(multiway_players),
                     ),
                     timeout=10.0,
                 )
@@ -1318,6 +1588,15 @@ class DecisionMaker:
                 gto_action = self._normalize_solver_action(
                     response.get("chosen_action", "FOLD"), legal_actions
                 )
+                if multiway_approximation:
+                    warnings = list(response.get("warnings") or [])
+                    if "multiway_approximation" not in warnings:
+                        warnings.append("multiway_approximation")
+                    response["warnings"] = warnings
+                    response["multiway"] = {
+                        "approximation": True,
+                        "players": multiway_players,
+                    }
                 gto_details = response
                 logger.info(
                     f"Réponse GTO Rust reçue en {response.get('elapsed_ms')}ms : {gto_action}"
@@ -1340,12 +1619,15 @@ class DecisionMaker:
         if not fallback_used:
             self._consecutive_solver_timeouts = 0
 
-        # 4. Orchestration exploitative bornée
+        # 4. Orchestration exploitative bornée (EV-delta, Phase 2.10)
+        alternatives = self._extract_solver_alternatives(gto_details, legal_actions)
+        ev_by_action, _, _ = self._build_solver_maps(alternatives)
         final_action, decision_source = self._select_exploit_action(
             legal_actions,
             gto_action,
             rl_action_name,
             structured_profile,
+            ev_by_action=ev_by_action or None,
         )
         if decision_source != "GTO_RUST":
             logger.info(
@@ -1421,7 +1703,6 @@ class DecisionMaker:
         if final_action not in {"BET", "RAISE", "ALL_IN"}:
             bet_size = None
 
-        alternatives = self._extract_solver_alternatives(gto_details, legal_actions)
         rl_ab_metadata = self._build_rl_ab_metadata(
             legal_actions=legal_actions,
             gto_action=gto_action,

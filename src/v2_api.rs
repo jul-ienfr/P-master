@@ -356,6 +356,7 @@ pub struct SolveRequestV2 {
     pub action_history: Vec<String>,
     pub tree_preset_id: TreePresetId,
     pub rake: f32,
+    pub rake_cap: f32,
     pub num_players: u8,
     pub legal_actions: Vec<ActionOptionV2>,
     pub cache_policy: CachePolicy,
@@ -364,6 +365,10 @@ pub struct SolveRequestV2 {
     pub range_model_version: RangeModelVersion,
     pub use_cache: bool,
     pub time_budget_ms: Option<u64>,
+    pub hero_hand: Option<String>,
+    pub sample_mixed: bool,
+    pub random_seed: Option<u64>,
+    pub bet_size_spec: Option<crate::gto_api::BetSizeSpec>,
 }
 
 impl Default for SolveRequestV2 {
@@ -379,6 +384,7 @@ impl Default for SolveRequestV2 {
             action_history: Vec::new(),
             tree_preset_id: TreePresetId::default(),
             rake: 0.0,
+            rake_cap: 0.0,
             num_players: 2,
             legal_actions: Vec::new(),
             cache_policy: CachePolicy::default(),
@@ -387,6 +393,10 @@ impl Default for SolveRequestV2 {
             range_model_version: RangeModelVersion::default(),
             use_cache: true,
             time_budget_ms: None,
+            hero_hand: None,
+            sample_mixed: false,
+            random_seed: None,
+            bet_size_spec: None,
         }
     }
 }
@@ -409,6 +419,7 @@ pub struct SolveResponseV2 {
     pub elapsed_ms: u64,
     pub preset_id: TreePresetId,
     pub warnings: Vec<DecisionWarning>,
+    pub metadata: BTreeMap<String, String>,
 }
 
 impl Default for SolveResponseV2 {
@@ -427,10 +438,10 @@ impl Default for SolveResponseV2 {
             elapsed_ms: 0,
             preset_id: TreePresetId::default(),
             warnings: Vec::new(),
+            metadata: BTreeMap::new(),
         }
     }
 }
-
 /// Provider mode for the optional LLM copilot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[cfg_attr(feature = "bincode", derive(Decode, Encode))]
@@ -604,7 +615,8 @@ impl From<&crate::gto_api::SolveRequest> for SolveRequestV2 {
             hero_position,
             action_history: Vec::new(),
             tree_preset_id: TreePresetId::default(),
-            rake: 0.0,
+            rake: request.rake_rate,
+            rake_cap: request.rake_cap,
             num_players: 2,
             legal_actions: Vec::new(),
             cache_policy: if request.use_cache {
@@ -617,6 +629,10 @@ impl From<&crate::gto_api::SolveRequest> for SolveRequestV2 {
             range_model_version: RangeModelVersion::default(),
             use_cache: request.use_cache,
             time_budget_ms: None,
+            hero_hand: request.hero_hand.clone(),
+            sample_mixed: request.sample_mixed,
+            random_seed: request.random_seed,
+            bet_size_spec: request.bet_size_spec.clone(),
         }
     }
 }
@@ -664,6 +680,7 @@ impl From<&crate::gto_api::SolveResponse> for SolveResponseV2 {
             elapsed_ms: response.elapsed_ms,
             preset_id: TreePresetId::default(),
             warnings: Vec::new(),
+            metadata: BTreeMap::new(),
         }
     }
 }
@@ -685,6 +702,9 @@ impl From<&SolveResponseV2> for crate::gto_api::SolveResponse {
                 .collect(),
             cache_hit: response.cache_hit,
             elapsed_ms: response.elapsed_ms,
+            hero_combo_ev: response.hero_ev,
+            sample_seed: None,
+            selection: "range_frequency".to_string(),
         }
     }
 }
@@ -867,9 +887,6 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
     if request.villain_ranges.len() > 1 || request.num_players > 2 {
         push_warning(&mut warnings, DecisionWarning::MultiwayApproximation);
     }
-    if !request.action_history.is_empty() || request.rake > 0.0 {
-        push_warning(&mut warnings, DecisionWarning::UnsupportedSpot);
-    }
     if parsed_position.is_none() {
         push_warning(&mut warnings, DecisionWarning::UnsupportedSpot);
     }
@@ -879,10 +896,11 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
         push_warning(&mut warnings, DecisionWarning::OcrLowConfidence);
     }
 
+    // The action history and the rake are now first-class inputs: already-played actions define
+    // the entry state of the tree (board/pot/stacks sent by the runtime) and the rake is modeled
+    // inside the tree via rake_rate/rake_cap.
     let can_bridge_to_legacy = request.villain_ranges.len() == 1
         && request.num_players <= 2
-        && request.action_history.is_empty()
-        && request.rake <= 0.0
         && parsed_position.is_some();
 
     if !can_bridge_to_legacy {
@@ -901,6 +919,7 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
             elapsed_ms: started.elapsed().as_millis() as u64,
             preset_id: request.tree_preset_id,
             warnings,
+            metadata: BTreeMap::new(),
         });
     }
 
@@ -919,6 +938,19 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
     response.normalized_ranges = normalized_ranges;
     response.decision_confidence = decision_confidence_hint(&request, response.warnings.len());
     response.fallback_reason = None;
+    response.metadata.insert(
+        "selection".to_string(),
+        if legacy_response.selection.is_empty() {
+            "range_frequency".to_string()
+        } else {
+            legacy_response.selection.clone()
+        },
+    );
+    if let Some(seed) = legacy_response.sample_seed {
+        response
+            .metadata
+            .insert("sample_seed".to_string(), seed.to_string());
+    }
     Ok(response)
 }
 
@@ -1018,6 +1050,12 @@ fn to_legacy_solve_request(
         max_iterations,
         target_exploitability: 0.5,
         use_cache: request.use_cache && !matches!(request.cache_policy, CachePolicy::Disabled),
+        hero_hand: request.hero_hand.clone(),
+        rake_rate: request.rake.clamp(0.0, 1.0),
+        rake_cap: request.rake_cap.max(0.0),
+        sample_mixed: request.sample_mixed,
+        random_seed: request.random_seed,
+        bet_size_spec: request.bet_size_spec.clone(),
     }
 }
 
@@ -1072,12 +1110,6 @@ fn fallback_reason(request: &SolveRequestV2, has_position: bool) -> String {
     }
     if request.num_players > 2 || request.villain_ranges.len() > 1 {
         return "multiway_not_supported".to_string();
-    }
-    if !request.action_history.is_empty() {
-        return "action_history_not_supported".to_string();
-    }
-    if request.rake > 0.0 {
-        return "rake_not_supported".to_string();
     }
     if !has_position {
         return "hero_position_required".to_string();

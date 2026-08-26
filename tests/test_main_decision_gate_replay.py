@@ -2686,6 +2686,61 @@ def test_go_live_gate_honors_custom_thresholds():
     assert result.checks["decision_count"]["threshold"] == 5
 
 
+def test_go_live_gate_strategy_checks_neutral_without_artifacts():
+    result = evaluate_go_live_gate(
+        {
+            "decision_count": 30,
+            "block_rate": 0.1,
+            "fallback_rate": 0.1,
+            "rolling_latency_ms": 120.0,
+        },
+        {"runtime": {"incident_count": 1}},
+        readiness={"state": "actionable", "score": 0.9},
+        validation={"state": "fully_valid"},
+    )
+
+    assert result.passed is True
+    assert result.metrics["strategy_evaluated"] == 0.0
+    assert result.checks["winrate_bb100"]["ok"] is True
+    assert result.checks["best_response_gap"]["ok"] is True
+
+
+def test_go_live_gate_blocks_on_weak_strategy_artifacts():
+    result = evaluate_go_live_gate(
+        {
+            "decision_count": 30,
+            "block_rate": 0.1,
+            "fallback_rate": 0.1,
+            "rolling_latency_ms": 120.0,
+        },
+        {"runtime": {"incident_count": 1}},
+        strategy_metrics={"winrate_bb100": -3.5, "best_response_gap": 0.8},
+    )
+
+    assert result.passed is False
+    assert "winrate_below_threshold" in result.reasons
+    assert "exploitability_above_threshold" in result.reasons
+
+
+def test_go_live_gate_passes_with_strong_strategy_artifacts():
+    result = evaluate_go_live_gate(
+        {
+            "decision_count": 30,
+            "block_rate": 0.1,
+            "fallback_rate": 0.1,
+            "rolling_latency_ms": 120.0,
+        },
+        {"runtime": {"incident_count": 1}},
+        readiness={"state": "actionable", "score": 0.9},
+        validation={"state": "fully_valid"},
+        strategy_metrics={"winrate_bb100": 4.2, "best_response_gap": 0.05},
+    )
+
+    assert result.passed is True
+    assert result.status == "ready"
+    assert result.metrics["strategy_evaluated"] == 1.0
+
+
 def test_operator_snapshot_exposes_go_live_blocked_when_gate_fails():
     controller = object.__new__(SuperBotController)
     controller.operator_controls = {

@@ -128,3 +128,38 @@ class RuntimeSessionMixin:
             "enable_validated_rl": enable_validated_rl,
             "autoload_rl_model": autoload_rl_model,
         }
+
+    def _build_preflop_runtime_config(self) -> dict:
+        """Phase 1 — préflop dual-mode : config.json (`preflop.mode`) ou env `POKER_PREFLOP_MODE`."""
+        preflop_cfg = self.config.get("preflop", {}) or {}
+
+        mode = str(
+            os.getenv("POKER_PREFLOP_MODE") or preflop_cfg.get("mode") or "precomputed"
+        ).strip().lower()
+        if mode not in {"precomputed", "live", "charts"}:
+            logger.warning("POKER_PREFLOP_MODE invalide (%s), repli sur 'precomputed'.", mode)
+            mode = "precomputed"
+
+        raw_budget = os.getenv("POKER_PREFLOP_LIVE_BUDGET_MS") or preflop_cfg.get(
+            "live_time_budget_ms"
+        )
+        try:
+            live_budget_ms = max(100, int(raw_budget)) if raw_budget is not None else 800
+        except (TypeError, ValueError):
+            live_budget_ms = 800
+
+        solutions_path = str(
+            preflop_cfg.get("solutions_path") or "models/preflop"
+        ).strip()
+
+        logger.info(
+            "Runtime preflop config resolved: mode=%s, live_budget_ms=%d, solutions_path=%s",
+            mode,
+            live_budget_ms,
+            solutions_path,
+        )
+        return {
+            "mode": mode,
+            "live_time_budget_ms": live_budget_ms,
+            "solutions_path": solutions_path,
+        }

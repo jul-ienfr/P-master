@@ -65,12 +65,12 @@ seed_everything()
 
 # Imports de nos modules
 from src.bot.action_controller import ActionController
-from src.bot.humanization import HumanizationProfile
 
 # --- Imports Active Learning ---
 from src.bot.active_learning import HumanInTheLoop
 from src.bot.decision_maker import DecisionMaker
 from src.bot.gate_flow import GateFlowMixin
+from src.bot.humanization import HumanizationProfile
 from src.bot.live_execution import (
     LiveExecutionMixin,
 )
@@ -185,6 +185,7 @@ class SuperBotController(
         self.detector = PokerDetector(
             model_path=yolo_cfg.get("model_path", "models/poker_yolo_v11.engine"),
             pipeline=vision_pipeline,
+            dataset_limits=bot_cfg.get("active_learning_limits", {}) or {},
         )
         if not bool(yolo_cfg.get("live_enabled", False)):
             self.detector.model = None
@@ -245,12 +246,20 @@ class SuperBotController(
             enable_validated_rl=rl_cfg["enable_validated_rl"],
             autoload_rl_model=rl_cfg["autoload_rl_model"],
         )
+        preflop_cfg = self._build_preflop_runtime_config()
+        self.decision_maker.configure_preflop(
+            mode=preflop_cfg["mode"],
+            solutions_path=preflop_cfg["solutions_path"],
+            live_budget_ms=preflop_cfg["live_time_budget_ms"],
+        )
         self.runtime_sanity = SanityChecker()
 
         # --- 5. ExÃ©cuteur Stealth ---
         self.action_controller = ActionController(
             window_title_keywords=bot_cfg.get("window_title_keywords", "VirtualBox"),
             humanization=HumanizationProfile.from_config(bot_cfg.get("humanization")),
+            site_profiles=bot_cfg.get("site_profiles", {}) or {},
+            ghost_clicks_enabled=bool(bot_cfg.get("ghost_clicks_enabled", False)),
         )
 
         # --- 6. ACTIVE LEARNING (HITL) ---
@@ -261,6 +270,39 @@ class SuperBotController(
         )
         self.detector.ai_fallback = self.hitl.ai_fallback
         self.pixel_probe = FastPixelProbe()
+
+        # --- Socle multi-table (Phase 1) ---
+        from src.runtime.multi_table_loop import ActionExecutionQueue, MultiTableLoop
+        from src.runtime.table_manager import (
+            TableRuntimeManager,
+            WindowManager,
+            default_session_factory,
+        )
+
+        self.max_tables = max(1, int(bot_cfg.get("max_tables", 4) or 4))
+        self.window_manager = WindowManager(
+            title_keywords=bot_cfg.get("window_title_keywords", "VirtualBox"),
+            site_profiles=self.action_controller.site_profiles,
+        )
+
+        def _table_session_factory(candidate):
+            session = default_session_factory(candidate)
+            session.runtime["tracker"] = TableTracker(self.db, table_id=session.table_id)
+            return session
+
+        self.table_manager = TableRuntimeManager(
+            self.window_manager,
+            max_tables=self.max_tables,
+            poll_interval_s=float(bot_cfg.get("table_scan_interval_s", 1.0) or 1.0),
+            session_factory=_table_session_factory,
+        )
+        self.multi_table_loop = MultiTableLoop(
+            self.table_manager,
+            execution_queue=ActionExecutionQueue(
+                min_gap_s=float(bot_cfg.get("multi_table_action_gap_s", 0.35) or 0.35)
+            ),
+            cycle_budget_ms=float(bot_cfg.get("time_budget_ms", 1000) or 1000),
+        )
         observation_capture_cfg = yolo_cfg.get("observation_capture", {}) or {}
         self.observation_dataset = ObservationDatasetCollector(
             enabled=resolve_observation_capture_enabled(
@@ -306,6 +348,15 @@ class SuperBotController(
         )
         self.frame_pipeline = FramePipeline(self)
         self.runtime_loop = RuntimeLoop(self)
+
+        from src.vision.quality_aggregator import VisionQualityAggregator
+
+        self.vision_quality_aggregator = VisionQualityAggregator(
+            rejection_incident_threshold=int(
+                bot_cfg.get("vision_quality_incident_threshold", 10) or 10
+            ),
+            incident_callback=self._push_incident,
+        )
 
         self.is_running = False
         self.fallback_coords = self.config.get("fallback_coordinates", {})

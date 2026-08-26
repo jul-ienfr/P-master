@@ -306,12 +306,21 @@ class SanityChecker:
                 "RAISE_POT": "RAISE",
                 "BET": "BET",
                 "ALL_IN": "ALL_IN",
+                "ALLIN": "ALL_IN",
                 "CALL": "CALL",
                 "CHECK": "CHECK",
                 "FOLD": "FOLD",
                 "RAISE": "RAISE",
             }
-            action_base = base_actions.get(action_intent.action, action_intent.action)
+            action_name = str(action_intent.action or "").strip().upper()
+            # Variantes dimensionnées (ALLIN_75, BET_120, RAISE_2.5X, ...) ramenées
+            # à leur famille d'action avant le contrôle de légalité.
+            if action_name not in base_actions:
+                for family in ("ALL_IN", "ALLIN", "BET", "RAISE"):
+                    if action_name.startswith(family):
+                        action_name = "ALL_IN" if family in {"ALL_IN", "ALLIN"} else family
+                        break
+            action_base = base_actions.get(action_name, action_intent.action)
             is_legal = (
                 any(action_base in legal for legal in legal_actions)
                 or action_intent.action in legal_actions
@@ -325,8 +334,16 @@ class SanityChecker:
                     )
                 )
 
+        aggressive_action = str(action_intent.action or "").strip().upper()
+        if aggressive_action.startswith("ALLIN") or aggressive_action.startswith("ALL_IN"):
+            aggressive_action = "ALL_IN"
+        elif aggressive_action.startswith("BET"):
+            aggressive_action = "BET"
+        elif aggressive_action.startswith("RAISE"):
+            aggressive_action = "RAISE"
+
         if (
-            action_intent.action in {"BET", "RAISE", "RAISE_HALF", "RAISE_POT", "ALL_IN"}
+            aggressive_action in {"BET", "RAISE", "RAISE_HALF", "RAISE_POT", "ALL_IN"}
             and action_intent.bet_size is None
         ):
             reasons.append(

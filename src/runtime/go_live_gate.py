@@ -12,6 +12,10 @@ DEFAULT_GO_LIVE_THRESHOLDS = {
     "min_readiness_score": 0.6,
     "max_non_actionable_readiness_rate": 0.5,
     "max_invalid_validation_rate": 0.5,
+    # Seuils stratégiques (Phase 5.18) : appliqués seulement quand les artifacts
+    # d'évaluation scientifique sont fournis via ``strategy_metrics``.
+    "min_winrate_bb100": 0.0,
+    "max_best_response_gap_bb": 0.25,
 }
 
 
@@ -44,7 +48,18 @@ def evaluate_go_live_gate(
     readiness: dict | None = None,
     validation: dict | None = None,
     thresholds: dict | None = None,
+    strategy_metrics: dict | None = None,
 ) -> GoLiveGateResult:
+    """Évalue le gate go-live.
+
+    ``strategy_metrics`` porte les artifacts d'évaluation scientifique (Phase 5) :
+    ``winrate_bb100`` (simulateur Monte-Carlo, research.monte_carlo_sim) et
+    ``best_response_gap`` (MES du solveur natif, research.best_response). Quand il est
+    absent, les checks stratégiques sont neutralisés (non bloquants).
+    """
+    strategy_metrics = dict(strategy_metrics or {})
+    has_strategy_artifacts = bool(strategy_metrics)
+
     thresholds = {**DEFAULT_GO_LIVE_THRESHOLDS, **dict(thresholds or {})}
     metrics = {
         "decision_count": int(local_metrics.get("decision_count", 0) or 0),
@@ -63,6 +78,9 @@ def evaluate_go_live_gate(
         "invalid_validation_rate": 1.0
         if str((validation or {}).get("state") or "unknown") in {"soft_invalid", "hard_invalid"}
         else 0.0,
+        "strategy_evaluated": 1.0 if has_strategy_artifacts else 0.0,
+        "winrate_bb100": float(strategy_metrics.get("winrate_bb100", 0.0) or 0.0),
+        "best_response_gap": float(strategy_metrics.get("best_response_gap", 0.0) or 0.0),
     }
     checks = {
         "decision_count": {
@@ -121,6 +139,22 @@ def evaluate_go_live_gate(
             "threshold": thresholds["max_invalid_validation_rate"],
             "operator": "<=",
             "reason": "validation_state_invalid",
+        },
+        "winrate_bb100": {
+            "ok": (not has_strategy_artifacts)
+            or metrics["winrate_bb100"] >= thresholds["min_winrate_bb100"],
+            "metric": metrics["winrate_bb100"],
+            "threshold": thresholds["min_winrate_bb100"],
+            "operator": ">=",
+            "reason": "winrate_below_threshold",
+        },
+        "best_response_gap": {
+            "ok": (not has_strategy_artifacts)
+            or metrics["best_response_gap"] <= thresholds["max_best_response_gap_bb"],
+            "metric": metrics["best_response_gap"],
+            "threshold": thresholds["max_best_response_gap_bb"],
+            "operator": "<=",
+            "reason": "exploitability_above_threshold",
         },
     }
     reasons = [str(check["reason"]) for check in checks.values() if not bool(check["ok"])]

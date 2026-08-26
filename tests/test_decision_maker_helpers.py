@@ -82,6 +82,22 @@ def test_bet_size_fixed_fractions():
     assert _bet_size_from_action("CHECK", pot, stack) is None
 
 
+def test_bet_size_arbitrary_solver_sizes():
+    pot, stack = 200.0, 500.0
+    # pourcentages arbitraires
+    assert _bet_size_from_action("bet_33", pot, stack) == pytest.approx(66.0)
+    assert _bet_size_from_action("BET_120", pot, stack) == pytest.approx(240.0)
+    # fractions décimales (format natif du solveur Rust)
+    assert _bet_size_from_action("bet_0.5", pot, stack) == pytest.approx(100.0)
+    assert _bet_size_from_action("bet_0.75", pot, stack) == pytest.approx(150.0)
+    # multiplicateurs de raise
+    assert _bet_size_from_action("raise_2.5x", pot, stack) == pytest.approx(500.0)
+    assert _bet_size_from_action("RAISE_3", pot, stack) == pytest.approx(stack)
+    # all-in sous toutes ses formes -> stack entier
+    assert _bet_size_from_action("allin_500", pot, stack) == pytest.approx(stack)
+    assert _bet_size_from_action("ALL_IN_999", pot, stack) == pytest.approx(stack)
+
+
 def test_build_exploit_profile_styles_and_biases():
     whale = build_exploit_profile(
         {"derived_profile": {"style": "Whale", "observed_hands": 240, "reliability": 0.9}}

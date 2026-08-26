@@ -141,11 +141,30 @@ def estimate_local_best_response(
     records: list[ReplayRecord] | tuple[ReplayRecord, ...],
     *,
     policy: Policy,
+    solver_gap_fn: Callable[[ReplayRecord], float] | None = None,
 ) -> dict[str, object]:
+    """Mesure le gap de best-response d'une politique sur un corpus.
+
+    Par défaut, repli local basé sur les alternatives du replay (pseudo-LBR circulaire,
+    conservé pour compat). Quand ``solver_gap_fn`` est fournie (voir
+    ``research.best_response``), le gap est mesuré via la MES du solveur natif.
+    """
+    from collections.abc import Callable  # noqa: F401  (annotation différée)
+
     best_response_gap = 0.0
     evaluated_records = 0
+    solver_records = 0
 
     for record in records:
+        if solver_gap_fn is not None:
+            try:
+                best_response_gap += max(0.0, float(solver_gap_fn(record)))
+                evaluated_records += 1
+                solver_records += 1
+                continue
+            except Exception:
+                pass
+
         if not record.decision.alternatives:
             continue
         alternatives = {item.name: float(item.ev) for item in record.decision.alternatives}
@@ -159,6 +178,8 @@ def estimate_local_best_response(
         "policy": getattr(policy, "name", "policy"),
         "records": len(records),
         "evaluated_records": evaluated_records,
+        "solver_evaluated_records": solver_records,
+        "backend": "native_mes" if solver_records else "alternatives_fallback",
         "lbr_gap": round(best_response_gap, 4),
         "average_gap": round(best_response_gap / evaluated_records, 4) if evaluated_records else 0.0,
     }

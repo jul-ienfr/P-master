@@ -110,6 +110,28 @@ def test_normalize_solver_action_falls_back_to_fold_then_first_legal_action():
     assert decision_maker._normalize_solver_action("ALL_IN", ["BET", "RAISE"]) == "BET"
 
 
+def test_normalize_solver_action_never_maps_allin_to_fold():
+    decision_maker = DecisionMaker(FakeDB(), solver_backend=None, rl_agent=None)
+
+    # allin_* doit être ramené vers ALL_IN, jamais FOLD (P0.2)
+    assert (
+        decision_maker._normalize_solver_action("allin_500", ["FOLD", "CALL", "ALL_IN"])
+        == "ALL_IN"
+    )
+    assert decision_maker._normalize_runtime_actions(["allin_500", "ALLIN_75"]) == ["ALL_IN"]
+    assert decision_maker._normalize_runtime_actions(["ALL_IN_999"]) == ["ALL_IN"]
+
+
+def test_normalize_runtime_actions_collapses_allin_variants():
+    decision_maker = DecisionMaker(FakeDB(), solver_backend=None, rl_agent=None)
+
+    normalized = decision_maker._normalize_runtime_actions(
+        ["fold", "call", "bet_33", "raise_2.5x", "allin_100"]
+    )
+
+    assert normalized == ["FOLD", "CALL", "BET", "RAISE", "ALL_IN"]
+
+
 def test_fallback_action_prefers_fold_and_preserves_backend_metadata():
     decision_maker = DecisionMaker(FakeDB(), solver_backend=None, rl_agent=None)
 
@@ -130,7 +152,7 @@ def test_fallback_action_uses_first_normalized_action_when_fold_is_unavailable()
     assert fallback["action"] == "BET"
 
 
-def test_select_exploit_action_applies_pressure_bias_when_deviation_cap_allows_it():
+def test_select_exploit_action_deviates_on_significant_ev_delta():
     decision_maker = DecisionMaker(FakeDB(), solver_backend=None, rl_agent=None)
 
     action, source = decision_maker._select_exploit_action(
@@ -139,52 +161,39 @@ def test_select_exploit_action_applies_pressure_bias_when_deviation_cap_allows_i
         rl_action_name=None,
         structured_profile={
             "deviation_cap": 0.12,
-            "pressure_bias": 0.18,
-            "fold_bias": 0.0,
-            "call_bias": 0.0,
+            "exploit_confidence": 0.8,
         },
+        ev_by_action={"CALL": 1.0, "BET": 1.1},
     )
 
+    # gain 0.1 >= deviation_cap*0.5 = 0.06 -> déviation EV-based
     assert action == "BET"
-    assert source == "EXPLOIT_PROFILE"
+    assert source == "EXPLOIT_EV"
 
 
-def test_select_exploit_action_applies_fold_bias_toward_passive_action():
+def test_select_exploit_action_keeps_gto_without_ev_data_or_small_delta():
     decision_maker = DecisionMaker(FakeDB(), solver_backend=None, rl_agent=None)
 
+    # Pas de données EV : on reste GTO (les biais scalaires sont supprimés).
     action, source = decision_maker._select_exploit_action(
         legal_actions=["FOLD", "CHECK", "BET"],
         gto_action="BET",
         rl_action_name=None,
-        structured_profile={
-            "deviation_cap": 0.12,
-            "pressure_bias": 0.0,
-            "fold_bias": 0.16,
-            "call_bias": 0.0,
-        },
+        structured_profile={"deviation_cap": 0.12, "exploit_confidence": 0.9},
     )
+    assert action == "BET"
+    assert source == "GTO_RUST"
 
-    assert action == "CHECK"
-    assert source == "EXPLOIT_PROFILE"
-
-
-def test_select_exploit_action_applies_call_bias_only_against_gto_fold():
-    decision_maker = DecisionMaker(FakeDB(), solver_backend=None, rl_agent=None)
-
+    # Gain EV insuffisant : pas de déviation.
     action, source = decision_maker._select_exploit_action(
         legal_actions=["FOLD", "CALL"],
         gto_action="FOLD",
         rl_action_name=None,
-        structured_profile={
-            "deviation_cap": 0.12,
-            "pressure_bias": 0.0,
-            "fold_bias": 0.0,
-            "call_bias": 0.15,
-        },
+        structured_profile={"deviation_cap": 0.12, "exploit_confidence": 0.8},
+        ev_by_action={"FOLD": 0.0, "CALL": 0.02},
     )
-
-    assert action == "CALL"
-    assert source == "EXPLOIT_PROFILE"
+    assert action == "FOLD"
+    assert source == "GTO_RUST"
 
 
 def test_select_exploit_action_keeps_gto_when_deviation_cap_is_too_low():
@@ -517,9 +526,17 @@ def test_get_best_action_uses_dynamic_villain_position_from_history():
     )
 
     assert solver.calls
-    assert solver.calls[0]["villain_ranges"] == [
-        decision_maker.preflop_manager.get_villain_range("CO")
-    ]
+    # Phase 2.9 : la range envoyée est la range CO resserrée par l'action agressive
+    # observée (OPEN) — sous-ensemble de la chart CO, mains faibles supprimées.
+    sent_range = solver.calls[0]["villain_ranges"][0]
+    base_co = decision_maker.preflop_manager.get_villain_range("CO")
+    sent_items = {item.strip() for item in sent_range.split(",")}
+    base_items = {item.strip().rstrip("+") for item in base_co.split(",")}
+    assert sent_items
+    assert all(
+        item.rstrip("+") in base_items or item in base_items for item in sent_items
+    )
+    assert len(sent_items) < len(base_items)
 
 
 def test_get_best_action_keeps_optional_solver_backend_cache_and_warning_details_when_present():

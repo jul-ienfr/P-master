@@ -202,6 +202,61 @@ class GateFlowMixin:
             logger.debug("ExecutionContext indisponible (%s), fallback vide.", exc)
             return ExecutionContext()
 
+    @staticmethod
+    def _count_active_villains(canonical_state: CanonicalTableState) -> int:
+        """Nombre de joueurs actifs (hors héro, non couchés) — 2 = HU."""
+        players = list(getattr(canonical_state, "players", ()) or [])
+        villains = [
+            player
+            for player in players
+            if not bool(player.is_hero)
+            and bool(player.is_active)
+            and not bool(player.has_folded)
+        ]
+        return max(2, 1 + len(villains))
+
+    def _build_tournament_data(self, canonical_state: CanonicalTableState) -> dict | None:
+        """Phase 2.11 — peuple les données ICM depuis la session/tracker.
+
+        Activé uniquement en tournoi (config ``tournament.enabled`` + structure de
+        prix ``tournament.payouts`` >= 2 places payées) ; retourne None en cash game.
+        """
+        config = getattr(self, "config", None) or {}
+        tournament_cfg = config.get("tournament", {}) or {}
+        if not bool(tournament_cfg.get("enabled", False)):
+            return None
+
+        payouts = [float(payout) for payout in (tournament_cfg.get("payouts") or [])]
+        if len(payouts) < 2:
+            return None
+
+        players = list(getattr(canonical_state, "players", ()) or [])
+        active_stacks = [
+            float(player.stack)
+            for player in players
+            if bool(player.is_active) and not bool(player.has_folded) and player.stack > 0
+        ]
+        hero_stack = next(
+            (
+                float(player.stack)
+                for player in players
+                if bool(player.is_hero) and player.stack > 0
+            ),
+            0.0,
+        )
+        if not active_stacks or hero_stack <= 0:
+            return None
+
+        return {
+            "all_stacks": active_stacks,
+            "hero_stack": hero_stack,
+            "villain_stack": max(
+                (stack for stack in active_stacks if abs(stack - hero_stack) > 1e-9),
+                default=hero_stack,
+            ),
+            "payouts": payouts,
+        }
+
     async def _run_decision_gate_flow(
         self,
         canonical_state: CanonicalTableState,
@@ -289,6 +344,8 @@ class GateFlowMixin:
                 hero_position=hero_position,
                 state_confidence=canonical_state.state_confidence,
                 action_history=self.tracker.current_hand_actions,
+                tournament_data=self._build_tournament_data(canonical_state),
+                active_villain_count=self._count_active_villains(canonical_state),
             )
             self._remember_cached_live_decision(canonical_state, decision)
         else:

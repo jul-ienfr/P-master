@@ -135,3 +135,49 @@ def test_build_rl_runtime_config_matrix(rl_cfg, env, expected):
     controller = Controller({"rl": rl_cfg})
     result = controller._build_rl_runtime_config()
     assert result == expected
+
+
+def test_build_preflop_runtime_config_defaults(monkeypatch):
+    monkeypatch.delenv("POKER_PREFLOP_MODE", raising=False)
+    monkeypatch.delenv("POKER_PREFLOP_LIVE_BUDGET_MS", raising=False)
+
+    controller = Controller({})
+    result = controller._build_preflop_runtime_config()
+    assert result == {
+        "mode": "precomputed",
+        "live_time_budget_ms": 800,
+        "solutions_path": "models/preflop",
+    }
+
+
+def test_build_preflop_runtime_config_env_overrides_and_invalid_mode(monkeypatch):
+    monkeypatch.setenv("POKER_PREFLOP_MODE", "live")
+    monkeypatch.setenv("POKER_PREFLOP_LIVE_BUDGET_MS", "1200")
+    controller = Controller({"preflop": {"mode": "precomputed"}})
+    result = controller._build_preflop_runtime_config()
+    assert result["mode"] == "live"
+    assert result["live_time_budget_ms"] == 1200
+
+    monkeypatch.setenv("POKER_PREFLOP_MODE", "nonsense")
+    fallback = Controller({})._build_preflop_runtime_config()
+    assert fallback["mode"] == "precomputed"
+
+
+def test_build_preflop_runtime_config_from_json(monkeypatch):
+    monkeypatch.delenv("POKER_PREFLOP_MODE", raising=False)
+    monkeypatch.delenv("POKER_PREFLOP_LIVE_BUDGET_MS", raising=False)
+    controller = Controller(
+        {
+            "preflop": {
+                "mode": "live",
+                "live_time_budget_ms": 500,
+                "solutions_path": "custom/preflop",
+            }
+        }
+    )
+    result = controller._build_preflop_runtime_config()
+    assert result == {
+        "mode": "live",
+        "live_time_budget_ms": 500,
+        "solutions_path": "custom/preflop",
+    }
