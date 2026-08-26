@@ -41,6 +41,7 @@ __pycache__/
 config.local.json
 .env
 .claude/worktrees/
+.kilo/
 log/runtime_bridge/
 log/runtime_history.jsonl
 log/observation_store.json
