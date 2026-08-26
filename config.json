@@ -28,6 +28,11 @@
     "live_debounce_stable_window_s": 0.12,
     "live_debounce_poll_sleep_s": 0.02,
     "window_title_keywords": "NLHE|Hold'em No Limit|Connecté en tant que|PokerStars",
+    "humanization": {
+      "enabled": true,
+      "input_backend": "win32",
+      "seed": null
+    },
     "go_live_gate": {
       "min_decision_count": 20,
       "max_block_rate": 0.5,

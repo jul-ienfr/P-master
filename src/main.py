@@ -65,6 +65,7 @@ seed_everything()
 
 # Imports de nos modules
 from src.bot.action_controller import ActionController
+from src.bot.humanization import HumanizationProfile
 
 # --- Imports Active Learning ---
 from src.bot.active_learning import HumanInTheLoop
@@ -248,7 +249,8 @@ class SuperBotController(
 
         # --- 5. ExÃ©cuteur Stealth ---
         self.action_controller = ActionController(
-            window_title_keywords=bot_cfg.get("window_title_keywords", "VirtualBox")
+            window_title_keywords=bot_cfg.get("window_title_keywords", "VirtualBox"),
+            humanization=HumanizationProfile.from_config(bot_cfg.get("humanization")),
         )
 
         # --- 6. ACTIVE LEARNING (HITL) ---

@@ -1,27 +1,163 @@
 import asyncio
 import ctypes
+import ctypes.wintypes
 import logging
-import random
+import math
+import os
+import re
+from typing import Any, Protocol
 
 import win32api
 import win32con
 import win32gui
 
+from src.bot.click_strategy import ForegroundClickStrategy, GhostClickStrategy
+from src.bot.humanization import (
+    ExecutionContext,
+    HumanizationProfile,
+    compute_think_time,
+)
 from src.bot.sanity_checker import ActionIntent
 
 logger = logging.getLogger(__name__)
 DEFAULT_POKER_WINDOW_KEYWORDS = ("NLHE", "Hold'em No Limit", "PokerStars")
-MIN_THINK_TIME_S = 0.18
-MAX_THINK_TIME_S = 0.55
-MIN_MOVE_DURATION_S = 0.08
-MAX_MOVE_DURATION_S = 0.18
+
+_DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = -4
+_PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+
+
+def get_window_class_name(hwnd: int) -> str:
+    """Classe de fenêtre Win32 (GetClassNameW), vide si indisponible."""
+    try:
+        buffer = ctypes.create_unicode_buffer(256)
+        if ctypes.windll.user32.GetClassNameW(int(hwnd), buffer, 256):
+            return str(buffer.value)
+    except Exception:
+        pass
+    return ""
+
+
+def get_window_process_name(hwnd: int) -> str:
+    """Nom du process propriétaire (QueryFullProcessImageNameW), vide si refusé."""
+    try:
+        pid = ctypes.wintypes.DWORD(0)
+        ctypes.windll.user32.GetWindowThreadProcessId(int(hwnd), ctypes.byref(pid))
+        if not pid.value:
+            return ""
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.OpenProcess(
+            _PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid.value)
+        )
+        if not handle:
+            return ""
+        try:
+            size = ctypes.wintypes.DWORD(1024)
+            buffer = ctypes.create_unicode_buffer(size.value)
+            if not kernel32.QueryFullProcessImageNameW(handle, 0, buffer, ctypes.byref(size)):
+                return ""
+            return os.path.basename(str(buffer.value))
+        finally:
+            kernel32.CloseHandle(handle)
+    except Exception:
+        return ""
+
 
 # --- CORRECTION DPI AWARENESS ---
-# Empêche Windows de fausser les coordonnées (x,y) si l'utilisateur a un zoom écran > 100%
+# Per-monitor v2 quand disponible (multi-DPR correct), sinon fallback système.
 try:
-    ctypes.windll.user32.SetProcessDPIAware()
+    _user32 = ctypes.windll.user32
+    _dpi_ok = False
+    if hasattr(_user32, "SetProcessDpiAwarenessContext"):
+        try:
+            _user32.SetProcessDpiAwarenessContext.argtypes = [ctypes.c_void_p]
+            _user32.SetProcessDpiAwarenessContext.restype = ctypes.c_bool
+            _dpi_ok = bool(
+                _user32.SetProcessDpiAwarenessContext(
+                    ctypes.c_void_p(_DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)
+                )
+            )
+        except Exception:
+            _dpi_ok = False
+    if not _dpi_ok:
+        _user32.SetProcessDPIAware()
 except Exception as e:
     logger.warning(f"Impossible de définir le DPI Awareness: {e}")
+
+
+class InputBackend(Protocol):
+    """Crochet d'extension d'injection d'entrées.
+
+    Aujourd'hui : `Win32Backend` (SetCursorPos/mouse_event/keybd_event).
+    Demain : un pont série HID (Arduino Pro Micro / KMBox) — voir docs/hid_bridge.md.
+    Toute nouvelle implémentation n'a QUE ce contrat à respecter.
+    """
+
+    async def move_to(self, x: int, y: int) -> None:  # pragma: no cover - interface
+        raise NotImplementedError
+
+    async def press(self, vk: int) -> None:  # pragma: no cover - interface
+        raise NotImplementedError
+
+    async def release(self, vk: int) -> None:  # pragma: no cover - interface
+        raise NotImplementedError
+
+    async def type_char(self, ch: str) -> bool:  # pragma: no cover - interface
+        raise NotImplementedError
+
+
+class Win32Backend:
+    """Encapsulation des appels Win32 — déplacement pur, aucun changement de timing."""
+
+    async def move_to(self, x: int, y: int) -> None:
+        win32api.SetCursorPos((int(x), int(y)))
+
+    async def press(self, vk: int) -> None:
+        win32api.keybd_event(int(vk), 0, 0, 0)
+
+    async def release(self, vk: int) -> None:
+        win32api.keybd_event(int(vk), 0, win32con.KEYEVENTF_KEYUP, 0)
+
+    async def get_cursor_pos(self) -> tuple[int, int]:
+        return win32api.GetCursorPos()
+
+    async def mouse_down_abs(self, abs_x: int, abs_y: int) -> None:
+        win32api.mouse_event(
+            win32con.MOUSEEVENTF_ABSOLUTE | win32con.MOUSEEVENTF_LEFTDOWN,
+            int(abs_x),
+            int(abs_y),
+            0,
+            0,
+        )
+
+    async def mouse_up_abs(self, abs_x: int, abs_y: int) -> None:
+        win32api.mouse_event(
+            win32con.MOUSEEVENTF_ABSOLUTE | win32con.MOUSEEVENTF_LEFTUP,
+            int(abs_x),
+            int(abs_y),
+            0,
+            0,
+        )
+
+    async def type_char(self, ch: str) -> bool:
+        """Frappe complète d'un caractère, shift-state de VkKeyScanEx géré."""
+        try:
+            scan = int(win32api.VkKeyScanEx(ch, win32api.GetKeyboardLayout()))
+        except Exception:
+            scan = -1
+        if scan == -1:
+            logger.warning("SEND_TEXT | caractere non mappé sur ce layout : %r", ch)
+            return False
+        vk_code = scan & 0xFF
+        needs_shift = bool((scan >> 8) & 0x01)
+        if needs_shift:
+            await self.press(win32con.VK_SHIFT)
+        await self.press(vk_code)
+        # Maintien naturel minimal de la touche.
+        await asyncio.sleep(0.01)
+        await self.release(vk_code)
+        if needs_shift:
+            await self.release(win32con.VK_SHIFT)
+        return True
 
 
 def _parse_window_title_keywords(raw_value: str) -> list[str]:
@@ -36,11 +172,49 @@ class ActionController:
     déjouer l'analyse heuristique des anti-cheats.
     """
 
-    def __init__(self, window_title_keywords: str = "VirtualBox"):
+    def __init__(
+        self,
+        window_title_keywords: str = "VirtualBox",
+        humanization: HumanizationProfile | None = None,
+        input_backend: InputBackend | None = None,
+        site_profiles: dict[str, Any] | None = None,
+        ghost_clicks_enabled: bool = False,
+    ):
         self.window_title_keywords = window_title_keywords
         self.hwnd = None
         self.window_title = ""
+        self.profile = humanization or HumanizationProfile()
+        self.backend = input_backend or Win32Backend()
+        self.site_profiles = dict(site_profiles or {})
+        self.ghost_clicks_enabled = bool(ghost_clicks_enabled)
+        self._ghost_strategy: GhostClickStrategy | None = None
+        self._primary_keywords = _parse_window_title_keywords(self.window_title_keywords)
+        self._profile_matchers = self._build_profile_matchers(self.site_profiles)
         self._find_window()
+
+    @staticmethod
+    def _build_profile_matchers(site_profiles: dict[str, Any]) -> list[dict[str, Any]]:
+        matchers: list[dict[str, Any]] = []
+        for site_name, raw_profile in (site_profiles or {}).items():
+            if not isinstance(raw_profile, dict):
+                continue
+            matchers.append(
+                {
+                    "site": str(site_name),
+                    "title_regex": str(raw_profile.get("title_regex") or "") or None,
+                    "window_class": str(raw_profile.get("window_class") or "") or None,
+                    "process_name": str(raw_profile.get("process_name") or "") or None,
+                }
+            )
+        return matchers
+
+    @property
+    def click_strategy(self) -> ForegroundClickStrategy | GhostClickStrategy:
+        if getattr(self, "ghost_clicks_enabled", False):
+            if self._ghost_strategy is None:
+                self._ghost_strategy = GhostClickStrategy(lambda: self.hwnd)
+            return self._ghost_strategy
+        return ForegroundClickStrategy(self)
 
     def _candidate_windows(self) -> list[tuple[int, str, tuple[int, int, int, int]]]:
         candidates: list[tuple[int, str, tuple[int, int, int, int]]] = []
@@ -70,21 +244,53 @@ class ActionController:
             score -= 3
         return score
 
+    def _score_window_signals(self, hwnd: int, title: str) -> tuple[int, dict[str, int]]:
+        """Score pondéré : mots-clés de titre + classe fenêtre + process + regex titre."""
+        score = self._score_window_title(title, self._primary_keywords)
+        detail: dict[str, int] = {"title_keywords": max(0, score)}
+        if not self._profile_matchers:
+            return score, detail
+
+        class_name = get_window_class_name(hwnd)
+        process_name = get_window_process_name(hwnd)
+        for matcher in self._profile_matchers:
+            weight = 0
+            regex = matcher.get("title_regex")
+            if regex:
+                try:
+                    if re.search(regex, title, re.IGNORECASE):
+                        weight += 5
+                except re.error:
+                    logger.warning("site_profiles.title_regex invalide pour %s", matcher.get("site"))
+            expected_class = matcher.get("window_class")
+            if expected_class and class_name and class_name.lower() == expected_class.lower():
+                weight += 4
+            expected_process = matcher.get("process_name")
+            if expected_process and process_name and process_name.lower() == expected_process.lower():
+                weight += 4
+            if weight:
+                detail[str(matcher.get("site"))] = weight
+                score += weight
+        return score, detail
+
     def _select_best_window(
         self,
         keywords: list[str],
     ) -> tuple[int, str, tuple[int, int, int, int]] | None:
-        if not keywords:
-            return None
-
-        matches = []
-        for hwnd, title, rect in self._candidate_windows():
-            score = self._score_window_title(title, keywords)
-            if score <= 0:
-                continue
-            width = max(0, rect[2] - rect[0])
-            height = max(0, rect[3] - rect[1])
-            matches.append((score, width * height, hwnd, title, rect))
+        saved_primary = self._primary_keywords
+        try:
+            if keywords is not self._primary_keywords:
+                self._primary_keywords = keywords
+            matches = []
+            for hwnd, title, rect in self._candidate_windows():
+                score, _detail = self._score_window_signals(hwnd, title)
+                if score <= 0:
+                    continue
+                width = max(0, rect[2] - rect[0])
+                height = max(0, rect[3] - rect[1])
+                matches.append((score, width * height, hwnd, title, rect))
+        finally:
+            self._primary_keywords = saved_primary
 
         if not matches:
             return None
@@ -95,13 +301,14 @@ class ActionController:
 
     def _find_window(self):
         """Cherche le handle (HWND) de la fenêtre cible."""
-        primary_keywords = _parse_window_title_keywords(self.window_title_keywords)
+        primary_keywords = self._primary_keywords
 
         # LOCK HWND: Empêcher de sauter sur une autre fenêtre si celle-ci est toujours valide
         if getattr(self, "hwnd", None) and win32gui.IsWindow(self.hwnd):
             try:
                 current_title = win32gui.GetWindowText(self.hwnd)
-                if self._score_window_title(current_title, primary_keywords) > 0:
+                score, _detail = self._score_window_signals(current_title, primary_keywords)
+                if score > 0:
                     self.window_title = current_title
                     return
             except Exception:
@@ -295,49 +502,96 @@ class ActionController:
     def _ease_out_quad(self, t):
         return t * (2 - t)
 
+    def _profile(self) -> HumanizationProfile:
+        """Profil d'humanisation courant (fallback neutre pour les instances de test)."""
+        return getattr(self, "profile", None) or HumanizationProfile()
+
+    def _backend(self) -> InputBackend:
+        """Backend d'injection courant (défaut Win32 pour les instances de test)."""
+        return getattr(self, "backend", None) or Win32Backend()
+
+    @staticmethod
+    def _minimum_jerk(t: float) -> float:
+        """Profil de vitesse minimum-jerk : accélération/décélération naturelles."""
+        return (t**3) * (10.0 - 15.0 * t + 6.0 * t * t)
+
     async def _human_mouse_move(self, start_x, start_y, target_x, target_y, duration=None):
         """
-        Génère un mouvement de souris fluide basé sur la loi de Fitts et Bézier,
-        avec un potentiel dépassement (overshoot) pour leurrer les anti-cheats.
+        Mouvement de souris humain : Bézier + profil minimum-jerk, durée issue de la
+        loi de Fitts (vitesse tirée du profil), overshoot variable, jamais de mouvement
+        nul si le curseur est déjà sur la cible, micro-survol avant le clic.
         """
+        profile = self._profile()
+        mouse_cfg = profile.mouse
+
         distance = ((target_x - start_x) ** 2 + (target_y - start_y) ** 2) ** 0.5
+
+        # Curseur déjà sur la cible : petite divergence puis retour (jamais de mouvement nul).
+        if profile.enabled and distance < 2.0:
+            div_low, div_high = sorted(int(v) for v in mouse_cfg.divergence_px)
+            magnitude = profile.randint(div_low, max(div_low, div_high))
+            angle = profile.uniform(0.0, 2.0 * math.pi)
+            away_x = target_x + int(magnitude * math.cos(angle))
+            away_y = target_y + int(magnitude * math.sin(angle))
+            await self._human_mouse_move(
+                start_x, start_y, away_x, away_y, duration=duration
+            )
+            start_x, start_y = away_x, away_y
+            distance = float(magnitude)
+
         if duration is None:
-            duration = min(max(distance / random.uniform(800, 1500), 0.2), 0.8)
+            speed = profile.uniform(*sorted(mouse_cfg.speed_px_s))
+            duration = (distance / speed) if distance > 0 else mouse_cfg.move_min_duration_s
+            duration = min(max(duration, mouse_cfg.move_min_duration_s), mouse_cfg.move_max_duration_s)
 
         steps = max(5, int(duration * 60))
 
         control_x = (
-            start_x + (target_x - start_x) * random.uniform(0.3, 0.7) + random.randint(-150, 150)
+            start_x + (target_x - start_x) * profile.uniform(0.3, 0.7) + profile.randint(-150, 150)
         )
         control_y = (
-            start_y + (target_y - start_y) * random.uniform(0.3, 0.7) + random.randint(-150, 150)
+            start_y + (target_y - start_y) * profile.uniform(0.3, 0.7) + profile.randint(-150, 150)
         )
 
         for i in range(1, steps + 1):
-            t = i / steps
+            t = self._minimum_jerk(i / steps)
             x = int((1 - t) ** 2 * start_x + 2 * (1 - t) * t * control_x + t**2 * target_x)
             y = int((1 - t) ** 2 * start_y + 2 * (1 - t) * t * control_y + t**2 * target_y)
-            win32api.SetCursorPos((x, y))
+            await self._backend().move_to(x, y)
             await asyncio.sleep(duration / steps)
 
-        if random.random() < 0.40:
-            ox = target_x + random.randint(-15, 15)
-            oy = target_y + random.randint(-15, 15)
+        # Overshoot conservé mais probabiliste, amplitude pilotée par le profil.
+        if profile.enabled and profile.chance(mouse_cfg.overshoot_probability):
+            amplitude = max(1, int(mouse_cfg.overshoot_amplitude_px))
+            ox = target_x + profile.randint(-amplitude, amplitude)
+            oy = target_y + profile.randint(-amplitude, amplitude)
 
             o_steps = max(3, int(0.12 * 60))
             for i in range(1, o_steps + 1):
                 t = self._ease_out_quad(i / o_steps)
                 x = int(target_x + (ox - target_x) * t)
                 y = int(target_y + (oy - target_y) * t)
-                win32api.SetCursorPos((x, y))
+                await self._backend().move_to(x, y)
                 await asyncio.sleep(0.12 / o_steps)
 
             for i in range(1, o_steps + 1):
                 t = self._ease_out_quad(i / o_steps)
                 x = int(ox + (target_x - ox) * t)
                 y = int(oy + (target_y - oy) * t)
-                win32api.SetCursorPos((x, y))
+                await self._backend().move_to(x, y)
                 await asyncio.sleep(0.12 / o_steps)
+
+        # Micro-survol sur la cible : micro-mouvements (< jitter px) avant le clic.
+        if profile.enabled:
+            hover_low, hover_high = sorted(mouse_cfg.hover_s)
+            hover_duration = profile.uniform(hover_low, hover_high)
+            hover_steps = max(2, int(hover_duration * 60))
+            for _ in range(hover_steps):
+                jx = target_x + profile.randint(-int(math.ceil(mouse_cfg.hover_jitter_px)), int(math.ceil(mouse_cfg.hover_jitter_px)))
+                jy = target_y + profile.randint(-int(math.ceil(mouse_cfg.hover_jitter_px)), int(math.ceil(mouse_cfg.hover_jitter_px)))
+                await self._backend().move_to(jx, jy)
+                await asyncio.sleep(hover_duration / hover_steps)
+        await self._backend().move_to(target_x, target_y)
 
     async def click_at(self, x: int, y: int, double_click: bool = False):
         """
@@ -376,19 +630,12 @@ class ActionController:
         )
 
         # Obtenir la position actuelle pour démarrer le mouvement
-        current_x, current_y = win32api.GetCursorPos()
+        backend = self._backend()
+        current_x, current_y = await backend.get_cursor_pos()
 
-        # Mouvement humain
-        await self._human_mouse_move(
-            current_x,
-            current_y,
-            target_x,
-            target_y,
-            duration=random.uniform(MIN_MOVE_DURATION_S, MAX_MOVE_DURATION_S),
-        )
-
-        # Micro-pause avant de cliquer
-        await asyncio.sleep(random.uniform(0.02, 0.05))
+        # Mouvement humain : durée issue de la loi de Fitts (distance/vitesse profil),
+        # micro-survol inclus avant le clic.
+        await self._human_mouse_move(current_x, current_y, target_x, target_y)
 
         # On rajoute un focus manuel de la fenêtre pour s'assurer que c'est bien elle qui reçoit le clic
         try:
@@ -402,38 +649,99 @@ class ActionController:
         abs_x = int(target_x * 65535 / screen_width)
         abs_y = int(target_y * 65535 / screen_height)
 
-        win32api.mouse_event(
-            win32con.MOUSEEVENTF_ABSOLUTE | win32con.MOUSEEVENTF_LEFTDOWN, abs_x, abs_y, 0, 0
-        )
-        await asyncio.sleep(random.uniform(0.02, 0.05))
-        win32api.mouse_event(
-            win32con.MOUSEEVENTF_ABSOLUTE | win32con.MOUSEEVENTF_LEFTUP, abs_x, abs_y, 0, 0
-        )
+        click_cfg = self._profile().mouse
+
+        def _click_half_duration() -> float:
+            low, high = sorted(click_cfg.click_down_s)
+            median = max(0.02, (low + high) / 2.0)
+            sigma = 0.4
+            sampled = median * math.exp(sigma * (self._profile().uniform(-1.0, 1.0)))
+            return min(max(sampled, low), high)
+
+        down_s = _click_half_duration()
+        await backend.mouse_down_abs(abs_x, abs_y)
+        await asyncio.sleep(down_s)
+        await backend.mouse_up_abs(abs_x, abs_y)
 
         if double_click:
-            await asyncio.sleep(random.uniform(0.03, 0.06))
-            win32api.mouse_event(
-                win32con.MOUSEEVENTF_ABSOLUTE | win32con.MOUSEEVENTF_LEFTDOWN, abs_x, abs_y, 0, 0
-            )
-            await asyncio.sleep(random.uniform(0.02, 0.05))
-            win32api.mouse_event(
-                win32con.MOUSEEVENTF_ABSOLUTE | win32con.MOUSEEVENTF_LEFTUP, abs_x, abs_y, 0, 0
-            )
+            await asyncio.sleep(_click_half_duration())
+            await backend.mouse_down_abs(abs_x, abs_y)
+            await asyncio.sleep(_click_half_duration())
+            await backend.mouse_up_abs(abs_x, abs_y)
 
         logger.debug(f"Clic physique généré ABSOLUTEMENT en ({target_x}, {target_y})")
         return True
 
+    async def _select_bet_box_text(self, x: int, y: int):
+        """Sélection du contenu de la bet box : rien (le clic simple initial suffit)
+        par défaut ; Ctrl+A (~50 %) ou triple-clic (~10 %) occasionnels —
+        plus de double-clic systématique."""
+        profile = self._profile()
+        typing_cfg = profile.typing
+        roll = profile.random()
+
+        if not profile.enabled:
+            return
+
+        if roll < typing_cfg.select_triple_click_probability:
+            # Le clic initial + un double-clic = triple-clic complet.
+            await self.click_at(x, y, double_click=True)
+            return
+
+        if roll < (
+            typing_cfg.select_triple_click_probability + typing_cfg.select_ctrl_a_probability
+        ):
+            backend = self._backend()
+            await backend.press(win32con.VK_CONTROL)
+            await asyncio.sleep(self._typing_delay(typing_cfg.key_delay_s))
+            await backend.press(ord("A"))
+            await asyncio.sleep(self._typing_delay(typing_cfg.key_delay_s))
+            await backend.release(ord("A"))
+            await asyncio.sleep(self._typing_delay(typing_cfg.key_delay_s))
+            await backend.release(win32con.VK_CONTROL)
+            await asyncio.sleep(self._typing_delay(typing_cfg.inter_key_delay_s))
+
+    def _typing_delay(self, bounds: tuple[float, float]) -> float:
+        """Délai de frappe log-normal borné (bursts locaux gérés par la médiane)."""
+        low, high = sorted(bounds)
+        median = max(0.005, (low + high) / 2.0)
+        sampled = self._profile().sample_reaction_time(median, 0.35)
+        return min(max(sampled, low * 0.5), high)
+
     async def send_text(self, text: str):
-        """Tape le texte avec un délai aléatoire entre chaque touche (Human-like)."""
-        for char in text:
-            # Map le caractère au Virtual Key Code correspondant
-            vk_code = win32api.VkKeyScanEx(char, win32api.GetKeyboardLayout())
-            # Touche enfoncée
-            win32api.keybd_event(vk_code & 0xFF, 0, 0, 0)
-            await asyncio.sleep(random.uniform(0.01, 0.04))
-            # Touche relâchée
-            win32api.keybd_event(vk_code & 0xFF, 0, win32con.KEYEVENTF_KEYUP, 0)
-            await asyncio.sleep(random.uniform(0.05, 0.15))
+        """Frappe « burst » humaine via le backend d'injection : shift-state géré,
+        délais log-normaux, pause occasionnelle entre groupes, faute de frappe simulée."""
+        profile = self._profile()
+        typing_cfg = profile.typing
+        backend = self._backend()
+
+        for index, char in enumerate(text):
+            try:
+                scan = int(win32api.VkKeyScanEx(char, win32api.GetKeyboardLayout()))
+            except Exception:
+                scan = -1
+            if scan == -1:
+                logger.warning("SEND_TEXT | caractere non mappé sur ce layout : %r", char)
+                continue
+
+            vk_code = scan & 0xFF
+
+            # Pause occasionnelle entre groupes de caractères (rythme par salves).
+            if profile.enabled and index > 0 and profile.chance(typing_cfg.group_pause_probability):
+                pause_low, pause_high = sorted(typing_cfg.group_pause_s)
+                await asyncio.sleep(profile.uniform(pause_low, pause_high))
+
+            # Faute de frappe simulée : doublon accidentel puis backspace avant la vraie frappe.
+            if profile.enabled and profile.chance(typing_cfg.typo_probability):
+                await backend.type_char(char)
+                await asyncio.sleep(profile.uniform(0.10, 0.25))
+                await backend.press(win32con.VK_BACK)
+                await asyncio.sleep(self._typing_delay(typing_cfg.key_delay_s))
+                await backend.release(win32con.VK_BACK)
+                await asyncio.sleep(self._typing_delay(typing_cfg.inter_key_delay_s))
+
+            await backend.type_char(char)
+            await asyncio.sleep(self._typing_delay(typing_cfg.inter_key_delay_s))
 
     async def execute_action(
         self,
@@ -441,6 +749,7 @@ class ActionController:
         coords_mapping: dict,
         jit_check=None,
         update_jit_baseline=None,
+        context: ExecutionContext | None = None,
         **kwargs,
     ):
         async def _verify_jit(ignore_action_region: bool = False) -> bool:
@@ -470,13 +779,9 @@ class ActionController:
             sorted(key for key, value in (coords_mapping or {}).items() if value),
         )
 
-        # Délai de réflexion humain proportionnel à l'action
-        if action_name == "FOLD":
-            think_time = random.uniform(1.0, 2.5)
-        elif action_name in ["CHECK", "CALL"] and action_intent.bet_size is None:
-            think_time = random.uniform(2.0, 4.5)
-        else:
-            think_time = random.uniform(4.0, 12.0)
+        # Think time contextuel : base par action × modulateurs street/pot/confiance × fatigue.
+        profile = self._profile()
+        think_time = compute_think_time(profile, action_name, action_intent.bet_size, context)
 
         logger.info(f"Bot en réflexion ({think_time:.2f}s)...")
         await asyncio.sleep(think_time)
@@ -525,13 +830,16 @@ class ActionController:
             text_box_coords = coords_mapping.get("BET_BOX")
             if text_box_coords:
                 await _verify_jit()
-                clicked = await self.click_at(*text_box_coords, double_click=True)
+                # Sélection de la bet box : clic simple par défaut ; Ctrl+A ou
+                # triple-clic occasionnels remplacent l'ancien double-clic systématique.
+                clicked = await self.click_at(*text_box_coords, double_click=False)
                 if not clicked:
                     logger.error(
                         "CLICK_RESULT | action=%s status=failed reason=bet_box_click_failed",
                         action_name,
                     )
                     return {"ok": False, "action": action_name, "reason": "bet_box_click_failed"}
+                await self._select_bet_box_text(*text_box_coords)
 
                 # --- Dynamic BB Parsing for resilient betting ---
                 import json
@@ -598,14 +906,17 @@ class ActionController:
 
                 await self.send_text(amount_to_bet)
 
-                await asyncio.sleep(random.uniform(0.08, 0.16))
+                await asyncio.sleep(self._profile().uniform(0.08, 0.30))
 
-                # Double frappe ENTER pour valider sur les clients récalcitrants
-                for _ in range(2):
-                    win32api.keybd_event(win32con.VK_RETURN, 0, 0, 0)
-                    await asyncio.sleep(random.uniform(0.03, 0.07))
-                    win32api.keybd_event(win32con.VK_RETURN, 0, win32con.KEYEVENTF_KEYUP, 0)
-                    await asyncio.sleep(random.uniform(0.1, 0.2))
+                # Validation : ENTER simple (le second ne reste actif que via le
+                # flag legacy), puis clic BET_BTN systématique en filet final.
+                enter_backend = self._backend()
+                enter_presses = 2 if self._profile().typing.legacy_double_enter else 1
+                for _ in range(enter_presses):
+                    await enter_backend.press(win32con.VK_RETURN)
+                    await asyncio.sleep(self._profile().uniform(0.03, 0.07))
+                    await enter_backend.release(win32con.VK_RETURN)
+                    await asyncio.sleep(self._profile().uniform(0.10, 0.25))
 
                 # ET on clique le bouton physiques BET_BTN pour valider (Indispensable sur PokerStars récent)
                 bet_btn_coords = coords_mapping.get("BET_BTN")
@@ -616,7 +927,7 @@ class ActionController:
                     logger.info(
                         f"CLICK_ATTEMPT | Clic de sécurité sur le bouton BET_BTN en coords {bet_btn_coords}..."
                     )
-                    await asyncio.sleep(random.uniform(0.1, 0.3))
+                    await asyncio.sleep(self._profile().uniform(0.1, 0.3))
                     clicked_btn = await self.click_at(*bet_btn_coords, double_click=False)
                     if not clicked_btn:
                         logger.warning(

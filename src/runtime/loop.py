@@ -25,6 +25,25 @@ class RuntimeLoop:
     def __getattr__(self, name: str):
         return getattr(self.controller, name)
 
+    async def _maybe_session_micro_pause(self) -> None:
+        """Rythme de session léger : pause probabiliste entre les mains (Phase 5)."""
+        profile = getattr(getattr(self, "action_controller", None), "profile", None)
+        if profile is None:
+            return
+        try:
+            pause_s = profile.sample_session_micro_pause()
+        except Exception as exc:
+            logger.debug("Session rhythm indisponible : %s", exc)
+            return
+        if not pause_s or pause_s <= 0:
+            return
+        logger.info("SESSION_RHYTHM | micro-pause de %.1fs entre les mains.", pause_s)
+        try:
+            self._push_runtime_event("session", "micro_pause", duration_s=round(pause_s, 2))
+        except Exception:
+            pass
+        await asyncio.sleep(pause_s)
+
     async def run(self):
         try:
             await self.db.connect()
@@ -52,6 +71,13 @@ class RuntimeLoop:
                     self._process_bridge_commands()
                     if self._operator_action_mode() == "paused":
                         self._set_loop_stage("paused", publish=True)
+                        # Reset de la dérive de fatigue pendant la pause opérateur.
+                        profile = getattr(getattr(self, "action_controller", None), "profile", None)
+                        if profile is not None:
+                            try:
+                                profile.reset_session_clock()
+                            except Exception:
+                                pass
                         self._publish_runtime_bridge_state()
                         await asyncio.sleep(0.1)
                         continue
@@ -292,6 +318,16 @@ class RuntimeLoop:
                                     frame_age_ms=frame_age_s * 1000.0,
                                 )
                                 decision_ms = (time.monotonic() - decision_started_at) * 1000.0
+
+                                # Micro-pause de session : uniquement après une exécution
+                                # confirmée (settle ok), hors des gardes same_spot.
+                                execution_summary = dict(
+                                    getattr(self, "last_decision_summary", {}) or {}
+                                ).get("execution", {})
+                                if execution_summary.get("status") == "executed" and bool(
+                                    (execution_summary.get("settle") or {}).get("settled")
+                                ):
+                                    await self._maybe_session_micro_pause()
 
                                 if not flow_result["gate_result"].allowed:
                                     logger.warning(

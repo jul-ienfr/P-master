@@ -8,6 +8,7 @@ if str(ROOT) not in sys.path:
 
 
 from src.bot.action_controller import ActionController
+from src.bot.humanization import HumanizationProfile
 from src.bot.sanity_checker import ActionIntent
 
 
@@ -70,6 +71,7 @@ def test_execute_action_bet_relaxes_final_jit_check(monkeypatch):
     controller = ActionController.__new__(ActionController)
     controller.hwnd = None
     controller.window_title = "NLHE Test"
+    controller.profile = HumanizationProfile(enabled=False)
 
     jit_calls = []
 
@@ -90,7 +92,6 @@ def test_execute_action_bet_relaxes_final_jit_check(monkeypatch):
     controller.send_text = fake_send_text
 
     monkeypatch.setattr("src.bot.action_controller.asyncio.sleep", _fast_sleep)
-    monkeypatch.setattr("src.bot.action_controller.random.uniform", lambda a, b: 0.0)
 
     result = asyncio.run(
         controller.execute_action(
@@ -108,6 +109,7 @@ def test_execute_action_uses_single_click_for_fold_and_call(monkeypatch):
     controller = ActionController.__new__(ActionController)
     controller.hwnd = None
     controller.window_title = "NLHE Test"
+    controller.profile = HumanizationProfile(enabled=False)
 
     click_calls = []
 
@@ -121,7 +123,6 @@ def test_execute_action_uses_single_click_for_fold_and_call(monkeypatch):
     controller.click_at = fake_click_at
 
     monkeypatch.setattr("src.bot.action_controller.asyncio.sleep", _fast_sleep)
-    monkeypatch.setattr("src.bot.action_controller.random.uniform", lambda a, b: 0.0)
 
     fold_result = asyncio.run(
         controller.execute_action(

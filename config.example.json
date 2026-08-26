@@ -28,6 +28,53 @@
     "live_debounce_stable_window_s": 0.12,
     "live_debounce_poll_sleep_s": 0.02,
     "window_title_keywords": "NLHE|Hold'em No Limit|Connecté en tant que|PokerStars",
+    "humanization": {
+      "enabled": true,
+      "input_backend": "win32",
+      "seed": null,
+      "mouse": {
+        "speed_px_s": [800, 1500],
+        "move_min_duration_s": 0.18,
+        "move_max_duration_s": 0.85,
+        "overshoot_probability": 0.35,
+        "overshoot_amplitude_px": 15,
+        "hover_s": [0.10, 0.40],
+        "hover_jitter_px": 3.0,
+        "divergence_px": [20, 60],
+        "click_down_s": [0.04, 0.12]
+      },
+      "typing": {
+        "key_delay_s": [0.02, 0.09],
+        "inter_key_delay_s": [0.04, 0.14],
+        "group_pause_probability": 0.12,
+        "group_pause_s": [0.25, 0.80],
+        "typo_probability": 0.02,
+        "select_ctrl_a_probability": 0.50,
+        "select_triple_click_probability": 0.10,
+        "legacy_double_enter": false
+      },
+      "think": {
+        "fold_median_s": 1.2,
+        "passive_median_s": 2.5,
+        "aggressive_median_s": 4.5,
+        "sigma": 0.45,
+        "preflop_factor": 0.75,
+        "big_pot_threshold_bb": 8.0,
+        "big_pot_bb_reference": 0.0,
+        "low_confidence_threshold": 0.5,
+        "low_confidence_factor": 1.30,
+        "min_think_time_s": 0.15,
+        "max_think_time_s": 12.0
+      },
+      "session_rhythm": {
+        "enabled": true,
+        "micro_pause_probability": 0.05,
+        "micro_pause_s": [3.0, 15.0],
+        "fatigue_enabled": true,
+        "fatigue_drift_per_hour": 0.06,
+        "fatigue_max_drift": 0.20
+      }
+    },
     "go_live_gate": {
       "min_decision_count": 20,
       "max_block_rate": 0.5,

@@ -11,6 +11,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.bot.action_controller import ActionController
+from src.bot.humanization import HumanizationProfile
 
 
 @pytest.fixture()
@@ -22,7 +23,12 @@ def keyboard_env(monkeypatch):
         GetKeyboardLayout=lambda: 1036,
         keybd_event=lambda vk, scan, flags, extra: key_events.append((vk, flags)),
     )
-    fake_win32con = types.SimpleNamespace(KEYEVENTF_KEYUP=2)
+    fake_win32con = types.SimpleNamespace(
+        KEYEVENTF_KEYUP=2,
+        VK_BACK=0x08,
+        VK_SHIFT=0x10,
+        VK_CONTROL=0x11,
+    )
     monkeypatch.setattr("src.bot.action_controller.win32api", fake_win32api, raising=False)
     monkeypatch.setattr("src.bot.action_controller.win32con", fake_win32con, raising=False)
 
@@ -37,6 +43,7 @@ def make_controller(**attrs):
     controller = ActionController.__new__(ActionController)
     controller.hwnd = 0
     controller.window_title = "PokerStars"
+    controller.profile = HumanizationProfile(enabled=False)
     for key, value in attrs.items():
         setattr(controller, key, value)
     return controller

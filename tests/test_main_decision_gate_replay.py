@@ -147,7 +147,13 @@ class FixtureActionController:
         self.result = result
 
     async def execute_action(
-        self, action_intent, dynamic_coords, jit_check=None, bet_validation_callback=None
+        self,
+        action_intent,
+        dynamic_coords,
+        jit_check=None,
+        bet_validation_callback=None,
+        context=None,
+        **kwargs,
     ):
         self.calls.append(
             {

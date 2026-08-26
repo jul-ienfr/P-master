@@ -11,6 +11,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.bot.action_controller import ActionController
+from src.bot.humanization import HumanizationProfile
 
 
 @pytest.fixture()
@@ -19,6 +20,7 @@ def controller(tmp_path, monkeypatch):
     controller = ActionController.__new__(ActionController)
     controller.hwnd = 0
     controller.window_title = "PokerStars NL2"
+    controller.profile = HumanizationProfile(enabled=False)
     # clics toujours "réussis", sans toucher à Windows
     async def fake_click(x, y, double_click=False):
         return True
@@ -105,8 +107,9 @@ def test_execute_action_bet_types_amount_and_presses_enter(controller, fast_slee
     # sans profil de site (config absent), BB par défaut = 200 : un sizing de
     # 125 < 1 BB est corrigé en 3 BB = 600 avant la frappe clavier
     assert sent_texts == ["600"]
-    enter_downs = [vk for vk, _flags in key_events if vk == 0x0D]
-    assert len(enter_downs) >= 2
+    # validation : ENTER simple (le double ENTER n'existe que via legacy_double_enter)
+    enter_downs = [vk for vk, flags in key_events if vk == 0x0D and flags == 0]
+    assert len(enter_downs) == 1
 
 
 def test_execute_action_fails_when_bet_box_click_fails(controller, fast_sleep, monkeypatch):

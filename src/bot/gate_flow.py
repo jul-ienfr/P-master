@@ -6,6 +6,7 @@ from collections import deque
 
 import numpy as np
 
+from src.bot.humanization import ExecutionContext
 from src.bot.runtime_types import CanonicalTableState
 from src.bot.sanity_checker import ActionIntent, GateReason, GateResult
 from src.vision.models import TableState
@@ -191,6 +192,15 @@ class GateFlowMixin:
                 hero_cards=list(canonical_state.hero_cards),
                 reason_codes=reason_codes,
             )
+
+    @staticmethod
+    def _build_execution_context(canonical_state: CanonicalTableState) -> ExecutionContext:
+        """Construit le contexte d'exécution riche pour l'humanisation (Phase 1)."""
+        try:
+            return ExecutionContext.from_canonical_state(canonical_state)
+        except Exception as exc:
+            logger.debug("ExecutionContext indisponible (%s), fallback vide.", exc)
+            return ExecutionContext()
 
     async def _run_decision_gate_flow(
         self,
@@ -517,12 +527,14 @@ class GateFlowMixin:
                         self._last_visual_previews = self._capture_live_visual_previews(frame)
 
                 try:
+                    execution_context = self._build_execution_context(canonical_state)
                     try:
                         execution_result = await self.action_controller.execute_action(
                             action_intent,
                             dynamic_coords,
                             jit_check=self._jit_action_validator,
                             update_jit_baseline=_update_jit_baseline,
+                            context=execution_context,
                         )
                     except TypeError as action_err:
                         if "update_jit_baseline" not in str(action_err):
@@ -531,6 +543,7 @@ class GateFlowMixin:
                             action_intent,
                             dynamic_coords,
                             jit_check=self._jit_action_validator,
+                            context=execution_context,
                         )
                 except Exception as jit_err:
                     if "JIT Check Failed" in str(jit_err):
