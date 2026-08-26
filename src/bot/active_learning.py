@@ -184,7 +184,7 @@ class HumanInTheLoop:
         height = self.current_issue["height"]
 
         # Création d'un AutoAnnotator factice juste pour utiliser sa méthode de formatage
-        dummy_annotator = AutoAnnotator(api_key="")
+        dummy_annotator = AutoAnnotator(providers=[])
         yolo_txt = dummy_annotator.convert_to_yolo_format(human_boxes, width, height)
 
         self._save_to_dataset(frame, yolo_txt)
