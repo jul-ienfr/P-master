@@ -53,3 +53,8 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
+
+# Phase 5 — artefacts research régénérables annexes (reproduits via research/run_*.py)
+research/results/best_response.json
+research/results/monte_carlo_sim.json
+research/results/synthetic_corpus.json

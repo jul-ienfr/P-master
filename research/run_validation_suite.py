@@ -60,7 +60,9 @@ def _json_default(value: Any) -> Any:
 def run_oracle_randomized_suite(*, count: int = 500, seed: int = 20260411) -> dict[str, Any]:
     rng = Random(seed)
     failures: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
     phevaluator_ok = 0
+    attempted = 0
     js_summary = json.loads(
         subprocess.run(
             ["node", str(JS_ORACLE_COMPARE), str(count), str(seed)],
@@ -69,9 +71,15 @@ def run_oracle_randomized_suite(*, count: int = 500, seed: int = 20260411) -> di
             text=True,
         ).stdout
     )
+    backends = detect_oracle_backends()
+    phe_available = any(o.name == "phevaluator" and o.available for o in backends)
 
     for index in range(count):
         cards = rng.sample(DECK, 7)
+        if not phe_available:
+            skipped.append({"case": index, "cards": cards, "reason": "phevaluator_not_installed"})
+            continue
+        attempted += 1
         try:
             phe = rank_showdown_hand(cards, backend="phevaluator")
         except Exception as exc:
@@ -80,20 +88,23 @@ def run_oracle_randomized_suite(*, count: int = 500, seed: int = 20260411) -> di
 
         phevaluator_ok += 1 if phe.get("rank") is not None else 0
 
-    successful = count - len(failures)
+    successful = attempted - len(failures) if phe_available else 0
     return {
         "kind": "oracle_randomized",
         "cases": count,
         "successful": successful,
+        "attempted": attempted,
+        "skipped": len(skipped),
+        "skipped_reason": "phevaluator_not_installed" if not phe_available else None,
         "failures": len(failures),
         "poker_evaluator_vs_pokersolver_agreements": int(js_summary["agreements"]),
         "poker_evaluator_vs_pokersolver_agreement_rate": float(js_summary["agreement_rate"]),
         "phevaluator_success_rate": round(phevaluator_ok / successful, 4)
         if successful
-        else 0.0,
+        else (None if not phe_available else 0.0),
         "mismatches": js_summary["mismatch_samples"],
         "failure_samples": failures[:16],
-        "oracles": [oracle.__dict__ for oracle in detect_oracle_backends()],
+        "oracles": [oracle.__dict__ for oracle in backends],
     }
 
 

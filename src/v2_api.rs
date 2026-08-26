@@ -904,6 +904,8 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
         && parsed_position.is_some();
 
     // Phase 3.12 — flop/turn/river 3-way résolus nativement par le solveur multiway MCCFR.
+    // P3 reste limité à 3-way par choix d'architecture (module multiway.rs séparé, DCFR
+    // historique HU intact — cf. AUDIT §4). 4+ way tombe en fallback multiway_not_supported.
     let can_solve_multiway = request.villain_ranges.len() == 2
         && request.num_players == 3
         && (3..=5).contains(&request.board.len())
