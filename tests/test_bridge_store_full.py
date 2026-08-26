@@ -1,6 +1,4 @@
-# -*- coding: utf-8 -*-
 """Tests du store bridge : état partagé, commandes, proxys HITL/status."""
-import json
 import sys
 from pathlib import Path
 

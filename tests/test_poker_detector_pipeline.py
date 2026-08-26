@@ -1,11 +1,9 @@
-# -*- coding: utf-8 -*-
 """Tests du pipeline analyze_frame (yolo -> opencv -> llm) et de la validation hybride."""
 import sys
 from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
-import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -31,7 +29,6 @@ def test_hybrid_validate_card_without_presets_returns_original(monkeypatch):
 
 def test_hybrid_validate_card_corrects_low_error_match(monkeypatch):
     detector = make_detector(monkeypatch)
-    rng = np.random.default_rng(4)
     # coin de carte : zone claire contrastée, comme un vrai crop
     template = np.full((20, 14, 3), 30, dtype=np.uint8)
     template[2:8, 2:6] = 220
@@ -68,7 +65,7 @@ def test_analyze_frame_stops_after_complete_yolo_detection(monkeypatch):
     result = SimpleNamespace(boxes=boxes)
 
     class FakeModel:
-        names = {i: name for i, name in enumerate(labels)}
+        names = dict(enumerate(labels))
 
         def predict(self, source, conf, verbose, half):
             return [result]
@@ -90,7 +87,6 @@ def test_analyze_frame_stops_after_complete_yolo_detection(monkeypatch):
 
 
 def test_analyze_frame_fills_gaps_from_opencv_fallback(monkeypatch, tmp_path):
-    import os
 
     monkeypatch.chdir(tmp_path)
     detector = make_detector(monkeypatch)

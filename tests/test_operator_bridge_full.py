@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests de l'OperatorBridge (publication, commandes, process API) et du RuntimeLoop."""
 import sys
 import types

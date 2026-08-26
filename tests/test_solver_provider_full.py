@@ -1,10 +1,7 @@
-# -*- coding: utf-8 -*-
 """Tests du SolverProvider : chaînes native -> HTTP -> fallback."""
 import sys
 from pathlib import Path
 from types import SimpleNamespace
-
-import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -80,8 +77,6 @@ def test_normalize_response_rejects_payload_without_action():
 
 
 def test_http_fallback_success_adds_transport_metadata(monkeypatch):
-    responses = []
-
     def fake_post(url, json=None, timeout=None):
         calls.append({"url": url})
         return SimpleNamespace(status_code=200, json=lambda: dict(GOOD_PAYLOAD))

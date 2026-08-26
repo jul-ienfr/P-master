@@ -1,11 +1,9 @@
-# -*- coding: utf-8 -*-
 """Tests des branches restantes de ScreenCapture : window mode, wgc fps, imagegrab bbox."""
 import sys
 import types
 from pathlib import Path
 
 import numpy as np
-import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:

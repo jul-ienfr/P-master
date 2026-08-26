@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests des branches restantes du RuntimeLoop : pause, probe, HITL, time bank, erreurs."""
 import asyncio
 import sys
@@ -267,7 +266,6 @@ def test_runtime_loop_time_bank_button_clicks_and_continues():
 
 
 def test_runtime_loop_survives_exception_in_process_frame():
-    incidents = []
     processed = {"count": 0}
 
     async def broken_process_frame(_frame):

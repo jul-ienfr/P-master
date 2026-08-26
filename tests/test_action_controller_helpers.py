@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests des helpers d'interaction humaine de l'ActionController (frappe clavier, souris, rect)."""
 import asyncio
 import sys

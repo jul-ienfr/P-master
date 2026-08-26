@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests complémentaires du RuntimeHistoryStore : erreurs d'écriture, imports, coercion."""
 import json
 import sys

@@ -1,7 +1,5 @@
-# -*- coding: utf-8 -*-
 """Tests du backend mémoire de DatabaseManager : cache, profils, fusion, persistance."""
 import asyncio
-import json
 import sys
 from pathlib import Path
 
@@ -125,25 +123,17 @@ def test_merge_player_profiles_merges_and_rewrites_history(db):
     run(db.merge_player_profiles("GhostPlayer", "NewName"))
 
 
-@pytest.fixture()
-def db(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    manager = DatabaseManager(mode="memory")
-    asyncio.run(manager.connect())
-    return manager
-
-
 def test_local_persistence_roundtrip(tmp_path):
     store = str(tmp_path / "log" / "observation_store.json")
 
     async def scenario():
-        db = DatabaseManager(
+        first = DatabaseManager(
             mode="memory", persistence_enabled=True, persistence_path=store
         )
-        await db.connect()
-        assert db.persistence_active is True
-        await db.record_observed_hand("Persisted")
-        await db.close()
+        await first.connect()
+        assert first.persistence_active is True
+        await first.record_observed_hand("Persisted")
+        await first.close()
 
         reloaded = DatabaseManager(
             mode="memory", persistence_enabled=True, persistence_path=store

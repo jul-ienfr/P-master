@@ -41,11 +41,13 @@ jobs:
       - name: Ruff (set complet)
         run: uv run ruff check src tests poker/tools
 
-      # Phase 4.1 — ratchet : baseline 37% -> 39% -> 42% -> 45% -> 50% (2026-08-26).
-      # Gate 50% aujourd'hui ; objectif long terme 60%.
+      # Phase 4.1 — ratchet : baseline 37% -> 39% -> 42% -> 45% -> 50% -> 52% (2026-08-26).
+      # Gate 52% aujourd'hui ; objectif long terme 60%.
+      # NB : le package legacy poker/ (~10.5k stmts, ~12% couvert) dilue la metrique globale ;
+      # src/ seul est a ~84%. Perimetre de mesure a trancher separement.
       # poker/tests reste hors collecte par défaut (lancé par scripts/run_refonte_ci.py).
       - name: Tests + coverage
-        run: uv run pytest --cov=src --cov=poker --cov-report=term-missing --cov-report=xml --cov-fail-under=50
+        run: uv run pytest --cov=src --cov=poker --cov-report=term-missing --cov-report=xml --cov-fail-under=52
 
       - name: Upload coverage artifact
         if: always()
