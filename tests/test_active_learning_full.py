@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests du HITL (src/bot/active_learning.py) — filesystem isolé via monkeypatch.chdir."""
 import asyncio
 import json

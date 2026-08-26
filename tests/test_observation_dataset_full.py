@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
 """Tests du collecteur de dataset d'observation (src/vision/observation_dataset.py)."""
 import json
 import sys
 from pathlib import Path
-from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -29,16 +27,16 @@ def collector(tmp_path):
 
 
 def observing_state(**overrides):
-    base = dict(
-        spot_id="live:IDLE:obs",
-        street="PREFLOP",
-        pot=12.5,
-        hero_cards=(),
-        board=(),
-        legal_actions=(),
-        action_buttons=("resume_hand",),
-        metadata={"hero_participation": "waiting_next_hand"},
-    )
+    base = {
+        "spot_id": "live:IDLE:obs",
+        "street": "PREFLOP",
+        "pot": 12.5,
+        "hero_cards": (),
+        "board": (),
+        "legal_actions": (),
+        "action_buttons": ("resume_hand",),
+        "metadata": {"hero_participation": "waiting_next_hand"},
+    }
     base.update(overrides)
     return CanonicalTableState(**base)
 

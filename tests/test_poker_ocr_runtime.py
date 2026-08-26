@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
 """Tests du runtime PokerOCR avec moteurs factices (aucune dépendance OCR réelle)."""
 import sys
 from pathlib import Path
 
 import numpy as np
-import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -29,7 +27,8 @@ def make_ocr(mode="consensus_amounts", engine_texts=None, **kwargs):
     if engine_texts is None:
         engine_texts = []
     ocr.engines = [
-        FakeEngine(name, texts) for name, texts in zip(("engine_a", "engine_b"), engine_texts)
+        FakeEngine(name, texts)
+        for name, texts in zip(("engine_a", "engine_b"), engine_texts, strict=False)
     ]
     return ocr
 

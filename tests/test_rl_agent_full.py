@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests de l'agent RL (src/bot/rl_agent.py) — réseau dueling DQN, replay buffer, save/load."""
 import sys
 from pathlib import Path
@@ -12,7 +11,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.bot.rl_agent import ExploitValueNetwork, RLAdapterAgent
-
 
 STATE_DIM = 8
 ACTION_DIM = 4

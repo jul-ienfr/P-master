@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests de ScreenCapture (src/vision/capture.py) avec backends mockés."""
 import sys
 import types

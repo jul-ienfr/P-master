@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests du schéma de dataset YOLO (src/vision/yolo_schema.py)."""
 import sys
 from pathlib import Path

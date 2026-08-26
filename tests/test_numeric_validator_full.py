@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests du validateur numérique (src/vision/numeric_validator.py) : routage et gardes."""
 import sys
 from pathlib import Path
