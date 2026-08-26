@@ -165,7 +165,7 @@ class SuperBotController(
             with open(config_path) as f:
                 self.config = json.load(f)
         except FileNotFoundError:
-            logger.error(f"Fichier de config {config_path} introuvable. ArrÃªt.")
+            logger.error(f"Fichier de config {config_path} introuvable. Arrêt.")
             exit(1)
 
         bot_cfg = self.config.get("bot", {})
@@ -254,7 +254,7 @@ class SuperBotController(
         )
         self.runtime_sanity = SanityChecker()
 
-        # --- 5. ExÃ©cuteur Stealth ---
+        # --- 5. Exécuteur Stealth ---
         self.action_controller = ActionController(
             window_title_keywords=bot_cfg.get("window_title_keywords", "VirtualBox"),
             humanization=HumanizationProfile.from_config(bot_cfg.get("humanization")),

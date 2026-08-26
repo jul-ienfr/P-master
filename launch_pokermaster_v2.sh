@@ -38,10 +38,12 @@ ensure_node_build_tools() {
 
 ensure_python_deps() {
   printf '%s\n' "Checking and installing Python dependencies..."
-  if command -v pip3 >/dev/null 2>&1; then
-    pip3 install -r "$ROOT_DIR/requirements_2026.txt" --quiet
+  if command -v uv >/dev/null 2>&1; then
+    uv sync --frozen --extra dev --quiet
+  elif command -v pip3 >/dev/null 2>&1; then
+    pip3 install -e "$ROOT_DIR" --quiet
   elif command -v pip >/dev/null 2>&1; then
-    pip install -r "$ROOT_DIR/requirements_2026.txt" --quiet
+    pip install -e "$ROOT_DIR" --quiet
   fi
 }
 

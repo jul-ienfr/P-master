@@ -673,8 +673,15 @@ class FramePipeline:
         detection_quality = dict((state.metadata or {}).get("detection_quality", {}) or {})
         numeric_reader = dict((state.metadata or {}).get("numeric_reader", {}) or {})
 
+        table_id = (
+            getattr(self.controller, "current_table_id", None)
+            or getattr(getattr(self.controller, "active_table_session", None), "table_id", None)
+            or getattr(self, "table_id", None)
+            or ""
+        )
+        spot_prefix = f"{table_id}:" if table_id else ""
         return CanonicalTableState(
-            spot_id=f"live:{street}:{spot_suffix}",
+            spot_id=f"{spot_prefix}live:{street}:{spot_suffix}",
             street=street,
             pot=pot_value,
             board=board,

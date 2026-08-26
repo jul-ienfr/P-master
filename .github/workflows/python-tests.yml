@@ -20,7 +20,7 @@ jobs:
           enable-cache: true
           cache-dependency-glob: uv.lock
 
-      # Requis pour builder postflop-solver-py (maturin/pyo3, dÃ©pendance locale).
+      # Requis pour builder postflop-solver-py (maturin/pyo3, dépendance locale).
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
 
@@ -62,8 +62,5 @@ jobs:
           path: coverage.xml
           if-no-files-found: ignore
 
-      # Non bloquant tant que les pins legacy (torch 2.5 cÃ´tÃ© requirements miroir,
-      # transitive deps) n'ont pas Ã©tÃ© auditÃ©s et corrigÃ©s.
       - name: Dependency audit (pip-audit, advisory)
-        continue-on-error: true
         run: uv run pip-audit --skip-editable

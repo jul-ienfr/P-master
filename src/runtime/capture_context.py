@@ -123,8 +123,12 @@ class CaptureContextMixin:
         self.tracker.sanity.reset_pot_reconciliation()
         self.runtime_sanity.reset_pot_reconciliation()
         self._clear_live_execution_guard()
+        table_id = getattr(self, "current_table_id", None) or getattr(
+            getattr(self, "active_table_session", None), "table_id", None
+        ) or ""
+        idle_prefix = f"{table_id}:" if table_id else ""
         idle_state = CanonicalTableState(
-            spot_id="live:IDLE:capture_context_change", street="IDLE", pot=0.0
+            spot_id=f"{idle_prefix}live:IDLE:capture_context_change", street="IDLE", pot=0.0
         )
         self._clear_live_decision_summary(idle_state)
         logger.info(

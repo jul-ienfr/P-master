@@ -167,7 +167,7 @@ class PlayersBuilderMixin:
             seat_index=seat_index,
             stack=float(stack_value),
             name=player_name,
-            # La simple perte d'une lecture OCR de stack ne doit pas faire "disparaÃ®tre"
+            # La simple perte d'une lecture OCR de stack ne doit pas faire "disparaître"
             # le joueur pour le tracker live.
             is_active=True,
             has_folded=False,

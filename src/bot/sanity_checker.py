@@ -83,11 +83,11 @@ class GateResult:
 class SanityChecker:
     """
     Bouclier logique contre les hallucinations de l'IA (YOLO/OCR).
-    VÃ©rifie que les donnÃ©es lues sur l'Ã©cran respectent les rÃ¨gles mathÃ©matiques du Poker.
+    Vérifie que les données lues sur l'écran respectent les règles mathématiques du Poker.
     """
 
     def __init__(self):
-        self.max_pot_allowed = 200000.0  # SÃ©curitÃ© hardcodÃ©e (ex: NL100, pot max thÃ©orique)
+        self.max_pot_allowed = 200000.0  # Sécurité hardcodée (ex: NL100, pot max théorique)
 
         # Ocr Reconciliation state variables
         self._pot_discrepancy_count = 0
@@ -239,7 +239,7 @@ class SanityChecker:
             reasons.append(
                 GateReason(
                     code="NOT_IN_HAND",
-                    message="Aucune main active n'est confirmÃ©e.",
+                    message="Aucune main active n'est confirmée.",
                     context={"street": street},
                 )
             )
@@ -417,10 +417,10 @@ class SanityChecker:
         allow_unbacked_observed_pot: bool = False,
     ) -> float:
         """
-        VÃ©rifie si le nouveau pot lu par l'OCR est mathÃ©matiquement possible.
-        old_pot: Le pot Ã  la frame N-1
-        new_ocr_pot: Le pot lu par l'OCR Ã  la frame N
-        total_bets: La somme des mises dÃ©tectÃ©es (chute des stacks des joueurs)
+        Vérifie si le nouveau pot lu par l'OCR est mathématiquement possible.
+        old_pot: Le pot à la frame N-1
+        new_ocr_pot: Le pot lu par l'OCR à la frame N
+        total_bets: La somme des mises détectées (chute des stacks des joueurs)
         """
         try:
             old_pot = max(0.0, float(old_pot or 0.0))
@@ -437,22 +437,22 @@ class SanityChecker:
         except (TypeError, ValueError):
             total_bets = 0.0
 
-        # Si c'est une nouvelle main (pot retombe Ã  0 ou blindes)
+        # Si c'est une nouvelle main (pot retombe à 0 ou blindes)
         if self.is_possible_new_hand_pot(old_pot, new_ocr_pot):
             self.reset_pot_reconciliation()
             self._last_ocr_pot = new_ocr_pot
             return new_ocr_pot
 
-        # Calcul du pot thÃ©orique exact
+        # Calcul du pot théorique exact
         expected_pot = old_pot + total_bets
 
-        # Tant qu'aucun pot mathÃ©matique stable n'existe encore, un gros pot OCR isolÃ©
+        # Tant qu'aucun pot mathématique stable n'existe encore, un gros pot OCR isolé
         # provient presque toujours d'un faux positif visuel pendant une phase d'observation.
         if expected_pot <= 0.0 and new_ocr_pot > 5.0 and not allow_unbacked_observed_pot:
             self.reset_pot_reconciliation()
             self._last_ocr_pot = new_ocr_pot
             logger.warning(
-                "Pic OCR ignorÃ© sans contexte stable ! Pot lu: %s | Pot mathÃ©matique attendu: %s.",
+                "Pic OCR ignoré sans contexte stable ! Pot lu: %s | Pot mathématique attendu: %s.",
                 new_ocr_pot,
                 expected_pot,
             )
@@ -463,12 +463,12 @@ class SanityChecker:
             self._last_ocr_pot = new_ocr_pot
             return new_ocr_pot
 
-        # TolÃ©rance de lecture (ex: le rake du casino a Ã©tÃ© prÃ©levÃ©, ou un ante non vu)
+        # Tolérance de lecture (ex: le rake du casino a été prélevé, ou un ante non vu)
         # On accepte une marge d'erreur de +/- 5% ou 1 blinde
         margin_of_error = max(expected_pot * 0.05, 2.0)
 
         if abs(new_ocr_pot - expected_pot) <= margin_of_error:
-            # L'OCR est cohÃ©rent avec la rÃ©alitÃ© mathÃ©matique
+            # L'OCR est cohérent avec la réalité mathématique
             self.reset_pot_reconciliation()
             self._last_ocr_pot = new_ocr_pot
             return new_ocr_pot
@@ -483,7 +483,7 @@ class SanityChecker:
         # If OCR is consistent for 3 consecutive reads, we trust it and reconcile
         if self._pot_discrepancy_count >= 3:
             logger.info(
-                f"ðŸ”„ RÃ©conciliation Pot : L'OCR insiste depuis 3 frames, synchronisation mathÃ©matique sur la valeur OCR au lieu de forcer. (Ancien math={expected_pot}, Nouvel OCR={new_ocr_pot})"
+                f"ðŸ”„ Réconciliation Pot : L'OCR insiste depuis 3 frames, synchronisation mathématique sur la valeur OCR au lieu de forcer. (Ancien math={expected_pot}, Nouvel OCR={new_ocr_pot})"
             )
             self.reset_pot_reconciliation()
             self._last_ocr_pot = new_ocr_pot
@@ -491,19 +491,19 @@ class SanityChecker:
 
         if new_ocr_pot > expected_pot:
             logger.warning(
-                f"âš ï¸ Pic OCR dÃ©tectÃ© ! Pot lu: {new_ocr_pot} | Pot mathÃ©matique attendu: {expected_pot}. Bufferisation en cours..."
+                f"âš ï¸ Pic OCR détecté ! Pot lu: {new_ocr_pot} | Pot mathématique attendu: {expected_pot}. Bufferisation en cours..."
             )
             return expected_pot
 
         # NEW CODE: Anti-deflation
         if expected_pot > 0 and new_ocr_pot < expected_pot and (new_ocr_pot / expected_pot) < 0.5:
             logger.warning(
-                f"âš ï¸ Anomalie OCR bloquÃ©e ! Pot lu ({new_ocr_pot}) trop bas par rapport au pot mathÃ©matique ({expected_pot})."
+                f"âš ï¸ Anomalie OCR bloquée ! Pot lu ({new_ocr_pot}) trop bas par rapport au pot mathématique ({expected_pot})."
             )
             return expected_pot
 
-        # Un pot OCR trop bas est souvent un retard de lecture ou une mise partiellement observÃ©e.
-        # On conserve la valeur OCR pour Ã©viter d'inventer des jetons et de dÃ©clencher des resets parasites.
+        # Un pot OCR trop bas est souvent un retard de lecture ou une mise partiellement observée.
+        # On conserve la valeur OCR pour éviter d'inventer des jetons et de déclencher des resets parasites.
         return new_ocr_pot
 
     def validate_stack_read(
@@ -585,12 +585,12 @@ class SanityChecker:
 
     def validate_board_cards(self, current_stage: str, detected_cards: list) -> list:
         """
-        Filtre les cartes "fantÃ´mes" (erreurs YOLO ou animations) selon la street.
+        Filtre les cartes "fantômes" (erreurs YOLO ou animations) selon la street.
         """
         num_cards = len(detected_cards)
 
         if current_stage in {"IDLE", "PREFLOP"} and num_cards not in (0, 3):
-            logger.debug(f"Cartes ignorÃ©es avant le flop (frame instable) : {detected_cards}")
+            logger.debug(f"Cartes ignorées avant le flop (frame instable) : {detected_cards}")
             return []
         elif current_stage == "FLOP" and num_cards != 3:
             # Si on est au flop, il DOIT y avoir 3 cartes. Si YOLO en voit 2 ou 4, c'est une erreur de frame.
