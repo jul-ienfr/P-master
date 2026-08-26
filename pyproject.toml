@@ -48,7 +48,7 @@ dependencies = [
     "pynput==1.8.1",                       # 1.7.6→1.8.1
     "tenacity>=8.2.0",                     # retry raise_for_status
 
-    # Socle conservé (requirements_win.txt harmonisé)
+    # Socle conservé
     "pywin32>=306; sys_platform == 'win32'",  # win32api — ActionController + tests src.main (oubli unification Phase 1.7)
     "pillow>=10.0.0",
     "pyyaml>=6.0",
