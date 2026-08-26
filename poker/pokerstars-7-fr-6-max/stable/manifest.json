@@ -164,7 +164,7 @@
     "parent_version_id": null,
     "published_at": "2026-04-11T11:52:11+00:00",
     "rollback_target": null,
-    "status": "draft",
+    "status": "stable",
     "updated_at": "2026-04-11T23:25:09.724Z",
     "version_id": null
   },

@@ -267,3 +267,85 @@ def copy_table_state(state: TableState) -> TableState:
     if hasattr(state, "copy"):
         return state.copy(deep=True)
     return state
+
+
+_HEURISTIC_HERO_Y_RATIO = 0.58
+
+
+def _region_pixel_box(
+    region: tuple[float, float, float, float] | None,
+    frame_shape: tuple[int, int],
+    table_bbox: tuple[int, int, int, int] | None,
+) -> tuple[int, int, int, int] | None:
+    if region is None:
+        return None
+    height, width = frame_shape[:2]
+    if table_bbox is not None:
+        tx1, ty1, tx2, ty2 = table_bbox
+        base_x, base_y = int(tx1), int(ty1)
+        base_w = max(1, int(tx2) - int(tx1))
+        base_h = max(1, int(ty2) - int(ty1))
+    else:
+        base_x, base_y = 0, 0
+        base_w, base_h = width, height
+    x1, y1, x2, y2 = region
+    box = (
+        int(base_x + base_w * x1),
+        int(base_y + base_h * y1),
+        int(base_x + base_w * x2),
+        int(base_y + base_h * y2),
+    )
+    if box[2] <= box[0] or box[3] <= box[1]:
+        return None
+    return box
+
+
+def _center_inside(point: tuple[float, float], box: tuple[int, int, int, int]) -> bool:
+    return box[0] <= point[0] <= box[2] and box[1] <= point[1] <= box[3]
+
+
+def classify_card_detections(
+    detections: list[DetectionResult],
+    frame_shape: tuple[int, int],
+    *,
+    table_bbox: tuple[int, int, int, int] | None = None,
+    geometry: TableGeometry | None = None,
+) -> tuple[list[DetectionResult], list[DetectionResult], str]:
+    """Sépare board / héro via la géométrie du preset quand elle est connue.
+
+    Priorité : zones normalisées `hero` (`my_cards_area`) et `board`
+    (`table_cards_area`) projetées sur le `table_bbox` ancré. L'heuristique
+    historique `y1 > height*0.58` n'est appliquée qu'en dernier recours,
+    carte par carte, lorsque ni zone ne tranche.
+    """
+    hero_box = None
+    board_box = None
+    if geometry is not None:
+        regions = dict(getattr(geometry, "regions", {}) or {})
+        hero_box = _region_pixel_box(regions.get("hero"), frame_shape, table_bbox)
+        board_box = _region_pixel_box(regions.get("board"), frame_shape, table_bbox)
+
+    frame_height = frame_shape[0]
+    threshold_y = frame_height * _HEURISTIC_HERO_Y_RATIO
+
+    board: list[DetectionResult] = []
+    hero: list[DetectionResult] = []
+    used_geometry = False
+    for det in detections:
+        center = det.center
+        if hero_box is not None and _center_inside(center, hero_box):
+            hero.append(det)
+            used_geometry = True
+            continue
+        if board_box is not None and _center_inside(center, board_box):
+            board.append(det)
+            used_geometry = True
+            continue
+        _, y1 = det.bbox[0], det.bbox[1]
+        if y1 > threshold_y:
+            hero.append(det)
+        else:
+            board.append(det)
+
+    source = "preset_geometry" if used_geometry else "y_heuristic"
+    return board, hero, source

@@ -88,13 +88,27 @@
     "site_profiles": {
       "PokerStars": {
         "default_bb": 200,
-        "stake_regex": "\\d+[/,](\\d+)\\b"
+        "stake_regex": "\\d+[/,](\\d+)\\b",
+        "title_regex": null,
+        "window_class": "PokerStarsTableFrameClass",
+        "process_name": "PokerStars.exe"
       },
       "Winamax": {
         "default_bb": 100,
-        "stake_regex": "\\d+[/,](\\d+)\\b"
+        "stake_regex": "\\d+[/,](\\d+)\\b",
+        "title_regex": null,
+        "window_class": null,
+        "process_name": null
       }
-    }
+    },
+    "ghost_clicks_enabled": false,
+    "active_learning_limits": {
+      "max_images_per_session": 50,
+      "min_interval_s": 30.0
+    },
+    "max_tables": 4,
+    "table_scan_interval_s": 1.0,
+    "multi_table_action_gap_s": 0.35
   },
   "vision_pipeline": [
     "yolo",
@@ -152,6 +166,15 @@
     "autoload_model": true,
     "enable": true,
     "enable_validated": false
+  },
+  "preflop": {
+    "mode": "precomputed",
+    "solutions_path": "models/preflop",
+    "live_time_budget_ms": 800
+  },
+  "tournament": {
+    "enabled": false,
+    "payouts": []
   },
   "yolo": {
     "confidence_threshold": 0.6,

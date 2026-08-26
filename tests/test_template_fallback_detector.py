@@ -60,7 +60,7 @@ def _sorted_area_map(area_map):
 
 
 def test_template_fallback_detects_table_hero_cards_and_buttons_without_yolo_model():
-    manifest_path = ROOT / "poker" / "pokerstars-7-fr-6-max" / "draft" / "manifest.json"
+    manifest_path = ROOT / "poker" / "pokerstars-7-fr-6-max" / "stable" / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     asset_root = manifest_path.parent
     table_data = manifest["table_data"]
@@ -195,7 +195,7 @@ def test_template_fallback_reads_real_pokerstars_capture_with_slot_calibration()
 
 @pytest.mark.parametrize("scale", [0.8, 0.9, 1.2, 1.35])
 def test_template_fallback_scales_with_window_size_variants(scale: float):
-    manifest_path = ROOT / "poker" / "pokerstars-7-fr-6-max" / "draft" / "manifest.json"
+    manifest_path = ROOT / "poker" / "pokerstars-7-fr-6-max" / "stable" / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     asset_root = manifest_path.parent
     table_data = manifest["table_data"]
@@ -291,7 +291,7 @@ def test_template_fallback_scales_with_window_size_variants(scale: float):
 
 
 def test_template_fallback_accepts_strong_compact_anchor_match_inside_fullscreen_frame():
-    manifest_path = ROOT / "poker" / "pokerstars-7-fr-6-max" / "draft" / "manifest.json"
+    manifest_path = ROOT / "poker" / "pokerstars-7-fr-6-max" / "stable" / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     asset_root = manifest_path.parent
     compact_anchor = _load_image(asset_root / manifest["assets"]["topleft_corner_compact"])

@@ -43,6 +43,28 @@ class FramePipeline:
             self.poker_state_validator = validator
         return validator
 
+    def _record_vision_quality(self, state: TableState) -> None:
+        aggregator = getattr(self.controller, "vision_quality_aggregator", None)
+        if aggregator is None:
+            return
+        metadata = dict(getattr(state, "metadata", {}) or {})
+        try:
+            aggregator.observe(
+                metadata.get("detection_quality") or {},
+                metadata.get("crop_quality") or {},
+            )
+        except Exception:
+            pass
+
+    def get_vision_quality_snapshot(self) -> dict:
+        aggregator = getattr(self.controller, "vision_quality_aggregator", None)
+        if aggregator is None:
+            return {}
+        try:
+            return aggregator.snapshot()
+        except Exception:
+            return {}
+
     @staticmethod
     def _runtime_visual_regions(frame: np.ndarray) -> dict[str, tuple[int, int, int, int]]:
         try:
@@ -347,6 +369,7 @@ class FramePipeline:
             key: value.to_dict() for key, value in region_resolutions.items()
         }
         state.metadata["detection_quality"] = build_detection_quality_metadata(state, pixel_regions)
+        self._record_vision_quality(state)
 
         pot_detection_available = bool(state.pots)
         resolved_pot = region_resolutions.get("pot")

@@ -43,9 +43,11 @@ ACTION_BUTTON_LABELS = (
 )
 MODEL_PATH_CANDIDATE_SUFFIXES = (".engine", ".onnx", ".pt")
 FALLBACK_SCALE_FACTORS = (0.75, 0.85, 0.95, 1.0, 1.1, 1.2, 1.35)
+# Source unique de vérité des manifests built-ins (promus draft -> stable,
+# hash vérifié au chargement — voir template_store.load_presets).
 BUILTIN_PRESET_MANIFESTS = (
-    "poker/pokerstars-7-fr-6-max/draft/manifest.json",
-    "poker/official-party-poker/draft/manifest.json",
+    "poker/pokerstars-7-fr-6-max/stable/manifest.json",
+    "poker/official-party-poker/stable/manifest.json",
 )
 
 

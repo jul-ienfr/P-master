@@ -1,6 +1,7 @@
 """Orchestrateur de détection : YOLO + fallback template (lecture cartes/table)."""
 
 import logging
+from collections import OrderedDict
 from pathlib import Path
 
 import cv2
@@ -20,6 +21,11 @@ from src.vision.models import (
     dedupe_nearby_detections,
     detection_sort_key,
 )
+from src.vision.table_geometry import (
+    TableGeometry,
+    classify_card_detections,
+    geometry_from_manifest,
+)
 from src.vision.template_detector import (
     TemplateFallbackDetector,
     _clip_bbox,
@@ -33,6 +39,29 @@ from src.vision.template_detector import (
 logger = logging.getLogger(__name__)
 
 MODEL_PATH_CANDIDATE_SUFFIXES = (".engine", ".onnx", ".pt")
+
+_HYBRID_ACCEPT_ERROR = 0.18
+_HYBRID_EARLY_EXIT_ERROR = 0.05
+_CORNER_CACHE_MAX_ENTRIES = 1024
+
+
+class _CornerTemplateCache:
+    """Cache LRU des coins de cartes redimensionnés par (preset, label, w, h)."""
+
+    def __init__(self, max_entries: int = _CORNER_CACHE_MAX_ENTRIES):
+        self._entries: OrderedDict[tuple, np.ndarray] = OrderedDict()
+        self._max_entries = max_entries
+
+    def get_or_build(self, key: tuple, builder) -> np.ndarray:
+        cached = self._entries.get(key)
+        if cached is not None:
+            self._entries.move_to_end(key)
+            return cached
+        value = builder()
+        self._entries[key] = value
+        if len(self._entries) > self._max_entries:
+            self._entries.popitem(last=False)
+        return value
 
 
 def _repo_root() -> Path:
@@ -56,13 +85,29 @@ def resolve_model_path(model_path: str) -> Path | None:
 
 
 class PokerDetector:
-    def __init__(self, model_path: str = "models/poker_yolo_v11.engine", pipeline: list = None):
+    def __init__(
+        self,
+        model_path: str = "models/poker_yolo_v11.engine",
+        pipeline: list = None,
+        dataset_limits: dict | None = None,
+    ):
         self.model_path = model_path
         self.pipeline = pipeline or ["yolo", "llm", "opencv"]
         self.model = None
         self.names = {}
         self.fallback_detector = TemplateFallbackDetector()
         self._last_fallback_preset_name: str | None = None
+        self._last_table_geometry: TableGeometry | None = None
+        self._last_table_bbox: tuple[int, int, int, int] | None = None
+        self._corner_template_cache = _CornerTemplateCache()
+
+        from src.vision.active_learning_writer import ActiveLearningWriter
+
+        limits = dict(dataset_limits or {})
+        self.active_learning_writer = ActiveLearningWriter(
+            max_images_per_session=int(limits.get("max_images_per_session", 50)),
+            min_interval_s=float(limits.get("min_interval_s", 30.0)),
+        )
 
         resolved_model_path = resolve_model_path(model_path)
 
@@ -124,39 +169,70 @@ class PokerDetector:
             and has_hero_context
         )
 
+    def _hybrid_candidate_presets(self) -> list:
+        """Preset ancré en priorité (validation restreinte), puis les autres."""
+        presets = list(self.fallback_detector.presets)
+        if len(presets) <= 1:
+            return presets
+        last_match = getattr(self.fallback_detector, "_last_match", None) or {}
+        anchored_name = str(last_match.get("preset_name", "") or "")
+        if not anchored_name:
+            return presets
+        return (
+            [preset for preset in presets if preset.name == anchored_name]
+            + [preset for preset in presets if preset.name != anchored_name]
+        )
+
     def _hybrid_validate_card(self, crop: np.ndarray, original_class: str) -> str:
         if not self.fallback_detector.presets or crop is None or crop.size == 0:
+            return original_class
+        if crop.shape[0] < 10 or crop.shape[1] < 10:
+            return original_class
+
+        corner = _extract_card_corner(crop)
+        if corner is None or corner.size == 0:
             return original_class
 
         best_error = 1.0
         best_label = original_class
+        cache = getattr(self, "_corner_template_cache", None)
+        if cache is None:
+            cache = _CornerTemplateCache()
+            self._corner_template_cache = cache
 
-        for preset in self.fallback_detector.presets:
+        for preset in self._hybrid_candidate_presets():
+            preset_key = str(getattr(preset, "name", id(preset)))
             for label, template in preset.card_templates.items():
-                crop_h, crop_w = crop.shape[:2]
-                if crop_h < 10 or crop_w < 10:
-                    continue
-
-                corner = _extract_card_corner(crop)
-                t_corner = _extract_card_corner(template)
-                if corner is None or t_corner is None:
-                    continue
-
-                t_corner = cv2.resize(
-                    t_corner, (corner.shape[1], corner.shape[0]), interpolation=cv2.INTER_AREA
+                t_corner = cache.get_or_build(
+                    (preset_key, label, corner.shape[1], corner.shape[0]),
+                    lambda template=template: self._build_scaled_corner(corner, template),
                 )
                 error, _ = _find_template_sqdiff(corner, t_corner)
                 if error < best_error:
                     best_error = error
                     best_label = label
+                if best_error < _HYBRID_EARLY_EXIT_ERROR:
+                    break
+            if best_error < _HYBRID_EARLY_EXIT_ERROR:
+                break
 
         # Seuil d'erreur permissif pour accepter la correction
-        if best_error < 0.18:
+        if best_error < _HYBRID_ACCEPT_ERROR:
             return best_label
         return original_class
 
+    @staticmethod
+    def _build_scaled_corner(corner: np.ndarray, template: np.ndarray) -> np.ndarray | None:
+        t_corner = _extract_card_corner(template)
+        if t_corner is None:
+            return np.full((1, 1, 3), 255, dtype=np.uint8)
+        return cv2.resize(
+            t_corner, (corner.shape[1], corner.shape[0]), interpolation=cv2.INTER_AREA
+        )
+
     def _run_yolo_detection(self, frame: np.ndarray, base_conf_threshold: float) -> TableState:
         state = TableState(metadata={"detector_mode": "yolo"})
+        card_detections: list[DetectionResult] = []
 
         if self.model is None or frame is None:
             return state
@@ -212,11 +288,7 @@ class PokerDetector:
                 logger.info(
                     f"[YOLO DEBUG] Raw card candidate: cls={class_name} conf={conf:.3f} y1={y1}"
                 )
-                height = frame.shape[0]
-                if class_name == "hero_card" or y1 > height * 0.58:
-                    state.hero_cards.append(detection)
-                else:
-                    state.board_cards.append(detection)
+                card_detections.append(detection)
             elif class_name == "dealer_button":
                 state.dealer_button = detection
             elif class_name == "pot_area":
@@ -227,6 +299,20 @@ class PokerDetector:
                 state.player_names.append(detection)
             elif class_name in ACTION_BUTTON_LABELS:
                 state.action_buttons.append(detection)
+
+        cached_table_bbox = getattr(self, "_last_table_bbox", None)
+        cached_geometry = getattr(self, "_last_table_geometry", None)
+        board_cards, hero_cards, split_source = classify_card_detections(
+            card_detections,
+            frame.shape[:2],
+            table_bbox=cached_table_bbox,
+            geometry=cached_geometry,
+        )
+        state.metadata["card_split_source"] = split_source
+        if cached_table_bbox is not None and cached_geometry is not None:
+            state.metadata["card_split_geometry_available"] = True
+        state.board_cards = board_cards
+        state.hero_cards = hero_cards
 
         height, width = frame.shape[:2]
         state.board_cards = dedupe_nearby_detections(
@@ -248,9 +334,39 @@ class PokerDetector:
         state.action_buttons.sort(key=detection_sort_key)
         return state
 
+    def _remember_preset_geometry(
+        self, preset_name: str, table_bbox: list | tuple
+    ) -> None:
+        """Cache la géométrie normalisée du preset ancré (split cartes géométrique)."""
+        try:
+            bbox = tuple(int(value) for value in table_bbox)
+            if len(bbox) != 4:
+                return
+            preset = next(
+                (
+                    item
+                    for item in self.fallback_detector.presets
+                    if item.name == str(preset_name)
+                ),
+                None,
+            )
+            if preset is None:
+                return
+            self._last_table_geometry = geometry_from_manifest(
+                {"table_data": dict(preset.table_data or {})},
+                source=f"preset:{preset.name}",
+            )
+            self._last_table_bbox = bbox
+        except Exception:
+            return
+
     def _run_template_fallback(self, frame: np.ndarray) -> TableState:
         fallback_state = self.fallback_detector.analyze_frame(frame)
-        preset_name = fallback_state.metadata.get("fallback_preset")
+        metadata = getattr(fallback_state, "metadata", {}) or {}
+        preset_name = metadata.get("fallback_preset")
+        table_bbox = metadata.get("table_bbox")
+        if preset_name and isinstance(table_bbox, (list, tuple)) and len(table_bbox) == 4:
+            self._remember_preset_geometry(preset_name, table_bbox)
         if preset_name and preset_name != self._last_fallback_preset_name:
             logger.info(
                 "Backend vision template actif: table reconnue via le preset '%s'.", preset_name
@@ -295,6 +411,11 @@ class PokerDetector:
                     )
                     for key in (
                         "fallback_preset",
+                        "fallback_preset_status",
+                        "preset_hash",
+                        "preset_hash_verified",
+                        "preset_geometry",
+                        "card_split_source",
                         "topleft_anchor_asset",
                         "topleft_anchor_offset",
                         "topleft_match_error",
@@ -312,18 +433,10 @@ class PokerDetector:
                 if fallback_state.hero_cards and len(valides_hero) < 2:
                     logger.info(f"OpenVL a trouvé les cartes : {fallback_state.hero_cards}")
                     state.hero_cards = fallback_state.hero_cards
-                    # Active Learning (Sauvegarde image pour annotation si YOLO/LLM a échoué avant)
-                    try:
-                        import os
-                        from datetime import datetime
-
-                        import cv2
-
-                        os.makedirs("dataset/needs_annotation", exist_ok=True)
-                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
-                        cv2.imwrite(f"dataset/needs_annotation/al_openvl_{timestamp}.jpg", frame)
-                    except Exception:
-                        pass
+                    # Active Learning borné (quota session + rate-limit)
+                    writer = getattr(self, "active_learning_writer", None)
+                    if writer is not None:
+                        writer.save_image("dataset/needs_annotation", "al_openvl", frame)
                 if fallback_state.board_cards and not state.board_cards:
                     state.board_cards = fallback_state.board_cards
                 if fallback_state.action_buttons and not state.action_buttons:
@@ -380,20 +493,16 @@ class PokerDetector:
                                 )
                                 state.hero_cards = llm_hero
                                 state.metadata["table_detected"] = True
-                                # Active Learning Automatique
+                                # Active Learning Automatique (borné)
                                 try:
-                                    import os
-                                    from datetime import datetime
-
-                                    import cv2
-
                                     yolo_txt = self.ai_fallback.convert_to_yolo_format(boxes, w, h)
-                                    os.makedirs("dataset/raw_images", exist_ok=True)
-                                    os.makedirs("dataset/labels", exist_ok=True)
-                                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
-                                    cv2.imwrite(f"dataset/raw_images/al_llm_{timestamp}.jpg", frame)
-                                    with open(f"dataset/labels/al_llm_{timestamp}.txt", "w") as f:
-                                        f.write(yolo_txt)
+                                    self.active_learning_writer.save_labeled_image(
+                                        "dataset/raw_images",
+                                        "dataset/labels",
+                                        "al_llm",
+                                        frame,
+                                        yolo_txt,
+                                    )
                                 except Exception:
                                     pass
 

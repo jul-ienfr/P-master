@@ -1,5 +1,6 @@
 """Détecteur template (fallback calibration) : matching par région et scoring (extrait de src/vision/detector.py)."""
 
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -311,6 +312,31 @@ def _resolved_card_detections(detections: list[DetectionResult]) -> list[Detecti
     return [detection for detection in detections if decode_card_token(detection.class_name)]
 
 
+def _preset_lifecycle_status(preset: TemplatePreset) -> str:
+    try:
+        manifest = json.loads(preset.manifest_path.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+    return str((manifest.get("lifecycle", {}) or {}).get("status", "") or "")
+
+
+def _preset_geometry_metadata(preset: TemplatePreset) -> dict[str, Any]:
+    geometry = getattr(preset, "geometry", None)
+    if geometry is None:
+        return {}
+    regions = dict(getattr(geometry, "regions", {}) or {})
+    return {
+        "source": str(getattr(geometry, "source", "") or ""),
+        "table_size": [
+            int(getattr(geometry, "table_size", (0, 0))[0]),
+            int(getattr(geometry, "table_size", (0, 0))[1]),
+        ],
+        "regions": {
+            name: [float(value) for value in region] for name, region in regions.items()
+        },
+    }
+
+
 class TemplateFallbackDetector:
     """Template detector used as a first-class vision backend for calibrated table themes."""
 
@@ -385,6 +411,10 @@ class TemplateFallbackDetector:
             {
                 "table_detected": True,
                 "fallback_preset": preset.name,
+                "fallback_preset_status": _preset_lifecycle_status(preset),
+                "preset_hash": str(getattr(preset, "preset_hash", "") or ""),
+                "preset_hash_verified": bool(getattr(preset, "hash_verified", True)),
+                "preset_geometry": _preset_geometry_metadata(preset),
                 "topleft_anchor_asset": anchor_name,
                 "topleft_anchor_offset": [int(value) for value in scaled_anchor_offset],
                 "topleft_match_error": round(anchor_error, 4),

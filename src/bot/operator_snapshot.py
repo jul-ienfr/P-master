@@ -244,6 +244,27 @@ class OperatorSnapshotMixin:
             "current_issue": serialized_issue,
         }
 
+    def _build_tables_snapshot(self) -> list[dict[str, object]]:
+        manager = getattr(self, "table_manager", None)
+        get_snapshot = getattr(manager, "snapshot_sessions", None)
+        if not callable(get_snapshot):
+            return []
+        try:
+            return [dict(item) for item in (get_snapshot() or [])]
+        except Exception:
+            return []
+
+    def _build_vision_quality_snapshot(self) -> dict[str, object]:
+        pipeline = getattr(self, "frame_pipeline", None)
+        get_snapshot = getattr(pipeline, "get_vision_quality_snapshot", None)
+        if not callable(get_snapshot):
+            return {}
+        try:
+            snapshot = get_snapshot()
+        except Exception:
+            return {}
+        return dict(snapshot or {})
+
     def _build_runtime_bridge_state(self) -> dict[str, object]:
         health_snapshot = (
             self.health_monitor.snapshot()
@@ -312,6 +333,8 @@ class OperatorSnapshotMixin:
             else None,
             "operator": self._build_operator_snapshot(),
             "observation": self._build_observation_snapshot(),
+            "vision_quality": self._build_vision_quality_snapshot(),
+            "tables": self._build_tables_snapshot(),
             "loop_stage": str(getattr(self, "_loop_stage", "")),
             "history": {
                 "events": list(self.runtime_event_history),

@@ -1,2 +1,0 @@
--r requirements_mac.txt
-pywin32; platform_system == "Windows"

@@ -5,7 +5,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
-DEFAULT_POKERSTARS_PRESET_MANIFESTS = ("poker/pokerstars-7-fr-6-max/draft/manifest.json",)
+from src.vision.models import BUILTIN_PRESET_MANIFESTS
+
+DEFAULT_POKERSTARS_PRESET_MANIFESTS = tuple(
+    path for path in BUILTIN_PRESET_MANIFESTS if "pokerstars" in path.lower()
+)
 
 
 @dataclass(frozen=True)

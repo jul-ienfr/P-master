@@ -33,6 +33,36 @@ class FakeWgcSession:
         self.stopped = True
 
 
+class RevivableFakeWgcSession(FakeWgcSession):
+    """Session qui se marque fermée puis peut redémarrer."""
+
+    def __init__(self, frames, restart_frames=()):
+        super().__init__(frames)
+        self._closed = False
+        self.restart_count = 0
+        self._restart_frames = list(restart_frames)
+
+    @property
+    def closed(self):
+        return self._closed
+
+    def close(self):
+        self._closed = True
+
+    def restart(self):
+        self.restart_count += 1
+        self._closed = False
+        self._frames = list(self._restart_frames)
+        return True
+
+
+class DeadFakeWgcSession(RevivableFakeWgcSession):
+    def restart(self):
+        self.restart_count += 1
+        self._closed = True
+        return False
+
+
 @pytest.fixture
 def capture():
     cap = ScreenCapture(target_fps=0)  # pas de throttle pour les tests
@@ -107,6 +137,58 @@ def test_wgc_consumes_each_frame_once(monkeypatch, capture):
     assert first == 1
     assert second == 2
     assert third is None  # consommée : pas de re-lecture
+
+
+def test_wgc_closed_session_triggers_restart(monkeypatch, capture):
+    # La sonde de démarrage consomme la première frame.
+    session = RevivableFakeWgcSession(
+        [np.zeros((4, 4, 3), dtype=np.uint8), np.ones((4, 4, 3), dtype=np.uint8)],
+        restart_frames=[np.full((4, 4, 3), 9, dtype=np.uint8)],
+    )
+    monkeypatch.setattr("src.vision.capture.WgcWindowCapture", lambda hwnd: session)
+
+    assert capture.start(hwnd=42) is True
+    assert capture.get_latest_frame() is not None
+
+    session.close()
+    assert capture.get_latest_frame() is None  # tentative de restart
+    assert session.restart_count == 1
+    revived = capture.get_latest_frame()
+    assert revived is not None and revived[0, 0, 0] == 9
+    assert capture.capture_mode == "wgc"
+
+
+def test_wgc_permanent_death_falls_back_to_window_mode(monkeypatch, capture):
+    session = DeadFakeWgcSession([np.zeros((4, 4, 3), dtype=np.uint8)])
+    monkeypatch.setattr("src.vision.capture.WgcWindowCapture", lambda hwnd: session)
+
+    assert capture.start(hwnd=42) is True
+
+    session.close()
+    for _ in range(6):
+        capture.get_latest_frame()
+
+    assert session.restart_count >= 1
+    assert capture.capture_mode != "wgc"
+    assert capture._wgc_session is None
+
+
+def test_frame_meta_wrapper_increments_seq(monkeypatch, capture):
+    frames = [
+        np.zeros((2, 2, 3), dtype=np.uint8),
+        np.ones((2, 2, 3), dtype=np.uint8),
+        np.full((2, 2, 3), 5, dtype=np.uint8),
+    ]
+    monkeypatch.setattr("src.vision.capture.WgcWindowCapture", lambda hwnd: FakeWgcSession(frames))
+
+    capture.start(hwnd=7)
+    frame_a, meta_a = capture.get_latest_frame_with_meta()
+    frame_b, meta_b = capture.get_latest_frame_with_meta()
+
+    assert meta_a.seq == 1 and meta_b.seq == 2
+    assert meta_b.monotonic >= meta_a.monotonic
+    assert meta_a.backend == "wgc"
+    assert frame_a is not None and frame_b is not None
 
 
 @pytest.mark.integration

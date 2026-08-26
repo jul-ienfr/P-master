@@ -62,8 +62,9 @@ class TableTracker:
     _STREET_ORDER = {state: index for index, state in enumerate(states)}
     _BOARD_STREET_BY_SIZE = {0: "PREFLOP", 3: "FLOP", 4: "TURN", 5: "RIVER"}
 
-    def __init__(self, db_manager):
+    def __init__(self, db_manager, table_id: str = "Table_1"):
         self.db = db_manager
+        self.table_id = str(table_id or "Table_1")
         self.sanity = SanityChecker()
         self._update_lock = asyncio.Lock()
 
@@ -954,4 +955,4 @@ class TableTracker:
             if str(normalized.get("action", "") or "").upper() == "FOLD":
                 folded_players.add(normalized_player)
         logger.info("Sauvegarde de l'historique de la main en base de données.")
-        await self.db.insert_hand_history("Table_1", board_snapshot, sanitized_actions)
+        await self.db.insert_hand_history(self.table_id, board_snapshot, sanitized_actions)

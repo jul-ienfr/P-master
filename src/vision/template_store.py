@@ -1,22 +1,23 @@
 """Chargement des presets templates (extrait de src/vision/detector.py)."""
 
+import hashlib
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import cv2
 import numpy as np
 
-from src.vision.models import ACTION_BUTTON_LABELS, decode_card_token
+from src.vision.models import (
+    ACTION_BUTTON_LABELS,
+    BUILTIN_PRESET_MANIFESTS,
+    decode_card_token,
+)
+from src.vision.table_geometry import TableGeometry, geometry_from_manifest
 
 logger = logging.getLogger(__name__)
-
-BUILTIN_PRESET_MANIFESTS = (
-    "poker/pokerstars-7-fr-6-max/draft/manifest.json",
-    "poker/official-party-poker/draft/manifest.json",
-)
 
 
 def _repo_root() -> Path:
@@ -76,6 +77,57 @@ class TemplatePreset:
     dealer_template: np.ndarray | None
     table_width: int
     table_height: int
+    preset_hash: str = ""
+    hash_verified: bool = True
+    hash_mismatches: list[str] = field(default_factory=list)
+    geometry: TableGeometry | None = None
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def verify_preset_assets(manifest_path: Path) -> tuple[bool, list[str], str]:
+    """Vérifie les sha256 des assets du preset contre `fingerprint.asset_hashes`.
+
+    Retourne (verified, mismatched_asset_names, manifest_hash). Un preset sans
+    section fingerprint est considéré non vérifiable (verified=True, hash vide).
+    """
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        logger.error(
+            "PRESET_HASH_MISMATCH | preset=%s error=manifest_unreadable detail=%s",
+            manifest_path,
+            exc,
+        )
+        return False, ["<manifest>"], ""
+
+    fingerprint = dict(manifest.get("fingerprint", {}) or {})
+    asset_hashes = dict(fingerprint.get("asset_hashes", {}) or {})
+    manifest_hash = str(fingerprint.get("hash", "") or "")
+    if not asset_hashes:
+        return True, [], manifest_hash
+
+    asset_root = manifest_path.parent
+    mismatches: list[str] = []
+    for asset_name, expected_hash in sorted(asset_hashes.items()):
+        relative_path = (manifest.get("assets", {}) or {}).get(asset_name)
+        if not relative_path:
+            mismatches.append(str(asset_name))
+            continue
+        asset_path = asset_root / str(relative_path)
+        if not asset_path.is_file():
+            mismatches.append(str(asset_name))
+            continue
+        actual_hash = _sha256_file(asset_path)
+        if actual_hash.lower() != str(expected_hash).lower():
+            mismatches.append(str(asset_name))
+    return (not mismatches), mismatches, manifest_hash
 
 
 def load_presets(preset_manifests: list[Path]) -> list[TemplatePreset]:
@@ -141,6 +193,14 @@ def load_presets(preset_manifests: list[Path]) -> list[TemplatePreset]:
                         int(bounds_data.get("max_y", 0)),
                     )
             table_width, table_height = _estimate_table_bounds(table_data)
+            hash_verified, hash_mismatches, preset_hash = verify_preset_assets(manifest_path)
+            if not hash_verified:
+                logger.error(
+                    "PRESET_HASH_MISMATCH | preset=%s assets=%s — recalibrer ou restaurer "
+                    "les assets (client mis à jour ?).",
+                    manifest_path,
+                    ",".join(hash_mismatches),
+                )
             presets.append(
                 TemplatePreset(
                     name=str(manifest.get("display_name") or manifest_path.parent.parent.name),
@@ -154,6 +214,10 @@ def load_presets(preset_manifests: list[Path]) -> list[TemplatePreset]:
                     dealer_template=dealer_template,
                     table_width=table_width,
                     table_height=table_height,
+                    preset_hash=preset_hash,
+                    hash_verified=hash_verified,
+                    hash_mismatches=hash_mismatches,
+                    geometry=geometry_from_manifest(manifest, source=str(manifest_path)),
                 )
             )
         except Exception as exc:  # pragma: no cover - depends on local asset integrity

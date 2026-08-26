@@ -35,6 +35,11 @@ jobs:
       - name: Sync dependencies (uv.lock, repro)
         run: uv sync --frozen --extra dev
 
+      # Phase 0.10 — le lockfile est la source de vérité : échoue si uv.lock
+      # et pyproject.toml divergent.
+      - name: Lock check (uv lock --check)
+        run: uv lock --check
+
       # Phase 5 — gate lint complet [E,F,W,I,B,C4,UP] : nettoyage termine
       # (autofix I/UP/C4/W + format ruff, corrections manuelles B/E722/B905/F841,
       # per-file-ignores documentes pour les E402 des points d'entree).

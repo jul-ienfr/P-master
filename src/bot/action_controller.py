@@ -165,6 +165,78 @@ def _parse_window_title_keywords(raw_value: str) -> list[str]:
     return [token.strip() for token in tokens if token and token.strip()]
 
 
+def build_site_profile_matchers(site_profiles: dict[str, Any]) -> list[dict[str, Any]]:
+    """Construit les matchers pondérés (regex titre / classe / process) depuis site_profiles."""
+    matchers: list[dict[str, Any]] = []
+    for site_name, raw_profile in (site_profiles or {}).items():
+        if not isinstance(raw_profile, dict):
+            continue
+        matchers.append(
+            {
+                "site": str(site_name),
+                "title_regex": str(raw_profile.get("title_regex") or "") or None,
+                "window_class": str(raw_profile.get("window_class") or "") or None,
+                "process_name": str(raw_profile.get("process_name") or "") or None,
+            }
+        )
+    return matchers
+
+
+def apply_site_profile_weights(
+    matchers: list[dict[str, Any]],
+    hwnd: int | None,
+    title: str,
+    detail: dict[str, int],
+    log: logging.Logger | None = None,
+) -> int:
+    """Poids supplémentaires (regex/classe/process) ; retourne la somme ajoutée."""
+    weight_total = 0
+    class_name = get_window_class_name(hwnd) if hwnd else ""
+    process_name = get_window_process_name(hwnd) if hwnd else ""
+    for matcher in matchers:
+        weight = 0
+        regex = matcher.get("title_regex")
+        if regex:
+            try:
+                if re.search(regex, title, re.IGNORECASE):
+                    weight += 5
+            except re.error:
+                if log is not None:
+                    log.warning(
+                        "site_profiles.title_regex invalide pour %s", matcher.get("site")
+                    )
+        expected_class = matcher.get("window_class")
+        if expected_class and class_name and class_name.lower() == expected_class.lower():
+            weight += 4
+        expected_process = matcher.get("process_name")
+        if (
+            expected_process
+            and process_name
+            and process_name.lower() == expected_process.lower()
+        ):
+            weight += 4
+        if weight:
+            detail[str(matcher.get("site"))] = weight
+            weight_total += weight
+    return weight_total
+
+
+def score_window_signals(
+    title: str,
+    keywords: list[str],
+    matchers: list[dict[str, Any]],
+    hwnd: int | None = None,
+) -> tuple[int, dict[str, int]]:
+    """Score pondéré partagé : mots-clés de titre + regex + classe fenêtre + process."""
+    base = sum(3 for keyword in keywords if keyword.lower() in str(title).lower())
+    if "lobby" in str(title).lower():
+        base -= 3
+    detail: dict[str, int] = {"title_keywords": max(0, base)}
+    if not matchers:
+        return base, detail
+    return base + apply_site_profile_weights(matchers, hwnd, title, detail, logger), detail
+
+
 class ActionController:
     """
     Contrôleur d'actions conçu pour fonctionner DEPUIS l'hôte vers une Machine Virtuelle (VM)
@@ -189,24 +261,12 @@ class ActionController:
         self.ghost_clicks_enabled = bool(ghost_clicks_enabled)
         self._ghost_strategy: GhostClickStrategy | None = None
         self._primary_keywords = _parse_window_title_keywords(self.window_title_keywords)
-        self._profile_matchers = self._build_profile_matchers(self.site_profiles)
+        self._profile_matchers = build_site_profile_matchers(self.site_profiles)
         self._find_window()
 
     @staticmethod
     def _build_profile_matchers(site_profiles: dict[str, Any]) -> list[dict[str, Any]]:
-        matchers: list[dict[str, Any]] = []
-        for site_name, raw_profile in (site_profiles or {}).items():
-            if not isinstance(raw_profile, dict):
-                continue
-            matchers.append(
-                {
-                    "site": str(site_name),
-                    "title_regex": str(raw_profile.get("title_regex") or "") or None,
-                    "window_class": str(raw_profile.get("window_class") or "") or None,
-                    "process_name": str(raw_profile.get("process_name") or "") or None,
-                }
-            )
-        return matchers
+        return build_site_profile_matchers(site_profiles)
 
     @property
     def click_strategy(self) -> ForegroundClickStrategy | GhostClickStrategy:
@@ -244,53 +304,42 @@ class ActionController:
             score -= 3
         return score
 
-    def _score_window_signals(self, hwnd: int, title: str) -> tuple[int, dict[str, int]]:
+    def _score_window_signals(
+        self,
+        hwnd: int,
+        title: str,
+        keywords: list[str] | None = None,
+    ) -> tuple[int, dict[str, int]]:
         """Score pondéré : mots-clés de titre + classe fenêtre + process + regex titre."""
-        score = self._score_window_title(title, self._primary_keywords)
-        detail: dict[str, int] = {"title_keywords": max(0, score)}
-        if not self._profile_matchers:
-            return score, detail
-
-        class_name = get_window_class_name(hwnd)
-        process_name = get_window_process_name(hwnd)
-        for matcher in self._profile_matchers:
-            weight = 0
-            regex = matcher.get("title_regex")
-            if regex:
-                try:
-                    if re.search(regex, title, re.IGNORECASE):
-                        weight += 5
-                except re.error:
-                    logger.warning("site_profiles.title_regex invalide pour %s", matcher.get("site"))
-            expected_class = matcher.get("window_class")
-            if expected_class and class_name and class_name.lower() == expected_class.lower():
-                weight += 4
-            expected_process = matcher.get("process_name")
-            if expected_process and process_name and process_name.lower() == expected_process.lower():
-                weight += 4
-            if weight:
-                detail[str(matcher.get("site"))] = weight
-                score += weight
-        return score, detail
+        if keywords is not None:
+            effective_keywords = keywords
+        else:
+            effective_keywords = getattr(
+                self,
+                "_primary_keywords",
+                _parse_window_title_keywords(getattr(self, "window_title_keywords", "")),
+            )
+        matchers = getattr(self, "_profile_matchers", None) or []
+        base = self._score_window_title(title, effective_keywords)
+        detail: dict[str, int] = {"title_keywords": max(0, base)}
+        if not matchers:
+            return base, detail
+        return base + apply_site_profile_weights(
+            matchers, hwnd, title, detail, logger
+        ), detail
 
     def _select_best_window(
         self,
         keywords: list[str],
     ) -> tuple[int, str, tuple[int, int, int, int]] | None:
-        saved_primary = self._primary_keywords
-        try:
-            if keywords is not self._primary_keywords:
-                self._primary_keywords = keywords
-            matches = []
-            for hwnd, title, rect in self._candidate_windows():
-                score, _detail = self._score_window_signals(hwnd, title)
-                if score <= 0:
-                    continue
-                width = max(0, rect[2] - rect[0])
-                height = max(0, rect[3] - rect[1])
-                matches.append((score, width * height, hwnd, title, rect))
-        finally:
-            self._primary_keywords = saved_primary
+        matches = []
+        for hwnd, title, rect in self._candidate_windows():
+            score, _detail = self._score_window_signals(hwnd, title, keywords=keywords)
+            if score <= 0:
+                continue
+            width = max(0, rect[2] - rect[0])
+            height = max(0, rect[3] - rect[1])
+            matches.append((score, width * height, hwnd, title, rect))
 
         if not matches:
             return None
@@ -301,13 +350,21 @@ class ActionController:
 
     def _find_window(self):
         """Cherche le handle (HWND) de la fenêtre cible."""
-        primary_keywords = self._primary_keywords
+        primary_keywords = getattr(
+            self,
+            "_primary_keywords",
+            _parse_window_title_keywords(getattr(self, "window_title_keywords", "")),
+        )
+        if not hasattr(self, "_primary_keywords"):
+            self._primary_keywords = primary_keywords
 
         # LOCK HWND: Empêcher de sauter sur une autre fenêtre si celle-ci est toujours valide
         if getattr(self, "hwnd", None) and win32gui.IsWindow(self.hwnd):
             try:
                 current_title = win32gui.GetWindowText(self.hwnd)
-                score, _detail = self._score_window_signals(current_title, primary_keywords)
+                score, _detail = self._score_window_signals(
+                    int(self.hwnd), current_title, keywords=primary_keywords
+                )
                 if score > 0:
                     self.window_title = current_title
                     return
@@ -593,22 +650,65 @@ class ActionController:
                 await asyncio.sleep(hover_duration / hover_steps)
         await self._backend().move_to(target_x, target_y)
 
-    async def click_at(self, x: int, y: int, double_click: bool = False):
+    def _log_click_reference_offset(self) -> None:
+        """Instrumentation P0 : écart repère fenêtre vs repère client au moment du clic.
+
+        La frame capturée est en coordonnées CLIENT ; ce log permet de vérifier en
+        session live que les fallback_coordinates calibrées restent cohérentes.
         """
-        Effectue un clic PHYSIQUE (Hardware simulation) aux coordonnées absolues de l'écran.
+        window_rect = self.get_window_rect()
+        if window_rect is None:
+            return
+        origin = self._get_client_origin()
+        if origin is None:
+            return
+        logger.info(
+            "CLICK_ORIGIN | ref=client client_origin=(%s,%s) window_origin=(%s,%s) offset=(%s,%s)",
+            origin[0],
+            origin[1],
+            window_rect[0],
+            window_rect[1],
+            origin[0] - window_rect[0],
+            origin[1] - window_rect[1],
+        )
+
+    async def click_at(self, x: int, y: int, double_click: bool = False):
+        """Clic aux coordonnées (x, y) de la frame, via la stratégie active.
+
+        Repère unifié : coordonnées CLIENT (même origine que la capture), pas
+        coordonnées fenêtre entière. Le mode ghost (`ghost_clicks_enabled`)
+        envoie des messages Win32 sans déplacer le curseur.
+        """
+        strategy = self.click_strategy
+        clicked = await strategy.click_at(x, y, double_click=double_click)
+        if isinstance(strategy, GhostClickStrategy):
+            logger.info(
+                "CLICK_ATTEMPT | mode=ghost client=(%s,%s) hwnd=%s clicked=%s",
+                x,
+                y,
+                strategy.hwnd,
+                clicked,
+            )
+        return clicked
+
+    async def _foreground_click_at(self, x: int, y: int, double_click: bool = False):
+        """
+        Effectue un clic PHYSIQUE (Hardware simulation) aux coordonnées absolues de l'écran,
+        après conversion du repère client vers l'écran via ClientToScreen.
         Recommandé si le bot tourne sur l'hôte et cible la fenêtre de la VM.
         """
-        # Si on vise une fenêtre spécifique (VM), on décale les coordonnées relatives
-        # par rapport au coin de la fenêtre de la VM.
+        # Si on vise une fenêtre spécifique (VM), on repart de l'origine CLIENT :
+        # c'est le même repère que la capture (ClientToScreen + GetClientRect).
         if self.hwnd:
-            rect_origin = self.get_window_rect()
-            if rect_origin is None:
+            client_origin = self._get_client_origin()
+            if client_origin is None:
                 logger.error(
-                    "CLICK_ATTEMPT | impossible de recuperer le rect origin pour la fenetre cible."
+                    "CLICK_ATTEMPT | impossible de recuperer l'origine client pour la fenetre cible."
                 )
                 return False
-            target_x = rect_origin[0] + x
-            target_y = rect_origin[1] + y
+            target_x = client_origin[0] + x
+            target_y = client_origin[1] + y
+            self._log_click_reference_offset()
         else:
             target_x, target_y = x, y
 
@@ -676,6 +776,8 @@ class ActionController:
         """Sélection du contenu de la bet box : rien (le clic simple initial suffit)
         par défaut ; Ctrl+A (~50 %) ou triple-clic (~10 %) occasionnels —
         plus de double-clic systématique."""
+        if getattr(self, "ghost_clicks_enabled", False):
+            return
         profile = self._profile()
         typing_cfg = profile.typing
         roll = profile.random()
@@ -709,6 +811,20 @@ class ActionController:
         return min(max(sampled, low * 0.5), high)
 
     async def send_text(self, text: str):
+        """Frappe le texte via la stratégie active (humaine foreground ou ghost)."""
+        return await self.click_strategy.send_text(text)
+
+    async def press_return(self) -> None:
+        """Valide avec Entrée via la stratégie active."""
+        await self.click_strategy.press_return()
+
+    async def _humanized_press_return(self) -> None:
+        backend = self._backend()
+        await backend.press(win32con.VK_RETURN)
+        await asyncio.sleep(self._profile().uniform(0.03, 0.07))
+        await backend.release(win32con.VK_RETURN)
+
+    async def _humanized_send_text(self, text: str):
         """Frappe « burst » humaine via le backend d'injection : shift-state géré,
         délais log-normaux, pause occasionnelle entre groupes, faute de frappe simulée."""
         profile = self._profile()
@@ -723,8 +839,6 @@ class ActionController:
             if scan == -1:
                 logger.warning("SEND_TEXT | caractere non mappé sur ce layout : %r", char)
                 continue
-
-            vk_code = scan & 0xFF
 
             # Pause occasionnelle entre groupes de caractères (rythme par salves).
             if profile.enabled and index > 0 and profile.chance(typing_cfg.group_pause_probability):
@@ -910,12 +1024,9 @@ class ActionController:
 
                 # Validation : ENTER simple (le second ne reste actif que via le
                 # flag legacy), puis clic BET_BTN systématique en filet final.
-                enter_backend = self._backend()
                 enter_presses = 2 if self._profile().typing.legacy_double_enter else 1
                 for _ in range(enter_presses):
-                    await enter_backend.press(win32con.VK_RETURN)
-                    await asyncio.sleep(self._profile().uniform(0.03, 0.07))
-                    await enter_backend.release(win32con.VK_RETURN)
+                    await self.press_return()
                     await asyncio.sleep(self._profile().uniform(0.10, 0.25))
 
                 # ET on clique le bouton physiques BET_BTN pour valider (Indispensable sur PokerStars récent)

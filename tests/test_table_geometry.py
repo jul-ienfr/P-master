@@ -29,7 +29,7 @@ def test_geometry_from_manifest_path_loads_preset_regions():
         Path(__file__).resolve().parents[1]
         / "poker"
         / "pokerstars-7-fr-6-max"
-        / "draft"
+        / "stable"
         / "manifest.json"
     )
     geometry = geometry_from_manifest_path(manifest_path)
