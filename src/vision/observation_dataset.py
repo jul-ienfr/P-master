@@ -45,7 +45,7 @@ class ObservationDatasetCollector:
         self.capture_interval_s = max(0.5, float(capture_interval_s or 0.5))
         self.require_visual_change = bool(require_visual_change)
         self.max_samples_per_session = max(1, int(max_samples_per_session or 1))
-        self._last_capture_at = 0.0
+        self._last_capture_at: float | None = None
         self._last_capture_signature: tuple | None = None
         self._last_capture_digest: tuple[int, int, float] | None = None
         self._captured_samples = 0
@@ -115,7 +115,11 @@ class ObservationDatasetCollector:
             return None
 
         now = time.monotonic()
-        if (now - self._last_capture_at) < self.capture_interval_s:
+        # Sentinel None : sur une machine fraîchement démarrée, monotonic() peut être
+        # inférieur à l'intervalle — un 0.0 initial provoquerait un throttle parasite.
+        if self._last_capture_at is not None and (
+            (now - self._last_capture_at) < self.capture_interval_s
+        ):
             return None
 
         capture_signature = (
