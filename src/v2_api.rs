@@ -903,6 +903,97 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
         && request.num_players <= 2
         && parsed_position.is_some();
 
+    // Phase 3.12 — flop/turn/river 3-way résolus nativement par le solveur multiway MCCFR.
+    let can_solve_multiway = request.villain_ranges.len() == 2
+        && request.num_players == 3
+        && (3..=5).contains(&request.board.len())
+        && parsed_position.is_some();
+    if can_solve_multiway {
+        warnings.retain(|warning| *warning != DecisionWarning::MultiwayApproximation);
+        // Le solveur multiway démarre toujours avec le héros en position 0 (premier à parler)
+        // pour que l'agrégation de la stratégie moyenne au noeud racine soit définie.
+        // La notion OOP/IP HU n'a pas de sens direct à 3 joueurs et la position fine
+        // sera réintroduite quand l'arbre multiway gérera l'ordre d'action par street.
+        let multiway_request = crate::multiway::MultiwayRequest {
+            ranges: [
+                request.hero_range.clone(),
+                request.villain_ranges[0].clone(),
+                request.villain_ranges[1].clone(),
+            ],
+            board: request.board.clone(),
+            starting_pot: request.starting_pot,
+            effective_stack: request.effective_stack,
+            hero_player: 0,
+            max_iterations: ((solve_iterations_for_budget(request.time_budget_ms) as u32)
+                .saturating_mul(5))
+                .clamp(2_000, 15_000),
+            random_seed: None,
+        };
+        return match crate::multiway::solve_multiway(multiway_request) {
+            Ok(multiway) => {
+                let mut response = SolveResponseV2::from(&crate::gto_api::SolveResponse {
+                    recommended_action: multiway.recommended_action.clone(),
+                    hero_ev: multiway.hero_ev,
+                    exploitability: multiway.exploitability,
+                    actions: Vec::new(),
+                    cache_hit: false,
+                    elapsed_ms: 0,
+                    hero_combo_ev: multiway.hero_ev,
+                    sample_seed: None,
+                    selection: String::new(),
+                });
+                response.actions = multiway
+                    .actions
+                    .iter()
+                    .map(|action| SolveActionV2 {
+                        name: action.name.clone(),
+                        label: action.name.clone(),
+                        size: None,
+                        frequency: action.frequency,
+                        ev: action.ev,
+                        is_recommended: action.name == multiway.recommended_action,
+                    })
+                    .collect();
+                response.backend = "multiway_mccfr".to_string();
+                response.cache_tier = CacheTier::None;
+                response.decision_confidence =
+                    decision_confidence_hint(&request, response.warnings.len());
+                response.fallback_reason = None;
+                response.elapsed_ms = started.elapsed().as_millis() as u64;
+                response.preset_id = request.tree_preset_id;
+                response.normalized_ranges = normalized_ranges;
+                response.metadata.insert(
+                    "selection".to_string(),
+                    "mccfr_average_strategy".to_string(),
+                );
+                response
+                    .metadata
+                    .insert("iterations".to_string(), multiway.iterations.to_string());
+                response.warnings = warnings;
+                Ok(response)
+            }
+            Err(err) => {
+                push_warning(&mut warnings, DecisionWarning::FallbackUsed);
+                Ok(SolveResponseV2 {
+                    chosen_action: String::new(),
+                    actions: Vec::new(),
+                    hero_ev: 0.0,
+                    exploitability: 0.0,
+                    backend: "fallback".to_string(),
+                    cache_tier: CacheTier::None,
+                    normalized_ranges,
+                    decision_confidence: decision_confidence_hint(&request, warnings.len()),
+                    fallback_reason: Some(format!("multiway_solver_error: {err}")),
+                    cache_hit: false,
+                    elapsed_ms: started.elapsed().as_millis() as u64,
+                    preset_id: request.tree_preset_id,
+                    warnings,
+                    metadata: BTreeMap::new(),
+                })
+            }
+        };
+    }
+
     if !can_bridge_to_legacy {
         push_warning(&mut warnings, DecisionWarning::FallbackUsed);
         return Ok(SolveResponseV2 {

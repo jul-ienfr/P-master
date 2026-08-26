@@ -70,6 +70,7 @@ mod game;
 mod hand;
 mod hand_table;
 mod interface;
+mod multiway;
 mod mutex_like;
 mod range;
 mod sliceop;
@@ -96,6 +97,7 @@ pub use gto_api::{
     BetSizeSpec, SolveError, SolveRequest, SolveResponse, SolveResult,
 };
 pub use interface::*;
+pub use multiway::{solve_multiway, MultiwayRequest, MultiwayResponse};
 pub use mutex_like::*;
 pub use range::*;
 pub use solver::*;

@@ -63,18 +63,20 @@ fn solve_request_v2_round_trips_with_bincode() {
 
 #[test]
 fn unsupported_v2_spot_returns_structured_warnings() {
+    // Spot volontairement non supporté : 4-way (ou board préflop) pour forcer le fallback
+    // structuré, même après l'ajout du solveur 3-way natif.
     let response = solve_spot_v2(SolveRequestV2 {
         spot_id: Some("spot-unsupported".to_string()),
         hero_range: "AsKs".to_string(),
         villain_ranges: vec!["QQ+".to_string(), "JJ+".to_string()],
-        board: vec!["Ah".to_string(), "7d".to_string(), "2c".to_string()],
+        board: vec!["Ah".to_string(), "7d".to_string()],
         starting_pot: 4.0,
         effective_stack: 100.0,
         hero_position: Some("btn".to_string()),
         action_history: vec!["bet_50".to_string()],
         tree_preset_id: TreePresetId::three_bp_hu_100bb(),
         rake: 0.0,
-        num_players: 3,
+        num_players: 4,
         legal_actions: Vec::new(),
         cache_policy: CachePolicy::Memory,
         hero_confidence: Some(1.0),
@@ -197,6 +199,53 @@ fn action_history_and_rake_bridge_to_native_solver() {
 }
 
 #[test]
+fn three_way_river_routes_to_native_multiway_solver() {
+    let response = solve_spot_v2(SolveRequestV2 {
+        spot_id: Some("spot-3way".to_string()),
+        hero_range: "AsKs".to_string(),
+        villain_ranges: vec!["QQ+".to_string(), "JJ-88".to_string()],
+        board: vec![
+            "Ah".to_string(),
+            "7d".to_string(),
+            "2c".to_string(),
+            "Kd".to_string(),
+            "9s".to_string(),
+        ],
+        starting_pot: 6.0,
+        effective_stack: 20.0,
+        hero_position: Some("oop".to_string()),
+        action_history: Vec::new(),
+        tree_preset_id: TreePresetId::river_jam_low_spr(),
+        rake: 0.0,
+        rake_cap: 0.0,
+        num_players: 3,
+        legal_actions: Vec::new(),
+        cache_policy: CachePolicy::Memory,
+        hero_confidence: Some(0.95),
+        state_confidence: Some(0.95),
+        range_model_version: RangeModelVersion::BoardAwareV2,
+        use_cache: false,
+        time_budget_ms: Some(75),
+        hero_hand: None,
+        sample_mixed: false,
+        random_seed: None,
+        bet_size_spec: None,
+    })
+    .expect("3-way river solve");
+
+    assert_eq!(response.backend, "multiway_mccfr");
+    assert!(response.fallback_reason.is_none());
+    assert!(!response.chosen_action.is_empty());
+    assert!(!response.actions.is_empty());
+    assert!(
+        !response
+            .warnings
+            .iter()
+            .any(|warning| *warning == DecisionWarning::MultiwayApproximation)
+    );
+}
+
+#[test]
 fn hero_combo_ev_selection_prefers_best_ev_for_exact_hand() {
     // The hero hand is an exact combo; selection must be driven by that combo's EV
     // rather than by the range-average frequency.
@@ -252,7 +301,7 @@ fn bet_size_spec_controls_tree_abstraction() {
         villain_ranges: vec!["QQ+".to_string()],
         board: vec!["Ah".to_string(), "7d".to_string(), "2c".to_string()],
         starting_pot: 6.0,
-        effective_stack: 100.0,
+        effective_stack: 20.0,
         hero_position: Some("oop".to_string()),
         action_history: Vec::new(),
         tree_preset_id: TreePresetId::srp_hu_100bb(),
