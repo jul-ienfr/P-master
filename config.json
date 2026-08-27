@@ -125,6 +125,16 @@
     "solutions_path": "models/preflop",
     "live_time_budget_ms": 800
   },
+  "solver": {
+    "multiway_max_players": 6,
+    "sizing_preset": "33_50_100__50_75_100__50_100_150",
+    "rake_rate": 0.05,
+    "rake_cap": 3.0,
+    "deviation_cap": 0.25,
+    "iters_min": 1200,
+    "iters_max": 15000,
+    "hs_pcf_30_enabled": false
+  },
   "tournament": {
     "enabled": false,
     "payouts": []

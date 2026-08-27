@@ -356,6 +356,161 @@ fn bet_size_spec_controls_tree_abstraction() {
     );
 }
 
+// ── S4 Phase D ──
+
+#[test]
+fn preflop_three_way() {
+    let response = solve_spot_v2(SolveRequestV2 {
+        spot_id: Some("s4-preflop-3w".to_string()),
+        hero_range: "AA".to_string(),
+        villain_ranges: vec!["KK".to_string(), "QQ".to_string()],
+        board: vec![],
+        starting_pot: 1.5,
+        effective_stack: 100.0,
+        hero_position: Some("btn".to_string()),
+        tree_preset_id: TreePresetId::srp_hu_100bb(),
+        num_players: 3,
+        cache_policy: CachePolicy::Memory,
+        use_cache: false,
+        time_budget_ms: Some(3000),
+        ..SolveRequestV2::default()
+    })
+    .expect("preflop 3-way v2");
+    // S2: board 0 est is_valid (can_solve_multiway=true), le solveur est invoqué.
+    // Succès -> multiway_mccfr ; échec d'échantillonnage préflop -> fallback multiway_solver_error
+    // (pas multiway_not_supported qui signifierait que le routage est cassé).
+    if response.backend == "multiway_mccfr" {
+        assert!(response.fallback_reason.is_none());
+        assert!(!response.chosen_action.is_empty());
+        assert!(!response.actions.is_empty());
+    } else {
+        assert_eq!(response.backend, "fallback");
+        let reason = response.fallback_reason.as_deref().unwrap_or("");
+        assert!(reason.starts_with("multiway_solver_error"), "expected solver_error not not_supported, got {reason:?}");
+    }
+}
+
+#[test]
+fn preflop_nine_way() {
+    // n=9 au-delà de 6 doit fallback multiway_not_supported
+    let response = solve_spot_v2(SolveRequestV2 {
+        spot_id: Some("s4-preflop-9w".to_string()),
+        hero_range: "AA".to_string(),
+        villain_ranges: vec![
+            "KK".to_string(), "QQ".to_string(), "JJ".to_string(), "TT".to_string(),
+            "99".to_string(), "88".to_string(), "77".to_string(), "AKs".to_string(),
+        ],
+        board: vec![],
+        starting_pot: 1.5,
+        effective_stack: 100.0,
+        hero_position: Some("btn".to_string()),
+        tree_preset_id: TreePresetId::srp_hu_100bb(),
+        num_players: 9,
+        cache_policy: CachePolicy::Memory,
+        use_cache: false,
+        time_budget_ms: Some(75),
+        ..SolveRequestV2::default()
+    })
+    .expect("preflop 9-way fallback");
+    assert_eq!(response.backend, "fallback");
+    assert_eq!(response.fallback_reason.as_deref(), Some("multiway_not_supported"));
+    assert!(response.warnings.contains(&DecisionWarning::FallbackUsed));
+}
+
+#[test]
+fn sizing_river_overbet() {
+    // BetSizeSpec river surbet 150% doit apparaître dans les actions natives HU river
+    let response = solve_spot_v2(SolveRequestV2 {
+        spot_id: Some("s4-sizing-river-ob".to_string()),
+        hero_range: "AsKs".to_string(),
+        villain_ranges: vec!["QQ+".to_string()],
+        board: vec!["Ah".to_string(), "7d".to_string(), "2c".to_string(), "Kd".to_string(), "9s".to_string()],
+        starting_pot: 8.0,
+        effective_stack: 20.0,
+        hero_position: Some("oop".to_string()),
+        tree_preset_id: TreePresetId::river_jam_low_spr(),
+        num_players: 2,
+        cache_policy: CachePolicy::Memory,
+        use_cache: false,
+        time_budget_ms: Some(150),
+        bet_size_spec: Some(BetSizeSpec {
+            bet_sizes: "50%,150%".to_string(),
+            raise_sizes: "2.5x".to_string(),
+            turn_donk_sizes: String::new(),
+            river_donk_sizes: String::new(),
+        }),
+        ..SolveRequestV2::default()
+    })
+    .expect("sizing river overbet");
+    assert_eq!(response.backend, "native_solver");
+    // CSP natif: 50% et 150% du pot -> 4 et 12 sur pot 8 (sizing HUD natif)
+    let has_overbet = response.actions.iter().any(|a| a.name.contains("12") || a.name.contains("1.5") || a.name.contains("150"));
+    assert!(has_overbet, "expected overbet sizing in actions, got: {:?}", response.actions.iter().map(|a| &a.name).collect::<Vec<_>>());
+    // Et le 50% (4) doit aussi être présent
+    assert!(response.actions.iter().any(|a| a.name.contains("4")), "expected 50% sizing, got {:?}", response.actions.iter().map(|a| &a.name).collect::<Vec<_>>());
+}
+
+#[test]
+fn board_1_2_still_rejected() {
+    for len in [1usize, 2usize] {
+        let board: Vec<String> = ["Ah", "Kd"][..len].iter().map(|s| s.to_string()).collect();
+        let response = solve_spot_v2(SolveRequestV2 {
+            spot_id: Some(format!("s4-board-{len}")),
+            hero_range: "AA".to_string(),
+            villain_ranges: vec!["KK".to_string(), "QQ".to_string()],
+            board,
+            starting_pot: 6.0,
+            effective_stack: 20.0,
+            hero_position: Some("btn".to_string()),
+            tree_preset_id: TreePresetId::srp_hu_100bb(),
+            num_players: 3,
+            cache_policy: CachePolicy::Memory,
+            use_cache: false,
+            time_budget_ms: Some(75),
+            ..SolveRequestV2::default()
+        })
+        .expect("board 1-2 still rejected");
+        assert_eq!(response.backend, "fallback", "board len {len} should fallback");
+        assert_eq!(response.fallback_reason.as_deref(), Some("multiway_not_supported"));
+    }
+}
+
+#[test]
+fn bench_preflop_n6() {
+    let start = std::time::Instant::now();
+    let response = solve_spot_v2(SolveRequestV2 {
+        spot_id: Some("s4-bench-preflop-n6".to_string()),
+        hero_range: "AA".to_string(),
+        villain_ranges: vec!["KK".to_string(), "QQ".to_string(), "JJ".to_string(), "TT".to_string(), "99".to_string()],
+        board: vec![],
+        starting_pot: 1.5,
+        effective_stack: 100.0,
+        hero_position: Some("btn".to_string()),
+        tree_preset_id: TreePresetId::srp_hu_100bb(),
+        num_players: 6,
+        cache_policy: CachePolicy::Memory,
+        use_cache: false,
+        time_budget_ms: Some(120),
+        ..SolveRequestV2::default()
+    })
+    .expect("bench preflop N=6");
+    let elapsed_ms = start.elapsed().as_millis() as u64;
+    assert!(
+        response.backend == "multiway_mccfr" || response.backend == "fallback",
+        "unexpected backend {}",
+        response.backend
+    );
+    if response.backend == "multiway_mccfr" {
+        assert!(!response.chosen_action.is_empty());
+    } else {
+        let r = response.fallback_reason.as_deref().unwrap_or("");
+        assert!(r.starts_with("multiway_solver_error"), "unexpected fallback {r:?}");
+    }
+    // Le bench vérifie le routage préflop N=6, pas la perf brute : budget large (flaky en run parallèle)
+    assert!(elapsed_ms < 35000, "bench preflop N=6 exceeded budget: {elapsed_ms}ms");
+    assert!(response.elapsed_ms < 35000, "response elapsed_ms too high: {}", response.elapsed_ms);
+}
+
 #[test]
 fn llm_stub_response_is_offline_safe() {
     let response = llm_assist_stub_response(

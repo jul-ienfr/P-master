@@ -97,7 +97,9 @@ pub use gto_api::{
     BetSizeSpec, SolveError, SolveRequest, SolveResponse, SolveResult,
 };
 pub use interface::*;
-pub use multiway::{solve_multiway, MultiwayRequest, MultiwayResponse};
+pub use multiway::{
+    solve_multiway, MultiwayRequest, MultiwayResponse, SizingConfig, MAX_PLAYERS, MIN_PLAYERS,
+};
 pub use mutex_like::*;
 pub use range::*;
 pub use solver::*;

@@ -903,33 +903,49 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
         && request.num_players <= 2
         && parsed_position.is_some();
 
-    // Phase 3.12 — flop/turn/river 3-way résolus nativement par le solveur multiway MCCFR.
-    // P3 reste limité à 3-way par choix d'architecture (module multiway.rs séparé, DCFR
-    // historique HU intact — cf. AUDIT §4). 4+ way tombe en fallback multiway_not_supported.
-    let can_solve_multiway = request.villain_ranges.len() == 2
-        && request.num_players == 3
-        && (3..=5).contains(&request.board.len())
+    // V1 bloc 3..6-way N-param MCCFR (S1 préflop inclus).
+    let multiway_max_players = multiway_max_players_limit();
+    let within_kill_switch = (request.num_players as usize) <= multiway_max_players;
+    let can_solve_multiway = within_kill_switch
+        && (2..=5).contains(&request.villain_ranges.len())
+        && (3..=6).contains(&request.num_players)
+        && crate::multiway::is_valid_board_len(request.board.len())
         && parsed_position.is_some();
+    if !within_kill_switch && (3..=6).contains(&request.num_players) {
+        tracing::info!(
+            num_players = request.num_players,
+            multiway_max_players,
+            "v2_api kill-switch: multiway fallback"
+        );
+    }
     if can_solve_multiway {
         warnings.retain(|warning| *warning != DecisionWarning::MultiwayApproximation);
-        // Le solveur multiway démarre toujours avec le héros en position 0 (premier à parler)
-        // pour que l'agrégation de la stratégie moyenne au noeud racine soit définie.
-        // La notion OOP/IP HU n'a pas de sens direct à 3 joueurs et la position fine
-        // sera réintroduite quand l'arbre multiway gérera l'ordre d'action par street.
+        let n = request.num_players as usize;
+        let hero_player = hero_position_to_index(&request.hero_position, n);
+        let mut ranges = build_ordered_ranges(&request.hero_range, &request.villain_ranges, hero_player, n);
+        // normalize already ensures hero at hero_player; pad/truncate to n
+        while ranges.len() < n {
+            ranges.push(request.villain_ranges[0].clone());
+        }
+        ranges.truncate(n);
+        let base_iters = solve_iterations_for_budget(request.time_budget_ms) as u32;
+        // S2: 1.5bb injected preflop when board_len==0 and caller left starting_pot at 0
+        let starting_pot = if request.board.is_empty() && request.starting_pot <= 0.0 {
+            1.5
+        } else {
+            request.starting_pot
+        };
+        let scaled_iterations = crate::multiway::scaled_max_iterations(base_iters.saturating_mul(5).max(100), n);
         let multiway_request = crate::multiway::MultiwayRequest {
-            ranges: [
-                request.hero_range.clone(),
-                request.villain_ranges[0].clone(),
-                request.villain_ranges[1].clone(),
-            ],
+            ranges,
             board: request.board.clone(),
-            starting_pot: request.starting_pot,
+            starting_pot,
             effective_stack: request.effective_stack,
-            hero_player: 0,
-            max_iterations: ((solve_iterations_for_budget(request.time_budget_ms) as u32)
-                .saturating_mul(5))
-                .clamp(2_000, 15_000),
-            random_seed: None,
+            hero_player,
+            max_iterations: scaled_iterations,
+            random_seed: request.random_seed,
+            rake_rate: request.rake,
+            rake_cap: request.rake_cap,
         };
         return match crate::multiway::solve_multiway(multiway_request) {
             Ok(multiway) => {
@@ -962,6 +978,14 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
                     decision_confidence_hint(&request, response.warnings.len());
                 response.fallback_reason = None;
                 response.elapsed_ms = started.elapsed().as_millis() as u64;
+                tracing::info!(
+                    n,
+                    hero_player,
+                    iters = multiway.iterations,
+                    latency_ms = response.elapsed_ms,
+                    recommended = %multiway.recommended_action,
+                    "v2_api multiway solved"
+                );
                 response.preset_id = request.tree_preset_id;
                 response.normalized_ranges = normalized_ranges;
                 response.metadata.insert(
@@ -1167,11 +1191,12 @@ fn solve_iterations_for_budget(time_budget_ms: Option<u64>) -> u32 {
 fn parse_hero_position(value: Option<&str>) -> Option<bool> {
     let normalized = value?.trim().to_ascii_lowercase();
     match normalized.as_str() {
-        "oop" | "out_of_position" | "out-of-position" | "sb" | "small_blind" | "small blind" => {
-            Some(true)
-        }
+        "oop" | "out_of_position" | "out-of-position" | "sb" | "small_blind"
+        | "small blind" | "utg" | "under_the_gun" | "under the gun" | "ep"
+        | "early_position" | "early position" => Some(true),
         "ip" | "in_position" | "in-position" | "btn" | "button" | "bb" | "big_blind"
-        | "big blind" => Some(false),
+        | "big blind" | "mp" | "middle_position" | "middle position" | "co" | "cutoff"
+        | "cut-off" | "hj" | "hijack" | "lojack" | "lj" => Some(false),
         _ => None,
     }
 }
@@ -1197,11 +1222,79 @@ fn decision_confidence_hint(request: &SolveRequestV2, warning_count: usize) -> f
     (state.min(hero) - warning_penalty).clamp(0.0, 1.0)
 }
 
+fn hero_position_to_index(hero_position: &Option<String>, n: usize) -> usize {
+    let raw = hero_position
+        .as_deref()
+        .unwrap_or("btn")
+        .trim()
+        .to_ascii_lowercase()
+        .replace('-', "")
+        .replace('_', " ")
+        .trim()
+        .to_string();
+    let raw = raw.as_str();
+    // Table exacte 3..6 par n (UTG=0, ... , BB = n-1). Fallback oop/ip historiques.
+    // n=3: UTG(0) BTN(1) BB(2) ; n=4: UTG(0) CO(1) BTN(2) BB(3) ; n=5: UTG(0) MP(1) CO(2) BTN(3) BB(4) ; n=6: UTG(0) MP(1) HJ(2) CO(3) BTN(4) BB(5)
+    if matches!(raw, "utg" | "ep" | "early position" | "under the gun" | "oop" | "sb" | "small blind") {
+        return 0;
+    }
+    if matches!(raw, "bb" | "big blind") {
+        return n.saturating_sub(1).min(5);
+    }
+    if matches!(raw, "btn" | "button") {
+        return if n >= 3 { n.saturating_sub(2).min(5) } else { 0 };
+    }
+    match (n, raw) {
+        (3, "mp" | "middle position" | "hj" | "hijack" | "lj" | "lojack" | "co" | "cutoff" | "ip") => 1,
+        (4, "mp" | "middle position" | "hj" | "hijack" | "lj" | "lojack") => 1,
+        (4, "co" | "cutoff" | "ip") => 1,
+        (5, "mp" | "middle position" | "lj" | "lojack") => 1,
+        (5, "hj" | "hijack") => 2,
+        (5, "co" | "cutoff" | "ip") => 2,
+        (6, "mp" | "middle position" | "lj" | "lojack") => 1,
+        (6, "hj" | "hijack") => 2,
+        (6, "co" | "cutoff" | "ip") => 3,
+        _ => {
+            if matches!(raw, "ip" | "co" | "cutoff" | "hj" | "hijack" | "mp" | "middle position" | "lj" | "lojack") {
+                (n / 2).min(n.saturating_sub(1))
+            } else {
+                0
+            }
+        }
+    }
+}
+
+fn build_ordered_ranges(
+    hero_range: &str,
+    villain_ranges: &[String],
+    hero_player: usize,
+    n: usize,
+) -> Vec<String> {
+    let mut out = Vec::with_capacity(n);
+    let mut vil_iter = villain_ranges.iter();
+    for i in 0..n {
+        if i == hero_player {
+            out.push(hero_range.to_string());
+        } else if let Some(v) = vil_iter.next() {
+            out.push(v.clone());
+        } else {
+            out.push(villain_ranges.last().cloned().unwrap_or_default());
+        }
+    }
+    out
+}
+
 fn fallback_reason(request: &SolveRequestV2, has_position: bool) -> String {
     if request.villain_ranges.is_empty() {
         return "missing_villain_range".to_string();
     }
-    if request.num_players > 2 || request.villain_ranges.len() > 1 {
+    if request.num_players > 6
+        || request.villain_ranges.len() > 5
+        || !crate::multiway::is_valid_board_len(request.board.len())
+    {
+        return "multiway_not_supported".to_string();
+    }
+    if request.num_players > 2 && request.villain_ranges.len() != (request.num_players as usize).saturating_sub(1) {
         return "multiway_not_supported".to_string();
     }
     if !has_position {
@@ -1250,6 +1343,14 @@ fn truncate_text(value: &str) -> String {
         let truncated: String = value.chars().take(MAX_LEN).collect();
         format!("{}...", truncated.trim())
     }
+}
+
+fn multiway_max_players_limit() -> usize {
+    std::env::var("POKER_MULTIWAY_MAX_PLAYERS")
+        .ok()
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .unwrap_or(6)
+        .clamp(3, 6)
 }
 
 fn push_warning(warnings: &mut Vec<DecisionWarning>, warning: DecisionWarning) {
