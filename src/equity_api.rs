@@ -61,6 +61,8 @@ pub struct EquityRequest {
     pub seed: Option<u64>,
     #[serde(default = "default_use_cache")]
     pub use_cache: bool,
+    #[serde(default)]
+    pub pot: Option<f32>,
 }
 
 impl Default for EquityRequest {
@@ -74,6 +76,7 @@ impl Default for EquityRequest {
             max_samples: default_max_samples(),
             seed: None,
             use_cache: default_use_cache(),
+            pot: None,
         }
     }
 }
@@ -90,6 +93,8 @@ pub struct EquityResponse {
     pub cache_hit: bool,
     #[serde(default)]
     pub winner_types: Vec<WinnerTypeDetail>,
+    #[serde(default)]
+    pub ev_chips_given_pot: Option<f32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -156,6 +161,7 @@ struct NormalizedEquityRequest {
     max_samples: u32,
     seed: u64,
     use_cache: bool,
+    pot: Option<f32>,
 }
 
 #[derive(Clone)]
@@ -370,6 +376,7 @@ fn normalize_equity_request(request: EquityRequest) -> Result<NormalizedEquityRe
         max_samples: request.max_samples,
         seed: request.seed.unwrap_or(0),
         use_cache: request.use_cache,
+        pot: request.pot,
     })
 }
 
@@ -386,6 +393,7 @@ fn normalize_range_strength_request(
         max_samples: request.max_samples,
         seed: request.seed,
         use_cache: request.use_cache,
+        pot: None,
     })?;
 
     Ok(NormalizedRangeStrengthRequest { equity, hero_range })
@@ -403,6 +411,10 @@ fn evaluate_equity_normalized(request: &NormalizedEquityRequest) -> EquityResult
         if let Some(mut cached) = EQUITY_CACHE.lock().unwrap().get(&cache_key) {
             cached.cache_hit = true;
             cached.elapsed_ms = 0;
+            // cache pot-agnostique : recalcule ev depuis le pot courant
+            cached.ev_chips_given_pot = request
+                .pot
+                .map(|pot| crate::ev::equity_ev(pot, cached.equity, 0.0));
             return Ok(cached);
         }
     }
@@ -414,6 +426,10 @@ fn evaluate_equity_normalized(request: &NormalizedEquityRequest) -> EquityResult
     };
 
     let mut response = finalize_equity_summary(summary, mode, start.elapsed().as_millis() as u64);
+    // pot → ev_chips_given_pot via crate::ev::equity_ev(pot, equity, 0.0) (= equity * pot)
+    response.ev_chips_given_pot = request
+        .pot
+        .map(|pot| crate::ev::equity_ev(pot, response.equity, 0.0));
     if request.use_cache {
         EQUITY_CACHE
             .lock()
@@ -721,6 +737,8 @@ fn finalize_equity_summary(
         elapsed_ms,
         cache_hit: false,
         winner_types: hand_type_details(&summary, total_weight),
+        #[allow(clippy::needless_update)]
+        ev_chips_given_pot: None,
     }
 }
 

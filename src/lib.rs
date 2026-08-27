@@ -64,6 +64,7 @@ mod api_utils;
 mod atomic_float;
 mod bet_size;
 mod bunching;
+pub mod ev;
 mod card;
 mod equity_api;
 mod game;
@@ -101,6 +102,11 @@ pub use multiway::{
     solve_multiway, MultiwayRequest, MultiwayResponse, SizingConfig, MAX_PLAYERS, MIN_PLAYERS,
 };
 pub use mutex_like::*;
+pub use ev::{
+    bb_from_effective_stack, compute_rake, dollar_ev, equity_ev, equity_ev_rake_aware, ev_bb_per_100,
+    ev_bb_per_100_from_chips, ev_chips_to_bb, ev_summary, pot_after_rake, rake_adjusted_share,
+    EvSummary,
+};
 pub use range::*;
 pub use solver::*;
 pub use utility::*;

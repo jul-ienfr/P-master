@@ -8,13 +8,13 @@
 
 ## 1. Ordre pour le joueur — quelle variante et quel N en premier
 
-| Rang | Variante + N | Pourquoi (WR/variance/bankroll/rake) | Bankroll requis | Rôle |
-|------|--------------|--------------------------------------|-----------------|------|
-| **1** | **Cash 6-max micro (NL2-NL10) 3..6** | WR méd ~7 bb/100 le plus élevé vs field, trafic maximal (75-95% du trafic micro), rake élevé mais compensé +1..+3 rake-aware, pardonne le tilt, 40bi suffisent | 40 buy-ins | Apprendre, financer la BR |
-| 2 | Cash HU micro | WR plus élevé +8..+15 mais adversaire unique s'adapte → variance d'adaptation, tilt plus coûteux | 40bi (mais 60+ si tilt-prone) | Spécialisation |
-| 3 | MTT micro (1-5€) | ROI 10-25% attractif mais σ 1.9-2.6 buy-ins, downswing 30-50 BI normal, P(profit) 65-75% seulement à 500 MTT | 100-200 buy-ins | Seulement avec BR 6-max |
-| 4 | MTT mid / PKO | Bounty 25-33% early → 2-4× FT, ICM 15-25% tighter, besoin mode $EV séparé (C23-C24) | 150-200bi | V1.2-V2 |
-| 5 | PLO / Spin hyperturbo | Hors scope socle, rake 10%+, variance extrême | 200+ bi | Pas en V1 |
+| Rang | Variante + N | Pourquoi (WR/variance/bankroll/rake) | Bankroll requis | EV/σ — P(profit) 50k/500MTT — RoR@roll | Rôle |
+|------|--------------|--------------------------------------|-----------------|----------------------------------------|------|
+| **1** | **Cash 6-max micro (NL2-NL10) 3..6** | WR méd ~7 bb/100 le plus élevé vs field, trafic maximal (75-95% du trafic micro), rake élevé mais compensé +1..+3 rake-aware, pardonne le tilt, 40bi suffisent | 40 buy-ins | EV/σ = 7/90=0.078 · **P(profit) 50k 96-98%** (`probabilites.md` §2) · RoR 40bi≈3.0% | Apprendre, financer la BR |
+| 2 | Cash HU micro (HU 2) | WR plus élevé +8..+15 mais adversaire unique s'adapte → variance d'adaptation, tilt plus coûteux | 40bi (mais 60+ si tilt-prone) | σ~70→WR10 ⇒ EV/σ=0.14 · **P(profit) 50k ~99%** à WR10 (`§2` HU) mais adaptation annule · RoR 40bi≈0.1% th. | Spécialisation |
+| 3 | MTT micro (1-5€) 7..9 | ROI 10-25% attractif mais σ 1.9-2.6 buy-ins, downswing 30-50 BI normal, P(profit) 65-75% seulement à 500 MTT | 100-200 buy-ins | EV/σ(ROI)=0.15/2=0.075 · **P(profit) 500 MTT 65-75%** (`§3`) · RoR 100bi≈0.06% th. (skew → viser 200bi) | Seulement avec BR 6-max |
+| 4 | MTT mid / PKO 7..9 | Bounty 25-33% early → 2-4× FT, ICM 15-25% tighter, besoin mode $EV séparé (C23-C24) | 150-200bi | $EV=ChipEV+BountyEV (`esperance.md` §2/§5 Ex.3) · P(profit) < cash à N égal (skew payout) · RoR 150bi <0.01% th. | V1.2-V2 |
+| 5 | PLO / Spin hyperturbo | Hors scope socle, rake 10%+, variance extrême | 200+ bi | EV/σ très faible (σ>>WR) · P(profit) <50% à 50k sauf edge massif | Pas en V1 |
 
 **Logique** : 6-max micro maximise WR/σ et le nombre de mains/heure, minimise le risque de ruine (`RoR = exp(−2·edge·roll/var)`) à BR donnée. C'est l'ordre dans lequel le plan est phasé (V1 bloc 6-max 3..6) — pas un hasard, c'est la conclusion conjointe Pluribus/Supremus/Ganzfried/Rake-aware (C10/C15/C03/C20).
 
@@ -62,8 +62,8 @@
 
 | Variante \ N | 2 (HU) | 3 | 3..6 (6-max) | 7..9 |
 |--------------|--------|---|--------------|------|
-| **Cash** | HS-PCFR(30)/DCFR · 33/50/75/100+/x/c/e/a · méd WR ~10 · σ~70 · **difficile** (adaptation) | MCCFR 33/50/100(F) · WR +1.2..+3 · **moyen** | **MCCFR N-param + SizingConfig + rake · 33/50/100 / 50/75/100 / 50/100/150 · méd ~7 · σ~90 · moyen — EN PREMIER** | approx tightening+bucket en V1, MAX 6→9 V1.2 |
-| **MTT/ICM** | Push/fold Nash | Rare | V1 approx → V1.2 GT-CFR + ICM FGS2-3 | ICM 15-25% tighter, PKO ChipEV+BountyEV 25-33%→2-4× — après cash |
+| **Cash** | HS-PCFR(30)/DCFR · 33/50/75/100+/x/c/e/a · EV/σ 10/70=0.14 · **P(profit) 50k ~99%** (`probabilites.md` §2 HU) · RoR 40bi≈0.1% th. · **difficile** (adaptation) | MCCFR 33/50/100(F) · WR +1.2..+3 · EV/σ ~0.02 · P 50k ~69% à +3 · **moyen** | **MCCFR N-param + SizingConfig + rake · 33/50/100 / 50/75/100 / 50/100/150 · méd ~7 σ~90 EV/σ 0.078 · P 50k 96-98% RoR 40bi≈3% — EN PREMIER** | approx tightening+bucket en V1, MAX 6→9 V1.2 |
+| **MTT/ICM** | Push/fold Nash · $EV=ChipEV+BountyEV | Rare | V1 approx → V1.2 GT-CFR + ICM FGS2-3 | ICM 15-25% tighter (`strategie-par-format.md` §4), PKO ChipEV+BountyEV 25-33%→2-4× (`esperance.md` §4-5, C23) · ROI 10-25% σ1.9-2.6 · **P 500 MTT 65-75%** (`probabilites.md` §3) · RoR 100bi≈0.06% th./skew — après cash |
 
 ---
 

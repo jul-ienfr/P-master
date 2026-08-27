@@ -122,6 +122,10 @@ pub struct ActionDetail {
     pub name: String,
     pub frequency: f32,
     pub ev: f32,
+    #[serde(default)]
+    pub ev_bb: Option<f32>,
+    #[serde(default)]
+    pub ev_bb_per_100: Option<f32>,
 }
 
 /// Response object produced by [`solve_spot`].
@@ -145,6 +149,16 @@ pub struct SolveResponse {
     /// How the action was selected: `combo_ev_max`, `mixed_sample`, or `range_frequency`.
     #[serde(default)]
     pub selection: String,
+    #[serde(default)]
+    pub ev_bb: Option<f32>,
+    #[serde(default)]
+    pub ev_bb_per_100: Option<f32>,
+    #[serde(default)]
+    pub ev_dollars: Option<f32>,
+    #[serde(default)]
+    pub dollar_ev_note: Option<String>,
+    #[serde(default)]
+    pub combo_ev_bb: Option<f32>,
 }
 
 fn default_max_iterations() -> u32 {
@@ -239,6 +253,46 @@ pub fn solve_spot(request: SolveRequest) -> SolveResult {
     }
 }
 
+fn bb_for_request(effective_stack: f32) -> (Option<f32>, Option<String>) {
+    if effective_stack.is_finite() && effective_stack > 0.0 {
+        let (bb, _) = crate::ev::bb_from_effective_stack(effective_stack);
+        if bb > 0.0 {
+            // Convention 100bb deep, tracée une fois par requête.
+            tracing::warn!(
+                effective_stack,
+                bb,
+                "bb dérivé de effective_stack/100 (fallback 100bb deep)"
+            );
+            return (Some(bb), Some("bb=effective_stack/100 (fallback 100bb deep)".to_string()));
+        }
+    }
+    (None, None)
+}
+
+fn enrich_ev_fields(
+    hero_ev: f32,
+    hero_combo_ev: f32,
+    actions: &mut [ActionDetail],
+    effective_stack: f32,
+) -> (Option<f32>, Option<f32>, Option<f32>, Option<String>, Option<f32>) {
+    let (bb_opt, note) = bb_for_request(effective_stack);
+    let bb = bb_opt;
+    let summary = crate::ev::ev_summary(hero_ev, bb, None, note.clone());
+    for a in actions.iter_mut() {
+        let s = crate::ev::ev_summary(a.ev, bb, None, None);
+        a.ev_bb = s.ev_bb;
+        a.ev_bb_per_100 = s.ev_bb_per_100;
+    }
+    let combo_ev_bb = bb.and_then(|b| crate::ev::ev_chips_to_bb(hero_combo_ev, b));
+    (
+        summary.ev_bb,
+        summary.ev_bb_per_100,
+        summary.ev_dollars,
+        summary.dollar_ev_note,
+        combo_ev_bb,
+    )
+}
+
 fn solve_spot_inner(request: SolveRequest) -> SolveResult {
     let normalized = normalize_solve_request(request)?;
     let cache_key = solve_cache_key(&normalized);
@@ -247,6 +301,18 @@ fn solve_spot_inner(request: SolveRequest) -> SolveResult {
         if let Some(mut cached) = SOLVE_CACHE.lock().unwrap().get(&cache_key) {
             cached.cache_hit = true;
             cached.elapsed_ms = 0;
+            // Recalcule ev_bb si l'effective_stack/bb diffère du cache (évite bb périmé).
+            let (ev_bb, ev_bb_per_100, ev_dollars, dollar_ev_note, combo_ev_bb) = enrich_ev_fields(
+                cached.hero_ev,
+                cached.hero_combo_ev,
+                &mut cached.actions,
+                normalized.effective_stack,
+            );
+            cached.ev_bb = ev_bb;
+            cached.ev_bb_per_100 = ev_bb_per_100;
+            cached.ev_dollars = ev_dollars;
+            cached.dollar_ev_note = dollar_ev_note;
+            cached.combo_ev_bb = combo_ev_bb;
             return Ok(cached);
         }
     }
@@ -281,6 +347,11 @@ fn solve_spot_inner(request: SolveRequest) -> SolveResult {
             hero_combo_ev: hero_ev,
             sample_seed: None,
             selection: "range_frequency".to_string(),
+            ev_bb: None,
+            ev_bb_per_100: None,
+            ev_dollars: None,
+            dollar_ev_note: None,
+            combo_ev_bb: None,
         });
     }
 
@@ -382,6 +453,8 @@ fn solve_spot_inner(request: SolveRequest) -> SolveResult {
             } else {
                 hero_ev
             },
+            ev_bb: None,
+            ev_bb_per_100: None,
         })
         .collect();
 
@@ -396,6 +469,9 @@ fn solve_spot_inner(request: SolveRequest) -> SolveResult {
         .map(|action| action.name.clone())
         .unwrap_or_else(|| "check".to_string());
 
+    let mut actions = actions;
+    let (ev_bb, ev_bb_per_100, ev_dollars, dollar_ev_note, combo_ev_bb) =
+        enrich_ev_fields(hero_ev, chosen_ev, &mut actions, normalized.effective_stack);
     let mut response = SolveResponse {
         recommended_action,
         hero_ev,
@@ -406,6 +482,11 @@ fn solve_spot_inner(request: SolveRequest) -> SolveResult {
         hero_combo_ev: chosen_ev,
         sample_seed,
         selection: selection.to_string(),
+        ev_bb,
+        ev_bb_per_100,
+        ev_dollars,
+        dollar_ev_note,
+        combo_ev_bb,
     };
 
     if normalized.use_cache {

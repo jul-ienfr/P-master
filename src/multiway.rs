@@ -209,6 +209,14 @@ pub struct MultiwayResponse {
     pub exploitability: f32,
     pub actions: Vec<ActionDetail>,
     pub iterations: u32,
+    #[serde(default)]
+    pub ev_bb: Option<f32>,
+    #[serde(default)]
+    pub ev_bb_per_100: Option<f32>,
+    #[serde(default)]
+    pub ev_dollars: Option<f32>,
+    #[serde(default)]
+    pub dollar_ev_note: Option<String>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -604,11 +612,7 @@ impl<'a> Solver<'a> {
     }
     fn payoffs(&self, state: &GameState, dealt: &[usize; MAX_PLAYERS]) -> [f64; MAX_PLAYERS] {
         let pot_total = total_pot(state) as f64;
-        let rake = if self.rake_rate > 0.0 {
-            let r = pot_total * self.rake_rate;
-            if self.rake_cap > 0.0 { r.min(self.rake_cap) } else { r }
-        } else { 0.0 };
-        let pot_after_rake = (pot_total - rake).max(0.0);
+        let pot_after_rake = crate::ev::pot_after_rake(pot_total, self.rake_rate, self.rake_cap);
         if state.active_players() == 1 {
             let winner = (0..state.n).find(|&p| !state.folded[p]).unwrap();
             let mut payoffs = [0.0; MAX_PLAYERS];
@@ -882,7 +886,7 @@ fn evaluate_solution(solver: &Solver, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], reque
             });
             // avoid duplicates
             if !actions.iter().any(|ad| ad.name == name) {
-                actions.push(ActionDetail { name, frequency: freq_sum[slot] as f32, ev: 0.0 });
+                actions.push(ActionDetail { name, frequency: freq_sum[slot] as f32, ev: 0.0, ev_bb: None, ev_bb_per_100: None });
             }
         }
     }
@@ -909,6 +913,8 @@ fn evaluate_solution(solver: &Solver, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], reque
     let samples = 4000usize;
     let mut ev_sum = 0.0f64;
     let mut br_best_sum = 0.0f64;
+    let mut action_ev_sums = [0.0f64; ACTION_SLOTS];
+    let mut action_ev_counts = [0usize; ACTION_SLOTS];
     for _ in 0..samples {
         let Some(dealt) = sample_deal_free(hands, n, &request_board_bytes(request), &mut mc_rng) else { continue; };
         let ev = rollout_average(solver, hands, dealt, &root, hero, effective_stack, starting_pot, &mut mc_rng, 24);
@@ -916,7 +922,10 @@ fn evaluate_solution(solver: &Solver, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], reque
         let mut best = f64::NEG_INFINITY;
         for action in root.legal_actions(effective_stack, sizing) {
             let child = apply_static(&root, action, effective_stack, sizing);
-            let value = rollout_average(solver, hands, dealt, &child, hero, effective_stack, starting_pot, &mut mc_rng, 6);
+            let value = rollout_average(solver, hands, dealt, &child, hero, effective_stack, starting_pot, &mut mc_rng, 24);
+            let slot = action.slot();
+            action_ev_sums[slot] += value;
+            action_ev_counts[slot] += 1;
             best = best.max(value);
         }
         if best.is_finite() { br_best_sum += best; }
@@ -924,10 +933,76 @@ fn evaluate_solution(solver: &Solver, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], reque
     let hero_ev = ev_sum / samples as f64;
     let br_ev = br_best_sum / samples as f64;
     let exploitability = (br_ev - hero_ev).max(0.0) as f32;
-    for action in &mut actions {
-        if action.name == recommended_action { action.ev = hero_ev as f32; }
+    // Per-action EV = moyenne du rollout conditionnel à l'action (deviation), pas le hero_ev global.
+    // On mappe chaque ActionDetail à son slot via slot_to_name ; si pas d'échantillon, fallback hero_ev.
+    let mut slot_to_avg: [Option<f32>; ACTION_SLOTS] = [None; ACTION_SLOTS];
+    for slot in 0..ACTION_SLOTS {
+        if action_ev_counts[slot] > 0 {
+            slot_to_avg[slot] = Some((action_ev_sums[slot] / action_ev_counts[slot] as f64) as f32);
+        }
     }
-    Ok(MultiwayResponse { recommended_action, hero_ev: hero_ev as f32, exploitability, actions, iterations: solver.iterations_done as u32 })
+    // Helper inverse : name -> slot
+    let name_to_slot = |name: &str| -> Option<usize> {
+        for s in 0..ACTION_SLOTS {
+            if let Some(n) = &slot_to_name[s] { if n == name { return Some(s); } }
+        }
+        match name {
+            "fold" => Some(0),
+            "call" => Some(1),
+            _ => None,
+        }
+    };
+    for action in &mut actions {
+        if let Some(slot) = name_to_slot(&action.name) {
+            if let Some(avg) = slot_to_avg[slot] { action.ev = avg; }
+            else { action.ev = hero_ev as f32; }
+        } else {
+            action.ev = hero_ev as f32;
+        }
+    }
+
+    // --- Enrichissement EV : ev_bb / ev_bb_per_100 / ev_dollars via crate::ev::ev_summary ---
+    // bb fallback = effective_stack/100 (convention 100bb deep), tracé via tracing::warn
+    let effective_stack_f32 = effective_stack as f32;
+    let (bb_opt, bb_fallback_note): (Option<f32>, Option<String>) =
+        if effective_stack_f32.is_finite() && effective_stack_f32 > 0.0 {
+            let bb = effective_stack_f32 / 100.0;
+            if bb.is_finite() && bb > 0.0 {
+                tracing::warn!(
+                    effective_stack = effective_stack_f32,
+                    bb,
+                    "bb dérivé de effective_stack/100 (fallback 100bb deep) [multiway]"
+                );
+                (Some(bb), Some("bb=effective_stack/100 (fallback 100bb deep)".to_string()))
+            } else {
+                (None, None)
+            }
+        } else {
+            (None, None)
+        };
+
+    let summary = crate::ev::ev_summary(hero_ev as f32, bb_opt, None, bb_fallback_note.clone());
+
+    for action in &mut actions {
+        let (ev_bb, ev_bb_per_100) = {
+            let s = crate::ev::ev_summary(action.ev, bb_opt, None, None);
+            (s.ev_bb, s.ev_bb_per_100)
+        };
+        action.ev_bb = ev_bb;
+        action.ev_bb_per_100 = ev_bb_per_100;
+    }
+
+    Ok(MultiwayResponse {
+        recommended_action,
+        hero_ev: hero_ev as f32,
+        exploitability,
+        actions,
+        iterations: solver.iterations_done as u32,
+        ev_bb: summary.ev_bb,
+        ev_bb_per_100: summary.ev_bb_per_100,
+        ev_dollars: summary.ev_dollars,
+        dollar_ev_note: summary.dollar_ev_note,
+    })
 }
 
 fn request_board_bytes(request: &MultiwayRequest) -> Vec<u8> {
@@ -1012,8 +1087,7 @@ fn sample_next_card_rollout(state: &GameState, hands: &[Vec<[u8; 2]>; MAX_PLAYER
 }
 fn static_payoffs(state: &GameState, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], dealt: [usize; MAX_PLAYERS], pot_total: i64, rake_rate: f64, rake_cap: f64) -> [f64; MAX_PLAYERS] {
     let pot_f = pot_total as f64;
-    let rake = if rake_rate > 0.0 { let r = pot_f * rake_rate; if rake_cap > 0.0 { r.min(rake_cap) } else { r } } else { 0.0 };
-    let pot_after = (pot_f - rake).max(0.0);
+    let pot_after = crate::ev::pot_after_rake(pot_f, rake_rate, rake_cap);
     if state.active_players() == 1 {
         let winner = (0..state.n).find(|&p| !state.folded[p]).unwrap();
         let mut payoffs = [0.0; MAX_PLAYERS];

@@ -77,7 +77,7 @@
 - **Limite** : Blueprint abstrait (bucketing manuel), variance d'échantillonnage.
 - **Chantier** : **V1 N-way 3..6** — justifie MCCFR N-paramétrique `[T;MAX]+n` comme paradigme (vs généraliser DCFR HU).
 
-### C11 — Johanson et al. 2017 — AIVAT (AAAI)
+### C11 — Johanson et al. 2017 — AIVAT (AAAI) → EV
 
 - **Référence** : M. Johanson et al., *Decomposing Overestimated Variance and the Aaronson-Waugh Variance Attenuation Technique*, AAAI 2017, arXiv [1705.10748](https://arxiv.org/abs/1705.10748)
 - **Apport chiffré** : Estimateur sans biais, variance **−68 à −85%**, **44× moins de mains** pour même intervalle de confiance (ou 10× moins en pratique prudente).
@@ -140,7 +140,7 @@
 - **Limite** : Pas de garantie d'équilibre (RL pur).
 - **Chantier** : P1 piste — alternative RL si CFR trop coûteux.
 
-### C20 — Rake-aware GTO 2020–2022 (Pio/GTO Wizard + Eliazar 2104.04113)
+### C20 — Rake-aware GTO 2020–2022 (Pio/GTO Wizard + Eliazar 2104.04113) → EV
 
 - **Référence** : Synthèse PioSOLVER/GTO Wizard + M. Eliazar et al., *Rake-aware GTO*, arXiv [2104.04113](https://arxiv.org/abs/2104.04113) + Alberta Tech Report + Econ 10899-019-09877-2.
 - **Apport chiffré** : Rake **5% / $3–4 cap** → RFI **−2–5%**, BB defend **−10–15%**, omettre le rake = **−15–30% VPIP** d'erreur, net **−3 à −7 bb/100** si omis. En micro, rake ignoré = **−1.5 à −4 bb/100**.
@@ -161,14 +161,14 @@
 - **Limite** : Spot-dépendant (texture-dépendant).
 - **Chantier** : **V1.2** — donk OOP flop, `DonkSizeOptions` porté au MCCFR.
 
-### C23 — PKO Bounty Power (GTO Wizard 2023–2024)
+### C23 — PKO Bounty Power (GTO Wizard 2023–2024) → EV
 
 - **Référence** : GTO Wizard, *PKO Strategy: Bounty Power*, 2023–2024.
 - **Apport chiffré** : `$EV = ChipEV + BountyEV`, early stage bounty **25–33%** d'un buy-in, FT **2–4×**, cover **+10–20% wider** (on élargit quand on couvre).
 - **Limite** : PKO only, payout-dépendant.
 - **Chantier** : **Mode PKO** (V1.2–V2) — module `$EV` séparé.
 
-### C24 — ICMIZER 3 / HRC FGS 5 + 1-KLSS (NeurIPS 2022) + GTORB/Pio EDGE 3-way
+### C24 — ICMIZER 3 / HRC FGS 5 + 1-KLSS (NeurIPS 2022) + GTORB/Pio EDGE 3-way → EV
 
 - **Référence** : ICMIZER 3, HoldemResources Calculator FGS 5 ; Zhang & Sandholm, *1-KLSS: Safe Subgame Solving in Multiplayer Games*, NeurIPS 2022 ; GTORB / Pio EDGE 3-way solver.
 - **Apport chiffré** : ICM **15–25% tighter** que chipEV, FGS **2–3** steps ; 1-KLSS = safe multiway sans common knowledge ; GTORB/Pio 3-way : **>64GB RAM** pour arbre complet, pas de Nash unique multiway.

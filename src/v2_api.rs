@@ -266,6 +266,10 @@ pub struct SolveActionV2 {
     pub frequency: f32,
     pub ev: f32,
     pub is_recommended: bool,
+    #[serde(default)]
+    pub ev_bb: Option<f32>,
+    #[serde(default)]
+    pub ev_bb_per_100: Option<f32>,
 }
 
 impl Default for SolveActionV2 {
@@ -277,6 +281,8 @@ impl Default for SolveActionV2 {
             frequency: 0.0,
             ev: 0.0,
             is_recommended: false,
+            ev_bb: None,
+            ev_bb_per_100: None,
         }
     }
 }
@@ -420,6 +426,16 @@ pub struct SolveResponseV2 {
     pub preset_id: TreePresetId,
     pub warnings: Vec<DecisionWarning>,
     pub metadata: BTreeMap<String, String>,
+    #[serde(default)]
+    pub ev_bb: Option<f32>,
+    #[serde(default)]
+    pub ev_bb_per_100: Option<f32>,
+    #[serde(default)]
+    pub ev_dollars: Option<f32>,
+    #[serde(default)]
+    pub dollar_ev_note: Option<String>,
+    #[serde(default)]
+    pub combo_ev_bb: Option<f32>,
 }
 
 impl Default for SolveResponseV2 {
@@ -439,6 +455,11 @@ impl Default for SolveResponseV2 {
             preset_id: TreePresetId::default(),
             warnings: Vec::new(),
             metadata: BTreeMap::new(),
+            ev_bb: None,
+            ev_bb_per_100: None,
+            ev_dollars: None,
+            dollar_ev_note: None,
+            combo_ev_bb: None,
         }
     }
 }
@@ -646,6 +667,8 @@ impl From<&crate::gto_api::ActionDetail> for SolveActionV2 {
             frequency: action.frequency,
             ev: action.ev,
             is_recommended: false,
+            ev_bb: action.ev_bb,
+            ev_bb_per_100: action.ev_bb_per_100,
         }
     }
 }
@@ -681,6 +704,11 @@ impl From<&crate::gto_api::SolveResponse> for SolveResponseV2 {
             preset_id: TreePresetId::default(),
             warnings: Vec::new(),
             metadata: BTreeMap::new(),
+            ev_bb: response.ev_bb,
+            ev_bb_per_100: response.ev_bb_per_100,
+            ev_dollars: response.ev_dollars,
+            dollar_ev_note: response.dollar_ev_note.clone(),
+            combo_ev_bb: response.combo_ev_bb,
         }
     }
 }
@@ -698,6 +726,8 @@ impl From<&SolveResponseV2> for crate::gto_api::SolveResponse {
                     name: action.name.clone(),
                     frequency: action.frequency,
                     ev: action.ev,
+                    ev_bb: action.ev_bb,
+                    ev_bb_per_100: action.ev_bb_per_100,
                 })
                 .collect(),
             cache_hit: response.cache_hit,
@@ -705,6 +735,11 @@ impl From<&SolveResponseV2> for crate::gto_api::SolveResponse {
             hero_combo_ev: response.hero_ev,
             sample_seed: None,
             selection: "range_frequency".to_string(),
+            ev_bb: response.ev_bb,
+            ev_bb_per_100: response.ev_bb_per_100,
+            ev_dollars: response.ev_dollars,
+            dollar_ev_note: response.dollar_ev_note.clone(),
+            combo_ev_bb: response.combo_ev_bb,
         }
     }
 }
@@ -959,6 +994,11 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
                     hero_combo_ev: multiway.hero_ev,
                     sample_seed: None,
                     selection: String::new(),
+                    ev_bb: multiway.ev_bb,
+                    ev_bb_per_100: multiway.ev_bb_per_100,
+                    ev_dollars: multiway.ev_dollars.clone(),
+                    dollar_ev_note: multiway.dollar_ev_note.clone(),
+                    combo_ev_bb: multiway.ev_bb,
                 });
                 response.actions = multiway
                     .actions
@@ -970,8 +1010,16 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
                         frequency: action.frequency,
                         ev: action.ev,
                         is_recommended: action.name == multiway.recommended_action,
+                        ev_bb: action.ev_bb,
+                        ev_bb_per_100: action.ev_bb_per_100,
                     })
                     .collect();
+                // enrichissement depuis multiway.* (symétrique bridge legacy)
+                response.ev_bb = multiway.ev_bb;
+                response.ev_bb_per_100 = multiway.ev_bb_per_100;
+                response.ev_dollars = multiway.ev_dollars.clone();
+                response.dollar_ev_note = multiway.dollar_ev_note.clone();
+                response.combo_ev_bb = multiway.ev_bb;
                 response.backend = "multiway_mccfr".to_string();
                 response.cache_tier = CacheTier::None;
                 response.decision_confidence =
@@ -1015,6 +1063,11 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
                     preset_id: request.tree_preset_id,
                     warnings,
                     metadata: BTreeMap::new(),
+                    ev_bb: None,
+                    ev_bb_per_100: None,
+                    ev_dollars: None,
+                    dollar_ev_note: None,
+                    combo_ev_bb: None,
                 })
             }
         };
@@ -1037,6 +1090,11 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
             preset_id: request.tree_preset_id,
             warnings,
             metadata: BTreeMap::new(),
+            ev_bb: None,
+            ev_bb_per_100: None,
+            ev_dollars: None,
+            dollar_ev_note: None,
+            combo_ev_bb: None,
         });
     }
 
