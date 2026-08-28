@@ -92,6 +92,7 @@ fn evaluate_equity(
         max_samples,
         seed,
         use_cache,
+        pot: None,
     };
 
     let response = evaluate_equity_native(request)

@@ -84,7 +84,9 @@ def _configure_tesseract_binary() -> None:
     if existing and Path(existing).is_file():
         return
 
-    env_candidate = str(os.getenv("TESSERACT_CMD") or "").strip()
+    env_candidate = str(
+        os.getenv("TESSERACT_CMD") or os.getenv("POKER_TESSERACT_CMD") or ""
+    ).strip()
     candidates = [
         env_candidate,
         r"C:\Program Files\Tesseract-OCR\tesseract.exe",

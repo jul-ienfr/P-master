@@ -1,8 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import StrEnum
+from enum import Enum
 from typing import Any
+
+# Compat 3.10 : StrEnum introduit en 3.11 (PEP 663) — fallback local.
+try:  # pragma: no cover
+    from enum import StrEnum as _StrEnumBase  # type: ignore[attr-defined]
+except ImportError:  # pragma: no cover
+
+    class _StrEnumBase(str, Enum):  # type: ignore[no-redef]  # noqa: UP042
+        pass  # 3.10 compat: StrEnum est 3.11+
+
+
+StrEnum = _StrEnumBase  # type: ignore[no-redef]
 
 
 class FieldCriticality(StrEnum):

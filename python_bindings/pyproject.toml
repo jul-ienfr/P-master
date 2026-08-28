@@ -6,7 +6,7 @@ build-backend = "maturin"
 name = "postflop-solver-py"
 version = "0.1.0"
 description = "PyO3 bindings for the postflop-solver Rust crate"
-requires-python = ">=3.10"
+requires-python = "==3.11.*"
 
 [tool.maturin]
 manifest-path = "Cargo.toml"

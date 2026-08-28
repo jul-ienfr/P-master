@@ -1,4 +1,4 @@
-import re
+﻿import re
 
 with open("src/bot/decision_maker.py", "r", encoding="utf-8") as f:
     code = f.read()
@@ -47,10 +47,10 @@ action_replacement = """    async def get_best_action(self, hero_hand: str, boar
                               action_history: Optional[List[Dict[str, Any]]] = None,
                               tournament_data: Optional[Dict[str, Any]] = None) -> dict:
         \"\"\"
-        Détermine la meilleure action à prendre en combinant GTO (Solver Rust), 
+        D├®termine la meilleure action ├á prendre en combinant GTO (Solver Rust), 
         Reinforcement Learning (Agent RL), Node-Locking, et ICM.
         \"\"\"
-        logger.info(f"Calcul de décision contre {villain_name}. Board: {board}, Pot: {pot}")
+        logger.info(f"Calcul de d├®cision contre {villain_name}. Board: {board}, Pot: {pot}")
         hero_hand = _normalize_hero_hand_string(hero_hand)
         legal_actions = self._normalize_runtime_actions(legal_actions)
         if not legal_actions:
@@ -58,7 +58,7 @@ action_replacement = """    async def get_best_action(self, hero_hand: str, boar
             
         # CIRCUIT BREAKER CHECK
         if time.monotonic() < self._solver_cooldown_until:
-            logger.error("🛑 CIRCUIT BREAKER ACTIF: Solver en cooldown. Auto-Fallback.")
+            logger.error("­ƒøæ CIRCUIT BREAKER ACTIF: Solver en cooldown. Auto-Fallback.")
             return self._fallback_action(legal_actions)
 """
 
@@ -69,10 +69,10 @@ code = code.replace("""    async def get_best_action(self, hero_hand: str, board
                               action_history: Optional[List[Dict[str, Any]]] = None,
                               tournament_data: Optional[Dict[str, Any]] = None) -> dict:
         \"\"\"
-        Détermine la meilleure action à prendre en combinant GTO (Solver Rust), 
+        D├®termine la meilleure action ├á prendre en combinant GTO (Solver Rust), 
         Reinforcement Learning (Agent RL), Node-Locking, et ICM.
         \"\"\"
-        logger.info(f"Calcul de décision contre {villain_name}. Board: {board}, Pot: {pot}")
+        logger.info(f"Calcul de d├®cision contre {villain_name}. Board: {board}, Pot: {pot}")
         hero_hand = _normalize_hero_hand_string(hero_hand)
         legal_actions = self._normalize_runtime_actions(legal_actions)
         if not legal_actions:
@@ -82,7 +82,7 @@ get_best_action_middle = """            except asyncio.TimeoutError:
                 logger.error("Solver Rust timeout (>10s). Fail-safe to FOLD/CHECK.")
                 self._consecutive_solver_timeouts += 1
                 if self._consecutive_solver_timeouts >= 3:
-                    logger.critical("🛑 CIRCUIT BREAKER DÉCLENCHÉ : Trop de timeouts Rust consécutifs. Mise en cooldown 60s.")
+                    logger.critical("­ƒøæ CIRCUIT BREAKER D├ëCLENCH├ë : Trop de timeouts Rust cons├®cutifs. Mise en cooldown 60s.")
                     self._solver_cooldown_until = time.monotonic() + 60.0
                 fallback_used = True
                 fallback_reason = "solver_timeout"
@@ -95,7 +95,7 @@ get_best_action_middle = """            except asyncio.TimeoutError:
             fallback_used = True
             fallback_reason = "rust_solver_unavailable"
             
-        # Résilience: si la requête réussit, on reset le circuit breaker
+        # R├®silience: si la requ├¬te r├®ussit, on reset le circuit breaker
         if not fallback_used:
             self._consecutive_solver_timeouts = 0
 """

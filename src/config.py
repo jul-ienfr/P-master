@@ -182,6 +182,14 @@ def _apply_env_overrides(cfg: dict) -> dict:
     if v is not None:
         cfg.setdefault("timesfm", {})["enabled"] = v
 
+    # POKER_MULTIWAY_MAX_PLAYERS — wire env into solver.multiway_max_players (Rust lit aussi l'env directement)
+    raw_multiway = os.getenv("POKER_MULTIWAY_MAX_PLAYERS")
+    if raw_multiway and raw_multiway.strip():
+        try:
+            cfg.setdefault("solver", {})["multiway_max_players"] = int(raw_multiway.strip())
+        except ValueError:
+            pass
+
     openai_key = os.getenv("OPENAI_API_KEY")
     groq_key = os.getenv("GROQ_API_KEY")
     local_key = os.getenv("POKER_AUTO_ANNOTATOR_API_KEY")
