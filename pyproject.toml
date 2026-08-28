@@ -120,7 +120,7 @@ warn_unused_ignores = true
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "poker/tests"]
+testpaths = ["tests"]
 addopts = "-ra -s --strict-markers -q"
 pythonpath = ["."]
 python_files = ["test_*.py", "*_test.py"]

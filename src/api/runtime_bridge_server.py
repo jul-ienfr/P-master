@@ -24,6 +24,14 @@ logger = logging.getLogger("RuntimeBridgeAPI")
 
 
 def _load_json_config(config_path: str) -> dict:
+    # Unifié via src.config.load_config : cascade env > local > json > example
+    # + expansion ${VAR:-default} + overrides env (POKER_*). Fallback legacy si import impossible.
+    try:
+        from src.config import load_config as _load_config_unified
+
+        return _load_config_unified(config_path)
+    except Exception:
+        pass
     try:
         with open(config_path, encoding="utf-8") as handle:
             payload = json.load(handle)
