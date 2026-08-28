@@ -13,7 +13,7 @@ try:
 except ImportError:  # Python 3.10 compatibility
     from datetime import datetime, timezone
 
-    UTC = timezone.utc
+    UTC = timezone.utc  # type: ignore[no-redef]  # noqa: UP017 - 3.10 compat fallback
 
 from src.bot.runtime_types import CanonicalTableState
 from src.vision.models import TableState

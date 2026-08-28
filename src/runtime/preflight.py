@@ -90,7 +90,9 @@ class Preflight:
             observation_store_path = self.root / observation_store_path
 
         yolo_cfg = config.get("yolo", {}) or {}
-        requested_yolo_model_path = Path(yolo_cfg.get("model_path", "models/poker_yolo_v11.engine"))
+        requested_yolo_model_path = Path(
+            yolo_cfg.get("model_path", "models/poker_yolo_finetune5.onnx")
+        )
         resolved_yolo_model_path = self._resolve_model_path(str(requested_yolo_model_path))
 
         if resolved_yolo_model_path is None:

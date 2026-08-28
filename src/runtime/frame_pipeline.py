@@ -6,8 +6,6 @@ import time
 
 import numpy as np
 
-logger = logging.getLogger("SuperBot2026")
-
 from src.bot.runtime_types import CanonicalTableState
 from src.runtime.poker_state_validator import PokerStateValidator
 from src.runtime.readiness import build_runtime_readiness
@@ -24,6 +22,8 @@ from src.vision.table_geometry import (
     geometry_to_pixel_regions,
 )
 from src.vision.template_detector import build_detection_quality_metadata
+
+logger = logging.getLogger("SuperBot2026")
 
 
 class FramePipeline:
@@ -514,11 +514,17 @@ class FramePipeline:
                         _to_thread_ctx2 = None  # type: ignore[assignment]
                     if _to_thread_ctx2 is not None:
                         numeric_result = await _to_thread_ctx2(
-                            numeric_reader.read_amount, "pot", pot_crop, previous_value=self.last_pot_value
+                            numeric_reader.read_amount,
+                            "pot",
+                            pot_crop,
+                            previous_value=self.last_pot_value,
                         )
                     else:
                         numeric_result = await asyncio.to_thread(
-                            numeric_reader.read_amount, "pot", pot_crop, previous_value=self.last_pot_value
+                            numeric_reader.read_amount,
+                            "pot",
+                            pot_crop,
+                            previous_value=self.last_pot_value,
                         )
                 else:
                     numeric_result = None

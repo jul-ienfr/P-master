@@ -5,7 +5,7 @@ Un seul binaire : aucun cap hard-codé, le profil s'applique avant toute
 allocation CUDA (appelé en tête de src/main.py).
 
 Overrides (priorité sur la détection) :
-  POKER_GPU_PROFILE=auto|3g|12g|cpu
+  POKER_GPU_PROFILE=auto|3g|6g|12g|16g|24g|cpu  (6g/16g/24g -> 12g alias)
   POKER_VRAM_CAP=0.70          (fraction max VRAM allouable)
 """
 
@@ -22,7 +22,14 @@ logger = logging.getLogger(__name__)
 PROFILES_3G = "3g"
 PROFILES_12G = "12g"
 PROFILES_CPU = "cpu"
-_VALID_PROFILES = (PROFILES_3G, PROFILES_12G, PROFILES_CPU)
+# Aliases documentés dans .env.example — mappés vers le profil réel le plus proche
+_PROFILE_ALIASES: dict[str, str] = {
+    "6g": PROFILES_12G,
+    "16g": PROFILES_12G,
+    "24g": PROFILES_12G,
+}
+_VALID_PROFILES = (PROFILES_3G, PROFILES_12G, PROFILES_CPU, *_PROFILE_ALIASES)
+# = (3g, 12g, cpu, 6g, 16g, 24g) — les alias sont des overrides valides (tous -> 12g), pas d'avertissement
 
 # Seuils de classification (MiB de VRAM totale)
 _MIB_3G = 4 * 1024  # < 4 Go → profil 3G (1060 3Go…)
@@ -142,11 +149,12 @@ def classify_profile(vram_total_mib: int | None) -> str:
 def detect_gpu_profile(torch_module=None) -> HardwareProfile:
     """Détecte la VRAM et retourne le profil. Overrides env prioritaires."""
     forced = os.getenv("POKER_GPU_PROFILE", "auto").strip().lower()
+    canonical = _PROFILE_ALIASES.get(forced, forced)
     if forced not in _VALID_PROFILES and forced != "auto":
         logger.warning("POKER_GPU_PROFILE inconnu (%r), auto-detection", forced)
 
-    if forced in _VALID_PROFILES:
-        return _apply_cap_override(_PROFILES[forced])
+    if canonical in _VALID_PROFILES:
+        return _apply_cap_override(_PROFILES[canonical])
 
     detected = None
     if torch_module is not None:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
-import copy
 import json
 import logging
 import logging.handlers
@@ -174,8 +173,12 @@ def resolve_debug_settings(cfg: dict | None = None) -> DebugSettings:
     parsed = _parse_bool_flag(debug_cfg.get("enabled"))
     if parsed is not None:
         enabled = parsed
-    file_level = _parse_level(debug_cfg.get("file_level"), logging.DEBUG if enabled else logging.INFO)
-    console_level = _parse_level(debug_cfg.get("console_level"), logging.DEBUG if enabled else logging.INFO)
+    file_level = _parse_level(
+        debug_cfg.get("file_level"), logging.DEBUG if enabled else logging.INFO
+    )
+    console_level = _parse_level(
+        debug_cfg.get("console_level"), logging.DEBUG if enabled else logging.INFO
+    )
     raw_log_file = debug_cfg.get("log_file", "log/debug.log")
     log_file = Path(str(raw_log_file)) if raw_log_file else Path("log/debug.log")
     rust_log = str(debug_cfg.get("rust_log", "debug") or "debug").strip() or "debug"
@@ -220,7 +223,17 @@ async def to_thread_with_context(func, /, *args, **kwargs):
 # Redaction profonde
 # ---------------------------------------------------------------------------
 
-_REDACT_KEYS = {"api_key", "apikey", "dsn", "password", "passwd", "secret", "token", "authorization", "auth"}
+_REDACT_KEYS = {
+    "api_key",
+    "apikey",
+    "dsn",
+    "password",
+    "passwd",
+    "secret",
+    "token",
+    "authorization",
+    "auth",
+}
 _REDACT_URL_KEYS = {"base_url", "url"}
 
 _TOKEN_RE = re.compile(r"(token=)[^&]+", re.IGNORECASE)
@@ -234,7 +247,11 @@ def _redact_cfg(obj):  # type: ignore[no-untyped-def]
             lk = str(k).lower()
             if lk in _REDACT_KEYS:
                 out[k] = "***"
-            elif lk in _REDACT_URL_KEYS and isinstance(v, str) and ("token=" in v.lower() or "@" in v):
+            elif (
+                lk in _REDACT_URL_KEYS
+                and isinstance(v, str)
+                and ("token=" in v.lower() or "@" in v)
+            ):
                 cleaned = _TOKEN_RE.sub(r"\1***", v)
                 cleaned = _CRED_RE.sub("://***@", cleaned)
                 out[k] = cleaned
@@ -277,7 +294,9 @@ _debug_file_handler: logging.Handler | None = None
 _debug_filter: DebugContextFilter | None = None
 _original_rust_log: str | None = None
 _rust_log_set_by_us: bool = False
-_rust_log_value_set: str | None = None  # valeur posée par setdefault, pour éviter d'écraser un RUST_LOG injecté après coup
+_rust_log_value_set: str | None = (
+    None  # valeur posée par setdefault, pour éviter d'écraser un RUST_LOG injecté après coup
+)
 
 
 # Classe capturée avant tout mock (patch("logging.handlers.RotatingFileHandler")
@@ -293,7 +312,14 @@ def _is_console_handler(h: logging.Handler) -> bool:
 
 
 def setup_debug_logging(cfg: dict | None = None) -> bool:
-    global _already_configured, _applied_settings, _debug_file_handler, _debug_filter, _original_rust_log, _rust_log_set_by_us, _rust_log_value_set
+    global \
+        _already_configured, \
+        _applied_settings, \
+        _debug_file_handler, \
+        _debug_filter, \
+        _original_rust_log, \
+        _rust_log_set_by_us, \
+        _rust_log_value_set
 
     settings = resolve_debug_settings(cfg or {})
 
@@ -489,7 +515,7 @@ def _reset_debug_state() -> None:
             try:
                 h.removeFilter(_debug_filter)
             except Exception:
-                    pass
+                pass
         try:
             root.removeFilter(_debug_filter)
         except Exception:

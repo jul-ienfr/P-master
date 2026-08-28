@@ -33,9 +33,11 @@ def combo_strength(combo: str) -> str:
         score = max(points(high) * 2.0, 5.0)
     else:
         score = points(high)
-        gap = _RANKS.index(high if points(high) >= points(low) else low) - _RANKS.index(
-            low if points(high) >= points(low) else high
-        ) - 1
+        gap = (
+            _RANKS.index(high if points(high) >= points(low) else low)
+            - _RANKS.index(low if points(high) >= points(low) else high)
+            - 1
+        )
         score -= {0: 0.0, 1: 1.0, 2: 2.0, 3: 4.0}.get(max(gap, 0), 5.0)
         if len(combo) == 3 and combo[2].lower() == "s":
             score += 2.0
@@ -60,8 +62,8 @@ def expand_range_items(range_text: str) -> list[str]:
 class BayesianRangeUpdater:
     """Met à jour la range villain observée action par action."""
 
-    min_weight: float = 0.35          # seuil de suppression d'un combo
-    board_tightening: bool = True     # resserre davantage sur board sec
+    min_weight: float = 0.35  # seuil de suppression d'un combo
+    board_tightening: bool = True  # resserre davantage sur board sec
 
     observations: list[dict] = field(default_factory=list)
 
@@ -119,9 +121,7 @@ class BayesianRangeUpdater:
             strong = [item for item in weights if combo_strength(item) == "strong"]
             kept = strong or list(weights)[: max(1, len(weights) // 4)]
 
-        preserved_order = [
-            item for item in expand_range_items(base_range) if item in set(kept)
-        ]
+        preserved_order = [item for item in expand_range_items(base_range) if item in set(kept)]
         return ", ".join(preserved_order)
 
     @staticmethod

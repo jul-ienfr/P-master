@@ -66,7 +66,9 @@ def combo_to_sample_hand(combo: str, rng) -> str:
     suited = len(combo) == 3 and combo[2] == "s"
     suits = ["s", "h", "d", "c"]
     first_suit = suits[rng.randrange(4)]
-    second_suit = first_suit if suited else suits[(suits.index(first_suit) + rng.randrange(3) + 1) % 4]
+    second_suit = (
+        first_suit if suited else suits[(suits.index(first_suit) + rng.randrange(3) + 1) % 4]
+    )
     return f"{high}{first_suit}{low}{second_suit}"
 
 
@@ -122,10 +124,14 @@ def build_spot_solution(
     """
     from random import Random
 
-    rng = Random(seed * 104729 + DEPTH_BUCKETS.index(min(DEPTH_BUCKETS, key=lambda d: abs(d - depth_bb))))
+    rng = Random(
+        seed * 104729 + DEPTH_BUCKETS.index(min(DEPTH_BUCKETS, key=lambda d: abs(d - depth_bb)))
+    )
     aggression = {"rfi": 0.46, "vs_raise": 0.52, "vs_3bet": 0.58}.get(context, 0.5)
     depth_factor = min(depth_bb, 100) / 100.0
-    call_threshold = (0.47 + 0.05 * CONTEXTS.index(context)) * depth_factor + (1.0 - depth_factor) * 0.08
+    call_threshold = (0.47 + 0.05 * CONTEXTS.index(context)) * depth_factor + (
+        1.0 - depth_factor
+    ) * 0.08
 
     table: dict[str, dict[str, float]] = {}
     for combo in enumerate_combos():
@@ -138,7 +144,9 @@ def build_spot_solution(
             entry["fold"] = 0.0
         elif equity >= call_threshold:
             entry["raise"] = 0.0
-            entry["call"] = round((equity - call_threshold) / max(aggression - call_threshold, 1e-6), 3)
+            entry["call"] = round(
+                (equity - call_threshold) / max(aggression - call_threshold, 1e-6), 3
+            )
             entry["call"] = round(min(max(entry["call"], 0.25), 1.0), 3)
             entry["fold"] = round(1.0 - entry["call"], 3)
         else:
@@ -199,7 +207,9 @@ class PreflopSolutionStore:
         )
         return bool(self._tables)
 
-    def get_strategy(self, context: str, position: str, depth_bb: float) -> dict[str, dict[str, float]] | None:
+    def get_strategy(
+        self, context: str, position: str, depth_bb: float
+    ) -> dict[str, dict[str, float]] | None:
         self.ensure_loaded()
         return self._tables.get(self.spot_key(context, position, depth_bb))
 
@@ -332,9 +342,7 @@ def resolve_live_decision(
     equity = 0.5
 
     while samples >= 30:
-        equity = monte_carlo_equity_vs_range(
-            hero_hand, (), samples=samples, rng=rng
-        )
+        equity = monte_carlo_equity_vs_range(hero_hand, (), samples=samples, rng=rng)
         if (time.perf_counter() - started) * 1000.0 > time_budget_ms / 2:
             break
         samples += 120

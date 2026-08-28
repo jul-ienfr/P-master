@@ -121,7 +121,15 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "poker/tests"]
-addopts = "-q"
+addopts = "-ra -s --strict-markers -q"
+pythonpath = ["."]
+python_files = ["test_*.py", "*_test.py"]
+python_functions = ["test_*"]
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s %(levelname)s %(message)s"
+markers = ["integration: integration tests that may require external services", "postgres: PostgreSQL-backed tests that are skipped when the database is unavailable"]
+norecursedirs = [".venv", "website/node_modules"]
 
 [tool.coverage.run]
 source = ["src", "poker"]

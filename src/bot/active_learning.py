@@ -80,9 +80,14 @@ class HumanInTheLoop:
                 # ETAPE 1: Auto-Guérison par API
                 boxes = []
                 if self.ai_fallback:
-                    if hasattr(self.ai_fallback, "_has_any_usable_provider") and not self.ai_fallback._has_any_usable_provider():
+                    if (
+                        hasattr(self.ai_fallback, "_has_any_usable_provider")
+                        and not self.ai_fallback._has_any_usable_provider()
+                    ):
                         if logger.isEnabledFor(logging.DEBUG):
-                            logger.debug("Auto-Guérison skip — no provider keys configured, goto manual annotation.")
+                            logger.debug(
+                                "Auto-Guérison skip — no provider keys configured, goto manual annotation."
+                            )
                     else:
                         logger.info("Tentative d'Auto-Guérison via l'API Vision (Arrière-plan)...")
                         temp_path = "temp_fallback.jpg"

@@ -87,7 +87,7 @@ def resolve_model_path(model_path: str) -> Path | None:
 class PokerDetector:
     def __init__(
         self,
-        model_path: str = "models/poker_yolo_v11.engine",
+        model_path: str = "models/poker_yolo_finetune5.onnx",
         pipeline: list = None,
         dataset_limits: dict | None = None,
     ):
@@ -178,10 +178,9 @@ class PokerDetector:
         anchored_name = str(last_match.get("preset_name", "") or "")
         if not anchored_name:
             return presets
-        return (
-            [preset for preset in presets if preset.name == anchored_name]
-            + [preset for preset in presets if preset.name != anchored_name]
-        )
+        return [preset for preset in presets if preset.name == anchored_name] + [
+            preset for preset in presets if preset.name != anchored_name
+        ]
 
     def _hybrid_validate_card(self, crop: np.ndarray, original_class: str) -> str:
         if not self.fallback_detector.presets or crop is None or crop.size == 0:
@@ -340,20 +339,14 @@ class PokerDetector:
         state.action_buttons.sort(key=detection_sort_key)
         return state
 
-    def _remember_preset_geometry(
-        self, preset_name: str, table_bbox: list | tuple
-    ) -> None:
+    def _remember_preset_geometry(self, preset_name: str, table_bbox: list | tuple) -> None:
         """Cache la géométrie normalisée du preset ancré (split cartes géométrique)."""
         try:
             bbox = tuple(int(value) for value in table_bbox)
             if len(bbox) != 4:
                 return
             preset = next(
-                (
-                    item
-                    for item in self.fallback_detector.presets
-                    if item.name == str(preset_name)
-                ),
+                (item for item in self.fallback_detector.presets if item.name == str(preset_name)),
                 None,
             )
             if preset is None:

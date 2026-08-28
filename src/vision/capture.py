@@ -72,7 +72,9 @@ class WgcWindowCapture:
         self._start_session()
 
     def _start_session(self) -> None:
-        capture = WindowsCapture(window_hwnd=int(self._hwnd), cursor_capture=False, draw_border=False)
+        capture = WindowsCapture(
+            window_hwnd=int(self._hwnd), cursor_capture=False, draw_border=False
+        )
 
         @capture.event
         def on_frame_arrived(frame, control):

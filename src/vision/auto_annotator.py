@@ -82,9 +82,13 @@ class AutoAnnotator:
 
             try:
                 if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug("Tentative %d/%d avec le modèle %s...", i + 1, len(self.providers), model)
+                    logger.debug(
+                        "Tentative %d/%d avec le modèle %s...", i + 1, len(self.providers), model
+                    )
                 else:
-                    logger.info(f"Tentative {i + 1}/{len(self.providers)} avec le modèle {model}...")
+                    logger.info(
+                        f"Tentative {i + 1}/{len(self.providers)} avec le modèle {model}..."
+                    )
                 client = OpenAI(
                     api_key=api_key or "local",
                     base_url=base_url,

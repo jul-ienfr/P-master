@@ -331,9 +331,7 @@ def _preset_geometry_metadata(preset: TemplatePreset) -> dict[str, Any]:
             int(getattr(geometry, "table_size", (0, 0))[0]),
             int(getattr(geometry, "table_size", (0, 0))[1]),
         ],
-        "regions": {
-            name: [float(value) for value in region] for name, region in regions.items()
-        },
+        "regions": {name: [float(value) for value in region] for name, region in regions.items()},
     }
 
 

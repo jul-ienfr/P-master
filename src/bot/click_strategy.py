@@ -55,9 +55,7 @@ class ForegroundClickStrategy:
         self.controller = controller
 
     async def click_at(self, x: int, y: int, double_click: bool = False) -> bool:
-        return await self.controller._foreground_click_at(
-            x, y, double_click=double_click
-        )
+        return await self.controller._foreground_click_at(x, y, double_click=double_click)
 
     async def send_text(self, text: str) -> bool:
         await self.controller._humanized_send_text(text)

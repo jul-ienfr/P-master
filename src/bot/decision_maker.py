@@ -312,11 +312,7 @@ def _bet_size_from_action(
     if not normalized:
         return None
 
-    if (
-        normalized == "ALL_IN"
-        or normalized.startswith("ALLIN")
-        or normalized.startswith("ALL_IN")
-    ):
+    if normalized == "ALL_IN" or normalized.startswith("ALLIN") or normalized.startswith("ALL_IN"):
         return round(max(effective_stack, 0.0), 2)
 
     # Tailles explicites du solveur (BET_50, BET_0.75, RAISE_2.5, ALLIN_*, etc.)
@@ -820,18 +816,14 @@ class DecisionMaker:
                     effective_stack=effective_stack,
                     time_budget_ms=self.preflop_live_budget_ms,
                 )
-                chosen = self._normalize_solver_action(
-                    resolution["chosen_action"], legal_actions
-                )
+                chosen = self._normalize_solver_action(resolution["chosen_action"], legal_actions)
                 return chosen, {
                     "chosen_action": chosen,
                     "hero_ev": 0.0,
                     "exploitability": 0.0,
                     "decision_confidence": 0.88 if resolution.get("budget_respected") else 0.8,
                     "dynamic_amount": resolution.get("dynamic_amount"),
-                    "actions": [
-                        {"action": chosen, "freq": 1.0, "source": "preflop_live"}
-                    ],
+                    "actions": [{"action": chosen, "freq": 1.0, "source": "preflop_live"}],
                     "elapsed_ms": int(resolution.get("elapsed_ms", 0)),
                     "backend": "preflop_live",
                     "cache_hit": False,
@@ -872,8 +864,11 @@ class DecisionMaker:
                         "decision_confidence": 0.9,
                         "dynamic_amount": dynamic_amount,
                         "actions": [
-                            {"action": chosen, "freq": metadata.get("frequencies", {}).get("call", 1.0),
-                             "source": "preflop_precomputed"}
+                            {
+                                "action": chosen,
+                                "freq": metadata.get("frequencies", {}).get("call", 1.0),
+                                "source": "preflop_precomputed",
+                            }
                         ],
                         "elapsed_ms": int(metadata.get("elapsed_ms", 0)),
                         "backend": "preflop_precomputed",
@@ -917,9 +912,7 @@ class DecisionMaker:
                 return normalized_legal_actions[normalized_rl], "RL_VALIDATED"
 
         deviation_cap = float(structured_profile.get("deviation_cap", 0.0) or 0.0)
-        exploit_confidence = float(
-            structured_profile.get("exploit_confidence", 0.0) or 0.0
-        )
+        exploit_confidence = float(structured_profile.get("exploit_confidence", 0.0) or 0.0)
 
         if deviation_cap < 0.08:
             return gto_action, "GTO_RUST"
@@ -1366,9 +1359,7 @@ class DecisionMaker:
         normalized_legal_actions = self._normalize_runtime_actions(legal_actions)
         # allin_* ne doit JAMAIS être traduit en FOLD : toute variante d'all-in
         # est ramenée vers ALL_IN quand celle-ci est légale.
-        if normalized and (
-            normalized.startswith("ALLIN") or normalized.startswith("ALL_IN")
-        ):
+        if normalized and (normalized.startswith("ALLIN") or normalized.startswith("ALL_IN")):
             if "ALL_IN" in normalized_legal_actions or "ALLIN" in normalized_legal_actions:
                 return "ALL_IN"
         if normalized in normalized_legal_actions:

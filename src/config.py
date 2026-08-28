@@ -9,6 +9,7 @@ No hard-coded secrets. All credentials come from env or config.local.json (gitig
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import sys
@@ -30,14 +31,39 @@ else:
 
 _ENV_PATTERN = re.compile(r"\$\{([^}:]+)(?::-([^}]*))?\}")
 
-# Map JSON leaf paths that must be overridable by env
+# Map JSON leaf paths that must be overridable by env.
+# Consomme par _apply_env_overrides via _set_nested (boucle generique).
 _ENV_OVERRIDES = {
     "database.dsn": "POKER_DB_DSN",
     "database.mode": "POKER_DB_MODE",
     "database.observation_persistence_path": "POKER_OBSERVATION_STORE_PATH",
-    # auto_annotator providers — index 0..n
-    # We expand generically below
 }
+
+
+def _set_nested(cfg: dict, dotted: str, value: str) -> None:
+    parts = dotted.split(".")
+    cur = cfg
+    for p in parts[:-1]:
+        cur = cur.setdefault(p, {})
+        if not isinstance(cur, dict):
+            return
+    cur[parts[-1]] = value
+
+
+def _warn_change_me(obj) -> None:
+    """Log warning si une valeur contient encore __CHANGE_ME__ apres expansion."""
+    logger = logging.getLogger("SuperBot2026")
+    stack = [obj]
+    while stack:
+        cur = stack.pop()
+        if isinstance(cur, str):
+            if "__CHANGE_ME__" in cur:
+                logger.warning("config placeholder non resolu: %r", cur)
+        elif isinstance(cur, dict):
+            stack.extend(cur.values())
+        elif isinstance(cur, list):
+            stack.extend(cur)
+
 
 _CANDIDATE_CONFIGS = [
     ROOT / "config.local.json",
@@ -119,23 +145,41 @@ def _apply_env_overrides(cfg: dict) -> dict:
     if prl:
         dbg["rust_log"] = prl.strip()
 
-    # Top-level env overrides
-    dsn = os.getenv("POKER_DB_DSN")
-    if dsn:
-        cfg.setdefault("database", {})["dsn"] = dsn
-
-    mode = os.getenv("POKER_DB_MODE")
-    if mode:
-        cfg.setdefault("database", {})["mode"] = mode
+    # Generic env overrides via _ENV_OVERRIDES (env > config)
+    for dotted, env_name in _ENV_OVERRIDES.items():
+        val = os.getenv(env_name)
+        if val and val.strip():
+            _set_nested(cfg, dotted, val.strip())
 
     gto_url = os.getenv("POKER_GTO_SERVER_URL")
     if gto_url:
         # not stored in config.json today, but keep for completeness
         cfg["gto_server_url"] = gto_url
 
+    # POKER_YOLO_MODEL — override modèle YOLO (documenté .env.example)
+    yolo_model = os.getenv("POKER_YOLO_MODEL")
+    if yolo_model and yolo_model.strip():
+        cfg.setdefault("yolo", {})["model_path"] = yolo_model.strip()
+
+    yolo_conf = os.getenv("POKER_YOLO_CONFIDENCE_THRESHOLD")
+    if yolo_conf and yolo_conf.strip():
+        try:
+            cfg.setdefault("yolo", {})["confidence_threshold"] = float(yolo_conf.strip())
+        except ValueError:
+            pass
+
+    # POKER_VRAM_CAP — expose via hardware.vram_cap_override (hardware module own parsing)
+    vram_cap = os.getenv("POKER_VRAM_CAP")
+    if vram_cap and vram_cap.strip():
+        cfg.setdefault("hardware", {})["vram_cap_override"] = vram_cap.strip()
+
     openai_key = os.getenv("OPENAI_API_KEY")
     groq_key = os.getenv("GROQ_API_KEY")
-    if openai_key or groq_key:
+    local_key = os.getenv("POKER_AUTO_ANNOTATOR_API_KEY")
+    base_url_override = os.getenv("POKER_AUTO_ANNOTATOR_BASE_URL")
+    # Auto-annotator providers: three independent keys, no shared guard
+    # so local_key alone still applies. Supports 127.0.0.1 and localhost.
+    if openai_key or groq_key or local_key or base_url_override:
         providers = (cfg.get("auto_annotator") or {}).get("providers") or []
         for p in providers:
             base = (p.get("base_url") or "").lower()
@@ -143,11 +187,13 @@ def _apply_env_overrides(cfg: dict) -> dict:
                 p["api_key"] = openai_key
             if groq_key and "api.groq.com" in base:
                 p["api_key"] = groq_key
-            # local annotator key
-            local_key = os.getenv("POKER_AUTO_ANNOTATOR_API_KEY")
-            if local_key and "127.0.0.1" in base:
+            if local_key and ("127.0.0.1" in base or "localhost" in base):
                 p["api_key"] = local_key
+            if base_url_override and base_url_override.strip():
+                if "127.0.0.1" in base or "localhost" in base:
+                    p["base_url"] = base_url_override.strip()
 
+    _warn_change_me(cfg)
     return cfg
 
 
@@ -169,14 +215,7 @@ def load_config(config_path: str | os.PathLike | None = None) -> dict:
     (still with env expansion and overrides).
     """
     if config_path is not None:
-        env_path = os.getenv("POKER_RUNTIME_CONFIG_PATH")
-        if env_path:
-            p = Path(env_path)
-            if not p.is_absolute():
-                p = (ROOT / p).resolve()
-            base = _load_json_file(p) or {}
-            base = _deep_expand(base)
-            return _apply_env_overrides(base)
+        # Explicit config_path has priority over env-forced path
         explicit = Path(config_path)
         if not explicit.is_absolute():
             explicit = (ROOT / explicit).resolve()

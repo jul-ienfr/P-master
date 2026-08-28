@@ -24,7 +24,9 @@ BACKEND_WIN32 = "win32"
 BACKEND_HID = "hid"
 
 
-def _as_float(value: Any, default: float, lo: float | None = None, hi: float | None = None) -> float:
+def _as_float(
+    value: Any, default: float, lo: float | None = None, hi: float | None = None
+) -> float:
     try:
         parsed = float(value)
     except (TypeError, ValueError):
@@ -39,7 +41,16 @@ def _as_float(value: Any, default: float, lo: float | None = None, hi: float | N
 
 
 def _as_int(value: Any, default: int, lo: int | None = None, hi: int | None = None) -> int:
-    return int(round(_as_float(value, float(default), None if lo is None else float(lo), None if hi is None else float(hi))))
+    return int(
+        round(
+            _as_float(
+                value,
+                float(default),
+                None if lo is None else float(lo),
+                None if hi is None else float(hi),
+            )
+        )
+    )
 
 
 def _as_range(value: Any, default: tuple[float, float]) -> tuple[float, float]:
@@ -209,10 +220,18 @@ class HumanizationProfile:
         divergence = _as_range(raw.get("divergence_px"), tuple(map(float, d.divergence_px)))
         return MouseConfig(
             speed_px_s=(max(50.0, mouse_speed[0]), max(100.0, mouse_speed[1])),
-            move_min_duration_s=_as_float(raw.get("move_min_duration_s"), d.move_min_duration_s, lo=0.02),
-            move_max_duration_s=_as_float(raw.get("move_max_duration_s"), d.move_max_duration_s, lo=0.05),
-            overshoot_probability=_as_float(raw.get("overshoot_probability"), d.overshoot_probability, lo=0.0, hi=1.0),
-            overshoot_amplitude_px=_as_int(raw.get("overshoot_amplitude_px"), d.overshoot_amplitude_px, lo=0),
+            move_min_duration_s=_as_float(
+                raw.get("move_min_duration_s"), d.move_min_duration_s, lo=0.02
+            ),
+            move_max_duration_s=_as_float(
+                raw.get("move_max_duration_s"), d.move_max_duration_s, lo=0.05
+            ),
+            overshoot_probability=_as_float(
+                raw.get("overshoot_probability"), d.overshoot_probability, lo=0.0, hi=1.0
+            ),
+            overshoot_amplitude_px=_as_int(
+                raw.get("overshoot_amplitude_px"), d.overshoot_amplitude_px, lo=0
+            ),
             hover_s=(hover_s[0], hover_s[1]),
             hover_jitter_px=_as_float(raw.get("hover_jitter_px"), d.hover_jitter_px, lo=0.0),
             divergence_px=(int(divergence[0]), int(divergence[1])),
@@ -226,11 +245,22 @@ class HumanizationProfile:
         return TypingConfig(
             key_delay_s=_as_range(raw.get("key_delay_s"), d.key_delay_s),
             inter_key_delay_s=_as_range(raw.get("inter_key_delay_s"), d.inter_key_delay_s),
-            group_pause_probability=_as_float(raw.get("group_pause_probability"), d.group_pause_probability, lo=0.0, hi=1.0),
+            group_pause_probability=_as_float(
+                raw.get("group_pause_probability"), d.group_pause_probability, lo=0.0, hi=1.0
+            ),
             group_pause_s=_as_range(raw.get("group_pause_s"), d.group_pause_s),
-            typo_probability=_as_float(raw.get("typo_probability"), d.typo_probability, lo=0.0, hi=1.0),
-            select_ctrl_a_probability=_as_float(raw.get("select_ctrl_a_probability"), d.select_ctrl_a_probability, lo=0.0, hi=1.0),
-            select_triple_click_probability=_as_float(raw.get("select_triple_click_probability"), d.select_triple_click_probability, lo=0.0, hi=1.0),
+            typo_probability=_as_float(
+                raw.get("typo_probability"), d.typo_probability, lo=0.0, hi=1.0
+            ),
+            select_ctrl_a_probability=_as_float(
+                raw.get("select_ctrl_a_probability"), d.select_ctrl_a_probability, lo=0.0, hi=1.0
+            ),
+            select_triple_click_probability=_as_float(
+                raw.get("select_triple_click_probability"),
+                d.select_triple_click_probability,
+                lo=0.0,
+                hi=1.0,
+            ),
             legacy_double_enter=True if legacy_enter_flag is None else legacy_enter_flag,
         )
 
@@ -240,14 +270,24 @@ class HumanizationProfile:
         return ThinkTimeConfig(
             fold_median_s=_as_float(raw.get("fold_median_s"), d.fold_median_s, lo=0.05),
             passive_median_s=_as_float(raw.get("passive_median_s"), d.passive_median_s, lo=0.05),
-            aggressive_median_s=_as_float(raw.get("aggressive_median_s"), d.aggressive_median_s, lo=0.05),
+            aggressive_median_s=_as_float(
+                raw.get("aggressive_median_s"), d.aggressive_median_s, lo=0.05
+            ),
             sigma=_as_float(raw.get("sigma"), d.sigma, lo=0.05, hi=1.5),
             preflop_factor=_as_float(raw.get("preflop_factor"), d.preflop_factor, lo=0.1, hi=3.0),
-            big_pot_threshold_bb=_as_float(raw.get("big_pot_threshold_bb"), d.big_pot_threshold_bb, lo=0.0),
-            big_pot_bb_reference=_as_float(raw.get("big_pot_bb_reference"), d.big_pot_bb_reference, lo=0.0),
+            big_pot_threshold_bb=_as_float(
+                raw.get("big_pot_threshold_bb"), d.big_pot_threshold_bb, lo=0.0
+            ),
+            big_pot_bb_reference=_as_float(
+                raw.get("big_pot_bb_reference"), d.big_pot_bb_reference, lo=0.0
+            ),
             big_pot_factor=_as_float(raw.get("big_pot_factor"), d.big_pot_factor, lo=0.1, hi=5.0),
-            low_confidence_threshold=_as_float(raw.get("low_confidence_threshold"), d.low_confidence_threshold, lo=0.0, hi=1.0),
-            low_confidence_factor=_as_float(raw.get("low_confidence_factor"), d.low_confidence_factor, lo=0.1, hi=5.0),
+            low_confidence_threshold=_as_float(
+                raw.get("low_confidence_threshold"), d.low_confidence_threshold, lo=0.0, hi=1.0
+            ),
+            low_confidence_factor=_as_float(
+                raw.get("low_confidence_factor"), d.low_confidence_factor, lo=0.1, hi=5.0
+            ),
             min_think_time_s=_as_float(raw.get("min_think_time_s"), d.min_think_time_s, lo=0.0),
             max_think_time_s=_as_float(raw.get("max_think_time_s"), d.max_think_time_s, lo=0.5),
         )
@@ -259,15 +299,21 @@ class HumanizationProfile:
         fatigue_enabled_flag = parse_bool_flag(raw.get("fatigue_enabled"))
         return SessionRhythmConfig(
             enabled=True if rhythm_enabled_flag is None else rhythm_enabled_flag,
-            micro_pause_probability=_as_float(raw.get("micro_pause_probability"), d.micro_pause_probability, lo=0.0, hi=1.0),
+            micro_pause_probability=_as_float(
+                raw.get("micro_pause_probability"), d.micro_pause_probability, lo=0.0, hi=1.0
+            ),
             micro_pause_s=_as_range(raw.get("micro_pause_s"), d.micro_pause_s),
             fatigue_enabled=True if fatigue_enabled_flag is None else fatigue_enabled_flag,
-            fatigue_drift_per_hour=_as_float(raw.get("fatigue_drift_per_hour"), d.fatigue_drift_per_hour, lo=0.0, hi=2.0),
-            fatigue_max_drift=_as_float(raw.get("fatigue_max_drift"), d.fatigue_max_drift, lo=0.0, hi=5.0),
+            fatigue_drift_per_hour=_as_float(
+                raw.get("fatigue_drift_per_hour"), d.fatigue_drift_per_hour, lo=0.0, hi=2.0
+            ),
+            fatigue_max_drift=_as_float(
+                raw.get("fatigue_max_drift"), d.fatigue_max_drift, lo=0.0, hi=5.0
+            ),
         )
 
     @classmethod
-    def from_config(cls, raw: dict[str, Any] | None) -> "HumanizationProfile":
+    def from_config(cls, raw: dict[str, Any] | None) -> HumanizationProfile:
         raw = dict(raw or {})
         if raw and not isinstance(raw, dict):
             raise ValueError("bot.humanization doit être une table de configuration")
@@ -310,7 +356,7 @@ def compute_think_time(
     profile: HumanizationProfile,
     action_name: str,
     bet_size: float | None = None,
-    context: "ExecutionContext | None" = None,
+    context: ExecutionContext | None = None,
 ) -> float:
     """Think time contextuel : base par action × modulateurs × fatigue, borné."""
     cfg = profile.think
@@ -364,7 +410,7 @@ class ExecutionContext:
     hand_elapsed_s: float | None = None
 
     @classmethod
-    def from_canonical_state(cls, canonical_state: Any) -> "ExecutionContext":
+    def from_canonical_state(cls, canonical_state: Any) -> ExecutionContext:
         def _optional_float(value: Any) -> float | None:
             if value is None:
                 return None

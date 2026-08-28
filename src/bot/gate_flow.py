@@ -209,9 +209,7 @@ class GateFlowMixin:
         villains = [
             player
             for player in players
-            if not bool(player.is_hero)
-            and bool(player.is_active)
-            and not bool(player.has_folded)
+            if not bool(player.is_hero) and bool(player.is_active) and not bool(player.has_folded)
         ]
         return max(2, 1 + len(villains))
 

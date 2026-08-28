@@ -9,7 +9,7 @@ try:
 except ImportError:  # Python 3.10 compat (UTC added in 3.11)
     from datetime import datetime, timezone
 
-    UTC = timezone.utc  # type: ignore[no-redef]
+    UTC = timezone.utc  # type: ignore[no-redef]  # noqa: UP017 - 3.10 compat fallback
 import ctypes
 import json
 import os
@@ -47,7 +47,11 @@ warnings.filterwarnings("ignore", message=".*weights_only=False.*")
 try:
     import onnxruntime
 
-    onnxruntime.set_default_logger_severity(3)
+    _ort_set_severity = getattr(onnxruntime, "set_default_logger_severity", None) or getattr(
+        getattr(onnxruntime, "capi", None), "set_default_logger_severity", None
+    )
+    if callable(_ort_set_severity):
+        _ort_set_severity(3)
 except ImportError:
     pass
 
@@ -183,7 +187,7 @@ class SuperBotController(
         vision_pipeline = self.config.get("vision_pipeline", ["yolo", "llm", "opencv"])
 
         self.detector = PokerDetector(
-            model_path=yolo_cfg.get("model_path", "models/poker_yolo_v11.engine"),
+            model_path=yolo_cfg.get("model_path", "models/poker_yolo_finetune5.onnx"),
             pipeline=vision_pipeline,
             dataset_limits=bot_cfg.get("active_learning_limits", {}) or {},
         )

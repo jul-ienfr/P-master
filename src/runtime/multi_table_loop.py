@@ -140,9 +140,7 @@ class MultiTableLoop:
                 await self.session_handler(session)
                 report.sessions_processed += 1
             except Exception as exc:
-                logger.error(
-                    "TABLE_HANDLER_ERROR | id=%s error=%s", session.session_id, exc
-                )
+                logger.error("TABLE_HANDLER_ERROR | id=%s error=%s", session.session_id, exc)
                 session.record_incident("multi_table_handler_error", error=str(exc))
                 report.sessions_processed += 1
 

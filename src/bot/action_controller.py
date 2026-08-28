@@ -45,9 +45,7 @@ def get_window_process_name(hwnd: int) -> str:
         if not pid.value:
             return ""
         kernel32 = ctypes.windll.kernel32
-        handle = kernel32.OpenProcess(
-            _PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid.value)
-        )
+        handle = kernel32.OpenProcess(_PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid.value))
         if not handle:
             return ""
         try:
@@ -202,18 +200,12 @@ def apply_site_profile_weights(
                     weight += 5
             except re.error:
                 if log is not None:
-                    log.warning(
-                        "site_profiles.title_regex invalide pour %s", matcher.get("site")
-                    )
+                    log.warning("site_profiles.title_regex invalide pour %s", matcher.get("site"))
         expected_class = matcher.get("window_class")
         if expected_class and class_name and class_name.lower() == expected_class.lower():
             weight += 4
         expected_process = matcher.get("process_name")
-        if (
-            expected_process
-            and process_name
-            and process_name.lower() == expected_process.lower()
-        ):
+        if expected_process and process_name and process_name.lower() == expected_process.lower():
             weight += 4
         if weight:
             detail[str(matcher.get("site"))] = weight
@@ -324,9 +316,7 @@ class ActionController:
         detail: dict[str, int] = {"title_keywords": max(0, base)}
         if not matchers:
             return base, detail
-        return base + apply_site_profile_weights(
-            matchers, hwnd, title, detail, logger
-        ), detail
+        return base + apply_site_profile_weights(matchers, hwnd, title, detail, logger), detail
 
     def _select_best_window(
         self,
@@ -590,16 +580,16 @@ class ActionController:
             angle = profile.uniform(0.0, 2.0 * math.pi)
             away_x = target_x + int(magnitude * math.cos(angle))
             away_y = target_y + int(magnitude * math.sin(angle))
-            await self._human_mouse_move(
-                start_x, start_y, away_x, away_y, duration=duration
-            )
+            await self._human_mouse_move(start_x, start_y, away_x, away_y, duration=duration)
             start_x, start_y = away_x, away_y
             distance = float(magnitude)
 
         if duration is None:
             speed = profile.uniform(*sorted(mouse_cfg.speed_px_s))
             duration = (distance / speed) if distance > 0 else mouse_cfg.move_min_duration_s
-            duration = min(max(duration, mouse_cfg.move_min_duration_s), mouse_cfg.move_max_duration_s)
+            duration = min(
+                max(duration, mouse_cfg.move_min_duration_s), mouse_cfg.move_max_duration_s
+            )
 
         steps = max(5, int(duration * 60))
 
@@ -644,8 +634,14 @@ class ActionController:
             hover_duration = profile.uniform(hover_low, hover_high)
             hover_steps = max(2, int(hover_duration * 60))
             for _ in range(hover_steps):
-                jx = target_x + profile.randint(-int(math.ceil(mouse_cfg.hover_jitter_px)), int(math.ceil(mouse_cfg.hover_jitter_px)))
-                jy = target_y + profile.randint(-int(math.ceil(mouse_cfg.hover_jitter_px)), int(math.ceil(mouse_cfg.hover_jitter_px)))
+                jx = target_x + profile.randint(
+                    -int(math.ceil(mouse_cfg.hover_jitter_px)),
+                    int(math.ceil(mouse_cfg.hover_jitter_px)),
+                )
+                jy = target_y + profile.randint(
+                    -int(math.ceil(mouse_cfg.hover_jitter_px)),
+                    int(math.ceil(mouse_cfg.hover_jitter_px)),
+                )
                 await self._backend().move_to(jx, jy)
                 await asyncio.sleep(hover_duration / hover_steps)
         await self._backend().move_to(target_x, target_y)

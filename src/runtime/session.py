@@ -10,7 +10,7 @@ try:
 except ImportError:  # Python 3.10 compatibility
     from datetime import datetime, timezone
 
-    UTC = timezone.utc
+    UTC = timezone.utc  # type: ignore[no-redef]  # noqa: UP017 - 3.10 compat fallback
 
 logger = logging.getLogger("SuperBot2026")
 
@@ -133,9 +133,11 @@ class RuntimeSessionMixin:
         """Phase 1 — préflop dual-mode : config.json (`preflop.mode`) ou env `POKER_PREFLOP_MODE`."""
         preflop_cfg = self.config.get("preflop", {}) or {}
 
-        mode = str(
-            os.getenv("POKER_PREFLOP_MODE") or preflop_cfg.get("mode") or "precomputed"
-        ).strip().lower()
+        mode = (
+            str(os.getenv("POKER_PREFLOP_MODE") or preflop_cfg.get("mode") or "precomputed")
+            .strip()
+            .lower()
+        )
         if mode not in {"precomputed", "live", "charts"}:
             logger.warning("POKER_PREFLOP_MODE invalide (%s), repli sur 'precomputed'.", mode)
             mode = "precomputed"
@@ -148,9 +150,7 @@ class RuntimeSessionMixin:
         except (TypeError, ValueError):
             live_budget_ms = 800
 
-        solutions_path = str(
-            preflop_cfg.get("solutions_path") or "models/preflop"
-        ).strip()
+        solutions_path = str(preflop_cfg.get("solutions_path") or "models/preflop").strip()
 
         logger.info(
             "Runtime preflop config resolved: mode=%s, live_budget_ms=%d, solutions_path=%s",
