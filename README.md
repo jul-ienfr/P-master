@@ -281,7 +281,35 @@ Useful toggles:
 
 If PostgreSQL is requested but cannot be reached, pytest now reports which DSN inputs are supported so the failure mode is easier to diagnose.
 
-## 10. Runtime RL toggle
+## 10. Solver EV — unités & exemple chiffré
+
+Le solver expose une chaîne unique `ev_chips → ev_bb → ev_bb_per_100 → $EV` (helpers purs `src/ev.rs`, doc `docs/esperance.md`).
+
+| Unité (clé code) | Définition | Conversion | Quand l'utiliser |
+|---|---|---|---|
+| `ev_chips` | `hero_ev` brut chips (sortie solver) | — | Payoffs, AIVAT |
+| `ev_bb` | EV en big blinds | `ev_chips / bb` | Pivot WR, edge a-f |
+| `ev_bb_per_100` | WR normalisé /100 mains | `ev_bb × 100` | `P(profit)`, bench `probabilites.md` §2 |
+| `ev_dollars` | Cash direct | `ev_chips × ($/bb / bb)` (`ev_bb_dollars` par profil) | Bankroll cash |
+| `$EV` | ICM/bounty-adjusted | `ChipEV + BountyEV` (PKO C23, ICM C24) | MTT/PKO seul décide |
+
+- `bb` dérivé par défaut de `effective_stack/100` (fallback 100bb deep, `tracing::warn` + `dollar_ev_note`). Renseigner `ev_bb_dollars` par `site_profiles` élève `ev_dollars` (sinon `None`).
+- Rake (C20) `share=(pot-rake)/winners`, `rake=min(pot*rate,cap)` — 5% cap $3 → net $97 sur pot $100 ; omettre le rake surestime 1.5–4 bb/100 en micro.
+- Gain mensuel : `€/mois = WR × (mains/100) × €/bb` (WR = `ev_bb_per_100`, `€/bb` = valeur d'une bb — NL10 0.10 €/bb, 600 mains/h ; table complète `esperance.md` §6, P aux mêmes volumes `probabilites.md` §2.2bis, rythme `ordre-conseille.md` §1).
+- Vérifier en local :
+
+```powershell
+cargo run --example esperance
+# S1 ev_chips=5.0 ev_bb=2.5 bb/100=250 $EV=0.05   (pot 100 eq 0.55 cost 50, NL2 bb=2 $/bb=0.02)
+# S2 rake=3 net=97 ev_chips=38.2 ev_bb=19.1 $EV=0.38 (+BountyEV=0.06 BI)
+# S3 regimes NL10 WR7 : 4h×5j 48k 336€ P95.6% | 6h×6j 86k 602€ P98.9% | 12h×6j 173k 1211€ th. / 865€ si WR 7→5 (tilt)
+cargo run --example esperance -- --regime 6h6j
+# NL10 6h×6j 86k mains WR7 → 602€ 4.18€/h P98.9% (voir docs/esperance.md §6)
+```
+
+Voir `examples/esperance.rs` (3 spots : S1/S2 + S3 régimes, `esperance.md` §6), `src/ev.rs`, `docs/esperance.md` §3-7, `docs/probabilites.md` §2.2bis, `docs/ordre-conseille.md` §1.
+
+## 11. Runtime RL toggle
 
 The live Python bot keeps RL enabled by default for backward compatibility, but you can disable it at runtime in environments where the RL stack should stay off outside tests.
 

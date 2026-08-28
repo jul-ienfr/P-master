@@ -1566,8 +1566,30 @@ class DecisionMaker:
             logger.info("Réponse préflop (%s) : %s", self.preflop_mode, gto_action)
         elif self.solver_provider:
             try:
+                if logger.isEnabledFor(logging.DEBUG):
+                    try:
+                        from src.runtime.debug import set_debug_context as _set_dbg_ctx_dm
+
+                        _set_dbg_ctx_dm(spot_id=str(spot_id))
+                    except Exception:
+                        pass
+                    logger.debug(
+                        "decision_maker: solve start spot_id=%s board=%s pot=%.1f stack=%.1f hero=%s pos=%s legal=%s",
+                        spot_id,
+                        board,
+                        float(pot or 0.0),
+                        float(effective_stack or 0.0),
+                        hero_hand,
+                        hero_position,
+                        legal_actions,
+                    )
+                try:
+                    from src.runtime.debug import to_thread_with_context as _to_thread_ctx_dm
+                except ImportError:
+                    _to_thread_ctx_dm = None  # type: ignore[assignment]
+                _solver_call = _to_thread_ctx_dm or asyncio.to_thread  # type: ignore[assignment]
                 response = await asyncio.wait_for(
-                    asyncio.to_thread(
+                    _solver_call(
                         self._call_solver_backend,
                         hero_hand=hero_hand,
                         villain_range=villain_range,
@@ -1599,8 +1621,17 @@ class DecisionMaker:
                     }
                 gto_details = response
                 logger.info(
-                    f"Réponse GTO Rust reçue en {response.get('elapsed_ms')}ms : {gto_action}"
+                    "Réponse GTO Rust reçue en %sms : %s", response.get("elapsed_ms"), gto_action
                 )
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "decision_maker: solve done spot_id=%s action=%s elapsed_ms=%s fallback=%s warnings=%s",
+                        spot_id,
+                        gto_action,
+                        response.get("elapsed_ms"),
+                        fallback_used,
+                        response.get("warnings"),
+                    )
             except TimeoutError:
                 logger.error("Solver Rust timeout (>10s). Fail-safe to FOLD/CHECK.")
                 self._register_solver_timeout()
@@ -1668,7 +1699,12 @@ class DecisionMaker:
                     except Exception as e:
                         logger.error(f"Erreur trace appel LLM de fond: {e}")
 
-                asyncio.create_task(asyncio.to_thread(_llm_call))
+                try:
+                    from src.runtime.debug import to_thread_with_context as _to_thread_ctx_llm
+                except ImportError:
+                    _to_thread_ctx_llm = None  # type: ignore[assignment]
+                _llm_thread = _to_thread_ctx_llm or asyncio.to_thread  # type: ignore[assignment]
+                asyncio.create_task(_llm_thread(_llm_call))
             except Exception as e:
                 logger.error(f"Erreur lors de l'appel LLM: {e}")
 

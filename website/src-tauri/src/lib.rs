@@ -2038,7 +2038,7 @@ async fn run_auto_annotator(
         .output()
         .map_err(|e| format!("Failed to execute python script: {}", e))?;
 
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let _stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
     if !stderr.is_empty() {

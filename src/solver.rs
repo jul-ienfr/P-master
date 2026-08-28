@@ -87,6 +87,10 @@ pub fn solve<T: Game>(
             exploitability = compute_exploitability(game);
         }
 
+        if (t + 1) % 100 == 0 || t + 1 == max_num_iterations {
+            tracing::debug!(iter = t + 1, exploitability, "CFR progress");
+        }
+
         if print_progress {
             print!("\riteration: {} / {} ", t + 1, max_num_iterations);
             print!("(exploitability = {exploitability:.4e})");

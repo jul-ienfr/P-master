@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 
 import numpy as np
+
+logger = logging.getLogger("SuperBot2026")
 
 from src.bot.runtime_types import CanonicalTableState
 from src.runtime.poker_state_validator import PokerStateValidator
@@ -335,7 +338,16 @@ class FramePipeline:
             return cached_state
 
         self._set_loop_stage("process_frame:detector", publish=True)
-        state = await asyncio.to_thread(self.detector.analyze_frame, frame)
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("frame_pipeline: detector analyze_frame start")
+        try:
+            from src.runtime.debug import to_thread_with_context as _to_thread_ctx
+        except ImportError:
+            _to_thread_ctx = None  # type: ignore[assignment]
+        if _to_thread_ctx is not None:
+            state = await _to_thread_ctx(self.detector.analyze_frame, frame)
+        else:
+            state = await asyncio.to_thread(self.detector.analyze_frame, frame)
         state = self._label_generic_action_buttons(state, frame)
         state.metadata = dict(getattr(state, "metadata", {}) or {})
         frame_quality = analyze_frame_quality(frame)
@@ -445,16 +457,21 @@ class FramePipeline:
                     state.pots[0].confidence = self.last_pot_value
             elif pot_crop is not None:
                 numeric_reader = self._get_numeric_reader()
-                numeric_result = (
-                    await asyncio.to_thread(
-                        numeric_reader.read_amount,
-                        "pot",
-                        pot_crop,
-                        previous_value=self.last_pot_value,
-                    )
-                    if numeric_reader is not None
-                    else None
-                )
+                if numeric_reader is not None:
+                    try:
+                        from src.runtime.debug import to_thread_with_context as _to_thread_ctx2
+                    except ImportError:
+                        _to_thread_ctx2 = None  # type: ignore[assignment]
+                    if _to_thread_ctx2 is not None:
+                        numeric_result = await _to_thread_ctx2(
+                            numeric_reader.read_amount, "pot", pot_crop, previous_value=self.last_pot_value
+                        )
+                    else:
+                        numeric_result = await asyncio.to_thread(
+                            numeric_reader.read_amount, "pot", pot_crop, previous_value=self.last_pot_value
+                        )
+                else:
+                    numeric_result = None
                 pot_value = numeric_result.selected_value if numeric_result is not None else None
                 val = pot_value if pot_value else 0.0
                 if state.pots:

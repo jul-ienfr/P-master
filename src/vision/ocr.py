@@ -448,12 +448,26 @@ class PokerOCR:
             if factory is None:
                 unavailable[engine_name] = "unsupported"
                 continue
+            t0 = __import__("time").monotonic()
             try:
                 available.append(factory())
                 logger.info("OCR engine '%s' loaded successfully.", engine_name)
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "ocr: engine=%s status=loaded latency_ms=%.1f",
+                        engine_name,
+                        (__import__("time").monotonic() - t0) * 1000.0,
+                    )
             except Exception as exc:
                 unavailable[engine_name] = str(exc)
                 logger.warning("OCR engine '%s' unavailable: %s", engine_name, exc)
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "ocr: engine=%s status=failed latency_ms=%.1f error=%s",
+                        engine_name,
+                        (__import__("time").monotonic() - t0) * 1000.0,
+                        exc,
+                    )
 
         self.engines = available
         self.last_metadata = {
@@ -1053,6 +1067,16 @@ class PokerOCR:
                 candidate_score_overrides=score_overrides,
                 selected_confidence=0.0,
             )
+            if logger.isEnabledFor(logging.DEBUG):
+                try:
+                    from src.runtime.debug import _should_throttle as _ocr_thr_pn
+
+                    if _ocr_thr_pn("ocr:player_name:fallback", 1.0):
+                        logger.debug(
+                            "ocr: field=player_name engine=- variant=- text=- conf=0.000 agreement=none"
+                        )
+                except Exception:
+                    pass
             return ""
 
         self._finalize_text_metadata(
@@ -1064,6 +1088,21 @@ class PokerOCR:
             candidate_score_overrides=score_overrides,
             selected_confidence=selected_score,
         )
+        if logger.isEnabledFor(logging.DEBUG):
+            try:
+                from src.runtime.debug import _should_throttle as _ocr_thr_pn2
+
+                if _ocr_thr_pn2("ocr:player_name:primary", 1.0):
+                    logger.debug(
+                        "ocr: field=player_name engine=%s variant=%s text=%s conf=%.3f agreement=%s",
+                        selected_candidate.engine,
+                        selected_candidate.variant,
+                        selected_text,
+                        float(selected_score or 0.0),
+                        str(self.last_metadata.get("agreement", "-")),
+                    )
+            except Exception:
+                pass
         return selected_text
 
     @staticmethod
@@ -1129,10 +1168,40 @@ class PokerOCR:
                 self._finalize_amount_metadata(
                     selected.engine, selected.value, candidates, "consensus"
                 )
+                if logger.isEnabledFor(logging.DEBUG):
+                    try:
+                        from src.runtime.debug import _should_throttle as _ocr_throttle
+
+                        if _ocr_throttle("ocr:amount:consensus", 1.0):
+                            logger.debug(
+                                "ocr: field=amount mode=%s engine=%s value=%s conf=%.3f agreement=%s",
+                                self.mode,
+                                getattr(selected, "engine", ""),
+                                getattr(selected, "value", None),
+                                float(self.last_metadata.get("selected_confidence", 0.0) or 0.0),
+                                "consensus",
+                            )
+                    except Exception:
+                        pass
                 return selected.value
 
             selected = valid_candidates[0]
             self._finalize_amount_metadata(selected.engine, selected.value, candidates, "fallback")
+            if logger.isEnabledFor(logging.DEBUG):
+                try:
+                    from src.runtime.debug import _should_throttle as _ocr_throttle2
+
+                    if _ocr_throttle2("ocr:amount:fallback", 1.0):
+                        logger.debug(
+                            "ocr: field=amount mode=%s engine=%s value=%s conf=%.3f agreement=%s",
+                            self.mode,
+                            getattr(selected, "engine", ""),
+                            getattr(selected, "value", None),
+                            float(self.last_metadata.get("selected_confidence", 0.0) or 0.0),
+                            "fallback",
+                        )
+                except Exception:
+                    pass
             return selected.value
 
         candidates, selected = self._read_amounts_until_valid(image_crop)
@@ -1142,6 +1211,21 @@ class PokerOCR:
 
         agreement = "priority" if self.mode == "priority" else "fallback"
         self._finalize_amount_metadata(selected.engine, selected.value, candidates, agreement)
+        if logger.isEnabledFor(logging.DEBUG):
+            try:
+                from src.runtime.debug import _should_throttle as _ocr_throttle3
+
+                if _ocr_throttle3("ocr:amount:priority", 1.0):
+                    logger.debug(
+                        "ocr: field=amount mode=%s engine=%s value=%s conf=%.3f agreement=%s",
+                        self.mode,
+                        getattr(selected, "engine", ""),
+                        getattr(selected, "value", None),
+                        float(self.last_metadata.get("selected_confidence", 0.0) or 0.0),
+                        agreement,
+                    )
+            except Exception:
+                pass
         return selected.value
 
 

@@ -45,6 +45,9 @@ config.local.json
 log/runtime_bridge/
 log/runtime_history.jsonl
 log/observation_store.json
+log/debug.log
+log/superbot.log
+log/debug.log.*
 
 # Qualité / coverage
 .coverage

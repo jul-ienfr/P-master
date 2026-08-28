@@ -12,7 +12,7 @@ use postflop_solver::{
 use serde::Deserialize;
 use std::{collections::BTreeMap, net::SocketAddr};
 use tower_http::cors::CorsLayer;
-use tracing::info;
+use tracing::{debug, info};
 
 #[derive(Debug, Clone, Deserialize)]
 struct LlmAssistRequestV2 {
@@ -30,9 +30,11 @@ struct LlmAssistRequestV2 {
     context: BTreeMap<String, String>,
 }
 
+#[tracing::instrument(skip(req), fields(board=?req.board, pot=req.starting_pot))]
 async fn solve_handler(
     Json(req): Json<SolveRequest>,
 ) -> Result<Json<SolveResponse>, (StatusCode, String)> {
+    debug!(board=?req.board, pot=req.starting_pot, stack=req.effective_stack, hero_hand=?req.hero_hand, "solve request");
     info!(
         "Solve request - board: {:?}, pot: {}, stack: {}",
         &req.board, req.starting_pot, req.effective_stack
@@ -47,10 +49,12 @@ async fn solve_handler(
         response.hero_ev,
         response.exploitability
     );
+    debug!(action=%response.recommended_action.as_str(), ev=response.hero_ev, exploitability=response.exploitability, "solve complete");
 
     Ok(Json(response))
 }
 
+#[tracing::instrument(skip(req))]
 async fn equity_handler(
     Json(req): Json<EquityRequest>,
 ) -> Result<Json<EquityResponse>, (StatusCode, String)> {
@@ -70,10 +74,12 @@ async fn equity_handler(
         response.mode_used,
         response.cache_hit
     );
+    debug!(equity=response.equity, mode=%response.mode_used, cache_hit=response.cache_hit, "equity complete");
 
     Ok(Json(response))
 }
 
+#[tracing::instrument(skip(req))]
 async fn range_strength_handler(
     Json(req): Json<RangeStrengthRequest>,
 ) -> Result<Json<RangeStrengthResponse>, (StatusCode, String)> {
@@ -92,15 +98,19 @@ async fn range_strength_handler(
         response.relative_strength,
         response.hero_equity
     );
+    debug!(percentile=response.relative_strength, hero_equity=response.hero_equity, "range strength complete");
 
     Ok(Json(response))
 }
 
+#[tracing::instrument(skip(req))]
 async fn solve_v2_handler(
     Json(req): Json<SolveRequestV2>,
 ) -> Result<Json<SolveResponseV2>, (StatusCode, String)> {
+    debug!(hero_range=%req.hero_range, board=?req.board, num_players=req.num_players, "solve_v2 request");
     let response =
         solve_spot_v2(req).map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+    debug!(action=%response.chosen_action, ev=response.hero_ev, "solve_v2 complete");
     Ok(Json(response))
 }
 
@@ -254,9 +264,27 @@ fn push_scope(scopes: &mut Vec<LlmContextScope>, scope: LlmContextScope) {
     }
 }
 
+fn is_truthy_debug(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "1" | "true" | "yes" | "on"
+    )
+}
+
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        if let Ok(value) = std::env::var("POKER_RUST_LOG") {
+            if !value.trim().is_empty() {
+                return tracing_subscriber::EnvFilter::new(value);
+            }
+        }
+        let is_debug = std::env::var("POKER_DEBUG")
+            .map(|value| is_truthy_debug(&value))
+            .unwrap_or(false);
+        tracing_subscriber::EnvFilter::new(if is_debug { "debug" } else { "info" })
+    });
+    tracing_subscriber::fmt().with_env_filter(filter).init();
 
     let app = Router::new()
         .route("/health", get(health))

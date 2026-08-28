@@ -46,6 +46,7 @@
     "site_profiles": {
       "PokerStars": {
         "default_bb": 200,
+        "ev_bb_dollars": null,
         "stake_regex": "\\d+[/,](\\d+)\\b",
         "title_regex": null,
         "window_class": "PokerStarsTableFrameClass",
@@ -53,6 +54,7 @@
       },
       "Winamax": {
         "default_bb": 100,
+        "ev_bb_dollars": null,
         "stake_regex": "\\d+[/,](\\d+)\\b",
         "title_regex": null,
         "window_class": null,

@@ -11,9 +11,22 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+# Robustesse binaire freeze (PyInstaller/Nuitka) : __file__ peut exister
+# dans _MEIPASS sans lever NameError, parents[1] pointe alors hors bundle.
+if getattr(sys, "frozen", False) or hasattr(sys, "_MEIPASS"):
+    _meipass = getattr(sys, "_MEIPASS", None)
+    if _meipass:
+        ROOT = Path(_meipass).parent
+    else:
+        ROOT = Path(sys.executable).parent
+else:
+    try:
+        ROOT = Path(__file__).resolve().parents[1]
+    except (NameError, IndexError):
+        ROOT = Path(sys.executable).parent
 
 _ENV_PATTERN = re.compile(r"\$\{([^}:]+)(?::-([^}]*))?\}")
 
@@ -56,7 +69,56 @@ def _deep_expand(obj):
     return obj
 
 
+def _coerce_debug_cfg(cfg: dict) -> dict:
+    raw = cfg.get("debug")
+    if isinstance(raw, bool):
+        cfg["debug"] = {"enabled": raw}
+    elif isinstance(raw, str):
+        parsed = _parse_bool_env(raw)
+        if parsed is not None:
+            cfg["debug"] = {"enabled": parsed}
+        else:
+            cfg["debug"] = {}
+    elif isinstance(raw, (int, float)):
+        cfg["debug"] = {"enabled": bool(raw)}
+    elif raw is None:
+        cfg["debug"] = {}
+    elif not isinstance(raw, dict):
+        cfg["debug"] = {}
+    return cfg["debug"]
+
+
+def _parse_bool_env(value: str | None) -> bool | None:
+    if value is None:
+        return None
+    s = value.strip().lower()
+    if s in {"1", "true", "yes", "on"}:
+        return True
+    if s in {"0", "false", "no", "off"}:
+        return False
+    return None
+
+
 def _apply_env_overrides(cfg: dict) -> dict:
+    _coerce_debug_cfg(cfg)
+    # Debug overrides (env > config)
+    dbg = cfg["debug"]
+    v = _parse_bool_env(os.getenv("POKER_DEBUG"))
+    if v is not None:
+        dbg["enabled"] = v
+    fl = os.getenv("POKER_DEBUG_FILE_LEVEL")
+    if fl:
+        dbg["file_level"] = fl.strip()
+    cl = os.getenv("POKER_DEBUG_CONSOLE_LEVEL")
+    if cl:
+        dbg["console_level"] = cl.strip()
+    lf = os.getenv("POKER_DEBUG_LOG_FILE")
+    if lf:
+        dbg["log_file"] = lf.strip()
+    prl = os.getenv("POKER_RUST_LOG")
+    if prl:
+        dbg["rust_log"] = prl.strip()
+
     # Top-level env overrides
     dsn = os.getenv("POKER_DB_DSN")
     if dsn:
@@ -107,6 +169,14 @@ def load_config(config_path: str | os.PathLike | None = None) -> dict:
     (still with env expansion and overrides).
     """
     if config_path is not None:
+        env_path = os.getenv("POKER_RUNTIME_CONFIG_PATH")
+        if env_path:
+            p = Path(env_path)
+            if not p.is_absolute():
+                p = (ROOT / p).resolve()
+            base = _load_json_file(p) or {}
+            base = _deep_expand(base)
+            return _apply_env_overrides(base)
         explicit = Path(config_path)
         if not explicit.is_absolute():
             explicit = (ROOT / explicit).resolve()

@@ -6,10 +6,10 @@ from pathlib import Path
 
 try:
     from datetime import UTC, datetime
-except ImportError:  # Python 3.10 compatibility
-    from datetime import datetime
+except ImportError:  # Python 3.10 compat (UTC added in 3.11)
+    from datetime import datetime, timezone
 
-    UTC = UTC
+    UTC = timezone.utc  # type: ignore[no-redef]
 import ctypes
 import json
 import os

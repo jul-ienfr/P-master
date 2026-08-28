@@ -18,6 +18,20 @@ class Preflight:
         self.config_path = Path(config_path or (self.root / "config.json"))
 
     def _load_config(self) -> dict:
+        # Unifié via load_config (cascade env > local > json > example)
+        try:
+            from src.config import load_config as _load_config_unified
+
+            # Si POKER_RUNTIME_CONFIG_PATH est set, load_config le respecte
+            # Sinon on charge explicitement le config_path demandé
+            if os.getenv("POKER_RUNTIME_CONFIG_PATH"):
+                return _load_config_unified()
+            return _load_config_unified(str(self.config_path))
+        except PreflightError:
+            raise
+        except Exception:
+            pass
+        # Fallback legacy
         if not self.config_path.is_file():
             raise PreflightError(f"Configuration introuvable: {self.config_path}")
         try:
@@ -91,6 +105,21 @@ class Preflight:
         self._assert_writable_path(runtime_bridge_dir / "runtime_state.json", "Runtime bridge")
         self._assert_writable_path(runtime_history_path, "Historique runtime")
         self._assert_writable_path(observation_store_path, "Persistance observation")
+        # Espace debug.log si debug activé
+        try:
+            dbg_cfg = (config.get("debug") or {}) if isinstance(config.get("debug"), dict) else {}
+            if dbg_cfg.get("enabled"):
+                from src.runtime.debug import resolve_debug_settings as _resolve_dbg
+
+                _dbg_settings = _resolve_dbg(config)
+                dbg_path = _dbg_settings.log_file
+                if not dbg_path.is_absolute():
+                    dbg_path = (self.root / dbg_path).resolve()
+                self._assert_writable_path(dbg_path, "Log debug")
+        except PreflightError:
+            raise
+        except Exception:
+            pass
 
         native_solver_available = importlib.util.find_spec("postflop_solver_py") is not None
         http_solver_url = str(

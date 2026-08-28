@@ -169,6 +169,30 @@ class StateResolverMixin:
                 },
             )
         self.last_resolved_runtime_state = resolved_state.to_dict()
+        if logger.isEnabledFor(logging.DEBUG):
+            try:
+                from src.runtime.debug import _should_throttle as _dbg_throttle
+                from src.runtime.debug import set_debug_context as _set_dbg_ctx
+            except ImportError:
+                _dbg_throttle = None  # type: ignore[assignment]
+                _set_dbg_ctx = None  # type: ignore[assignment]
+            if _set_dbg_ctx is not None:
+                try:
+                    _set_dbg_ctx(spot_id=str(resolved_state.spot_id))
+                except Exception:
+                    pass
+            should_emit = _dbg_throttle("state_resolver:resolved", 1.0) if _dbg_throttle else True
+            if should_emit:
+                logger.debug(
+                    "state_resolver: spot_id=%s street=%s board=%s pot=%.1f hero=%s legal=%s conf=%.3f",
+                    resolved_state.spot_id,
+                    resolved_state.street,
+                    resolved_state.board,
+                    float(resolved_state.pot or 0.0),
+                    resolved_state.hero_cards,
+                    resolved_state.legal_actions,
+                    float(resolved_state.state_confidence or 0.0),
+                )
         return resolved_state
 
     @staticmethod

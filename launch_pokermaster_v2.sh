@@ -1,7 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
-export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/usr/bin:/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.local/opt/node-v22.22.2-linux-x64/bin:$PATH"
+
+# Prefer WSL venv with Linux-compatible deps when it exists and has cv2 (Windows .venv is not usable from WSL)
+if [[ -z "${POKERMASTER_PYTHON_BIN:-}" ]] && [[ -x "/home/julien/.cache/poker-venv/bin/python" ]]; then
+  if /home/julien/.cache/poker-venv/bin/python -c "import cv2" >/dev/null 2>&1; then
+    export POKERMASTER_PYTHON_BIN="/home/julien/.cache/poker-venv/bin/python"
+  fi
+fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WEBSITE_DIR="$ROOT_DIR/website"
@@ -33,6 +40,31 @@ ensure_node_build_tools() {
   if ! command -v node >/dev/null 2>&1; then
     printf '%s\n' "node is required to build the PokerMaster V2 frontend."
     exit 1
+  fi
+}
+
+ensure_node_deps() {
+  local need_npm=0
+  if [[ ! -f "$WEBSITE_DIR/node_modules/.package-lock.json" ]] || [[ ! -x "$WEBSITE_DIR/node_modules/.bin/tsc" ]]; then
+    need_npm=1
+  fi
+  # node_modules win32 pré-existant mais build côté WSL (linux) → binaires natifs incompatibles (esbuild)
+  if [[ -d "$WEBSITE_DIR/node_modules/@esbuild/win32-x64" ]] && [[ "$(uname -s 2>/dev/null || echo Windows)" == "Linux" ]]; then
+    need_npm=1
+    printf '%s\n' "Detected Windows node_modules on WSL — reinstalling for Linux..."
+    rm -rf "$WEBSITE_DIR/node_modules"
+  fi
+  if [[ "$need_npm" -eq 1 ]]; then
+    if ! command -v npm >/dev/null 2>&1; then
+      printf '%s\n' "npm is required to install PokerMaster V2 frontend dependencies."
+      exit 1
+    fi
+    printf '%s\n' "Installing PokerMaster V2 frontend dependencies..."
+    if [[ -f "$WEBSITE_DIR/package-lock.json" ]]; then
+      (cd "$WEBSITE_DIR" && npm ci)
+    else
+      (cd "$WEBSITE_DIR" && npm install)
+    fi
   fi
 }
 
@@ -92,6 +124,7 @@ NODE
 
 run_frontend_build() {
   ensure_node_build_tools
+  ensure_node_deps
   printf '%s\n' "Building PokerMaster V2 frontend..."
   (
     cd "$WEBSITE_DIR"

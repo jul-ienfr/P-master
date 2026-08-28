@@ -418,6 +418,13 @@ class LiveExecutionMixin:
         return ", ".join(str(value) for value in values if str(value).strip()) or "-"
 
     def _log_live_details(self, canonical_state: CanonicalTableState, state: TableState) -> None:
+        if logger.isEnabledFor(logging.DEBUG):
+            try:
+                from src.runtime.debug import set_debug_context as _set_dbg_ctx_le
+
+                _set_dbg_ctx_le(spot_id=str(getattr(canonical_state, "spot_id", "-") or "-"))
+            except Exception:
+                pass
         table_detected = bool((state.metadata or {}).get("table_detected"))
         button_names = tuple(str(button.class_name) for button in (state.action_buttons or []))
         actionable_buttons = self._extract_actionable_runtime_buttons(button_names)
@@ -470,6 +477,18 @@ class LiveExecutionMixin:
             self._format_log_list(canonical_state.legal_actions),
             float(canonical_state.state_confidence or 0.0),
         )
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "LIVE_DEBUG | spot=%s table=%s street=%s pot=%.1f conf=%.3f hero=%s legal=%s buttons=%s",
+                getattr(canonical_state, "spot_id", "-"),
+                "yes" if table_detected else "no",
+                canonical_state.street,
+                float(canonical_state.pot or 0.0),
+                float(canonical_state.state_confidence or 0.0),
+                self._format_log_cards(canonical_state.hero_cards),
+                self._format_log_list(canonical_state.legal_actions),
+                self._format_log_list(button_names),
+            )
         if observed_street != canonical_state.street or tracker_street != canonical_state.street:
             logger.info(
                 "LIVE_STATE | observed=%s tracker=%s resolved=%s raw_board=%s validated_board=%s pending=%s spot=%s",
@@ -721,7 +740,14 @@ class LiveExecutionMixin:
             if frame is None:
                 continue
 
-            state = await asyncio.to_thread(detector.analyze_frame, frame)
+            try:
+                from src.runtime.debug import to_thread_with_context as _to_thread_ctx_le
+            except ImportError:
+                _to_thread_ctx_le = None  # type: ignore[assignment]
+            if _to_thread_ctx_le is not None:
+                state = await _to_thread_ctx_le(detector.analyze_frame, frame)
+            else:
+                state = await asyncio.to_thread(detector.analyze_frame, frame)
             state = self._label_generic_action_buttons(state, frame)
             actionable_buttons = self._extract_actionable_runtime_buttons(
                 [button.class_name for button in state.action_buttons]
