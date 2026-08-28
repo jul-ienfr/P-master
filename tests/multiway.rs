@@ -350,3 +350,87 @@ fn fuzz_1k_no_panic_on_random_valid_requests() {
     assert!(validates + sampled_solves >= 900, "fuzz coverage too low: {}+{}", validates, sampled_solves);
     assert!(sampled_solves >= 15, "not enough sampled solves: {sampled_solves}");
 }
+
+// ── § D — EV : ev_bb ≈ ev_chips/bb, ev_bb_per_100 = ev_bb*100 ──
+
+#[test]
+fn multiway_ev_bb_matches_ev_chips_over_bb() {
+    let req = base_request(3, &["Ah", "7d", "2c", "Kd", "9s"]);
+    let bb = req.effective_stack / 100.0; // 0.2
+    let resp = solve_multiway(req).expect("river 3-way for EV check");
+    let ev_bb = resp.ev_bb.expect("ev_bb should be Some with positive stack");
+    assert!(
+        (ev_bb - resp.hero_ev / bb).abs() < 1e-4,
+        "ev_bb {} != hero_ev {} / bb {} (diff {})",
+        ev_bb,
+        resp.hero_ev,
+        bb,
+        (ev_bb - resp.hero_ev / bb).abs()
+    );
+    assert!(
+        (postflop_solver::ev::ev_chips_to_bb(resp.hero_ev, bb).unwrap() - ev_bb).abs() < 1e-6,
+        "ev_chips_to_bb helper mismatch"
+    );
+}
+
+#[test]
+fn multiway_ev_bb_per_100_is_ev_bb_times_100() {
+    let resp = solve_multiway(base_request(3, &["Ah", "7d", "2c", "Kd", "9s"]))
+        .expect("river 3-way per100");
+    let ev_bb = resp.ev_bb.expect("ev_bb");
+    let ev_bb_per_100 = resp.ev_bb_per_100.expect("ev_bb_per_100");
+    assert!(
+        (ev_bb_per_100 - ev_bb * 100.0).abs() < 1e-4,
+        "ev_bb_per_100 {} != ev_bb {} *100",
+        ev_bb_per_100,
+        ev_bb
+    );
+    assert!(
+        (postflop_solver::ev::ev_bb_per_100(ev_bb) - ev_bb_per_100).abs() < 1e-6,
+        "ev_bb_per_100 helper mismatch"
+    );
+}
+
+#[test]
+fn multiway_action_ev_bb_consistent() {
+    let req = base_request(3, &["Ah", "7d", "2c"]);
+    let bb = req.effective_stack / 100.0;
+    let resp = solve_multiway(req).expect("flop 3-way action EV");
+    assert!(!resp.actions.is_empty(), "no actions");
+    for action in &resp.actions {
+        if let Some(ev_bb) = action.ev_bb {
+            assert!(
+                (ev_bb - action.ev / bb).abs() < 1e-4,
+                "action {} ev_bb {} != ev {} / bb {}",
+                action.name,
+                ev_bb,
+                action.ev,
+                bb
+            );
+            let ev_bb_per_100 = action.ev_bb_per_100.expect("action ev_bb_per_100");
+            assert!(
+                (ev_bb_per_100 - ev_bb * 100.0).abs() < 1e-4,
+                "action {} ev_bb_per_100 {} != {}*100",
+                action.name,
+                ev_bb_per_100,
+                ev_bb
+            );
+        } else {
+            panic!("action {} ev_bb is None with bb={}", action.name, bb);
+        }
+        assert!(action.ev.is_finite(), "action {} ev not finite", action.name);
+    }
+}
+
+#[test]
+fn multiway_equity_ev_formula_sanity() {
+    // § D : EV = equity*pot - cost — helper pur, mais vérifie la convention
+    // utilisée aussi par equity_api ev_chips_given_pot
+    let ev = postflop_solver::ev::equity_ev(100.0, 0.55, 50.0);
+    assert!((ev - 5.0).abs() < 1e-6, "equity_ev(100,0.55,50) should be 5, got {}", ev);
+    // multiway response hero_ev doit être fini et borné par la taille du pot effectif
+    let resp = solve_multiway(base_request(3, &["2c", "3d", "7h", "8s", "4d"]))
+        .expect("neutral river EV sanity");
+    assert!(resp.hero_ev.is_finite());
+    assert!(resp.hero_ev.abs() < 50.0, "hero_ev unreasonably large: {}", resp.hero_ev);
+}

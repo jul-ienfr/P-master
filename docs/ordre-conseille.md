@@ -10,8 +10,8 @@
 
 | Rang | Variante + N | Pourquoi (WR/variance/bankroll/rake) | Bankroll requis | EV/σ — P(profit) 50k/500MTT — RoR@roll | Rôle |
 |------|--------------|--------------------------------------|-----------------|----------------------------------------|------|
-| **1** | **Cash 6-max micro (NL2-NL10) 3..6** | WR méd ~7 bb/100 le plus élevé vs field, trafic maximal (75-95% du trafic micro), rake élevé mais compensé +1..+3 rake-aware, pardonne le tilt, 40bi suffisent | 40 buy-ins | EV/σ = 7/90=0.078 · **P(profit) 50k 96-98%** (`probabilites.md` §2) · RoR 40bi≈3.0% | Apprendre, financer la BR |
-| 2 | Cash HU micro (HU 2) | WR plus élevé +8..+15 mais adversaire unique s'adapte → variance d'adaptation, tilt plus coûteux | 40bi (mais 60+ si tilt-prone) | σ~70→WR10 ⇒ EV/σ=0.14 · **P(profit) 50k ~99%** à WR10 (`§2` HU) mais adaptation annule · RoR 40bi≈0.1% th. | Spécialisation |
+| **1** | **Cash 6-max micro (NL2-NL10) 3..6** | WR méd ~7 bb/100 le plus élevé vs field, trafic maximal (75-95% du trafic micro), rake élevé mais compensé +1..+3 rake-aware, pardonne le tilt, 40bi suffisent | 40 buy-ins | EV/σ = 7/90=0.078 · **P(profit) 50k 96-98%** (`probabilites.md` §2.2bis, synthèse §2.2) · RoR 40bi≈0.1% (`probabilites.md` §6, edge/var en BI) · NL10: 336€ (48k) / 602€ (86k, 605€ à 864 blocs) / 1 211€ th. (173k) ; 4.18€/h à 6h×6j, 3.00€/h dégradé à 12h×6j (`esperance.md` §7) | Apprendre, financer la BR |
+| 2 | Cash HU micro (HU 2) | WR plus élevé +8..+15 mais adversaire unique s'adapte → variance d'adaptation, tilt plus coûteux | 40bi (mais 60+ si tilt-prone) | σ~70→WR10 ⇒ EV/σ=0.14 · **P(profit) 50k ~99%** à WR10 (`probabilites.md` §2.1 HU) mais adaptation annule · RoR 40bi≈0% th. (`probabilites.md` §6) | Spécialisation |
 | 3 | MTT micro (1-5€) 7..9 | ROI 10-25% attractif mais σ 1.9-2.6 buy-ins, downswing 30-50 BI normal, P(profit) 65-75% seulement à 500 MTT | 100-200 buy-ins | EV/σ(ROI)=0.15/2=0.075 · **P(profit) 500 MTT 65-75%** (`§3`) · RoR 100bi≈0.06% th. (skew → viser 200bi) | Seulement avec BR 6-max |
 | 4 | MTT mid / PKO 7..9 | Bounty 25-33% early → 2-4× FT, ICM 15-25% tighter, besoin mode $EV séparé (C23-C24) | 150-200bi | $EV=ChipEV+BountyEV (`esperance.md` §2/§5 Ex.3) · P(profit) < cash à N égal (skew payout) · RoR 150bi <0.01% th. | V1.2-V2 |
 | 5 | PLO / Spin hyperturbo | Hors scope socle, rake 10%+, variance extrême | 200+ bi | EV/σ très faible (σ>>WR) · P(profit) <50% à 50k sauf edge massif | Pas en V1 |
@@ -24,7 +24,7 @@
 - Le field micro est le plus faible (WR solver +5..+10, méd ~7). Même un solver imparfait (avant V1 : +4..+8.5) est déjà gagnant à 78-93% à 50k mains.
 - Volume : 6-max permet 500-800 mains/heure en multi-tabling, vs ~250 en HU (un seul adversaire) et ~60 MTT (structure lente).
 - Rake élevé en micro (5%/$3-4) mais le solver rake-aware (C20) compense +1..+3 bb/100 — ignorer le rake = −1.5..−4.
-- Bankroll 40bi suffit (RoR ~5% à WR +5, voir `probabilites.md` §6).
+- Bankroll 40bi suffit (RoR ~0.1% à WR 7, ~0.7% à WR 5 en micro 6-max, `probabilites.md` §6 — formule corrigée edge/var en BI).
 - Pédagogie : on apprend toutes les streets (préflop → river), tous les N (HU→6-way), et la gestion multiway — transférable à tout autre format.
 
 **Rang 2 — HU : quand ?**
@@ -34,6 +34,14 @@
 **Rang 3 — MTT micro : quand ?**
 - Seulement avec 100-200bi de BR MTT (séparée de la BR cash). Variance MTT : σ 1.9-2.6 buy-ins, P(profit) seulement 65-75% à 500 MTT même à ROI 15% (voir `probabilites.md` §3).
 - Ne pas mélanger BR cash et MTT — la variance MTT peut raser une BR cash en quelques sessions.
+
+> **Rythme conseillé — 6h×5-6j** (`probabilites.md` §2.2bis, `esperance.md` §7.4 — `SizingConfig::default()` flop F33/50/100 turn T50/75/100 river R50/100/150 + préflop 2bb/3bb cap3, `src/multiway.rs:29`)
+> - h/jour : 6h max en 2 blocs de 3h + pause 60-90min
+> - j/semaine : 5j grind +1j study +1j OFF (ou 6j grind si rush BR)
+> - volume cible 50k mains = seuil P(profit) 96% (`probabilites.md` §2.2bis, synthèse §2.2) atteint en ~17j à 6h×5j (600 mains/h)
+> - planning type Lun-Mar 2×3h / Mer 3h+study / Jeu-Ven 2×3h / Sam 2×3h ou OFF / Dim OFF
+> - jamais mixer MTT même semaine
+> - référence `probabilites.md` §5 piège #1 tilt (WR 7→5) et §6 RoR 40 BI ≈0.1% en micro
 
 **Rangs 4-5 — PKO / PLO / Spin :**
 - PKO : nécessite un module $EV = ChipEV + BountyEV (C23), bounty 25-33% early → 2-4× FT, cover +10-20% wider. Hors V1 bloc, prévu V1.2-V2.
@@ -62,8 +70,10 @@
 
 | Variante \ N | 2 (HU) | 3 | 3..6 (6-max) | 7..9 |
 |--------------|--------|---|--------------|------|
-| **Cash** | HS-PCFR(30)/DCFR · 33/50/75/100+/x/c/e/a · EV/σ 10/70=0.14 · **P(profit) 50k ~99%** (`probabilites.md` §2 HU) · RoR 40bi≈0.1% th. · **difficile** (adaptation) | MCCFR 33/50/100(F) · WR +1.2..+3 · EV/σ ~0.02 · P 50k ~69% à +3 · **moyen** | **MCCFR N-param + SizingConfig + rake · 33/50/100 / 50/75/100 / 50/100/150 · méd ~7 σ~90 EV/σ 0.078 · P 50k 96-98% RoR 40bi≈3% — EN PREMIER** | approx tightening+bucket en V1, MAX 6→9 V1.2 |
+| **Cash** | HS-PCFR(30)/DCFR · préflop 2bb/3bb cap3 + F33/50/100 / T50/75/100 / R50/100/150 (`SizingConfig::default()`, `src/multiway.rs:29`, `strategie-par-format.md` §1–2) · EV/σ 10/70=0.14 · **P(profit) 50k ~99%** (`probabilites.md` §2.1 HU) · RoR 40bi≈0% th. · **difficile** (adaptation) | MCCFR F33/50/100 · WR +1.2..+3 · EV/σ ~0.02 · P 50k ~69% à +3 · **moyen** | **MCCFR N-param + SizingConfig F33/50/100 / T50/75/100 / R50/100/150 + préflop 2bb/3bb cap3 + rake (`src/multiway.rs:29`) · méd ~7 σ~90 EV/σ 0.078 · P 50k 96-98% RoR 40bi≈0.1% (`probabilites.md` §6) — EN PREMIER** | approx tightening+bucket en V1, MAX 6→9 V1.2 |
 | **MTT/ICM** | Push/fold Nash · $EV=ChipEV+BountyEV | Rare | V1 approx → V1.2 GT-CFR + ICM FGS2-3 | ICM 15-25% tighter (`strategie-par-format.md` §4), PKO ChipEV+BountyEV 25-33%→2-4× (`esperance.md` §4-5, C23) · ROI 10-25% σ1.9-2.6 · **P 500 MTT 65-75%** (`probabilites.md` §3) · RoR 100bi≈0.06% th./skew — après cash |
+
+> Régimes : 4h×5j=48k P95.6% à WR 7, 6h×6j=86k (86 400 à 600/h, 860 blocs→602€ / 864→605€) P98.9%, 12h×6j=173k ~100% th. mais WR 7→5 si tilt → P99.0% (`probabilites.md` §2.2bis, `esperance.md` §7)
 
 ---
 

@@ -511,6 +511,90 @@ fn bench_preflop_n6() {
     assert!(response.elapsed_ms < 35000, "response elapsed_ms too high: {}", response.elapsed_ms);
 }
 
+// ── § D — EV : ev_bb ≈ hero_ev/bb, ev_bb_per_100 = ev_bb*100 ──
+
+#[test]
+fn v2_ev_bb_matches_ev_chips_over_bb_and_per100() {
+    // HU natif via v2 : bridge depuis gto_api enrichi par ev_summary
+    let req = SolveRequestV2 {
+        spot_id: Some("v2-ev-bb".to_string()),
+        hero_range: "AA,KK,QQ".to_string(),
+        villain_ranges: vec!["JJ,TT,AKs".to_string()],
+        board: vec!["Ah".to_string(), "7d".to_string(), "2c".to_string(), "Kd".to_string(), "9s".to_string()],
+        starting_pot: 8.0,
+        effective_stack: 20.0,
+        hero_position: Some("oop".to_string()),
+        tree_preset_id: TreePresetId::river_jam_low_spr(),
+        num_players: 2,
+        cache_policy: CachePolicy::Memory,
+        use_cache: false,
+        time_budget_ms: Some(150),
+        ..SolveRequestV2::default()
+    };
+    let bb = req.effective_stack / 100.0;
+    let resp = solve_spot_v2(req).expect("v2 HU EV check");
+    assert_eq!(resp.backend, "native_solver");
+    assert!(resp.hero_ev.is_finite());
+    let ev_bb = resp.ev_bb.expect("v2 ev_bb should be Some with positive stack");
+    assert!(
+        (ev_bb - resp.hero_ev / bb).abs() < 1e-4,
+        "v2 ev_bb {} != hero_ev {} / bb {} (diff {})",
+        ev_bb, resp.hero_ev, bb, (ev_bb - resp.hero_ev / bb).abs()
+    );
+    let ev_bb_per_100 = resp.ev_bb_per_100.expect("v2 ev_bb_per_100");
+    assert!(
+        (ev_bb_per_100 - ev_bb * 100.0).abs() < 1e-4,
+        "v2 ev_bb_per_100 {} != ev_bb {} *100", ev_bb_per_100, ev_bb
+    );
+    // cohérence helpers purs
+    assert!((postflop_solver::ev::ev_chips_to_bb(resp.hero_ev, bb).unwrap() - ev_bb).abs() < 1e-6);
+    assert!((postflop_solver::ev::ev_bb_per_100(ev_bb) - ev_bb_per_100).abs() < 1e-6);
+    // combo + actions cohérents
+    if let Some(combo) = resp.combo_ev_bb {
+        let expected_combo = postflop_solver::ev::ev_chips_to_bb(resp.hero_ev, bb).unwrap();
+        // v2 bridge met combo_ev_bb = ev_bb (hero_ev/bb) pour multiway/HU
+        assert!((combo - expected_combo).abs() < 1e-4, "combo_ev_bb {} != {}", combo, expected_combo);
+    }
+    for action in &resp.actions {
+        if let Some(ev_bb_a) = action.ev_bb {
+            assert!((ev_bb_a - action.ev / bb).abs() < 1e-4,
+                "v2 action {} ev_bb {} != ev {} / bb {}", action.name, ev_bb_a, action.ev, bb);
+            let p100 = action.ev_bb_per_100.expect("action ev_bb_per_100");
+            assert!((p100 - ev_bb_a * 100.0).abs() < 1e-4,
+                "v2 action {} ev_bb_per_100 {} != {}*100", action.name, p100, ev_bb_a);
+        }
+    }
+}
+
+#[test]
+fn v2_multiway_ev_bb_matches_ev_chips_over_bb() {
+    // 3-way via v2 → multiway_mccfr, même enrichissement ev_summary
+    let req = SolveRequestV2 {
+        spot_id: Some("v2-ev-3w".to_string()),
+        hero_range: "AsKs".to_string(),
+        villain_ranges: vec!["QQ+".to_string(), "JJ-88".to_string()],
+        board: vec!["Ah".to_string(), "7d".to_string(), "2c".to_string(), "Kd".to_string(), "9s".to_string()],
+        starting_pot: 6.0,
+        effective_stack: 20.0,
+        hero_position: Some("oop".to_string()),
+        tree_preset_id: TreePresetId::river_jam_low_spr(),
+        num_players: 3,
+        cache_policy: CachePolicy::Memory,
+        use_cache: false,
+        time_budget_ms: Some(150),
+        ..SolveRequestV2::default()
+    };
+    let bb = req.effective_stack / 100.0;
+    let resp = solve_spot_v2(req).expect("v2 3-way EV");
+    assert_eq!(resp.backend, "multiway_mccfr");
+    let ev_bb = resp.ev_bb.expect("v2 3-way ev_bb");
+    assert!((ev_bb - resp.hero_ev / bb).abs() < 1e-4,
+        "v2 3-way ev_bb {} != hero_ev {} / bb {}", ev_bb, resp.hero_ev, bb);
+    assert!((resp.ev_bb_per_100.unwrap() - ev_bb * 100.0).abs() < 1e-4);
+    // equity*pot - cost helper sanity (convention § D)
+    assert!((postflop_solver::ev::equity_ev(100.0, 0.55, 50.0) - 5.0).abs() < 1e-6);
+}
+
 #[test]
 fn llm_stub_response_is_offline_safe() {
     let response = llm_assist_stub_response(

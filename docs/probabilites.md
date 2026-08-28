@@ -109,26 +109,54 @@ Lecture HU : à WR +5 (réaliste post-adaptation), 10k mains ne donnent que 76% 
 
 ### 2.2 Cash 6-max — N=3..6, σ≈90 bb/100
 
-_Réf. variance 6-max : Pluribus/Supremus 6-max σ ~90 (C10, C15) — plus élevée (multiway, rake, variance de distribution). Chaque ligne N=3,4,5,6 partage le même σ≈90 en première approximation (la variance inter-N est dominée par le rake/sizing, pas par N lui-même) ; le WR attendu varie avec N via la contribution multiway (f) du §1._
+_Réf. variance 6-max : Pluribus/Supremus 6-max σ ~90 (C10, C15) — plus élevée (multiway, rake, variance de distribution). Chaque ligne N=3,4,5,6 partage le même σ≈90 en première approximation (la variance inter-N est dominée par le rake/sizing, pas par N lui-même) ; le WR attendu varie avec N via la contribution multiway (f) du §1. Formule `P=Φ(WR·√(N/100)/σ)` (§7)._
 
-| Variante | N | WR (bb/100) | σ | 10k mains | 50k mains | 100k mains | Note WR |
-|----------|---|-------------|---|-----------|-----------|------------|---------|
-| **6-max** | **3** | +2 | 90 | 59% | 69% | 76% | Borne basse (solver incomplet) |
-| **6-max** | **3** | +5 | 90 | 71% | 89% | 96% | Micro avant V1 (partiel 3-way) |
-| **6-max** | **3** | **+7 (méd. micro V1)** | 90 | **78%** | **96%** | **99%** | **V1 bloc 3-way correct** |
-| **6-max** | **3** | +8 | 90 | 81% | 98% | ~100% | Micro haut V1 |
-| **6-max** | **4** | +5 | 90 | 71% | 89% | 96% | 4-way avant V1 (fallback HU = −2..−5 sur ces spots) |
-| **6-max** | **4** | **+7 (méd. micro V1)** | 90 | **78%** | **96%** | **99%** | **V1 bloc 3..6 (SizingConfig+rake)** |
-| **6-max** | **4** | +8 | 90 | 81% | 98% | ~100% | Micro haut |
-| **6-max** | **5** | +5 | 90 | 71% | 89% | 96% | 5-way avant V1 : 40–60% de (f) perdu |
-| **6-max** | **5** | **+7 (méd. micro V1)** | 90 | **78%** | **96%** | **99%** | **V1 bloc complet** |
-| **6-max** | **5** | +3.2 (méd. mid) | 90 | 64% | 79% | 87% | Mid-stakes micro→mid transition |
-| **6-max** | **6** | +5 | 90 | 71% | 89% | 96% | 6-way max (rare ~2% des mains) |
-| **6-max** | **6** | **+7 (méd. micro V1)** | 90 | **78%** | **96%** | **99%** | **V1 bloc MAX 6** |
-| **6-max** | **6** | +0.8 (méd. high) | 90 | 54% | 60% | 63% | High-stakes : field écrase l'edge |
-| **6-max** | **6** | +3.2 (méd. mid) | 90 | 64% | 79% | 87% | Mid P50 |
+| Variante | N | WR (bb/100) | σ | 10k mains | 48k (4h×5j) | 50k mains | 86k (6h×6j reco) | 100k mains | 173k (12h×6j) | Note WR |
+|----------|---|-------------|---|-----------|-------------|-----------|------------------|------------|---------------|---------|
+| **6-max** | **3** | +2 | 90 | 59% | 69% | 69% | 74% | 76% | 82% | Borne basse (solver incomplet) |
+| **6-max** | **3** | +5 | 90 | 71% | 89% | 89% | 95% | 96% | 99% | Micro avant V1 (partiel 3-way) |
+| **6-max** | **3** | **+7 (méd. micro V1)** | 90 | **78%** | **96%** | **96%** | **99%** | **99%** | **~100%** | **V1 bloc 3-way correct** |
+| **6-max** | **3** | +8 | 90 | 81% | 97% | 98% | ~100% | ~100% | ~100% | Micro haut V1 |
+| **6-max** | **4** | +5 | 90 | 71% | 89% | 89% | 95% | 96% | 99% | 4-way avant V1 (fallback HU = −2..−5 sur ces spots) |
+| **6-max** | **4** | **+7 (méd. micro V1)** | 90 | **78%** | **96%** | **96%** | **99%** | **99%** | **~100%** | **V1 bloc 3..6 (SizingConfig+rake)** |
+| **6-max** | **4** | +8 | 90 | 81% | 97% | 98% | ~100% | ~100% | ~100% | Micro haut |
+| **6-max** | **5** | +5 | 90 | 71% | 89% | 89% | 95% | 96% | 99% | 5-way avant V1 : 40–60% de (f) perdu |
+| **6-max** | **5** | **+7 (méd. micro V1)** | 90 | **78%** | **96%** | **96%** | **99%** | **99%** | **~100%** | **V1 bloc complet** |
+| **6-max** | **5** | +3.2 (méd. mid) | 90 | 64% | 78% | 79% | 85% | 87% | 93% | Mid-stakes micro→mid transition |
+| **6-max** | **6** | +5 | 90 | 71% | 89% | 89% | 95% | 96% | 99% | 6-way max (rare ~2% des mains) |
+| **6-max** | **6** | **+7 (méd. micro V1)** | 90 | **78%** | **96%** | **96%** | **99%** | **99%** | **~100%** | **V1 bloc MAX 6** |
+| **6-max** | **6** | +0.8 (méd. high) | 90 | 54% | 58% | 58% | 60% | 61% | 64% | High-stakes : field écrase l'edge |
+| **6-max** | **6** | +3.2 (méd. mid) | 90 | 64% | 78% | 79% | 85% | 87% | 93% | Mid P50 |
 
 Lecture 6-max : V1 bloc à +7 bb/100 (médiane micro, tous N=3..6) ⇒ ~78% à 10k, **96% à 50k**, 99% à 100k d'être positif. Même solver à +3.2 bb/100 en mid (médiane) ⇒ 79% à 50k, 87% à 100k — le field écrase la proba plus que le solver. En high (méd. 0.8) ⇒ 60% à 50k — quasi pile ou face même à 50k. En micro, fourchette +5..+10 ⇒ 50k : **89–99.9%** (méd. 96%).
+
+> **Lecture régimes** — `48k = 4h×5j`, `86k = 6h×6j reco` (86 400 à 600/h, arrondi 860 blocs — 864→605€ à 1k près), `173k = 12h×6j` à 600 mains/h (cf. `esperance.md` §7) :
+> - **WR 7 médian micro** : P passe **96% à 48k → 99% à 86k → ~100% à 173k** (95.6% / 98.9% / 99.9% bruts, `Φ(WR·√(N/100)/90)` §7). Le seuil « significatif » 95%+ est franchi dès 4h×5j ; 6h×6j sécurise 99%.
+> - **WR 5 bas micro** : **89% à 48k → 95% à 86k → 99% à 173k** (88.8% / 94.8% / 99.0%). Il faut 86k pour dépasser 95% et 173k pour frôler 99% — le bas de fourchette micro reste sensible au volume.
+> - **WR 3.2 mid** : **78% à 48k → 85% à 86k → 93% à 173k** (≈ 79% à 50k, 87% à 100k). Même à 173k, ~1 session sur 14 reste perdante — le field mid écrase l'edge.
+> - **WR 0.8 high** : **58% à 48k → 60% à 86k → 64% à 173k** — quasi pile ou face même à 173k (z≈0.37). En high, le volume ne compense pas l'absence d'edge.
+
+> **Au-delà de 8h/j** : WR dégrade **7 → 5 par tilt (−30% §5 piège #1)** → P redescend (à 173k : ~100% → 99%) et **€/h chute** (4.18 → 3.00 €/h à NL10), voir `esperance.md` §7 et `ordre-conseille.md` §1. Le régime 12h×6j est théorique — en pratique le tilt annule la moitié du gain de volume.
+
+### 2.2bis Régimes de volume — P(profit) à 48k / 86k / 173k mains
+
+> Même formule `P = Φ(WR·√(N/100)/σ)` (σ=90) appliquée aux 3 régimes canoniques de `esperance.md` §7 / `ordre-conseille.md` §1 : **48k = 4h×5j (80h)**, **86k = 6h×6j (144h, recommandé — 86 400 à 600/h, arrondi 860 blocs / 864→605€ à 1k près)**, **173k = 12h×6j (288h, théorique)**. Débit médian 600 mains/h 6-max 4-6 tables.
+
+| N | WR (bb/100) | 10k | 50k | 100k | **48k (4h×5j)** | **86k (6h×6j)** | **173k (12h×6j) th.** | Note |
+|---|-------------|-----|-----|------|-----------------|-----------------|----------------------|------|
+| **3..6** | **+7 méd. micro V1** | 78% | 96% | 99% | **95.6%** | **98.9%** | **99.9% th.** | Médiane V1 bloc |
+| 3..6 | +5 bas micro | 71% | 89% | 96% | 88.8% | 94.8% | 99.0% | Avant V1 / tilt WR 7→5 |
+| 3..6 | +8 haut micro | 81% | 98% | ~100% | 97.4% | 99.5% | ~100% | Field très faible |
+| 3..6 | +3.2 méd. mid | 64% | 79% | 87% | 78.2% | 85.1% | 93.0% | NL25-NL50 |
+| 3..6 | +0.8 méd. high | 54% | 60% | 63% | 57.7% | 60.3% | 64.4% | NL100+ quasi pile/face |
+
+> **Lecture régimes** :
+> - **Micro WR 7 (méd.)** : P passe **95.6% à 48k → 98.9% à 86k → 99.9% th. à 173k** — le palier 50k (~17j à 6h×5j) suffit déjà à 96%.
+> - **Micro WR 5 (bas / tilt)** : 88.8% → 94.8% → 99.0% — même en bas de fourchette, 86k franchit 95%.
+> - **Mid WR 3.2** : 78% → 85% → 93% — il faut 173k pour dépasser 90%.
+> - **High WR 0.8** : 58% → 60% → 64% — quasi pile ou face même à 173k (`RoR >4%` §6).
+>
+> **Au-delà de 8h/j, WR 7→5 par tilt −30% (§5 piège #1) → P redescend** : à 173k th. 99.9% mais réel 99.0% si tilt, et **€/h 4.20→3.00 (−28%)** (`esperance.md` §7). D'où la reco **6h×6j** (`ordre-conseille.md` §1).
 
 ---
 
@@ -188,38 +216,39 @@ En high (avant V1 −0.5..+1.8 → ~58-65%, V1 −0.5..+2.5 méd. 0.8 → +2 hau
 
 ## 6. Risque de ruine (RoR) par variante × N
 
-`RoR = exp(−2·edge·roll / variance)` (Kelly / formule gambler's ruin).
+`RoR = exp(−2·edge·roll / variance)` (Kelly / formule gambler's ruin) — **unités cohérentes obligatoires** : `edge` et `roll` en **buy-ins**, `variance` en **BI² par 100 mains** (cash) ou **BI² par tournoi** (MTT).
 
-- `edge` = WR en bb/100 (cash) ou ROI en BI/tournoi (MTT), `roll` = bankroll en buy-ins (1 BI = 100 bb en cash, 1 BI = buy-in MTT), `variance` = σ².
+- Cash : `edge_BI = WR/100` (ex. WR 7 bb/100 → 0.07 BI/100 mains, 1 BI = 100 bb), `var_BI = (σ/100)²` (ex. σ 90 bb/100 → var 0.81 BI²/100 mains), `roll` en BI. Alors `RoR = exp(−2·(WR/100)·roll / (σ/100)²)`. La version antérieure utilisait `WR` en bb/100 et `σ²` en bb² avec `roll` en BI sans conversion (dimensionnellement fausse → RoR ~93% au lieu de ~0.1%).
+- MTT : `edge` = ROI en BI/tournoi (ex. 15% = 0.15), `roll` en BI, `variance` = σ² en BI² (déjà cohérent).
 - `RoR` = proba de ruine (perte totale du roll) ; `1−RoR` = proba de survie. Viser RoR <1% (MTT) à <5% (cash).
-- **Lecture** : RoR 95% ne veut pas dire "95% de chance de tout perdre" dans l'usage naïf — la formule suppose marche aléatoire infinie sans tilt/biais ; en pratique le tilt et les downswings réels aggravent le RoR d'un facteur 2–5× si BR < seuil.
+- **Lecture** : la formule suppose marche aléatoire infinie sans tilt/biais ; en pratique le tilt et les downswings réels aggravent le RoR d'un facteur 2–5× si BR < seuil. **Errata** : les tables cash antérieures affichaient ~93% à 40 BI pour WR 7 par erreur d'unités ; valeur corrigée ~0.1% (voir ci-dessous).
 
-### 6.1 Cash HU — N=2, σ≈70 (var=4900)
-
-| Variante | N | WR (bb/100) | σ | Roll 20 BI | Roll 40 BI | Roll 100 BI |
-|----------|---|-------------|---|------------|------------|-------------|
-| **HU** | **2** | +5 (réaliste) | 70 | RoR 81.9% · survie 18.1% | 67.0% · survie 33.0% | 36.8% · survie 63.2% |
-| **HU** | **2** | **+10 (méd. micro)** | 70 | **92.2% · 7.8%** | **84.9% · 15.1%** | **66.5% · 33.5%** |
-| **HU** | **2** | +12 (élite) | 70 | 90.7% · 9.3% | 82.2% · 17.8% | 61.3% · 38.7% |
-| **HU** | **2** | +8 | 70 | 93.9% · 6.1% | 88.2% · 11.8% | 72.6% · 27.4% |
-
-> HU : RoR apparemment élevé car WR en bb/100 est petit devant σ=70 — mais la formule cash en bb/100 vs BI n'est pas directement comparable (1 BI=100 bb). Le bon repère HU est la survie : à WR +10 et 40 BI, ~15% survie théorique pure — en pratique le seuil 40 BI reste recommandé car la variance d'adaptation (adversaire unique) domine.
-
-### 6.2 Cash 6-max — N=3..6, σ≈90 (var=8100)
+### 6.1 Cash HU — N=2, σ≈70 → σ_BI 0.70, var_BI 0.49
 
 | Variante | N | WR (bb/100) | σ | Roll 20 BI | Roll 40 BI | Roll 100 BI |
 |----------|---|-------------|---|------------|------------|-------------|
-| **6-max** | **3** | **+7 (méd. micro V1)** | 90 | **96.6% · 3.4%** | **93.3% · 6.7%** | **84.1% · 15.9%** |
-| **6-max** | **3** | +5 | 90 | 97.6% · 2.4% | 95.2% · 4.8% | 88.4% · 11.6% |
-| **6-max** | **4** | **+7 (méd. micro V1)** | 90 | **96.6% · 3.4%** | **93.3% · 6.7%** | **84.1% · 15.9%** |
-| **6-max** | **4** | +3.2 (méd. mid) | 90 | 98.4% · 1.6% | 96.9% · 3.1% | 92.4% · 7.6% |
-| **6-max** | **5** | **+7 (méd. micro V1)** | 90 | **96.6% · 3.4%** | **93.3% · 6.7%** | **84.1% · 15.9%** |
-| **6-max** | **5** | +5 | 90 | 97.6% · 2.4% | 95.2% · 4.8% | 88.4% · 11.6% |
-| **6-max** | **6** | **+7 (méd. micro V1)** | 90 | **96.6% · 3.4%** | **93.3% · 6.7%** | **84.1% · 15.9%** |
-| **6-max** | **6** | +3.2 (méd. mid) | 90 | 98.4% · 1.6% | 96.9% · 3.1% | 92.4% · 7.6% |
-| **6-max** | **6** | +0.8 (méd. high) | 90 | 99.6% · 0.4% | 99.2% · 0.8% | 98.0% · 2.0% |
+| **HU** | **2** | +5 (réaliste) | 70 | RoR 1.69% · survie 98.3% | 0.029% · survie ~100% | ~0% · ~100% |
+| **HU** | **2** | **+10 (méd. micro)** | 70 | **0.029% · ~100%** | **~0% · ~100%** | **~0% · ~100%** |
+| **HU** | **2** | +12 (élite) | 70 | 0.0056% · ~100% | ~0% · ~100% | ~0% · ~100% |
+| **HU** | **2** | +8 | 70 | 0.15% · 99.85% | ~0% · ~100% | ~0% · ~100% |
 
-> 6-max : même lecture pour tous les N=3..6 (σ≈90 commun). Le RoR théorique pur reste élevé car WR (bb/100) « pèse » peu face à σ=90 dans la formule exponentielle — l'interprétation opérationnelle est la règle **40 BI minimum cash** (60 BI si tilt-prone), validée empiriquement Pluribus/Supremus + downswing réel (§5 piège #1).
+> HU : à WR ≥5 et 40 BI, le RoR théorique pur est <0.1% — l'unité BI compte. Le seuil **40 BI reste recommandé** car la variance d'adaptation (adversaire unique, `deviation_cap`) et le tilt (§5 piège #1) dominent le risque réel, non la formule idéale.
+
+### 6.2 Cash 6-max — N=3..6, σ≈90 → σ_BI 0.90, var_BI 0.81
+
+| Variante | N | WR (bb/100) | σ | Roll 20 BI | Roll 40 BI | Roll 100 BI |
+|----------|---|-------------|---|------------|------------|-------------|
+| **6-max** | **3** | **+7 (méd. micro V1)** | 90 | **3.16% · 96.8%** | **0.10% · 99.90%** | **~0% · ~100%** |
+| **6-max** | **3** | +5 | 90 | 8.49% · 91.5% | 0.72% · 99.28% | ~0% · ~100% |
+| **6-max** | **4** | **+7 (méd. micro V1)** | 90 | **3.16% · 96.8%** | **0.10% · 99.90%** | **~0% · ~100%** |
+| **6-max** | **4** | +3.2 (méd. mid) | 90 | 20.6% · 79.4% | 4.24% · 95.8% | 0.037% · 99.96% |
+| **6-max** | **5** | **+7 (méd. micro V1)** | 90 | **3.16% · 96.8%** | **0.10% · 99.90%** | **~0% · ~100%** |
+| **6-max** | **5** | +5 | 90 | 8.49% · 91.5% | 0.72% · 99.28% | ~0% · ~100% |
+| **6-max** | **6** | **+7 (méd. micro V1)** | 90 | **3.16% · 96.8%** | **0.10% · 99.90%** | **~0% · ~100%** |
+| **6-max** | **6** | +3.2 (méd. mid) | 90 | 20.6% · 79.4% | 4.24% · 95.8% | 0.037% · 99.96% |
+| **6-max** | **6** | +0.8 (méd. high) | 90 | 67.4% · 32.6% | 45.4% · 54.6% | 13.9% · 86.1% |
+
+> 6-max : même lecture pour tous les N=3..6 (σ_BI 0.90 commun). En micro V1 à WR 7, **40 BI → RoR ~0.1%** (survie 99.90%) — d'où la règle **40 BI minimum cash** (60 BI si tilt-prone) validée empiriquement Pluribus/Supremus + downswing réel (§5 piège #1). En mid WR 3.2, 40 BI → 4.2% (encore >1%) — monter à 60-80 BI recommandé. En high WR 0.8, même 100 BI → 13.9% — le field écrase l'edge, le volume ne compense pas.
 
 ### 6.3 MTT — N=7..9, σ 1.9–2.6 BI (var=3.6–6.8)
 
