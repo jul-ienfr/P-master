@@ -70,7 +70,6 @@ class SnapshotPayloadMixin:
         }
 
     @staticmethod
-    @staticmethod
     def _runtime_players(canonical_spot: dict) -> list[dict]:
         players = canonical_spot.get("players", []) if isinstance(canonical_spot, dict) else []
         return [dict(player) for player in players if isinstance(player, dict)]

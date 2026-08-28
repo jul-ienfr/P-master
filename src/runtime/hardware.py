@@ -146,7 +146,7 @@ def classify_profile(vram_total_mib: int | None) -> str:
     return PROFILES_12G
 
 
-def detect_gpu_profile(torch_module=None) -> HardwareProfile:
+def detect_gpu_profile(torch_module=None, cfg: dict | None = None) -> HardwareProfile:
     """Détecte la VRAM et retourne le profil. Overrides env prioritaires."""
     forced = os.getenv("POKER_GPU_PROFILE", "auto").strip().lower()
     canonical = _PROFILE_ALIASES.get(forced, forced)
@@ -154,7 +154,7 @@ def detect_gpu_profile(torch_module=None) -> HardwareProfile:
         logger.warning("POKER_GPU_PROFILE inconnu (%r), auto-detection", forced)
 
     if canonical in _VALID_PROFILES:
-        return _apply_cap_override(_PROFILES[canonical])
+        return _apply_cap_override(_PROFILES[canonical], cfg)
 
     detected = None
     if torch_module is not None:
@@ -172,11 +172,15 @@ def detect_gpu_profile(torch_module=None) -> HardwareProfile:
                 "vram_total_mib": detected[0],
             }
         )
-    return _apply_cap_override(profile)
+    return _apply_cap_override(profile, cfg)
 
 
-def _apply_cap_override(profile: HardwareProfile) -> HardwareProfile:
+def _apply_cap_override(profile: HardwareProfile, cfg: dict | None = None) -> HardwareProfile:
     cap_override = os.getenv("POKER_VRAM_CAP")
+    if (not cap_override or not cap_override.strip()) and cfg is not None:
+        raw = (cfg.get("hardware") or {}).get("vram_cap_override")
+        if raw is not None and str(raw).strip():
+            cap_override = str(raw).strip()
     if not cap_override or profile.name == PROFILES_CPU:
         return profile
     try:
@@ -207,11 +211,12 @@ def get_active_hardware_profile() -> HardwareProfile:
     return _active_profile
 
 
-def apply_hardware_profile(torch_module=None) -> HardwareProfile:
+def apply_hardware_profile(torch_module=None, cfg: dict | None = None) -> HardwareProfile:
     """Applique le profil détecté : alloc conf, memory fraction, cudnn.
 
     À appeler en tout premier dans src/main.py, avant toute allocation CUDA.
     Tolérant : si torch est absent ou CUDA indisponible, ne fait rien de risqué.
+    Si cfg fourni, hardware.vram_cap_override (priorité env > cfg) est pris en compte.
     """
     if torch_module is None:
         try:
@@ -219,7 +224,7 @@ def apply_hardware_profile(torch_module=None) -> HardwareProfile:
         except ImportError:
             torch_module = None
 
-    profile = detect_gpu_profile(torch_module)
+    profile = detect_gpu_profile(torch_module, cfg)
 
     global _active_profile
     _active_profile = profile

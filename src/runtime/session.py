@@ -14,7 +14,7 @@ except ImportError:  # Python 3.10 compatibility
 
 logger = logging.getLogger("SuperBot2026")
 
-RUNTIME_PORT_CANDIDATES = (8005, 8080)
+RUNTIME_PORT_CANDIDATES = (8005, 8006)
 
 
 def parse_bool_flag(value: object) -> bool | None:
@@ -64,6 +64,16 @@ def select_available_runtime_port(candidates: tuple[int, ...] = RUNTIME_PORT_CAN
             continue
         finally:
             probe.close()
+    if not candidates:
+        msg = "Aucun candidat de port runtime fourni"
+        raise RuntimeError(msg)
+    # Aucun port libre : fallback premier candidat (compat tests/historique);
+    # l'appelant/l'api tentera le bind suivant et lèvera si vraiment occupé.
+    logger.warning(
+        "Aucun port runtime disponible parmi %s (tous occupes) — fallback %s.",
+        candidates,
+        candidates[0],
+    )
     return candidates[0]
 
 

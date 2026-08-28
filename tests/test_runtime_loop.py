@@ -425,8 +425,9 @@ def test_runtime_loop_uses_fast_pixel_probe_to_trigger_hitl_without_turn_layout(
     assert controller._last_turn_probe_snapshot["is_our_turn"] is True
 
 
-def test_runtime_loop_measures_actionable_frame_age_from_state_ready_time(monkeypatch):
-    monotonic_values = itertools.count(start=1000.0, step=0.6)
+def test_runtime_loop_measures_actionable_frame_age_from_frame_acquired_at(monkeypatch):
+    # step=0.12 : frame_acquired_at -> stale gate ~= 1.08s (< 1.25) donc pas de stale
+    monotonic_values = itertools.count(start=1000.0, step=0.12)
     monkeypatch.setattr("src.runtime.loop.time.monotonic", lambda: next(monotonic_values))
 
     stale_calls = []

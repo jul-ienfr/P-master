@@ -103,7 +103,7 @@ lint.ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 # Points d'entrée : bootstrap sys.path avant les imports (src/main.py, CLI, tests).
-"src/main.py" = ["E402"]
+"src/main.py" = ["E402", "UP017"]
 "src/api/runtime_bridge_server.py" = ["E402"]
 "src/vision/ocr_probe.py" = ["E402"]
 "src/scripts/*" = ["E402"]
@@ -112,11 +112,28 @@ lint.ignore = ["E501"]
 "src/scripts/auto_annotate_templates.py" = ["B023"]
 "scripts/*" = ["E402"]
 "tests/*" = ["E402"]
+"src/runtime/session.py" = ["UP017"]
 
 [tool.mypy]
 python_version = "3.11"
 warn_return_any = true
 warn_unused_ignores = true
+ignore_missing_imports = false
+explicit_package_bases = true
+mypy_path = "."
+namespace_packages = true
+exclude = '(?x)(^\.venv/|\.kilo/|website/|poker/tests/|\.tools/)'
+
+[[tool.mypy.overrides]]
+module = [
+    "cv2.*", "numpy.*", "PIL.*", "torch.*", "ultralytics.*",
+    "onnxruntime.*", "sklearn.*", "pandas.*", "asyncpg.*", "redis.*",
+    "pydantic.*", "aiohttp.*", "openai.*", "transitions.*",
+    "uiautomation.*", "windows_capture.*", "dxcam.*", "pynput.*",
+    "rapidocr.*", "surya.*", "rlcard.*", "pokerkit.*", "gymnasium.*",
+    "huggingface_hub.*", "safetensors.*", "optuna.*", "pgvector.*",
+    "postflop_solver_py.*", "yaml.*", "dotenv.*", "win32api.*", "win32con.*",
+]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

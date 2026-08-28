@@ -38,7 +38,7 @@ class BotAPI(
         runtime_observation_exporter: Callable[..., dict] | None = None,
         runtime_timesfm_provider: Callable[..., dict] | None = None,
         host: str = "127.0.0.1",
-        port: int = 8080,
+        port: int = 8005,
         runtime_history_store=None,
     ):
         """
@@ -98,19 +98,35 @@ class BotAPI(
         return list(entries[:limit]) if isinstance(entries, list) else []
 
     def _setup_cors(self):
-        # Configuration CORS très permissive pour autoriser le frontend Tauri/React local
         if aiohttp_cors is None:
             logger.warning("aiohttp_cors n'est pas installe. Configuration CORS desactivee.")
             return
 
+        allowed_origins = {
+            "http://localhost:1420",
+            "http://127.0.0.1:1420",
+            "http://tauri.localhost",
+            "https://tauri.localhost",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:8765",
+            "http://127.0.0.1:8765",
+            "http://localhost:8005",
+            "http://127.0.0.1:8005",
+            "http://localhost:8006",
+            "http://127.0.0.1:8006",
+            "http://localhost:8080",
+            "http://127.0.0.1:8080",
+        }
         cors = aiohttp_cors.setup(
             self.app,
             defaults={
-                "*": aiohttp_cors.ResourceOptions(
+                origin: aiohttp_cors.ResourceOptions(
                     allow_credentials=True,
                     expose_headers="*",
                     allow_headers="*",
                 )
+                for origin in allowed_origins
             },
         )
         for route in list(self.app.router.routes()):

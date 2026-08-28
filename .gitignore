@@ -61,3 +61,5 @@ htmlcov/
 research/results/best_response.json
 research/results/monte_carlo_sim.json
 research/results/synthetic_corpus.json
+# Legacy GUI model (25 Mo, non versionné)
+poker/loaded_model.h5

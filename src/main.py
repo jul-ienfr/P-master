@@ -9,9 +9,8 @@ try:
 except ImportError:  # Python 3.10 compat (UTC added in 3.11)
     from datetime import datetime, timezone
 
-    UTC = timezone.utc  # type: ignore[no-redef]  # noqa: UP017 - 3.10 compat fallback
+    UTC = timezone.utc  # type: ignore[no-redef]  # noqa: UP017  # 3.10 compat fallback
 import ctypes
-import json
 import os
 import sys
 
@@ -30,17 +29,29 @@ def ensure_admin() -> None:
     if is_admin():
         return
     print("Demande des droits administrateur...")
-    # Re-run the program with admin rights
-    # Need to quote sys.executable just in case, but ShellExecuteW handles it.
-    ctypes.windll.shell32.ShellExecuteW(
-        None, "runas", sys.executable, " ".join(['"' + arg + '"' for arg in sys.argv]), None, 1
-    )
+    import subprocess
+
+    params = subprocess.list2cmdline(sys.argv)
+    ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, params, None, 1)
     sys.exit(0)
 
 
 import warnings
 
-import torch
+# PYTORCH_CUDA_ALLOC_CONF doit être posée AVANT import torch — l'allocateur
+# ne lit l'env qu'à l'import (hardware.py la repose aussi en lazy fallback)
+if os.getenv("PYTORCH_CUDA_ALLOC_CONF") is None:
+    try:
+        from src.runtime.hardware import detect_gpu_profile as _pre_detect  # type: ignore[import]
+
+        _pre_profile = _pre_detect(None)
+        _cac = getattr(_pre_profile, "cuda_alloc_conf", None)
+        if _cac:
+            os.environ["PYTORCH_CUDA_ALLOC_CONF"] = _cac
+    except Exception:
+        pass
+
+import torch  # noqa: E402 — alloc conf ci-dessus doit passer avant
 
 warnings.filterwarnings("ignore", message=".*'pin_memory'.*")
 warnings.filterwarnings("ignore", message=".*weights_only=False.*")
@@ -164,13 +175,29 @@ class SuperBotController(
     StateResolverMixin,
 ):
     def __init__(self, config_path: str = "config.json"):
-        # 1. Chargement de la Configuration
+        # 1. Chargement de la Configuration — unifie via src.config.load_config
+        # (cascade env > local > json > example + expansion ${VAR:-default} + overrides POKER_*)
+        # Fallback legacy comme src/runtime/preflight.py:23-30 et src/api/runtime_bridge_server.py:29-33
         try:
-            with open(config_path) as f:
-                self.config = json.load(f)
+            from src.config import load_config as _load_config_unified
+
+            self.config = _load_config_unified(config_path)
         except FileNotFoundError:
             logger.error(f"Fichier de config {config_path} introuvable. Arrêt.")
             exit(1)
+        except Exception:
+            import json
+
+            try:
+                with open(config_path, encoding="utf-8") as handle:
+                    payload = json.load(handle)
+                self.config = dict(payload) if isinstance(payload, dict) else {}
+            except FileNotFoundError:
+                logger.error(f"Fichier de config {config_path} introuvable. Arrêt.")
+                exit(1)
+            except Exception as exc:  # noqa: BLE001
+                logger.error(f"Configuration illisible: {config_path} ({exc})")
+                exit(1)
 
         bot_cfg = self.config.get("bot", {})
         db_cfg = self.config.get("database", {}) or {}

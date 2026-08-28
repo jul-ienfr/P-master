@@ -1,25 +1,25 @@
 const LOCAL_BOT_COCKPIT_URLS = [
-  "http://127.0.0.1:8080/bot-cockpit/payload",
-  "http://127.0.0.1:8080/runtime-snapshot",
   "http://127.0.0.1:8005/bot-cockpit/payload",
   "http://127.0.0.1:8005/runtime-snapshot",
+  "http://127.0.0.1:8006/bot-cockpit/payload",
+  "http://127.0.0.1:8006/runtime-snapshot",
   "/bot-cockpit/payload",
   "/runtime-snapshot",
 ];
 const LOCAL_BOT_COCKPIT_HISTORY_URLS = [
-  "http://127.0.0.1:8080/runtime-history",
   "http://127.0.0.1:8005/runtime-history",
+  "http://127.0.0.1:8006/runtime-history",
   "/runtime-history",
 ];
 const LOCAL_BOT_COCKPIT_REFRESH_URLS = [
-  "http://127.0.0.1:8080/bot-cockpit/refresh",
   "http://127.0.0.1:8005/bot-cockpit/refresh",
+  "http://127.0.0.1:8006/bot-cockpit/refresh",
   "/bot-cockpit/refresh",
   ...LOCAL_BOT_COCKPIT_URLS,
 ];
 const LOCAL_BOT_COCKPIT_OPERATOR_URLS = [
-  "http://127.0.0.1:8080/bot-cockpit/operator",
   "http://127.0.0.1:8005/bot-cockpit/operator",
+  "http://127.0.0.1:8006/bot-cockpit/operator",
   "/bot-cockpit/operator",
 ];
 const DEFAULT_TIMEOUT_MS = 800;

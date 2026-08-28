@@ -170,9 +170,6 @@ def resolve_debug_settings(cfg: dict | None = None) -> DebugSettings:
     # Env overrides are already applied via _apply_env_overrides if cfg came from load_config.
     # For direct probe calls (cfg={"debug":{"enabled":True}}), this suffices.
     # Re-evaluate enabled through _parse_bool_flag to handle "1"/"yes" etc.
-    parsed = _parse_bool_flag(debug_cfg.get("enabled"))
-    if parsed is not None:
-        enabled = parsed
     file_level = _parse_level(
         debug_cfg.get("file_level"), logging.DEBUG if enabled else logging.INFO
     )
@@ -339,8 +336,23 @@ def setup_debug_logging(cfg: dict | None = None) -> bool:
             pass
         log_file = (ROOT / "log" / "debug.log").resolve()
 
-    # Idempotence fine
-    if _already_configured and _applied_settings == settings:
+    # Idempotence fine — compare log_file normalisé (évite double handler si chemin relatif ≠ absolu)
+    effective_log_file = log_file
+    applied_log_file: Path | None = None
+    if _applied_settings is not None:
+        raw_applied = _applied_settings.log_file
+        applied_log_file = (
+            raw_applied if raw_applied.is_absolute() else (ROOT / raw_applied).resolve()
+        )
+        try:
+            applied_log_file.relative_to(ROOT.resolve())
+        except ValueError:
+            applied_log_file = (ROOT / "log" / "debug.log").resolve()
+    if (
+        _already_configured
+        and _applied_settings == settings
+        and applied_log_file == effective_log_file
+    ):
         return settings.enabled
 
     root = logging.getLogger()
@@ -387,14 +399,21 @@ def setup_debug_logging(cfg: dict | None = None) -> bool:
                 root.setLevel(logging.INFO)
             except Exception:
                 pass
-        # Restaurer RUST_LOG si on l'avait posé (F10)
+        # Restaurer RUST_LOG si on l'avait posé (F10) — garde identique à _reset_debug_state
         if _rust_log_set_by_us:
-            if _original_rust_log is None:
-                os.environ.pop("RUST_LOG", None)
+            cur = os.getenv("RUST_LOG")
+            if _rust_log_value_set is not None and cur != _rust_log_value_set:
+                pass  # injecté entre-temps — ne pas écraser
+            elif _original_rust_log is None:
+                try:
+                    os.environ.pop("RUST_LOG", None)
+                except Exception:
+                    pass
             else:
                 os.environ["RUST_LOG"] = _original_rust_log
             _rust_log_set_by_us = False
             _original_rust_log = None
+            _rust_log_value_set = None
         _already_configured = True
         _applied_settings = settings
         return False
@@ -436,7 +455,7 @@ def setup_debug_logging(cfg: dict | None = None) -> bool:
                     try:
                         h.setFormatter(
                             logging.Formatter(
-                                "%(asctime)s [%(levelname)s] %(name)s [%(spot_id)s]: %(message)s",
+                                "%(asctime)s [%(levelname)s] %(name)s [%(spot_id)s/%(table_id)s]: %(message)s",
                                 defaults={"spot_id": "-", "table_id": "-"},
                             )
                         )
@@ -447,6 +466,14 @@ def setup_debug_logging(cfg: dict | None = None) -> bool:
                             h.addFilter(_debug_filter)
                         except Exception:
                             pass
+        # Propagation Rust — identique au bloc ON normal (ne pas perdre RUST_LOG en fallback OSError)
+        if os.getenv("RUST_LOG") is None:
+            rust_val = os.getenv("POKER_RUST_LOG") or settings.rust_log
+            if rust_val:
+                _original_rust_log = os.getenv("RUST_LOG")
+                os.environ.setdefault("RUST_LOG", rust_val)
+                _rust_log_set_by_us = True
+                _rust_log_value_set = rust_val
         _already_configured = True
         _applied_settings = settings
         app_logger.setLevel(logging.DEBUG)
@@ -455,7 +482,7 @@ def setup_debug_logging(cfg: dict | None = None) -> bool:
     fh.setLevel(settings.file_level)
     fh.setFormatter(
         logging.Formatter(
-            "%(asctime)s [%(levelname)s] %(name)s [%(spot_id)s] (%(filename)s:%(lineno)d): %(message)s",
+            "%(asctime)s [%(levelname)s] %(name)s [%(spot_id)s/%(table_id)s] (%(filename)s:%(lineno)d): %(message)s",
             defaults={"spot_id": "-", "table_id": "-"},
         )
     )
@@ -475,7 +502,7 @@ def setup_debug_logging(cfg: dict | None = None) -> bool:
                 try:
                     h.setFormatter(
                         logging.Formatter(
-                            "%(asctime)s [%(levelname)s] %(name)s [%(spot_id)s]: %(message)s",
+                            "%(asctime)s [%(levelname)s] %(name)s [%(spot_id)s/%(table_id)s]: %(message)s",
                             defaults={"spot_id": "-", "table_id": "-"},
                         )
                     )

@@ -1,4 +1,5 @@
 """Tests du chargeur de configuration (src/config.py)."""
+
 import json
 import sys
 from pathlib import Path
@@ -47,7 +48,7 @@ def test_load_json_file_handles_missing_and_invalid(tmp_path):
     assert _load_json_file(bad) is None
     not_dict = tmp_path / "list.json"
     not_dict.write_text("[1, 2]", encoding="utf-8")
-    assert _load_json_file(not_dict) == {}
+    assert _load_json_file(not_dict) is None
     good = tmp_path / "good.json"
     good.write_text(json.dumps({"x": 1}), encoding="utf-8")
     assert _load_json_file(good) == {"x": 1}

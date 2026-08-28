@@ -190,7 +190,6 @@ class RuntimeLoop:
                         continue
 
                     detector_ms = (time.monotonic() - detector_started_at) * 1000.0
-                    state_ready_at = time.monotonic()
                     self._set_loop_stage("convert_state", publish=True)
                     convert_started_at = time.monotonic()
                     observed_canonical_state = self._convert_state_for_tracker(state, frame)
@@ -229,7 +228,6 @@ class RuntimeLoop:
                     )
                     decision_ms = 0.0
                     stale_frame = False
-                    decision_context_started_at = state_ready_at
 
                     self._set_loop_stage("tracker_update", publish=True)
                     tracker_started_at = time.monotonic()
@@ -286,8 +284,8 @@ class RuntimeLoop:
                             continue
 
                         self._set_loop_stage("decision_context", publish=True)
-                        decision_context_started_at = time.monotonic()
-                        frame_age_s = max(0.0, time.monotonic() - decision_context_started_at)
+                        # Dernier point où la frame est encore fraîche : entrée de boucle
+                        frame_age_s = max(0.0, time.monotonic() - frame_acquired_at)
                         capture_context_recently_changed = bool(
                             getattr(self, "_capture_context_recently_changed", lambda: False)()
                         )
@@ -352,9 +350,7 @@ class RuntimeLoop:
                             self._clear_live_execution_guard()
                     self._persist_runtime_metrics_snapshot()
                     total_ms = (time.monotonic() - loop_started_at) * 1000.0
-                    timing_reference_at = (
-                        decision_context_started_at if actionable_spot else frame_acquired_at
-                    )
+                    timing_reference_at = frame_acquired_at
                     frame_age_ms = max(0.0, (time.monotonic() - timing_reference_at) * 1000.0)
                     self._log_loop_timing(
                         canonical_state=canonical_state,

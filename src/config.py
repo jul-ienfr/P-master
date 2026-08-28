@@ -173,6 +173,15 @@ def _apply_env_overrides(cfg: dict) -> dict:
     if vram_cap and vram_cap.strip():
         cfg.setdefault("hardware", {})["vram_cap_override"] = vram_cap.strip()
 
+    # POKER_WINDOW_KEYWORDS — override window_title_keywords (documenté .env.example, sinon .env mort)
+    window_kw = os.getenv("POKER_WINDOW_KEYWORDS")
+    if window_kw and window_kw.strip():
+        cfg.setdefault("bot", {})["window_title_keywords"] = window_kw.strip()
+
+    v = _parse_bool_env(os.getenv("POKER_ENABLE_TIMESFM"))
+    if v is not None:
+        cfg.setdefault("timesfm", {})["enabled"] = v
+
     openai_key = os.getenv("OPENAI_API_KEY")
     groq_key = os.getenv("GROQ_API_KEY")
     local_key = os.getenv("POKER_AUTO_ANNOTATOR_API_KEY")
@@ -203,7 +212,7 @@ def _load_json_file(path: Path) -> dict | None:
     try:
         with path.open("r", encoding="utf-8") as fh:
             data = json.load(fh)
-        return data if isinstance(data, dict) else {}
+        return data if isinstance(data, dict) else None  # type: ignore[return-value]  # noqa: RET503 — non-dict blocks cascade
     except Exception:
         return None
 
