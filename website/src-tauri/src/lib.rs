@@ -9,7 +9,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::Emitter;
 use tauri::Manager;
 
-const RUNTIME_PORT_CANDIDATES: [u16; 2] = [8080, 8005];
+const RUNTIME_PORT_CANDIDATES: [u16; 2] = [8005, 8080];
 
 struct ManagedRuntimeProcess {
     child: Child,

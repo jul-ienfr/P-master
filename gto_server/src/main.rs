@@ -300,6 +300,9 @@ async fn main() {
                     "http://127.0.0.1:8005".parse::<HeaderValue>().unwrap(),
                     "http://localhost:8765".parse::<HeaderValue>().unwrap(),
                     "http://localhost:8005".parse::<HeaderValue>().unwrap(),
+                    "http://tauri.localhost".parse::<HeaderValue>().unwrap(),
+                    "https://tauri.localhost".parse::<HeaderValue>().unwrap(),
+                    "http://localhost:1420".parse::<HeaderValue>().unwrap(),
                 ])
                 .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
                 .allow_headers([

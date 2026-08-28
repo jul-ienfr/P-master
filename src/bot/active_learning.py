@@ -78,16 +78,22 @@ class HumanInTheLoop:
         async def _run_hitl():
             try:
                 # ETAPE 1: Auto-Guérison par API
+                boxes = []
                 if self.ai_fallback:
-                    logger.info("Tentative d'Auto-Guérison via l'API Vision (Arrière-plan)...")
-                    temp_path = "temp_fallback.jpg"
-                    cv2.imwrite(temp_path, frame)
-                    boxes = await asyncio.to_thread(
-                        self.ai_fallback.ask_ai_with_fallbacks, temp_path, width, height
-                    )
-
-                    if os.path.exists(temp_path):
-                        os.remove(temp_path)
+                    if hasattr(self.ai_fallback, "_has_any_usable_provider") and not self.ai_fallback._has_any_usable_provider():
+                        if logger.isEnabledFor(logging.DEBUG):
+                            logger.debug("Auto-Guérison skip — no provider keys configured, goto manual annotation.")
+                    else:
+                        logger.info("Tentative d'Auto-Guérison via l'API Vision (Arrière-plan)...")
+                        temp_path = "temp_fallback.jpg"
+                        cv2.imwrite(temp_path, frame)
+                        try:
+                            boxes = await asyncio.to_thread(
+                                self.ai_fallback.ask_ai_with_fallbacks, temp_path, width, height
+                            )
+                        finally:
+                            if os.path.exists(temp_path):
+                                os.remove(temp_path)
 
                     if boxes and len(boxes) > 0:
                         logger.info("Auto-Guérison API Réussie ! Le bot s'est adapaté.")

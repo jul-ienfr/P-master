@@ -39,10 +39,30 @@ class AutoAnnotator:
         _, buffer = cv2.imencode(".jpg", frame)
         return base64.b64encode(buffer).decode("utf-8")
 
+    def _has_any_usable_provider(self) -> bool:
+        for provider in self.providers:
+            api_key = str(provider.get("api_key", "") or "").strip()
+            base_url = str(provider.get("base_url", "") or "").strip()
+            if api_key or self._is_local_base_url(base_url or None):
+                return True
+        return False
+
     def ask_ai_with_fallbacks(
         self, image_path: str, width: int, height: int, frame: np.ndarray = None
     ) -> list:
         """Boucle sur les fournisseurs jusqu'à trouver un résultat valide (Fallback)."""
+        if not self._has_any_usable_provider():
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    "AutoAnnotator disabled — no provider keys configured (%d remote providers), skipping LLM fallback on %s.",
+                    len(self.providers),
+                    image_path,
+                )
+            else:
+                logger.info(
+                    "AutoAnnotator disabled — no provider keys configured, skipping LLM fallback."
+                )
+            return []
         for i, provider in enumerate(self.providers):
             api_key = provider.get("api_key", "")
             base_url = provider.get("base_url", "")
@@ -61,8 +81,15 @@ class AutoAnnotator:
                 continue
 
             try:
-                logger.info(f"Tentative {i + 1}/{len(self.providers)} avec le modèle {model}...")
-                client = OpenAI(api_key=api_key or "local", base_url=base_url)
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug("Tentative %d/%d avec le modèle %s...", i + 1, len(self.providers), model)
+                else:
+                    logger.info(f"Tentative {i + 1}/{len(self.providers)} avec le modèle {model}...")
+                client = OpenAI(
+                    api_key=api_key or "local",
+                    base_url=base_url,
+                    max_retries=0,
+                )
 
                 boxes = self._ask_single_ai(client, model, image_path, width, height, frame=frame)
 

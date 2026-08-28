@@ -1,7 +1,7 @@
 import { createDefaultLlmConfig } from "../features/llm/config";
 import type { LlmAssistResponse, LlmAssistTask, LlmConfig } from "../features/llm/types";
 
-const LOCAL_RUNTIME_URLS = ["http://127.0.0.1:8080", "http://127.0.0.1:8005"];
+const LOCAL_RUNTIME_URLS = ["http://127.0.0.1:8005", "http://127.0.0.1:8080"];
 const LOCAL_GTO_URL = "http://127.0.0.1:8765";
 const LLM_CONFIG_STORAGE_KEY = "pokermaster:v2:llm-config";
 export const LLM_CONFIG_UPDATED_EVENT = "pokermaster:llm-config-updated";

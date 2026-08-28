@@ -54,7 +54,7 @@ def test_ask_ai_with_fallbacks_uses_first_working_provider(monkeypatch):
         return [{"class": "pot_area", "xmin": 1, "ymin": 2, "xmax": 3, "ymax": 4}]
 
     monkeypatch.setattr(AutoAnnotator, "_ask_single_ai", staticmethod(fake_single))
-    monkeypatch.setattr("src.vision.auto_annotator.OpenAI", lambda api_key, base_url: SimpleNamespace(base_url=SimpleNamespace(host="127.0.0.1")))
+    monkeypatch.setattr("src.vision.auto_annotator.OpenAI", lambda api_key, base_url, **kwargs: SimpleNamespace(base_url=SimpleNamespace(host="127.0.0.1")))
     boxes = annotator.ask_ai_with_fallbacks("unused.jpg", 800, 600)
     assert boxes and boxes[0]["class"] == "pot_area"
     # le premier fournisseur distant sans clé est ignoré d'office

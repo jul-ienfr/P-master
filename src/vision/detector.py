@@ -278,15 +278,21 @@ class PokerDetector:
                 crop = _crop_frame(frame, (x1, y1, x2, y2))
                 validated_class = self._hybrid_validate_card(crop, class_name)
                 if validated_class != class_name:
-                    logger.info(
-                        f"[HYBRID] YOLO uncertain ({conf:.2f}) on {class_name}. Corrected to {validated_class} via Template Matching."
+                    logger.debug(
+                        "[HYBRID] YOLO uncertain (%.2f) on %s. Corrected to %s via Template Matching.",
+                        conf,
+                        class_name,
+                        validated_class,
                     )
                     class_name = validated_class
 
             detection.class_name = class_name
             if is_card:
-                logger.info(
-                    f"[YOLO DEBUG] Raw card candidate: cls={class_name} conf={conf:.3f} y1={y1}"
+                logger.debug(
+                    "[YOLO DEBUG] Raw card candidate: cls=%s conf=%.3f y1=%s",
+                    class_name,
+                    conf,
+                    y1,
                 )
                 card_detections.append(detection)
             elif class_name == "dealer_button":
