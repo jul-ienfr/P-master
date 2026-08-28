@@ -64,6 +64,11 @@ class NumericValidator:
                 accepted_value=previous, valid=False, reject_reason="implausible_pot_drop"
             )
 
+        if previous > 5.0 and candidate > previous * 4.0:
+            return NumericValidationResult(
+                accepted_value=previous, valid=False, reject_reason="implausible_pot_jump"
+            )
+
         if candidate > 200000.0:
             return NumericValidationResult(
                 accepted_value=previous if previous > 0.0 else None,

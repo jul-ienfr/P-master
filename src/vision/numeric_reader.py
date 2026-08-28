@@ -112,6 +112,22 @@ class NumericReader:
                 break
 
         validation_result = self.validator.validate(field_name, previous_value, best_value)
+        # Tentative pot jumps require stronger confirmation.
+        if (
+            field_name == "pot"
+            and validation_result.valid
+            and best_value is not None
+            and previous_value > 5.0
+            and best_value > previous_value * 2.5
+            and best_confidence < 0.94
+        ):
+            validation_result = __import__(
+                "src.vision.numeric_validator", fromlist=["NumericValidationResult"]
+            ).NumericValidationResult(
+                accepted_value=previous_value,
+                valid=False,
+                reject_reason="implausible_pot_jump_needs_confirmation",
+            )
         consensus_result = self.consensus.update(validation_result.accepted_value)
         final_value = consensus_result.value
         final_candidate = best_candidate if validation_result.valid else None
@@ -121,6 +137,39 @@ class NumericReader:
             if validation_result.valid
             else validation_result.reject_reason or "no_valid_numeric_candidate"
         )
+        # Quarantine policy for pot.
+        # - When the validator rejected the new OCR value (e.g. implausible drop,
+        #   implausible jump, zero regression, etc.) and the consensus has not yet
+        #   confirmed a stable value, hold the previous value if already grounded
+        #   (previous_value>0) otherwise surface None but keep state quarantined.
+        # - When the OCR value is valid but large (>2x) and consensus is still
+        #   tentative, delay promoting it to selected_value (wait for a 2nd frame).
+        # - Cold-start (previous_value==0, first ever frame) must not be stuck in
+        #   quarantine because downstream consumers await a first non-None value.
+        should_quarantine = False
+        if field_name == "pot" and consensus_result.state == "tentative":
+            if not validation_result.valid:
+                # rejected by validator — quarantine if we already have a grounded baseline
+                should_quarantine = previous_value > 0.0
+            else:
+                should_quarantine = (
+                    best_value is not None
+                    and previous_value > 0.0
+                    and best_value > previous_value * 2.0
+                )
+        if should_quarantine:
+            final_value = (
+                validation_result.accepted_value
+                if not validation_result.valid and previous_value > 0.0
+                else (consensus_result.history[-2] if len(consensus_result.history) >= 2 else None)
+            )
+            # When validator rejected, previous_value is the ground truth to keep.
+            if not validation_result.valid and previous_value > 0.0:
+                final_value = float(validation_result.accepted_value)
+            final_state = "quarantined"
+            if validation_result.valid:
+                rejection_reason = "pot_consensus_tentative"
+            final_candidate = None
 
         evidence = FieldEvidence(
             field_name=field_name,

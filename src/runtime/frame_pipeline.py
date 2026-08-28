@@ -100,6 +100,44 @@ class FramePipeline:
     def _read_live_pot_fast(
         self, frame: np.ndarray, pot_box: tuple[int, int, int, int]
     ) -> dict | None:
+        previous_value = float(getattr(self, "last_pot_value", 0.0) or 0.0)
+        numeric_reader = self._get_numeric_reader()
+        if numeric_reader is not None:
+            # Route fast-lane through NumericReader so validator+consensus quarantine still apply.
+            pot_focus_box = self._build_pot_text_focus_bbox(pot_box)
+            pot_crop = self._safe_crop(frame, pot_focus_box)
+            crop_quality = (
+                analyze_crop_quality("pot", pot_crop).to_dict() if pot_crop is not None else None
+            )
+            if pot_crop is None or not self._is_pot_crop_usable(crop_quality):
+                pot_crop = self._safe_crop(frame, pot_box)
+                crop_quality = (
+                    analyze_crop_quality("pot", pot_crop).to_dict()
+                    if pot_crop is not None
+                    else None
+                )
+                if pot_crop is None or not self._is_pot_crop_usable(crop_quality):
+                    return None
+                pot_focus_box = pot_box
+            try:
+                result = numeric_reader.read_amount("pot", pot_crop, previous_value=previous_value)
+            except Exception:
+                return None
+            # read_amount already quarantines tentative single-frame jumps; only accept confirmé/confirmed.
+            if result.selected_value is None:
+                return None
+            # Keep selected_text/confidence from evidence for traceability.
+            ev = result.evidence
+            return {
+                "value": float(result.selected_value),
+                "observed_at_monotonic": time.monotonic(),
+                "source_region": "fast_lane_geometry",
+                "ocr_focus": "top_label",
+                "ocr_bbox": list(pot_focus_box),
+                "source_bbox": list(pot_box),
+                "selected_text": str(getattr(ev.selected_candidate, "raw_text", "") or ""),
+                "selected_confidence": float(ev.confidence or 0.0),
+            }
         amount_ocr = getattr(self, "amount_ocr", None)
         if amount_ocr is None:
             return None
@@ -123,6 +161,18 @@ class FramePipeline:
         confidence = float(metadata.get("selected_confidence", 0.0) or 0.0)
         if value is None or confidence < 0.9:
             return None
+        # Fallback path without NumericReader: still validate via NumericValidator guards.
+        try:
+            from src.vision.numeric_validator import NumericValidator as _NV
+
+            _validator = _NV()
+            vres = _validator.validate_pot(previous_value, float(value))
+            if not vres.valid:
+                return None
+            if previous_value > 5.0 and float(value) > previous_value * 2.5 and confidence < 0.94:
+                return None
+        except Exception:
+            pass
         return {
             "value": float(value),
             "observed_at_monotonic": time.monotonic(),

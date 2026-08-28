@@ -11,9 +11,9 @@ from src.runtime.health import HealthMonitor
 try:
     from datetime import UTC, datetime
 except ImportError:  # Python 3.10 compatibility
-    from datetime import datetime
+    from datetime import datetime, timezone
 
-    UTC = UTC
+    UTC = timezone.utc
 
 try:
     import requests

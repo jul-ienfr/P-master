@@ -481,13 +481,34 @@ class SanityChecker:
             self._last_ocr_pot = new_ocr_pot
 
         # If OCR is consistent for 3 consecutive reads, we trust it and reconcile
+        # — but only if the OCR jump does not contradict the mathematical story:
+        # without matching total_bets on table, a >4x jump almost always means the
+        # OCR hallucinated extra digits (e.g. duplicated characters). NumericValidator/
+        # NumericReader already quarantine such jumps; do not overrule them here.
         if self._pot_discrepancy_count >= 3:
-            logger.info(
-                f"ðŸ”„ Réconciliation Pot : L'OCR insiste depuis 3 frames, synchronisation mathématique sur la valeur OCR au lieu de forcer. (Ancien math={expected_pot}, Nouvel OCR={new_ocr_pot})"
+            unbounded = bool(allow_unbacked_observed_pot)
+            suspicious_unbacked_jump = (
+                not unbounded
+                and old_pot > 5.0
+                and new_ocr_pot > old_pot * 4.0
+                and total_bets <= max(1.0, old_pot * 0.05)
             )
-            self.reset_pot_reconciliation()
-            self._last_ocr_pot = new_ocr_pot
-            return new_ocr_pot
+            if not suspicious_unbacked_jump:
+                logger.info(
+                    f"ðŸ”„ Réconciliation Pot : L'OCR insiste depuis 3 frames, synchronisation mathématique sur la valeur OCR au lieu de forcer. (Ancien math={expected_pot}, Nouvel OCR={new_ocr_pot})"
+                )
+                self.reset_pot_reconciliation()
+                self._last_ocr_pot = new_ocr_pot
+                return new_ocr_pot
+            # Keep the mathematically-backed value until a backer (bets) appears.
+            logger.warning(
+                "Réconciliation pot différée : jump OCR >4x sans mises corrélées (math=%.1f ocr=%.1f bets=%.1f).",
+                expected_pot,
+                new_ocr_pot,
+                total_bets,
+            )
+            self._pot_discrepancy_count = 2
+            return expected_pot
 
         if new_ocr_pot > expected_pot:
             logger.warning(

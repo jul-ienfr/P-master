@@ -13,7 +13,12 @@ import re
 import shutil
 import time
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+try:
+    from datetime import UTC, datetime
+except ImportError:  # Python 3.10 compatibility
+    from datetime import datetime, timezone
+
+    UTC = timezone.utc
 from pathlib import Path
 from typing import Any
 

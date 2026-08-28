@@ -11,9 +11,9 @@ except ImportError:
 try:
     from datetime import UTC, datetime
 except ImportError:  # Python 3.10 compatibility
-    from datetime import datetime
+    from datetime import datetime, timezone
 
-    UTC = UTC
+    UTC = timezone.utc
 
 from src.api.routes_history import HistoryRoutesMixin
 from src.api.routes_resolve import ResolveRoutesMixin

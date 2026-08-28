@@ -10,9 +10,9 @@ from pathlib import Path
 try:
     from datetime import UTC, datetime
 except ImportError:  # Python 3.10 compatibility
-    from datetime import datetime
+    from datetime import datetime, timezone
 
-    UTC = UTC
+    UTC = timezone.utc
 
 from src.runtime.history_store import KNOWN_STREAMS, RuntimeHistoryStore
 
