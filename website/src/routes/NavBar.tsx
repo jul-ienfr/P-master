@@ -6,7 +6,7 @@ import ReactGA from 'react-ga4';
 
 function NavBar() {
   const [isOpen, setIsOpen] = useState(false);
-  const dlLink = useDlLink(); // Assume this hook provides a dynamic download link
+  const { link: dlLink } = useDlLink(); // Dynamic download link, null when unavailable
 
   const toggle = () => {
     setIsOpen(!isOpen);
@@ -45,9 +45,15 @@ function NavBar() {
       <div className={`collapse navbar-collapse ${isOpen ? 'show' : ''}`} id="navbarTogglerDemo03">
         <ul className="navbar-nav mr-auto">
           <li className="nav-item">
-            <a className="nav-link" href={dlLink} onClick={() => handleNavLinkClick('Download')}>
-              Download
-            </a>
+            {dlLink ? (
+              <a className="nav-link" href={dlLink} onClick={() => handleNavLinkClick('Download')}>
+                Download
+              </a>
+            ) : (
+              <span className="nav-link disabled" aria-disabled="true" title="Download link unavailable in local mode">
+                Download (unavailable)
+              </span>
+            )}
           </li>
           <li className="nav-item">
             <Link className="nav-link" to="/purchase" onClick={() => handleNavLinkClick('Purchase')}>

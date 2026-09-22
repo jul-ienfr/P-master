@@ -311,6 +311,7 @@ class LiveExecutionMixin:
             or 0.0
         )
         fallback_used = bool(decision.get("fallback_used", False))
+        fallback_reason = str(decision.get("fallback_reason") or "").strip().lower()
         requires_profile_sample = decision_source in ASSISTED_PROFILE_REQUIRED_SOURCES
         runtime_readiness = dict(
             (canonical_state.metadata or {}).get("runtime_readiness", {}) or {}
@@ -338,6 +339,7 @@ class LiveExecutionMixin:
                 "profile_reliability": round(profile_reliability, 3),
                 "exploit_confidence": round(exploit_confidence, 3),
                 "fallback_used": fallback_used,
+                "fallback_reason": fallback_reason,
                 "runtime_readiness_state": readiness_state,
                 "runtime_readiness_score": round(readiness_score, 3),
             },
@@ -358,6 +360,26 @@ class LiveExecutionMixin:
             return result
         if readiness_state == "conservative" and not fallback_used:
             result["reason"] = "runtime_conservative"
+            return result
+        # Phase 0.5.5 — veto fail-closed blueprint (zéro-approximation) :
+        # un MISS blueprint (spot absent OU mise adverse hors tolérance de
+        # quantification) ne doit JAMAIS auto-exécuter, même si l'action
+        # repliée est passive (CHECK/FOLD). Le click-gate refuse avant tout
+        # seuil de confort — la décision reste manuelle, sans clic.
+        if fallback_used and fallback_reason in {
+            "no_blueprint",
+            "bet_out_of_quantization_tolerance",
+        }:
+            result["reason"] = "solver_fallback_no_blueprint"
+            try:
+                logger.warning(
+                    "CLICK | no_blueprint_veto action=%s reason=%s legal=%s",
+                    final_action,
+                    fallback_reason,
+                    sorted(legal_actions),
+                )
+            except Exception:
+                pass
             return result
         if fallback_used:
             if (

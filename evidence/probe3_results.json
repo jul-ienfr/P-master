@@ -1,0 +1,24 @@
+[
+ {
+  "tag": "J-mixed-AA-AKo-vs-QQ",
+  "hero_range": "AA,AKo",
+  "villain_range": "QQ",
+  "hero_hand": "AsAd",
+  "converged": false,
+  "exploitability": 0.09195104241371155,
+  "fallback_reason": "convergence_not_reached",
+  "chosen_action": "",
+  "selection": null
+ },
+ {
+  "tag": "K-mixed-vs-QQJJ",
+  "hero_range": "AA,AKo",
+  "villain_range": "QQ,JJ",
+  "hero_hand": "AsAd",
+  "converged": false,
+  "exploitability": 0.03610086441040039,
+  "fallback_reason": "convergence_not_reached",
+  "chosen_action": "",
+  "selection": null
+ }
+]

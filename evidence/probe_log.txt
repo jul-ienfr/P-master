@@ -1,0 +1,13 @@
+﻿.venv\Scripts\python :   File "<string>", line 4
+Au caractère Ligne:1 : 302
++ ... atch {} } }; .venv\Scripts\python -c 'import postflop_solver_py, json
++                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (  File "<string>", line 4:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+    r = postflop_solver_py.solve_spot_v2(hero_range=hr, villain_ranges=[vr], board=[2c,7d,Js,4h,9s], 
+starting_pot=10.0, effective_stack=20.0, legal_actions=[FOLD,CALL,ALL_IN], spot_id=tag, hero_position=oop, 
+action_history=[], num_players=2, use_cache=False, time_budget_ms=None, epsilon_target=0.001, hero_hand=hh, 
+sample_mixed=False, random_seed=None, rake=0.0, rake_cap=0.0)
+                                                                                    ^
+SyntaxError: invalid decimal literal

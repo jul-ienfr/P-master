@@ -1,5 +1,4 @@
 import asyncio
-import hashlib
 import json
 import logging
 import time
@@ -10,6 +9,7 @@ from typing import Any
 import numpy as np
 
 from src.data.redis_cache import AsyncRedisCache
+from src.runtime.bet_logger import log_action_history_bets
 from src.solver.provider import SolverProvider
 
 from .icm_calculator import ICMCalculator
@@ -379,6 +379,12 @@ def _safe_string(value: Any) -> str | None:
     return text or None
 
 
+# Phase 0.5.6/4.1 — helper partagé déplacé dans src.solver.spot_key (module
+# neutre, sans dépendances lourdes ; évite un import circulaire avec
+# src.solver.provider qui l'utilise pour le lookup blueprint live).
+from src.solver.spot_key import spot_cache_key  # noqa: F401  (ré-export)
+
+
 def _compact_solver_list(value: Any) -> list | None:
     if not isinstance(value, list):
         return None
@@ -497,6 +503,13 @@ class DecisionMaker:
         if not self.solver_provider:
             raise RuntimeError("rust_solver_unavailable")
 
+        # Phase 0.7.1 — télémétrie des mises adverses brutes (alimente la
+        # calibration de la tolérance de quantification).
+        try:
+            log_action_history_bets(action_history, pot=pot)
+        except Exception:  # noqa: BLE001 — télémétrie best-effort
+            pass
+
         cache_key = self._solve_cache_key(
             hero_hand=hero_hand,
             villain_range=villain_range,
@@ -507,6 +520,7 @@ class DecisionMaker:
             spot_id=spot_id,
             hero_position=hero_position,
             rake=self.rake_percentage,
+            state_confidence=state_confidence,
             action_history=[
                 f"{item.get('player', '')}:{item.get('action', '')}:{item.get('amount', 0)}"
                 for item in (action_history or [])
@@ -553,24 +567,22 @@ class DecisionMaker:
         hero_position: str,
         action_history: list[str],
         rake: float = 0.0,
+        state_confidence: float | None = None,
     ) -> str:
-        blob = json.dumps(
-            {
-                "hero": hero_hand,
-                "villain": villain_range,
-                "board": list(board or []),
-                "pot": round(float(pot), 4),
-                "stack": round(float(effective_stack), 4),
-                "legal": list(legal_actions or []),
-                "spot": spot_id,
-                "pos": hero_position,
-                "hist": action_history,
-                "rake": round(float(rake), 4),
-            },
-            sort_keys=True,
-            default=str,
+        # Phase 0.5.6/4.1 — délégué au helper partagé `spot_cache_key`.
+        return spot_cache_key(
+            hero_hand=hero_hand,
+            villain_range=villain_range,
+            board=board,
+            pot=pot,
+            effective_stack=effective_stack,
+            legal_actions=legal_actions,
+            spot_id=spot_id,
+            hero_position=hero_position,
+            action_history=action_history,
+            rake=rake,
+            state_confidence=state_confidence,
         )
-        return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
     def _solve_cache_get(self, key: str) -> dict | None:
         entry = self._solve_cache.get(key)

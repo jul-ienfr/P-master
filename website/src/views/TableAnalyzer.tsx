@@ -3,11 +3,13 @@ import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.css';
 import { useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, Tooltip, XAxis, YAxis } from 'recharts';
+import OfflineBanner from '../components/OfflineBanner';
 import { API_URL } from './config';
 
 function TableAnalyzer() {
   const [tableData, setTableData] = useState([]);
   const [loading, setLoading] = useState(true); // New state for loading
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -18,8 +20,9 @@ function TableAnalyzer() {
           }
         });
         setTableData(result.data);
-      } catch (error) {
-        console.error("Error fetching data:", error);
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        setError('Table statistics are not available in local mode (backend unreachable).');
       } finally {
         setLoading(false); // Set loading to false once fetching is done (either success or error)
       }
@@ -39,7 +42,13 @@ function TableAnalyzer() {
 
   return (
     <div className="tablechart">
+      {error && (
+        <OfflineBanner message={error} onDismiss={() => setError(null)} />
+      )}
       <div className="h4">Recently used table mappings</div>
+      {!error && tableData.length === 0 && (
+        <p className="text-muted">No table statistics to display.</p>
+      )}
       <BarChart width={600} height={900} data={data} layout="vertical">
         <CartesianGrid strokeDasharray="3 3" />
         <YAxis

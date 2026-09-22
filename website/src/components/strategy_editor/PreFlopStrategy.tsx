@@ -1,6 +1,7 @@
 import axios from "axios";
 import React, { useEffect, useState } from "react";
 import { API_URL } from "../../views/config";
+import OfflineBanner from "../OfflineBanner";
 import "./PreFlopStrategyEditor.css"; // Make sure the path is correct
 
 const getBackgroundColor = (value) => {
@@ -110,6 +111,7 @@ const HandScenarioRow = ({
 const PreFlopStrategyEditor = () => {
   const [position, setPosition] = useState("0");
   const [strategies, setStrategies] = useState({});
+  const [backendError, setBackendError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPreflopValues = async () => {
@@ -120,7 +122,9 @@ const PreFlopStrategyEditor = () => {
         setStrategies(response.data.preflop_values || {});
       } catch (error) {
         console.error("Error fetching preflop values:", error);
-        // Handle the error
+        setBackendError(
+          "Preflop strategy data is not available in local mode (backend unreachable). Editing with defaults."
+        );
       }
     };
 
@@ -165,7 +169,9 @@ const PreFlopStrategyEditor = () => {
       }
     } catch (error) {
       console.error("Error saving preflop values:", error);
-      // Optionally, display an error message to the user
+      setBackendError(
+        "Not available in local mode: the backend endpoint for saving preflop values is unreachable."
+      );
     }
   };
   // Handle call percentage change
@@ -320,6 +326,12 @@ const handleBetSizeChange = (betType, value, hand, scenario) => {
 
   return (
     <div>
+      {backendError && (
+        <OfflineBanner
+          message={backendError}
+          onDismiss={() => setBackendError(null)}
+        />
+      )}
       <label>
         Position:
         <select value={position} onChange={handlePositionChange}>

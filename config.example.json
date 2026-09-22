@@ -85,6 +85,12 @@
       "max_non_actionable_readiness_rate": 0.5,
       "max_invalid_validation_rate": 0.5
     },
+    "jev_gate": {
+      "mode": "observer",
+      "model": "jev-1.13-free",
+      "base_url": "http://127.0.0.1:4000",
+      "timeout_s": 0.8
+    },
     "site_profiles": {
       "PokerStars": {
         "default_bb": 200,

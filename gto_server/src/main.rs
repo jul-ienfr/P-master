@@ -10,7 +10,8 @@ use postflop_solver::{
     RangeStrengthResponse, SolveRequest, SolveRequestV2, SolveResponse, SolveResponseV2,
 };
 use serde::Deserialize;
-use std::{collections::BTreeMap, net::SocketAddr};
+use std::{collections::BTreeMap, net::SocketAddr, sync::OnceLock, time::Duration};
+use tokio::sync::Semaphore;
 use tower_http::cors::CorsLayer;
 use tracing::{debug, info};
 
@@ -30,25 +31,108 @@ struct LlmAssistRequestV2 {
     context: BTreeMap<String, String>,
 }
 
+/// Per-request timeout for long-running solve calls, overridable via the
+/// POKER_SOLVE_TIMEOUT_SECS env var (default 300s), in the same style as the
+/// POKER_RUST_LOG / POKER_DEBUG configuration used in main.
+fn solve_timeout() -> Duration {
+    static TIMEOUT: OnceLock<Duration> = OnceLock::new();
+    *TIMEOUT.get_or_init(|| {
+        let secs = std::env::var("POKER_SOLVE_TIMEOUT_SECS")
+            .ok()
+            .and_then(|value| value.trim().parse::<u64>().ok())
+            .filter(|secs| *secs > 0)
+            .unwrap_or(300);
+        Duration::from_secs(secs)
+    })
+}
+
+/// Limits concurrent CPU-bound solver calls to `available_parallelism - 1`
+/// (min 1) so Tokio worker threads stay responsive even under solve load.
+fn solve_semaphore() -> &'static Semaphore {
+    static SEM: OnceLock<Semaphore> = OnceLock::new();
+    SEM.get_or_init(|| {
+        let limit = std::thread::available_parallelism()
+            .map(|n| n.get().saturating_sub(1).max(1))
+            .unwrap_or(1);
+        Semaphore::new(limit)
+    })
+}
+
+/// Maximum time a handler waits for a concurrency permit before shedding
+/// load with a 503 instead of piling up requests.
+const PERMIT_WAIT: Duration = Duration::from_secs(5);
+
+/// Runs a CPU-bound call on Tokio's blocking thread pool so it cannot block
+/// the async worker threads. A JoinError (panic/abort in the solver thread)
+/// maps to 500; the solver's own error is returned as `Err(String)` for the
+/// caller to map with its handler-specific status code.
+async fn spawn_cpu<F, R>(f: F) -> Result<Result<R, String>, (StatusCode, String)>
+where
+    F: FnOnce() -> Result<R, String> + Send + 'static,
+    R: Send + 'static,
+{
+    tokio::task::spawn_blocking(f).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("solver worker failed: {e}"),
+        )
+    })
+}
+
+/// Acquires a concurrency permit (bounded wait -> 503 when the server is at
+/// capacity), runs the solver call off the async runtime, and applies the
+/// given overall timeout (504 when exceeded). /health and other handlers are
+/// never limited by this.
+async fn run_solver<F, R>(
+    timeout: Option<Duration>,
+    f: F,
+) -> Result<Result<R, String>, (StatusCode, String)>
+where
+    F: FnOnce() -> Result<R, String> + Send + 'static,
+    R: Send + 'static,
+{
+    let permit = match tokio::time::timeout(PERMIT_WAIT, solve_semaphore().acquire()).await {
+        Ok(Ok(permit)) => permit,
+        Ok(Err(_)) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "concurrency limiter closed".to_string(),
+            ))
+        }
+        Err(_) => {
+            return Err((
+                StatusCode::SERVICE_UNAVAILABLE,
+                "server busy: too many concurrent solver requests".to_string(),
+            ))
+        }
+    };
+
+    let join = spawn_cpu(f);
+    let result = match timeout {
+        Some(limit) => tokio::time::timeout(limit, join).await.map_err(|_| {
+            (
+                StatusCode::GATEWAY_TIMEOUT,
+                format!("solver request timed out after {}s", limit.as_secs()),
+            )
+        })?,
+        None => Ok(join.await?),
+    };
+    drop(permit);
+    result
+}
+
 #[tracing::instrument(skip(req), fields(board=?req.board, pot=req.starting_pot))]
 async fn solve_handler(
     Json(req): Json<SolveRequest>,
 ) -> Result<Json<SolveResponse>, (StatusCode, String)> {
     debug!(board=?req.board, pot=req.starting_pot, stack=req.effective_stack, hero_hand=?req.hero_hand, "solve request");
-    info!(
-        "Solve request - board: {:?}, pot: {}, stack: {}",
-        &req.board, req.starting_pot, req.effective_stack
-    );
 
-    let response =
-        solve_spot(req).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let response = run_solver(Some(solve_timeout()), move || {
+        solve_spot(req).map_err(|e| e.to_string())
+    })
+    .await?
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
 
-    info!(
-        "Solve complete - action: {}, EV: {:.2}, exploitability: {:.3}",
-        response.recommended_action.as_str(),
-        response.hero_ev,
-        response.exploitability
-    );
     debug!(action=%response.recommended_action.as_str(), ev=response.hero_ev, exploitability=response.exploitability, "solve complete");
 
     Ok(Json(response))
@@ -58,22 +142,14 @@ async fn solve_handler(
 async fn equity_handler(
     Json(req): Json<EquityRequest>,
 ) -> Result<Json<EquityResponse>, (StatusCode, String)> {
-    info!(
-        "Equity request - board: {:?}, villains: {}, mode: {:?}",
-        &req.board,
-        req.villain_ranges.len(),
-        req.mode
-    );
+    debug!(board=?req.board, villains=req.villain_ranges.len(), mode=?req.mode, "equity request");
 
-    let response =
-        evaluate_equity(req).map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+    let response = run_solver(Some(solve_timeout()), move || {
+        evaluate_equity(req).map_err(|e| e.to_string())
+    })
+    .await?
+    .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
-    info!(
-        "Equity complete - equity: {:.3}, mode: {}, cache_hit: {}",
-        response.equity,
-        response.mode_used,
-        response.cache_hit
-    );
     debug!(equity=response.equity, mode=%response.mode_used, cache_hit=response.cache_hit, "equity complete");
 
     Ok(Json(response))
@@ -83,21 +159,12 @@ async fn equity_handler(
 async fn range_strength_handler(
     Json(req): Json<RangeStrengthRequest>,
 ) -> Result<Json<RangeStrengthResponse>, (StatusCode, String)> {
-    info!(
-        "Range strength request - board: {:?}, villains: {}, mode: {:?}",
-        &req.board,
-        req.villain_ranges.len(),
-        req.mode
-    );
+    debug!(board=?req.board, villains=req.villain_ranges.len(), mode=?req.mode, "range strength request");
 
-    let response = range_relative_strength(req)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+    let response = spawn_cpu(move || range_relative_strength(req).map_err(|e| e.to_string()))
+        .await?
+        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
-    info!(
-        "Range strength complete - percentile: {:.3}, hero_equity: {:.3}",
-        response.relative_strength,
-        response.hero_equity
-    );
     debug!(percentile=response.relative_strength, hero_equity=response.hero_equity, "range strength complete");
 
     Ok(Json(response))
@@ -108,8 +175,11 @@ async fn solve_v2_handler(
     Json(req): Json<SolveRequestV2>,
 ) -> Result<Json<SolveResponseV2>, (StatusCode, String)> {
     debug!(hero_range=%req.hero_range, board=?req.board, num_players=req.num_players, "solve_v2 request");
-    let response =
-        solve_spot_v2(req).map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+    let response = run_solver(Some(solve_timeout()), move || {
+        solve_spot_v2(req).map_err(|e| e.to_string())
+    })
+    .await?
+    .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     debug!(action=%response.chosen_action, ev=response.hero_ev, "solve_v2 complete");
     Ok(Json(response))
 }

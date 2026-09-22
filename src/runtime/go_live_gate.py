@@ -1,7 +1,15 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from typing import Any
+
+try:
+    from datetime import UTC, datetime
+except ImportError:  # Python 3.10 compatibility
+    from datetime import datetime, timezone
+
+    UTC = timezone.utc  # type: ignore[no-redef]  # noqa: UP017 - 3.10 compat fallback
 
 DEFAULT_GO_LIVE_THRESHOLDS = {
     "min_decision_count": 20,
@@ -16,7 +24,44 @@ DEFAULT_GO_LIVE_THRESHOLDS = {
     # d'évaluation scientifique sont fournis via ``strategy_metrics``.
     "min_winrate_bb100": 0.0,
     "max_best_response_gap_bb": 0.25,
+    # Phase 0.6.7 / 0.7.3 : applicables quand ``blueprint_metrics`` est fourni.
+    # Couverture du blueprint pour le format courant (bloque le go-live) et
+    # présence d'un rapport de calibration de tolérance de mises à jour.
+    "min_blueprint_coverage": 1.0,
+    "require_bet_tolerance_report": True,
+    "bet_tolerance_report_max_age_days": 30.0,
 }
+
+
+def _blueprint_current_coverage(blueprint_metrics: dict) -> float:
+    """Couverture du format courant depuis le rapport `blueprint audit`."""
+    formats = blueprint_metrics.get("formats") or {}
+    current = str(blueprint_metrics.get("current_format") or "").strip()
+    if current and current in formats:
+        return float((formats[current] or {}).get("coverage", 0.0) or 0.0)
+    if not formats:
+        return 0.0
+    coverages = [float((cfg or {}).get("coverage", 0.0) or 0.0) for cfg in formats.values()]
+    return min(coverages)
+
+
+def _bet_tolerance_report_ok(blueprint_metrics: dict, thresholds: dict | None = None) -> bool:
+    """Le rapport de calibration `docs/bet_tolerance_report.md` existe et est frais."""
+    report = blueprint_metrics.get("bet_tolerance_report") or {}
+    if not report.get("present"):
+        return False
+    generated_at = str(report.get("generated_at") or "").strip()
+    if not generated_at:
+        return False
+    try:
+        parsed = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    max_age_days = 30.0
+    if thresholds:
+        max_age_days = float(thresholds.get("bet_tolerance_report_max_age_days", max_age_days))
+    age_s = time.time() - parsed.timestamp()
+    return age_s <= max_age_days * 86400.0
 
 
 @dataclass(frozen=True)
@@ -49,6 +94,7 @@ def evaluate_go_live_gate(
     validation: dict | None = None,
     thresholds: dict | None = None,
     strategy_metrics: dict | None = None,
+    blueprint_metrics: dict | None = None,
 ) -> GoLiveGateResult:
     """Évalue le gate go-live.
 
@@ -56,9 +102,17 @@ def evaluate_go_live_gate(
     ``winrate_bb100`` (simulateur Monte-Carlo, research.monte_carlo_sim) et
     ``best_response_gap`` (MES du solveur natif, research.best_response). Quand il est
     absent, les checks stratégiques sont neutralisés (non bloquants).
+
+    ``blueprint_metrics`` porte le rapport de ``blueprint audit``
+    (``formats`` → ``coverage``) ainsi que ``current_format`` et
+    ``bet_tolerance_report`` ({present, generated_at_iso}). Quand il est
+    absent, les checks blueprint sont neutralisés (non bloquants) — le mode
+    zéro-approximation exige de les fournir avant un go-live réel.
     """
     strategy_metrics = dict(strategy_metrics or {})
     has_strategy_artifacts = bool(strategy_metrics)
+    blueprint_metrics = dict(blueprint_metrics or {})
+    has_blueprint_artifacts = bool(blueprint_metrics)
 
     thresholds = {**DEFAULT_GO_LIVE_THRESHOLDS, **dict(thresholds or {})}
     metrics = {
@@ -81,6 +135,14 @@ def evaluate_go_live_gate(
         "strategy_evaluated": 1.0 if has_strategy_artifacts else 0.0,
         "winrate_bb100": float(strategy_metrics.get("winrate_bb100", 0.0) or 0.0),
         "best_response_gap": float(strategy_metrics.get("best_response_gap", 0.0) or 0.0),
+        "blueprint_coverage": (
+            _blueprint_current_coverage(blueprint_metrics) if has_blueprint_artifacts else 0.0
+        ),
+        "bet_tolerance_report_ok": (
+            1.0 if _bet_tolerance_report_ok(blueprint_metrics, thresholds) else 0.0
+        )
+        if has_blueprint_artifacts
+        else 0.0,
     }
     checks = {
         "decision_count": {
@@ -155,6 +217,26 @@ def evaluate_go_live_gate(
             "threshold": thresholds["max_best_response_gap_bb"],
             "operator": "<=",
             "reason": "exploitability_above_threshold",
+        },
+        # Phase 0.6.7 — bloquant live : couverture du format courant à 1.0.
+        "blueprint_coverage": {
+            "ok": (not has_blueprint_artifacts)
+            or metrics["blueprint_coverage"] >= thresholds["min_blueprint_coverage"],
+            "metric": metrics["blueprint_coverage"],
+            "threshold": thresholds["min_blueprint_coverage"],
+            "operator": ">=",
+            "reason": "blueprint_coverage_below_1",
+        },
+        # Phase 0.7.3 — bloquant : tolérance de quantification sans rapport
+        # de calibration à jour ne peut pas fonder un go-live.
+        "bet_tolerance_report": {
+            "ok": (not has_blueprint_artifacts)
+            or (not thresholds["require_bet_tolerance_report"])
+            or bool(metrics["bet_tolerance_report_ok"]),
+            "metric": metrics["bet_tolerance_report_ok"],
+            "threshold": thresholds["require_bet_tolerance_report"],
+            "operator": "bool",
+            "reason": "bet_tolerance_report_missing_or_stale",
         },
     }
     reasons = [str(check["reason"]) for check in checks.values() if not bool(check["ok"])]

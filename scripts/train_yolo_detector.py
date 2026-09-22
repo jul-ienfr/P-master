@@ -15,7 +15,7 @@ from src.vision.detector import resolve_model_path
 from src.vision.yolo_schema import YoloDatasetSchemaError, validate_dataset_yaml_schema
 
 
-DEFAULT_BASE_MODEL = "yolo11n.pt"
+DEFAULT_BASE_MODEL = "models/yolo11n.pt"
 
 
 def choose_base_model(requested: str) -> str:

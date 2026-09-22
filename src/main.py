@@ -14,6 +14,23 @@ import ctypes
 import os
 import sys
 
+
+def ensure_python_version() -> None:
+    """Bloque tout démarrage hors Python 3.11 (requirements.rst / smoke tests)."""
+    if sys.version_info[:2] != (3, 11):
+        print(
+            "ERREUR: PokerMaster exige Python 3.11, trouvé "
+            f"{sys.version_info.major}.{sys.version_info.minor}.\n"
+            "Corrigez avec : py -3.11 -m venv .venv puis "
+            ".venv\\Scripts\\python -m pip install -r requirements\\legacy\\requirements_win.txt",
+            file=sys.stderr,
+        )
+        sys.exit(3)
+
+
+ensure_python_version()
+
+
 import cv2
 import numpy as np
 

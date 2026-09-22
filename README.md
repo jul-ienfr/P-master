@@ -20,6 +20,8 @@ Recent architecture additions in this tree:
 - Postflop compatibility bundles that export the canonical preset catalog for `desktop-postflop` / `wasm-postflop` style offline inspection
 - A phase-2 automation layer with unified validation runners, persisted artifacts, and an extended offline RL lab
 
+Documentation layout: `docs/` holds the current V2 documentation (French markdown). `doc/` is legacy V1 material (working plans and media assets referenced by the archived `archive/readme.rst`); do not add new documents there.
+
 The desktop bot ships with bundled table profiles for PokerStars, PartyPoker and GGPoker, and its built-in table mapper can be used to add rooms such as Winamax, WPT Global, iPoker-style tables and CoinPoker.
 
 There are now two ways to connect the solver core to Python:
@@ -195,6 +197,21 @@ npm run dev
 
 The React dependencies were adjusted to install cleanly with React 18.
 
+The frontend talks to the local runtime API at `http://127.0.0.1:8005` (override via `VITE_REACT_APP_API_URL`, see `website/.env.development`). The solver server runs separately at `http://127.0.0.1:8765` (see section 2). Legacy analytics views that have no local endpoint render a dismissible "not available in local mode" banner when the backend is unreachable.
+
+Canonical V2 desktop launcher (Tauri shell, WSL-based build) from the repository root:
+
+```powershell
+.\launch_pokermaster_v2.cmd                  # auto-build if sources changed, then run
+.\launch_pokermaster_v2.cmd -NoBuild         # run the existing binary without building
+.\launch_pokermaster_v2.cmd -BuildDebug      # force a full debug build
+.\launch_pokermaster_v2.cmd -BuildRelease    # force a full release build
+.\launch_pokermaster_v2.cmd -Web             # web-only mode: Vite dev server, no Rust shell
+.\launch_pokermaster_v2.ps1 -Detached        # background launch, log in launch_pokermaster_v2.log
+```
+
+`launch_pokermaster_v2.cmd` is a thin wrapper over `launch_pokermaster_v2.ps1`, which delegates the build to `launch_pokermaster_v2.sh` inside WSL. The old per-variant launchers (`*_nobuild`, `*_tauri_debug`, `*_web`) were removed; use the switches above.
+
 ## 6. Portable Windows bundle
 
 Build a portable desktop bundle from the repository root:
@@ -331,4 +348,4 @@ Resolution order is: environment variable, then `config.json`, then the built-in
 - OCR, Qt, and TensorFlow are still heavy local dependencies.
 - Card recognition still relies on template matching / card-specific recognition, not generic OCR.
 - Multi-way postflop solving is not fully handled by the Rust solver path.
-- The website still talks to external API endpoints by default unless you reconfigure `website/src/views/config.tsx`.
+- The website defaults to the local runtime API (`http://127.0.0.1:8005`); legacy analytics views that have no local endpoint show a dismissible "not available in local mode" banner instead of data.

@@ -3,11 +3,13 @@ import axios from "axios";
 import "bootstrap/dist/css/bootstrap.css";
 import React, { useEffect, useRef, useState } from "react";
 import { Dropdown } from "react-bootstrap";
+import OfflineBanner from "../components/OfflineBanner";
 import "./TableMapper.css";
 import { API_URL } from "./config";
 
 function TableMapper() {
   const canvasRef = useRef(null);
+  const [backendError, setBackendError] = useState<string | null>(null);
   const previewRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [screenshot, setScreenshot] = useState(null);
@@ -53,6 +55,7 @@ function TableMapper() {
       console.log("Button selection saved:", response.data);
     } catch (error) {
       console.error("Error saving button selection:", error);
+      setBackendError("Not available in local mode: the backend endpoint for saving button selections is unreachable.");
     }
   };
 
@@ -73,9 +76,7 @@ function TableMapper() {
       setLoading(true); // start the loading spinner
 
       // Use axios to make the request
-      const response = await axios.get(
-        "http://127.0.0.1:8005/take_screenshot",
-        {
+      const response = await axios.get(`${API_URL}/take_screenshot`, {
           responseType: "blob", // Important to handle binary data
         }
       );
@@ -85,6 +86,7 @@ function TableMapper() {
       setLoading(false); // stop the loading spinner
     } catch (error) {
       console.error("Error fetching screenshot:", error);
+      setBackendError("Not available in local mode: the screenshot endpoint is unreachable.");
       setLoading(false); // stop the loading spinner in case of error
     }
   };
@@ -100,6 +102,7 @@ function TableMapper() {
       console.log("Selection saved:", response.data);
     } catch (error) {
       console.error("Error saving selection:", error);
+      setBackendError("Not available in local mode: the backend endpoint for saving selections is unreachable.");
     }
   };
 
@@ -117,6 +120,7 @@ function TableMapper() {
       setTableNames(response.data); // Set the fetched table names
     } catch (error) {
       console.error("Error fetching available tables:", error);
+      setBackendError("Not available in local mode: the backend endpoint for listing tables is unreachable.");
     }
   };
 
@@ -145,17 +149,17 @@ function TableMapper() {
       setCardImages(newCardImages);
     } catch (error) {
       console.error("Error loading table:", error);
+      setBackendError("Not available in local mode: the backend endpoint for loading tables is unreachable.");
     }
   };
 
   const fetchComputerName = async () => {
     try {
-      const response = await axios.get(
-        "http://127.0.0.1:8005/get_computer_name"
-      );
+      const response = await axios.get(`${API_URL}/get_computer_name`);
       setComputerName(response.data.computer_name);
     } catch (error) {
       console.error("Error fetching computer name:", error);
+      setBackendError("Not available in local mode: the local runtime API is unreachable.");
     }
   };
 
@@ -284,6 +288,12 @@ function TableMapper() {
 
   return (
     <div className="container toplevel-container">
+      {backendError && (
+        <OfflineBanner
+          message={backendError}
+          onDismiss={() => setBackendError(null)}
+        />
+      )}
       <div className="row">
         <div className="col-8">
           <div className="container">

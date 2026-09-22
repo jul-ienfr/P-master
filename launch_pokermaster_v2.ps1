@@ -3,6 +3,7 @@ param(
     [switch]$BuildDebug,
     [switch]$BuildRelease,
     [switch]$NoBuild,
+    [switch]$Web,
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$AppArgs
 )
@@ -12,6 +13,24 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $wslExe = Join-Path $env:SystemRoot "System32\wsl.exe"
 $logPath = Join-Path $repoRoot "launch_pokermaster_v2.log"
+
+if ($Web) {
+    $websiteDir = Join-Path $repoRoot "website"
+    if (-not (Test-Path -LiteralPath (Join-Path $websiteDir "package.json"))) {
+        throw "PokerMaster web workspace not found at '$websiteDir'"
+    }
+    Write-Host "Launching PokerMaster V2 web-only mode..."
+    Write-Host "This starts Vite without rebuilding the Rust shell."
+    Write-Host "Open http://localhost:5173 in your browser."
+    Push-Location $websiteDir
+    try {
+        npm run dev -- --host 127.0.0.1
+        exit $LASTEXITCODE
+    }
+    finally {
+        Pop-Location
+    }
+}
 
 if (-not (Test-Path -LiteralPath $wslExe)) {
     throw "wsl.exe not found at $wslExe"

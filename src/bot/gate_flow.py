@@ -7,6 +7,7 @@ from collections import deque
 import numpy as np
 
 from src.bot.humanization import ExecutionContext
+from src.bot.jev_gate import JevGateConfig, decide as jev_decide
 from src.bot.runtime_types import CanonicalTableState
 from src.bot.sanity_checker import ActionIntent, GateReason, GateResult
 from src.vision.models import TableState
@@ -396,6 +397,50 @@ class GateFlowMixin:
         self.last_decision_summary["gate_confidence"] = float(gate_result.confidence or 0.0)
         self.last_decision_summary["gate_reason"] = gate_result.reason
         self.last_decision_summary["gate_allowed"] = gate_result.allowed
+        # Second avis Jev (proxy :4000 /v1/systemone) — observer par défaut :
+        # loggue accord/désaccord, ne change jamais la décision. En enforcing,
+        # un go heuristique peut être bloqué ; l'heuristique bloquée ne peut
+        # jamais être débloquée. Off = zéro appel. Fail-open = heuristique.
+        try:
+            jev_config = JevGateConfig.from_env()
+            if jev_config.mode != "off":
+                jev_allowed, jev_decision, jev_reason = jev_decide(
+                    canonical_state, gate_result.allowed, config=jev_config
+                )
+                self.last_decision_summary["jev"] = {
+                    "mode": jev_config.mode,
+                    "go": jev_decision.go,
+                    "tier": jev_decision.tier,
+                    "tier_confidence": jev_decision.tier_confidence,
+                    "risky": jev_decision.risky,
+                    "effort": jev_decision.effort,
+                    "latency_ms": round(jev_decision.latency_ms, 1),
+                    "cost": jev_decision.cost,
+                    "reason": jev_reason,
+                }
+                logger.info(
+                    "JEV | mode=%s go=%s tier=%s risky=%s %s (heuristic=%s)",
+                    jev_config.mode,
+                    jev_decision.go,
+                    jev_decision.tier,
+                    jev_decision.risky,
+                    jev_reason,
+                    "go" if gate_result.allowed else "block",
+                )
+                if jev_config.mode == "enforcing" and gate_result.allowed and not jev_allowed:
+                    gate_result = GateResult(
+                        allowed=False,
+                        status="blocked",
+                        reasons=list(gate_result.reasons or [])
+                        + [GateReason(code="JEV_INCOHERENT_STATE", message=jev_reason)],
+                        action_intent=gate_result.action_intent,
+                        confidence=gate_result.confidence,
+                    )
+                    self.last_gate_result = gate_result
+                    self.last_decision_summary["gate_allowed"] = False
+                    self.last_decision_summary["gate_reason"] = f"jev:{jev_reason}"
+        except Exception as exc:  # fail-open : Jev ne casse jamais le gate
+            logger.debug("JEV | disabled by error (%s), heuristic kept", exc)
         self.last_decision_summary["fallback_execution_readiness"] = fallback_execution_readiness
         assisted_result = self._evaluate_assisted_execution(canonical_state, decision, gate_result)
         self.last_decision_summary["assisted"] = assisted_result

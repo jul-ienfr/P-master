@@ -9,11 +9,13 @@ import ScatterplotComponent from '../components/ScatterPlot';
 import { pirate } from '../assets/Images';
 import FundsChangeLineChart from '../components/FundsChangeChart';
 import Loading from '../components/Loading';
+import OfflineBanner from '../components/OfflineBanner';
 import DataTable from '../components/TableData';
 import { API_URL } from './config';
 
 
 const StrategyAnalyzer: React.FC = () => {
+    const [backendError, setBackendError] = useState<string | null>(null);
     const [strategies, setStrategies] = useState<string[]>([]);
     const [selectedStrategy, setSelectedStrategy] = useState<string | null>(null);
     const [endStage, setEndStage] = useState<string>('All');
@@ -32,6 +34,9 @@ const StrategyAnalyzer: React.FC = () => {
     const [leagueData, setLeagueData] = useState<any[]>([]);
     const computer_name = 'All'
 
+    const reportBackendError = () =>
+        setBackendError('Strategy analysis data is not available in local mode (backend unreachable).');
+
 
     async function fetchStackedBarData() {
         if (selectedStrategy) {
@@ -47,7 +52,7 @@ const StrategyAnalyzer: React.FC = () => {
                 });
                 setBarChartData(response.data);
             } catch (error) {
-                console.error("Error fetching bar chart data:", error);
+                console.error("Fetch error:", error); reportBackendError();
             } finally {
                 setLoadingBarChartData(false); // Set loading to false after fetching bar chart data
             }
@@ -65,7 +70,7 @@ const StrategyAnalyzer: React.FC = () => {
                 });
                 setScatterplotData(response.data);
             } catch (error) {
-                console.error("Error fetching scatterplot data:", error);
+                console.error("Fetch error:", error); reportBackendError();
             }
             finally {
                 setLoadingScatter(false); // Set loading to false after fetching scatterplot data
@@ -84,7 +89,7 @@ const StrategyAnalyzer: React.FC = () => {
                 setFundsChangeData(response.data);
                 console.log(`Fundschange data before passing: ${JSON.stringify(fundsChangeData)}`);
             } catch (error) {
-                console.error("Error fetching fundschange chart:", error);
+                console.error("Fetch error:", error); reportBackendError();
             }
             finally {
                 setLoadingFundsChange(false); // Set loading to false after fetching fundschange data
@@ -102,7 +107,7 @@ const StrategyAnalyzer: React.FC = () => {
                 setTableData(response.data);
                 console.log(`Tabledata data before passing: ${JSON.stringify(fundsChangeData)}`);
             } catch (error) {
-                console.error("Error fetching tabledata:", error);
+                console.error("Fetch error:", error); reportBackendError();
             }
             finally {
                 setLoadingTable(false);
@@ -117,7 +122,7 @@ const StrategyAnalyzer: React.FC = () => {
                 setLeagueData(response.data);
                 // console.log(`League data: ${JSON.stringify(response.data)}`);
             } catch (error) {
-                console.error("Error fetching league data:", error);
+                console.error("Fetch error:", error); reportBackendError();
             } finally {
                 setLoadingLeague(false);
             }
@@ -138,7 +143,7 @@ const StrategyAnalyzer: React.FC = () => {
                 });
                 setStrategies(response.data);
             } catch (error) {
-                console.error("Error fetching strategies:", error);
+                console.error("Fetch error:", error); reportBackendError();
             } finally {
                 setLoadingStrategies(false); // Set loading to false after fetching strategies
             }
@@ -172,6 +177,12 @@ const StrategyAnalyzer: React.FC = () => {
 
     return (
         <div className="barchart">
+            {backendError && (
+                <OfflineBanner
+                    message={backendError}
+                    onDismiss={() => setBackendError(null)}
+                />
+            )}
             <div className="dropdowns-container">
                 <FormControl variant="outlined" style={{ width: '200px', marginRight: '10px' }}>
                     <InputLabel id="strategy-label">Select a strategy</InputLabel>

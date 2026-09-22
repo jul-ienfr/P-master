@@ -49,6 +49,7 @@ fn solve_request_v2_round_trips_with_bincode() {
         range_model_version: RangeModelVersion::CalibratedV3,
         use_cache: true,
         time_budget_ms: Some(2_500),
+        epsilon_target: None,
         ..SolveRequestV2::default()
     };
 
@@ -84,6 +85,7 @@ fn unsupported_v2_spot_returns_structured_warnings() {
         range_model_version: RangeModelVersion::BoardAwareV2,
         use_cache: true,
         time_budget_ms: Some(75),
+        epsilon_target: None,
         hero_hand: None,
         rake_cap: 0.0,
         sample_mixed: false,
@@ -133,6 +135,7 @@ fn supported_v2_spot_populates_backend_metadata() {
         range_model_version: RangeModelVersion::BoardAwareV2,
         use_cache: true,
         time_budget_ms: Some(75),
+        epsilon_target: None,
         hero_hand: None,
         rake_cap: 0.0,
         sample_mixed: false,
@@ -178,6 +181,7 @@ fn action_history_and_rake_bridge_to_native_solver() {
         range_model_version: RangeModelVersion::BoardAwareV2,
         use_cache: false,
         time_budget_ms: Some(75),
+        epsilon_target: None,
         hero_hand: None,
         sample_mixed: false,
         random_seed: None,
@@ -226,6 +230,7 @@ fn three_way_river_routes_to_native_multiway_solver() {
         range_model_version: RangeModelVersion::BoardAwareV2,
         use_cache: false,
         time_budget_ms: Some(75),
+        epsilon_target: None,
         hero_hand: None,
         sample_mixed: false,
         random_seed: None,
@@ -237,11 +242,151 @@ fn three_way_river_routes_to_native_multiway_solver() {
     assert!(response.fallback_reason.is_none());
     assert!(!response.chosen_action.is_empty());
     assert!(!response.actions.is_empty());
+    // Phase 0.5: the multiway path is Monte-Carlo sampled, so the approximation
+    // warning is always kept and the response is never certified as converged.
     assert!(
-        !response
+        response
             .warnings
             .iter()
             .any(|warning| *warning == DecisionWarning::MultiwayApproximation)
+    );
+    assert!(!response.converged);
+    assert_eq!(
+        response.metadata.get("equity_mode").map(String::as_str),
+        Some("monte_carlo_sampled")
+    );
+}
+
+#[test]
+fn strict_mode_refuses_heuristic_ranges() {
+    let response = solve_spot_v2(SolveRequestV2 {
+        spot_id: Some("strict-heuristic".to_string()),
+        hero_range: "AA".to_string(),
+        villain_ranges: vec!["KK".to_string()],
+        board: vec!["2c".to_string(), "7d".to_string(), "Js".to_string()],
+        starting_pot: 10.0,
+        effective_stack: 100.0,
+        hero_position: Some("oop".to_string()),
+        action_history: Vec::new(),
+        tree_preset_id: TreePresetId::river_jam_low_spr(),
+        rake: 0.0,
+        rake_cap: 0.0,
+        num_players: 2,
+        legal_actions: Vec::new(),
+        cache_policy: CachePolicy::Disabled,
+        hero_confidence: None,
+        state_confidence: None,
+        range_model_version: RangeModelVersion::HeuristicV1,
+        use_cache: false,
+        time_budget_ms: Some(100),
+        epsilon_target: Some(0.001),
+        hero_hand: None,
+        sample_mixed: false,
+        random_seed: None,
+        bet_size_spec: None,
+    })
+    .expect("strict heuristic refusal");
+    assert_eq!(response.backend, "refused");
+    assert!(response.chosen_action.is_empty());
+    assert_eq!(
+        response.fallback_reason.as_deref(),
+        Some("heuristic_range_refused")
+    );
+    assert!(!response.converged);
+}
+
+#[test]
+fn strict_mode_refuses_sampled_multiway() {
+    let response = solve_spot_v2(SolveRequestV2 {
+        spot_id: Some("strict-multiway".to_string()),
+        hero_range: "AsKs".to_string(),
+        villain_ranges: vec!["QQ+".to_string(), "AQo".to_string()],
+        board: vec!["Ah".to_string(), "7d".to_string(), "2c".to_string()],
+        starting_pot: 9.0,
+        effective_stack: 40.0,
+        hero_position: Some("co".to_string()),
+        action_history: Vec::new(),
+        tree_preset_id: TreePresetId::river_jam_low_spr(),
+        rake: 0.0,
+        rake_cap: 0.0,
+        num_players: 3,
+        legal_actions: Vec::new(),
+        cache_policy: CachePolicy::Disabled,
+        hero_confidence: Some(0.95),
+        state_confidence: Some(0.95),
+        range_model_version: RangeModelVersion::BoardAwareV2,
+        use_cache: false,
+        time_budget_ms: Some(75),
+        epsilon_target: Some(0.001),
+        hero_hand: None,
+        sample_mixed: false,
+        random_seed: None,
+        bet_size_spec: None,
+    })
+    .expect("strict multiway refusal");
+    assert_eq!(response.backend, "refused");
+    assert!(response.chosen_action.is_empty());
+    assert!(!response.converged);
+    assert_eq!(
+        response.fallback_reason.as_deref(),
+        Some("multiway_strict_refused")
+    );
+    assert!(response
+        .warnings
+        .iter()
+        .any(|warning| *warning == DecisionWarning::ConvergenceNotReached));
+}
+
+#[test]
+fn strict_mode_heads_up_reports_convergence() {
+    // Tiny river jam spot: with a strict epsilon the native solver should
+    // converge and report it; convergence fields must reflect the measurement.
+    let response = solve_spot_v2(SolveRequestV2 {
+        spot_id: Some("strict-hu".to_string()),
+        hero_range: "AA,KK".to_string(),
+        villain_ranges: vec!["QQ".to_string()],
+        board: vec![
+            "2c".to_string(),
+            "7d".to_string(),
+            "Js".to_string(),
+            "4h".to_string(),
+            "9s".to_string(),
+        ],
+        starting_pot: 10.0,
+        effective_stack: 20.0,
+        hero_position: Some("oop".to_string()),
+        action_history: Vec::new(),
+        tree_preset_id: TreePresetId::river_jam_low_spr(),
+        rake: 0.0,
+        rake_cap: 0.0,
+        num_players: 2,
+        legal_actions: Vec::new(),
+        cache_policy: CachePolicy::Disabled,
+        hero_confidence: Some(0.95),
+        state_confidence: Some(0.95),
+        range_model_version: RangeModelVersion::BoardAwareV2,
+        use_cache: false,
+        time_budget_ms: None,
+        epsilon_target: Some(0.001),
+        hero_hand: None,
+        sample_mixed: false,
+        random_seed: None,
+        bet_size_spec: None,
+    })
+    .expect("strict heads-up solve");
+    assert_eq!(response.backend, "native_solver");
+    assert!(response.epsilon_target > 0.0);
+    assert!(response.exploitability.is_finite());
+    // Whatever the outcome, the flag must be coherent with the measurement.
+    assert_eq!(
+        response.converged,
+        response.exploitability <= response.epsilon_target
+    );
+    assert!(
+        response
+            .warnings
+            .contains(&DecisionWarning::ConvergenceNotReached)
+            == !response.converged
     );
 }
 
@@ -274,6 +419,7 @@ fn hero_combo_ev_selection_prefers_best_ev_for_exact_hand() {
         range_model_version: RangeModelVersion::BoardAwareV2,
         use_cache: false,
         time_budget_ms: Some(75),
+        epsilon_target: None,
         hero_hand: Some("AsKs".to_string()),
         rake_cap: 0.0,
         sample_mixed: false,
@@ -314,6 +460,7 @@ fn bet_size_spec_controls_tree_abstraction() {
         range_model_version: RangeModelVersion::BoardAwareV2,
         use_cache: false,
         time_budget_ms: Some(75),
+        epsilon_target: None,
         hero_hand: None,
         rake_cap: 0.0,
         sample_mixed: false,
@@ -373,6 +520,7 @@ fn preflop_three_way() {
         cache_policy: CachePolicy::Memory,
         use_cache: false,
         time_budget_ms: Some(3000),
+        epsilon_target: None,
         ..SolveRequestV2::default()
     })
     .expect("preflop 3-way v2");
@@ -409,6 +557,7 @@ fn preflop_nine_way() {
         cache_policy: CachePolicy::Memory,
         use_cache: false,
         time_budget_ms: Some(75),
+        epsilon_target: None,
         ..SolveRequestV2::default()
     })
     .expect("preflop 9-way fallback");
@@ -433,6 +582,7 @@ fn sizing_river_overbet() {
         cache_policy: CachePolicy::Memory,
         use_cache: false,
         time_budget_ms: Some(150),
+        epsilon_target: None,
         bet_size_spec: Some(BetSizeSpec {
             bet_sizes: "50%,150%".to_string(),
             raise_sizes: "2.5x".to_string(),
@@ -467,6 +617,7 @@ fn board_1_2_still_rejected() {
             cache_policy: CachePolicy::Memory,
             use_cache: false,
             time_budget_ms: Some(75),
+            epsilon_target: None,
             ..SolveRequestV2::default()
         })
         .expect("board 1-2 still rejected");
@@ -491,6 +642,7 @@ fn bench_preflop_n6() {
         cache_policy: CachePolicy::Memory,
         use_cache: false,
         time_budget_ms: Some(120),
+        epsilon_target: None,
         ..SolveRequestV2::default()
     })
     .expect("bench preflop N=6");
@@ -529,6 +681,7 @@ fn v2_ev_bb_matches_ev_chips_over_bb_and_per100() {
         cache_policy: CachePolicy::Memory,
         use_cache: false,
         time_budget_ms: Some(150),
+        epsilon_target: None,
         ..SolveRequestV2::default()
     };
     let bb = req.effective_stack / 100.0;
@@ -582,6 +735,7 @@ fn v2_multiway_ev_bb_matches_ev_chips_over_bb() {
         cache_policy: CachePolicy::Memory,
         use_cache: false,
         time_budget_ms: Some(150),
+        epsilon_target: None,
         ..SolveRequestV2::default()
     };
     let bb = req.effective_stack / 100.0;

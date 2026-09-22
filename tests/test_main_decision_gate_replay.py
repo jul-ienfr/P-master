@@ -1812,6 +1812,52 @@ def test_assisted_execution_allows_passive_fallback_when_state_is_strong_and_act
     assert assisted["reason"] == "fallback_passive_ready"
 
 
+def test_assisted_execution_vetoes_no_blueprint_even_for_passive_action():
+    """Phase 0.5.5 — un MISS blueprint (action passive CHECK légale, état
+    fort) ne doit JAMAIS auto-exécuter : veto `solver_fallback_no_blueprint`."""
+    controller = object.__new__(SuperBotController)
+    controller.operator_controls = {"assisted_mode_enabled": True}
+
+    canonical_state = CanonicalTableState(
+        spot_id="live:PREFLOP:no-blueprint",
+        street="PREFLOP",
+        pot=42.0,
+        board=(),
+        hero_cards=("As", "Ad"),
+        legal_actions=("CHECK", "BET"),
+        action_buttons=("check_button", "bet_button"),
+        state_confidence=0.833,
+        metadata={},
+    )
+    decision = {
+        "action": "CHECK",
+        "source": "GTO_RUST",
+        "confidence": 0.458,
+        "fallback_used": True,
+        "fallback_reason": "no_blueprint",
+        "metadata": {
+            "confidence": {
+                "state_confidence": 0.833,
+                "profile_reliability": 0.0,
+            },
+            "profile": {
+                "observed_hands": 0,
+                "reliability": 0.0,
+                "exploit_confidence": 0.0,
+            },
+        },
+    }
+    gate_result = GateResult(allowed=True, status="ready", reasons=[], confidence=0.96)
+
+    assisted = controller._evaluate_assisted_execution(canonical_state, decision, gate_result)
+
+    assert assisted["enabled"] is True
+    assert assisted["auto_execute"] is False
+    assert assisted["requires_operator_action"] is True
+    assert assisted["status"] == "manual_required"
+    assert assisted["reason"] == "solver_fallback_no_blueprint"
+
+
 def test_assisted_execution_requires_manual_when_runtime_readiness_is_conservative():
     controller = object.__new__(SuperBotController)
     controller.operator_controls = {"assisted_mode_enabled": True}

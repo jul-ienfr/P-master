@@ -85,6 +85,8 @@ pub enum DecisionWarning {
     OcrLowConfidence,
     ModelUnavailable,
     ManualOverride,
+    /// Solve stopped before the measured best-response exploitability reached epsilon.
+    ConvergenceNotReached,
     Unknown,
 }
 
@@ -371,6 +373,11 @@ pub struct SolveRequestV2 {
     pub range_model_version: RangeModelVersion,
     pub use_cache: bool,
     pub time_budget_ms: Option<u64>,
+    /// Zero-approximation mode: exploitability target as a fraction of the pot
+    /// (e.g. 0.001 = 0.1% pot). When set, the solver iterates until the measured
+    /// best-response exploitability is below this target or it is refused
+    /// (`converged=false`, no action returned). When unset, legacy budget mode.
+    pub epsilon_target: Option<f32>,
     pub hero_hand: Option<String>,
     pub sample_mixed: bool,
     pub random_seed: Option<u64>,
@@ -399,6 +406,7 @@ impl Default for SolveRequestV2 {
             range_model_version: RangeModelVersion::default(),
             use_cache: true,
             time_budget_ms: None,
+            epsilon_target: None,
             hero_hand: None,
             sample_mixed: false,
             random_seed: None,
@@ -426,6 +434,14 @@ pub struct SolveResponseV2 {
     pub preset_id: TreePresetId,
     pub warnings: Vec<DecisionWarning>,
     pub metadata: BTreeMap<String, String>,
+    /// True when the measured best-response exploitability is at or below
+    /// `epsilon_target`. Never true for sampled (Monte-Carlo) estimates.
+    #[serde(default)]
+    pub converged: bool,
+    /// Exploitability target used for this response, in the same units as
+    /// `exploitability` (pot units; 0 when not applicable).
+    #[serde(default)]
+    pub epsilon_target: f32,
     #[serde(default)]
     pub ev_bb: Option<f32>,
     #[serde(default)]
@@ -455,6 +471,8 @@ impl Default for SolveResponseV2 {
             preset_id: TreePresetId::default(),
             warnings: Vec::new(),
             metadata: BTreeMap::new(),
+            converged: false,
+            epsilon_target: 0.0,
             ev_bb: None,
             ev_bb_per_100: None,
             ev_dollars: None,
@@ -650,6 +668,7 @@ impl From<&crate::gto_api::SolveRequest> for SolveRequestV2 {
             range_model_version: RangeModelVersion::default(),
             use_cache: request.use_cache,
             time_budget_ms: None,
+            epsilon_target: None,
             hero_hand: request.hero_hand.clone(),
             sample_mixed: request.sample_mixed,
             random_seed: request.random_seed,
@@ -702,6 +721,8 @@ impl From<&crate::gto_api::SolveResponse> for SolveResponseV2 {
             cache_hit: response.cache_hit,
             elapsed_ms: response.elapsed_ms,
             preset_id: TreePresetId::default(),
+            converged: response.exploitability <= LEGACY_TARGET_EXPLOITABILITY,
+            epsilon_target: LEGACY_TARGET_EXPLOITABILITY,
             warnings: Vec::new(),
             metadata: BTreeMap::new(),
             ev_bb: response.ev_bb,
@@ -915,6 +936,28 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
     let parsed_position = parse_hero_position(request.hero_position.as_deref());
     let mut warnings = Vec::new();
     let normalized_ranges = canonical_ranges(&request);
+    let epsilon_units = epsilon_target_units(&request);
+    let strict_mode = request
+        .epsilon_target
+        .is_some_and(|eps| eps.is_finite() && eps > 0.0);
+
+    // Fail-closed: heuristic ranges are never an acceptable basis for a decision
+    // in zero-approximation mode (and are a smell everywhere else).
+    if request.range_model_version == RangeModelVersion::HeuristicV1 {
+        push_warning(&mut warnings, DecisionWarning::UnsupportedSpot);
+        return Ok(SolveResponseV2 {
+            backend: "refused".to_string(),
+            normalized_ranges,
+            decision_confidence: 0.0,
+            fallback_reason: Some("heuristic_range_refused".to_string()),
+            elapsed_ms: started.elapsed().as_millis() as u64,
+            preset_id: request.tree_preset_id,
+            warnings,
+            converged: false,
+            epsilon_target: epsilon_units,
+            ..SolveResponseV2::default()
+        });
+    }
 
     if request.villain_ranges.is_empty() {
         push_warning(&mut warnings, DecisionWarning::UnsupportedSpot);
@@ -947,14 +990,35 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
         && crate::multiway::is_valid_board_len(request.board.len())
         && parsed_position.is_some();
     if !within_kill_switch && (3..=6).contains(&request.num_players) {
-        tracing::info!(
+        tracing::warn!(
             num_players = request.num_players,
             multiway_max_players,
-            "v2_api kill-switch: multiway fallback"
+            strict_mode,
+            "v2_api kill-switch: multiway solve refused by player limit"
         );
     }
+    // Strict (zero-approximation) mode: the multiway path is Monte-Carlo sampled
+    // (deals AND rollout outcomes), which cannot certify an exact best-response
+    // exploitability measurement. Refuse instead of answering with noise.
+    if strict_mode && can_solve_multiway {
+        push_warning(&mut warnings, DecisionWarning::ConvergenceNotReached);
+        return Ok(SolveResponseV2 {
+            backend: "refused".to_string(),
+            normalized_ranges,
+            decision_confidence: 0.0,
+            fallback_reason: Some("multiway_strict_refused".to_string()),
+            elapsed_ms: started.elapsed().as_millis() as u64,
+            preset_id: request.tree_preset_id,
+            warnings,
+            converged: false,
+            epsilon_target: epsilon_units,
+            ..SolveResponseV2::default()
+        });
+    }
+
     if can_solve_multiway {
-        warnings.retain(|warning| *warning != DecisionWarning::MultiwayApproximation);
+        // MultiwayApproximation is intentionally NOT removed here anymore: the
+        // sampled solver path is never `converged=true` (Phase 0.5).
         let n = request.num_players as usize;
         let hero_player = hero_position_to_index(&request.hero_position, n);
         let mut ranges = build_ordered_ranges(&request.hero_range, &request.villain_ranges, hero_player, n);
@@ -1022,6 +1086,9 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
                 response.combo_ev_bb = multiway.ev_bb;
                 response.backend = "multiway_mccfr".to_string();
                 response.cache_tier = CacheTier::None;
+                // Exploitability is a Monte-Carlo estimate here: never certified.
+                response.converged = false;
+                response.epsilon_target = epsilon_units;
                 response.decision_confidence =
                     decision_confidence_hint(&request, response.warnings.len());
                 response.fallback_reason = None;
@@ -1043,6 +1110,10 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
                 response
                     .metadata
                     .insert("iterations".to_string(), multiway.iterations.to_string());
+                response.metadata.insert(
+                    "equity_mode".to_string(),
+                    "monte_carlo_sampled".to_string(),
+                );
                 response.warnings = warnings;
                 Ok(response)
             }
@@ -1063,6 +1134,8 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
                     preset_id: request.tree_preset_id,
                     warnings,
                     metadata: BTreeMap::new(),
+                    converged: false,
+                    epsilon_target: epsilon_units,
                     ev_bb: None,
                     ev_bb_per_100: None,
                     ev_dollars: None,
@@ -1090,6 +1163,8 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
             preset_id: request.tree_preset_id,
             warnings,
             metadata: BTreeMap::new(),
+            converged: false,
+            epsilon_target: epsilon_units,
             ev_bb: None,
             ev_bb_per_100: None,
             ev_dollars: None,
@@ -1103,6 +1178,19 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
     let mut response = SolveResponseV2::from(&legacy_response);
     response.elapsed_ms = started.elapsed().as_millis() as u64;
     response.preset_id = request.tree_preset_id.clone();
+    response.epsilon_target = epsilon_units;
+    response.converged = legacy_response.exploitability <= epsilon_units;
+
+    // Fail-closed: in strict mode a non-converged answer is worth nothing —
+    // return it with no action instead of letting a half-solved strategy play.
+    if strict_mode && !response.converged {
+        push_warning(&mut warnings, DecisionWarning::ConvergenceNotReached);
+        response.chosen_action = String::new();
+        for action in response.actions.iter_mut() {
+            action.is_recommended = false;
+        }
+        response.fallback_reason = Some("convergence_not_reached".to_string());
+    }
     response.warnings = warnings;
     response.backend = "native_solver".to_string();
     response.cache_tier = if response.cache_hit {
@@ -1112,7 +1200,10 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
     };
     response.normalized_ranges = normalized_ranges;
     response.decision_confidence = decision_confidence_hint(&request, response.warnings.len());
-    response.fallback_reason = None;
+    // Ne pas écraser le motif fail-closed posé ci-dessus en mode strict.
+    if !(strict_mode && !response.converged) {
+        response.fallback_reason = None;
+    }
     response.metadata.insert(
         "selection".to_string(),
         if legacy_response.selection.is_empty() {
@@ -1213,7 +1304,19 @@ fn to_legacy_solve_request(
         (villain_range, hero_range)
     };
 
-    let max_iterations = solve_iterations_for_budget(request.time_budget_ms);
+    let strict_mode = request
+        .epsilon_target
+        .is_some_and(|eps| eps.is_finite() && eps > 0.0);
+    let max_iterations = if strict_mode {
+        strict_max_iterations()
+    } else {
+        solve_iterations_for_budget(request.time_budget_ms)
+    };
+    let target_exploitability = if strict_mode {
+        epsilon_target_units(request)
+    } else {
+        LEGACY_TARGET_EXPLOITABILITY
+    };
 
     crate::gto_api::SolveRequest {
         oop_range,
@@ -1223,7 +1326,7 @@ fn to_legacy_solve_request(
         effective_stack: request.effective_stack,
         hero_is_oop,
         max_iterations,
-        target_exploitability: 0.5,
+        target_exploitability,
         use_cache: request.use_cache && !matches!(request.cache_policy, CachePolicy::Disabled),
         hero_hand: request.hero_hand.clone(),
         rake_rate: request.rake.clamp(0.0, 1.0),
@@ -1235,14 +1338,13 @@ fn to_legacy_solve_request(
 }
 
 fn solve_iterations_for_budget(time_budget_ms: Option<u64>) -> u32 {
+    // Phase 0.5: the 8/16/32-iteration tiers are removed — an answer built on a
+    // handful of iterations is an approximation masquerading as a solution.
+    // The smallest accepted tier now exercises a real CFR convergence pass.
     match time_budget_ms {
-        // Small explicit budgets are common in tests and UI probes; keep them cheap
-        // while still exercising the native solver path.
-        Some(0..=99) => 8,
-        Some(100..=249) => 16,
-        Some(250..=499) => 32,
-        Some(budget) => ((budget / 10).clamp(48, 2_000)) as u32,
-        None => 200,
+        Some(0..=499) => 256,
+        Some(budget) => ((budget / 10).clamp(512, 4_000)) as u32,
+        None => 512,
     }
 }
 
@@ -1400,6 +1502,29 @@ fn truncate_text(value: &str) -> String {
     } else {
         let truncated: String = value.chars().take(MAX_LEN).collect();
         format!("{}...", truncated.trim())
+    }
+}
+
+/// Legacy (non-strict) exploitability target, same units as the solver output.
+const LEGACY_TARGET_EXPLOITABILITY: f32 = 0.5;
+/// Env-tunable iteration cap for strict (epsilon-target) solves. Generous by
+/// default since strict solves run offline (blueprint generation).
+const STRICT_MAX_ITERATIONS_ENV: &str = "POKER_STRICT_MAX_ITERATIONS";
+const DEFAULT_STRICT_MAX_ITERATIONS: u32 = 50_000;
+
+fn strict_max_iterations() -> u32 {
+    std::env::var(STRICT_MAX_ITERATIONS_ENV)
+        .ok()
+        .and_then(|value| value.trim().parse::<u32>().ok())
+        .map(|value| value.clamp(256, u32::MAX / 2))
+        .unwrap_or(DEFAULT_STRICT_MAX_ITERATIONS)
+}
+
+/// Absolute exploitability epsilon (pot units) implied by the request.
+fn epsilon_target_units(request: &SolveRequestV2) -> f32 {
+    match request.epsilon_target {
+        Some(eps) if eps.is_finite() && eps > 0.0 => eps * request.starting_pot.max(1.0),
+        _ => LEGACY_TARGET_EXPLOITABILITY,
     }
 }
 

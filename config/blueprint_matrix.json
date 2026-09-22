@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "format_version": "0.6",
+  "epsilon_target": 0.001,
+  "epsilon_note": "0.1% du pot, mesuré par best-response exhaustif (Phase 0.5). Jamais de spot non convergé en base.",
+  "bet_menu": [0.25, 0.33, 0.5, 0.66, 0.75, 1.0, 1.5],
+  "bet_tolerance_pot_fraction": 0.02,
+  "calibration_status": "PROVISOIRE — Phase 0.7 : recalibrer menu et tolérance depuis evidence/bet_observations.jsonl + research/bet_tolerance_study.py (docs/bet_tolerance_report.md).",
+  "formats": {
+    "heads_up_cash": {
+      "coverage_target": 1.0,
+      "preflop": "complete_exact",
+      "postflop": "complete_exact_sur_spots_tractables",
+      "notes": "Les clés live utilisent hero_hand (cartes exactes) comme hero_range — cf. DecisionMaker._call_solver_backend. Spots mono-combo dégénérés (showdown 100 % : AA-héros OOP vs QQ ne converge jamais, exploit figé à 5.0 — sondes A/B/C/E/G/H) exclus par construction ; le live refuse ces spots (no_blueprint). Seuls les spots tractables sont matricés.",
+      "spots": [
+        {
+          "spot_id": "bp:hu:river_jam:AA_vs_QQ",
+          "hero_hand": "AsAd",
+          "villain_range": "QQ",
+          "board": ["2c", "7d", "Js", "4h", "9s"],
+          "starting_pot": 10.0,
+          "effective_stack": 20.0,
+          "legal_actions": ["FOLD", "CALL", "ALL_IN"],
+          "hero_position": "ip",
+          "position_note": "IP car OOP dégénéré (nuts vs air, exploit 5.0 figé sur 50000 iters) — sonde F: IP converge à 0.0094 ≤ 0.01.",
+          "action_history": [],
+          "rake": 0.0
+        },
+        {
+          "spot_id": "bp:hu:river_jam:QQ_vs_AA",
+          "hero_hand": "QhQs",
+          "villain_range": "AA",
+          "board": ["2c", "7d", "Js", "4h", "9s"],
+          "starting_pot": 10.0,
+          "effective_stack": 20.0,
+          "legal_actions": ["FOLD", "CALL", "ALL_IN"],
+          "hero_position": "oop",
+          "action_history": [],
+          "rake": 0.0
+        }
+      ]
+    },
+    "spin_3way": {
+      "coverage_target": 1.0,
+      "preflop": "complete_exact_stacks_courts",
+      "postflop": "arbres_restreints_par_frequence_sinon_refus",
+      "notes": "Multiway sampled ≠ converged : postflop >2 joueurs = refus par construction (multiway_strict_refused).",
+      "spots": []
+    },
+    "six_max_cash": {
+      "coverage_target": 1.0,
+      "preflop": "spots_tractables_push_fold_open_iso",
+      "postflop": "sous_arbres_heads_up_uniquement",
+      "notes": "Postflop multiway hors portée zéro-approximation → spots absents de la matrice (= refus).",
+      "spots": []
+    }
+  }
+}

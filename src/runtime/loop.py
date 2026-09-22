@@ -2,14 +2,20 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 
 import numpy as np
 
+from src.runtime.decision_pipeline import DecisionRequest, DecisionScheduler
 from src.vision.models import decode_card_token
 from src.vision.table_geometry import DEFAULT_RUNTIME_GEOMETRY, geometry_to_pixel_regions
 
 logger = logging.getLogger("RuntimeLoop")
+
+
+def _env_truthy(value) -> bool:
+    return str(value or "").strip().lower() in ("1", "true", "yes", "on")
 
 
 class RuntimeLoop:
@@ -44,6 +50,61 @@ class RuntimeLoop:
             pass
         await asyncio.sleep(pause_s)
 
+    @staticmethod
+    def _build_decision_spot_key(canonical_state, primary_villain, effective_stack) -> str:
+        """Clé de spot pour le pipeline de décision (fraîcheur du clic, Phase 1.3)."""
+        villain = getattr(primary_villain, "name", None) or str(primary_villain)
+        parts = [
+            str(getattr(canonical_state, "street", "")),
+            str(round(float(getattr(canonical_state, "pot", 0.0) or 0.0), 2)),
+            ",".join(str(c) for c in getattr(canonical_state, "hero_cards", ()) or ()),
+            ",".join(str(c) for c in getattr(canonical_state, "board", ()) or ()),
+            ",".join(str(a) for a in getattr(canonical_state, "legal_actions", ()) or ()),
+            villain,
+            str(round(float(effective_stack or 0.0), 2)),
+        ]
+        return "|".join(parts)
+
+    async def _handle_decision_flow_result(self, flow_result) -> None:
+        """Post-traitement partagé (séquentiel) d'un résultat de gate flow."""
+        # Micro-pause de session : uniquement après une exécution confirmée
+        # (settle ok), hors des gardes same_spot.
+        execution_summary = dict(getattr(self, "last_decision_summary", {}) or {}).get(
+            "execution", {}
+        )
+        if execution_summary.get("status") == "executed" and bool(
+            (execution_summary.get("settle") or {}).get("settled")
+        ):
+            await self._maybe_session_micro_pause()
+
+        gate_result = getattr(flow_result, "get", lambda *_a, **_k: None)("gate_result")
+        if gate_result is not None and not getattr(gate_result, "allowed", False):
+            logger.warning(
+                "Action live bloquee par le gate: %s",
+                getattr(gate_result, "to_dict", lambda: gate_result)(),
+            )
+
+    async def _on_parallel_decision_result(
+        self, request: DecisionRequest, flow_result, decision_ms: float
+    ) -> None:
+        """Callback du worker parallèle (Phase 1) : mêmes effets que le chemin
+        séquentiel + journal bout-en-bout."""
+        await self._handle_decision_flow_result(flow_result)
+        scheduler = getattr(self, "_decision_scheduler", None)
+        if scheduler is not None:
+            metrics = scheduler.metrics_snapshot()
+            logger.debug(
+                "DECISION_PIPELINE | spot=%s decision_ms=%.1f end_to_end_ms=%s "
+                "published=%s processed=%s stale=%s frames_pending=%s",
+                request.spot_key,
+                decision_ms,
+                metrics.get("end_to_end_ms"),
+                metrics.get("published"),
+                metrics.get("processed"),
+                metrics.get("skipped_stale"),
+                metrics.get("frames_during_decision"),
+            )
+
     async def run(self):
         try:
             await self.db.connect()
@@ -59,6 +120,22 @@ class RuntimeLoop:
         capture_region = self._refresh_capture_region(force=True)
         self.camera.start(region=capture_region, hwnd=self.action_controller.hwnd)
         self.is_running = True
+
+        # Phase 1 — pipeline de décision découplé : la boucle publie les spots
+        # stabilisés dans une queue (maxsize=1, remplacement) et ne bloque
+        # jamais sur le solve/lookup. POKER_SERIAL_DECISION=1 réactive
+        # l'ancien comportement séquentiel (debug/A-B).
+        self._decision_serial_mode = _env_truthy(os.getenv("POKER_SERIAL_DECISION", ""))
+        self._decision_scheduler: DecisionScheduler | None = None
+        flow_callable = getattr(self, "_run_decision_gate_flow", None)
+        if not self._decision_serial_mode and callable(flow_callable):
+            self._decision_scheduler = DecisionScheduler(
+                flow_callable,
+                max_decision_age_s=float(getattr(self, "_max_decision_age_s", 2.0) or 2.0),
+                on_result=self._on_parallel_decision_result,
+            )
+            self._decision_scheduler.start()
+
         logger.info("SuperBot 2026 demarre. API Locale sur le port %s.", self.runtime_api_port)
         self._push_runtime_event("lifecycle", "bot_started")
         self._publish_runtime_bridge_state(force=True)
@@ -306,32 +383,41 @@ class RuntimeLoop:
 
                             if primary_villain and effective_stack > 0:
                                 self._set_loop_stage("decision_gate_flow", publish=True)
-                                decision_started_at = time.monotonic()
-                                flow_result = await self._run_decision_gate_flow(
-                                    canonical_state=canonical_state,
-                                    state=state,
-                                    primary_villain=primary_villain,
-                                    effective_stack=effective_stack,
-                                    gate_tracker_snapshot=gate_tracker_snapshot,
-                                    frame_age_ms=frame_age_s * 1000.0,
-                                )
-                                decision_ms = (time.monotonic() - decision_started_at) * 1000.0
-
-                                # Micro-pause de session : uniquement après une exécution
-                                # confirmée (settle ok), hors des gardes same_spot.
-                                execution_summary = dict(
-                                    getattr(self, "last_decision_summary", {}) or {}
-                                ).get("execution", {})
-                                if execution_summary.get("status") == "executed" and bool(
-                                    (execution_summary.get("settle") or {}).get("settled")
+                                flow_kwargs = {
+                                    "canonical_state": canonical_state,
+                                    "state": state,
+                                    "primary_villain": primary_villain,
+                                    "effective_stack": effective_stack,
+                                    "gate_tracker_snapshot": gate_tracker_snapshot,
+                                    "frame_age_ms": frame_age_s * 1000.0,
+                                }
+                                if (
+                                    self._decision_scheduler is not None
+                                    and not self._decision_serial_mode
                                 ):
-                                    await self._maybe_session_micro_pause()
-
-                                if not flow_result["gate_result"].allowed:
-                                    logger.warning(
-                                        "Action live bloquee par le gate: %s",
-                                        flow_result["gate_result"].to_dict(),
+                                    # Phase 1 — publication asynchrone : la boucle
+                                    # repart immédiatement ingérer la frame suivante.
+                                    spot_key = self._build_decision_spot_key(
+                                        canonical_state, primary_villain, effective_stack
                                     )
+                                    self._decision_scheduler.publish(
+                                        DecisionRequest(
+                                            spot_key=spot_key,
+                                            enqueued_monotonic=time.monotonic(),
+                                            payload=flow_kwargs,
+                                        )
+                                    )
+                                    last = self._decision_scheduler.last_decision_ms
+                                    decision_ms = float(last) if last is not None else 0.0
+                                else:
+                                    decision_started_at = time.monotonic()
+                                    flow_result = await self._run_decision_gate_flow(
+                                        **flow_kwargs
+                                    )
+                                    decision_ms = (
+                                        time.monotonic() - decision_started_at
+                                    ) * 1000.0
+                                    await self._handle_decision_flow_result(flow_result)
                             else:
                                 self._clear_live_decision_summary(canonical_state)
                                 self.last_decision_summary["execution"] = {
@@ -385,6 +471,9 @@ class RuntimeLoop:
             self._publish_runtime_bridge_state(force=True)
         finally:
             self.is_running = False
+            scheduler = getattr(self, "_decision_scheduler", None)
+            if scheduler is not None:
+                await scheduler.stop()
             self._push_runtime_event("lifecycle", "bot_stopped")
             self._persist_runtime_metrics_snapshot(force=True)
             self._publish_runtime_bridge_state(force=True)

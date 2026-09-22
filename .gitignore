@@ -41,6 +41,7 @@ __pycache__/
 config.local.json
 .env
 .claude/worktrees/
+.claude/skills/jev-model-router/
 .kilo/
 log/runtime_bridge/
 log/runtime_history.jsonl

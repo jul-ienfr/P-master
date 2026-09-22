@@ -1,0 +1,13 @@
+{
+  "blueprint": "config\\blueprint\\blueprints.jsonl",
+  "epsilon_target": 0.001,
+  "errors": [],
+  "finished_at": "2026-09-03T09:08:43Z",
+  "matrix": "config\\blueprint_matrix.json",
+  "misses": [],
+  "refused_non_converged": 0,
+  "solver_available": true,
+  "solver_error": "",
+  "started_at": "2026-09-03T09:08:43Z",
+  "written": 1
+}

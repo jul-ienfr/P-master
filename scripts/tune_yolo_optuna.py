@@ -19,7 +19,7 @@ from ultralytics import YOLO
 
 from src.vision.detector import resolve_model_path
 
-DEFAULT_BASE_MODEL = "yolo11n.pt"
+DEFAULT_BASE_MODEL = "models/yolo11n.pt"
 DEFAULT_DATA = "dataset/PokerStars_NLHE_6Max/dataset.yaml"
 DEFAULT_STORAGE = "sqlite:///models/yolo_runs/optuna_study.db"
 BEST_PARAMS_PATH = Path("models/yolo_runs/best_yolo_params.json")
@@ -210,7 +210,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--trials", type=int, default=20, help="Number of Optuna trials (default: 20)")
     parser.add_argument("--epochs", type=int, default=20, help="Epochs per trial (default: 20)")
-    parser.add_argument("--base-model", default=DEFAULT_BASE_MODEL, help="Base YOLO model (default: yolo11n.pt)")
+    parser.add_argument("--base-model", default=DEFAULT_BASE_MODEL, help="Base YOLO model (default: models/yolo11n.pt)")
     parser.add_argument(
         "--data", default=DEFAULT_DATA, help="Dataset YAML path (default: dataset/PokerStars_NLHE_6Max/dataset.yaml)"
     )

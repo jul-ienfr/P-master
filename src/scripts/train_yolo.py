@@ -208,8 +208,8 @@ def main():
         print(f"✅ Chargement du modele existant : {existing_model_path}")
         model = YOLO(str(existing_model_path))
     else:
-        print("⚠️ Modele global introuvable. Telechargement d'un modele yolov11n de base.")
-        model = YOLO("yolo11n.pt")
+        print("⚠️ Modele global introuvable. Utilisation du modele yolov11n de base (models/yolo11n.pt).")
+        model = YOLO("models/yolo11n.pt")
 
     print("\n🚀 Demarrage de l'entrainement...")
 

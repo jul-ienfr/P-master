@@ -26,6 +26,12 @@ logger = logging.getLogger(__name__)
 DEFAULT_GTO_SERVER_URL = "http://127.0.0.1:8765/v2/solve"
 DEFAULT_GTO_SERVER_TIMEOUT_S = 1.2
 
+_AGGRESSIVE_ACTIONS = {"bet", "raise", "all_in", "allin", "all-in"}
+
+
+def _env_truthy(value: object) -> bool:
+    return str(value or "").strip().lower() in ("1", "true", "yes", "on")
+
 
 def _utc_now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -39,6 +45,7 @@ class SolverProvider:
         timeout_s: float = DEFAULT_GTO_SERVER_TIMEOUT_S,
         request_post: Callable[..., Any] | None = None,
         health_monitor: HealthMonitor | None = None,
+        blueprint_store: Any = None,
     ) -> None:
         self.native_backend = native_backend
         self.http_url = str(
@@ -50,6 +57,11 @@ class SolverProvider:
         self._active_backend = "fallback"
         self._last_fallback_reason = "rust_solver_unavailable"
         self._last_success_at: str | None = None
+        # Phase 0.6.6 / 1.4 — mode live « lookup blueprint only » : quand
+        # POKER_LIVE_LOOKUP_ONLY=1, le solve en ligne est interdit ; MISS ⇒
+        # refus d'agir (fallback_reason="no_blueprint").
+        self._lookup_only = _env_truthy(os.getenv("POKER_LIVE_LOOKUP_ONLY", ""))
+        self._blueprint_store = blueprint_store
 
     def active_backend(self) -> str:
         return self._active_backend
@@ -228,7 +240,112 @@ class SolverProvider:
         }
         return response
 
+    # ------------------------------------------------------ blueprint (live)
+    def _get_blueprint_store(self) -> Any:
+        if self._blueprint_store is None:
+            from src.solver.blueprint_store import default_blueprint_store
+
+            self._blueprint_store = default_blueprint_store()
+        return self._blueprint_store
+
+    @staticmethod
+    def _blueprint_key(payload: dict) -> str:
+        """Clé de lookup blueprint — exactement la même normalisation que le
+        générateur offline (``spot_cache_key`` partagé, parité par construction).
+        """
+        from src.solver.blueprint_store import blueprint_key
+
+        return blueprint_key(
+            hero_hand=str(payload.get("hero_range") or ""),
+            villain_range=str(
+                (payload.get("villain_ranges") or [""])[0]
+                if payload.get("villain_ranges")
+                else ""
+            ),
+            board=list(payload.get("board") or []),
+            pot=float(payload.get("starting_pot") or 0.0),
+            effective_stack=float(payload.get("effective_stack") or 0.0),
+            legal_actions=list(payload.get("legal_actions") or []),
+            spot_id=str(payload.get("spot_id") or ""),
+            hero_position=str(payload.get("hero_position") or ""),
+            action_history=list(payload.get("action_history") or []),
+            rake=float(payload.get("rake") or 0.0),
+        )
+
+    def _check_bet_quantization(self, payload: dict) -> str | None:
+        """Refuse les mises adverses hors tolérance de quantification (0.6.5.i).
+
+        Retourne un motif de refus (str) ou None si tout est quantifiable.
+        """
+        from src.solver.bet_quantization import quantize_observed_bet
+
+        pot = float(payload.get("starting_pot") or 0.0)
+        stack = float(payload.get("effective_stack") or 0.0)
+        for raw in payload.get("action_history") or []:
+            parts = str(raw).split(":")
+            if len(parts) < 3:
+                continue
+            action = parts[1].strip().lower()
+            if action not in _AGGRESSIVE_ACTIONS:
+                continue
+            try:
+                amount = float(parts[2])
+            except (TypeError, ValueError):
+                continue
+            if amount <= 0.0 or amount >= stack > 0.0:
+                continue  # all-in : pas de quantification à appliquer
+            if quantize_observed_bet(amount, pot) is None:
+                return "bet_out_of_quantization_tolerance"
+        return None
+
+    def _solve_from_blueprint(self, payload: dict) -> dict:
+        store = self._get_blueprint_store()
+        spot_for_log = {
+            "spot_id": payload.get("spot_id"),
+            "board": list(payload.get("board") or []),
+            "pot": payload.get("starting_pot"),
+            "stack": payload.get("effective_stack"),
+        }
+        quantization_refusal = self._check_bet_quantization(payload)
+        key = self._blueprint_key(payload)
+        if quantization_refusal is not None:
+            store.record_miss(key, spot_for_log, reason=quantization_refusal)
+            self._active_backend = "fallback"
+            self._last_fallback_reason = "no_blueprint"
+            if self.health_monitor is not None:
+                self.health_monitor.record_error(
+                    "solver", "no_blueprint", status="degraded", cooldown_s=1.0
+                )
+            return self._fallback_response(
+                "no_blueprint",
+                native_reason=quantization_refusal,
+                http_reason="live_lookup_only",
+            )
+        response = store.lookup(key)
+        if response is not None:
+            self._active_backend = "blueprint"
+            self._last_fallback_reason = ""
+            self._last_success_at = _utc_now()
+            if self.health_monitor is not None:
+                self.health_monitor.record_success("solver")
+            return response
+        store.record_miss(key, spot_for_log, reason="miss")
+        self._active_backend = "fallback"
+        self._last_fallback_reason = "no_blueprint"
+        if self.health_monitor is not None:
+            self.health_monitor.record_error(
+                "solver", "no_blueprint", status="degraded", cooldown_s=1.0
+            )
+        return self._fallback_response(
+            "no_blueprint",
+            native_reason="blueprint_miss",
+            http_reason="live_lookup_only",
+        )
+
     def solve_spot_v2(self, **payload: Any) -> dict:
+        # Phase 0.6.6 / 1.4 — live lookup-only : JAMAIS de solve en ligne.
+        if self._lookup_only:
+            return self._solve_from_blueprint(payload)
         native_response, native_reason = self._invoke_native(payload)
         if native_response is not None:
             self._active_backend = str(

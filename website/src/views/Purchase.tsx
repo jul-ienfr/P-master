@@ -11,7 +11,7 @@ function PaymentCards() {
     const [hover, setHover] = useState(false);
     const [showBitcoin, setShowBitcoin] = useState(false);
     const bitcoinAddress = "bc1q6r0l549jefv3rgs7e0jzsdkx9pq9trd2cqyw50";
-    const dlLink = useDlLink();
+    const { link: dlLink, loading: dlLinkLoading } = useDlLink();
     const handleGAEvent = (action, label) => {
         // Track event with ReactGA
         ReactGA.event({
@@ -21,6 +21,7 @@ function PaymentCards() {
         });
     };
     const goToLink = (link, paymentType) => {
+        if (!link) return; // Unavailable in local mode
         handleGAEvent('Click', paymentType); // Track which payment option was clicked
         window.location.href = link;
     };
@@ -42,9 +43,14 @@ function PaymentCards() {
                                 <div> Free</div>
                                 <div> Version</div>
                                 <div>
-                                    <Button onClick={() => goToLink(dlLink, 'Free Version')} variant="contained">
+                                    <Button onClick={() => goToLink(dlLink, 'Free Version')} variant="contained" disabled={!dlLink}>
                                         Download
                                     </Button>
+                                    {!dlLink && !dlLinkLoading && (
+                                        <div className="small text-muted">
+                                            Download link unavailable in local mode.
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="items">
                                     <ul>

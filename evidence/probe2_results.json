@@ -1,0 +1,46 @@
+[
+ {
+  "tag": "F-AA-hero-IP",
+  "hero_range": "AsAd",
+  "villain_range": "QQ",
+  "hero_hand": "AsAd",
+  "hero_position": "ip",
+  "converged": true,
+  "exploitability": 0.009424924850463867,
+  "fallback_reason": null,
+  "chosen_action": "check"
+ },
+ {
+  "tag": "G-AsAc-vs-QQ",
+  "hero_range": "AsAc",
+  "villain_range": "QQ",
+  "hero_hand": "AsAc",
+  "hero_position": "oop",
+  "converged": false,
+  "exploitability": 5.000000476837158,
+  "fallback_reason": "convergence_not_reached",
+  "chosen_action": ""
+ },
+ {
+  "tag": "H-AA-vs-KK",
+  "hero_range": "AsAd",
+  "villain_range": "KK",
+  "hero_hand": "AsAd",
+  "hero_position": "oop",
+  "converged": false,
+  "exploitability": 5.000000476837158,
+  "fallback_reason": "convergence_not_reached",
+  "chosen_action": ""
+ },
+ {
+  "tag": "I-QQrange-vs-AA",
+  "hero_range": "QQ",
+  "villain_range": "AA",
+  "hero_hand": "QhQs",
+  "hero_position": "oop",
+  "converged": true,
+  "exploitability": 0.00943756103515625,
+  "fallback_reason": null,
+  "chosen_action": "check"
+ }
+]

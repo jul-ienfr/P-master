@@ -161,6 +161,7 @@ fn range_relative_strength(
     state_confidence = None,
     use_cache = true,
     time_budget_ms = None,
+    epsilon_target = None,
     hero_hand = None,
     sample_mixed = false,
     random_seed = None,
@@ -189,6 +190,7 @@ fn solve_spot_v2(
     state_confidence: Option<f64>,
     use_cache: bool,
     time_budget_ms: Option<u64>,
+    epsilon_target: Option<f64>,
     hero_hand: Option<String>,
     sample_mixed: bool,
     random_seed: Option<u64>,
@@ -219,6 +221,7 @@ fn solve_spot_v2(
         range_model_version: RangeModelVersion::BoardAwareV2,
         use_cache,
         time_budget_ms,
+        epsilon_target: epsilon_target.map(|value| value as f32),
         hero_hand: normalize_optional_string(hero_hand),
         sample_mixed,
         random_seed,
@@ -440,6 +443,8 @@ fn solve_spot_v2_response_to_python(
     )?;
     result.set_item("decision_confidence", response.decision_confidence)?;
     result.set_item("fallback_reason", response.fallback_reason)?;
+    result.set_item("converged", response.converged)?;
+    result.set_item("epsilon_target", response.epsilon_target)?;
     result.set_item("cache_hit", response.cache_hit)?;
     result.set_item("elapsed_ms", response.elapsed_ms)?;
     result.set_item("preset_id", response.preset_id.to_string())?;
@@ -617,6 +622,7 @@ fn decision_warning_name(warning: DecisionWarning) -> &'static str {
         DecisionWarning::OcrLowConfidence => "ocr_low_confidence",
         DecisionWarning::ModelUnavailable => "model_unavailable",
         DecisionWarning::ManualOverride => "manual_override",
+        DecisionWarning::ConvergenceNotReached => "convergence_not_reached",
         DecisionWarning::Unknown => "unknown",
     }
 }

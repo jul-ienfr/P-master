@@ -1,0 +1,52 @@
+[
+ {
+  "tag": "A-exact-vs-pair",
+  "hero_range": "AsAd",
+  "villain_range": "QQ",
+  "hero_hand": "AsAd",
+  "converged": false,
+  "exploitability": 5.000000476837158,
+  "fallback_reason": "convergence_not_reached",
+  "chosen_action": ""
+ },
+ {
+  "tag": "B-pair-vs-pair",
+  "hero_range": "AA",
+  "villain_range": "QQ",
+  "hero_hand": "AsAd",
+  "converged": false,
+  "exploitability": 5.0,
+  "fallback_reason": "convergence_not_reached",
+  "chosen_action": ""
+ },
+ {
+  "tag": "C-exact-vs-exact",
+  "hero_range": "AsAd",
+  "villain_range": "QhQs",
+  "hero_hand": "AsAd",
+  "converged": false,
+  "exploitability": 5.000000476837158,
+  "fallback_reason": "convergence_not_reached",
+  "chosen_action": ""
+ },
+ {
+  "tag": "D-working-sanity",
+  "hero_range": "QhQs",
+  "villain_range": "AA",
+  "hero_hand": "QhQs",
+  "converged": true,
+  "exploitability": 0.0,
+  "fallback_reason": null,
+  "chosen_action": "check"
+ },
+ {
+  "tag": "E-AA-other-suits",
+  "hero_range": "AdAh",
+  "villain_range": "QQ",
+  "hero_hand": "AdAh",
+  "converged": false,
+  "exploitability": 5.000000476837158,
+  "fallback_reason": "convergence_not_reached",
+  "chosen_action": ""
+ }
+]
