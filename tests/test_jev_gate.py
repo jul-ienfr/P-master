@@ -172,3 +172,14 @@ def test_from_env_overrides(monkeypatch):
     monkeypatch.setenv("POKER_JEV_TIMEOUT_S", "1.5")
     cfg = JevGateConfig.from_env()
     assert (cfg.mode, cfg.model, cfg.timeout_s) == ("enforcing", "jev-1.13-free", 1.5)
+
+
+def test_from_env_base_then_env_then_overrides(monkeypatch):
+    base = {"mode": "enforcing", "model": "jev-1.13", "timeout_s": 2.0}
+    cfg = JevGateConfig.from_env(base=base)
+    assert (cfg.mode, cfg.model, cfg.timeout_s) == ("enforcing", "jev-1.13", 2.0)
+    monkeypatch.setenv("POKER_JEV_MODE", "off")
+    cfg = JevGateConfig.from_env(base=base)
+    assert cfg.mode == "off"  # env bat base
+    cfg = JevGateConfig.from_env({"mode": "observer"}, base=base)
+    assert cfg.mode == "observer"  # overrides bat env

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import statistics
 import sys
 from pathlib import Path
@@ -83,7 +84,15 @@ def main() -> int:
     print(f"incidents: {len(incidents)} (mode={args.mode})")
     if args.no_network:
         print("no-network: construction des états uniquement (aucun appel proxy)")
-    cfg = JevGateConfig.from_env({"mode": args.mode})
+    base = None
+    config_path = os.environ.get("POKER_CONFIG", "config.json")
+    try:
+        with open(config_path, encoding="utf-8") as fh:
+            config_data = json.load(fh)
+        base = ((config_data.get("bot", {}) or {}).get("jev_gate", {}) or {}) or None
+    except (OSError, ValueError):
+        pass
+    cfg = JevGateConfig.from_env({"mode": args.mode}, base=base)
     questions = build_questions()
     lat: list[float] = []
     agree = 0

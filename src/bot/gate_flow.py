@@ -402,7 +402,8 @@ class GateFlowMixin:
         # un go heuristique peut être bloqué ; l'heuristique bloquée ne peut
         # jamais être débloquée. Off = zéro appel. Fail-open = heuristique.
         try:
-            jev_config = JevGateConfig.from_env()
+            jev_base = ((self.config or {}).get("bot", {}) or {}).get("jev_gate", {}) or {}
+            jev_config = JevGateConfig.from_env(base=jev_base)
             if jev_config.mode != "off":
                 jev_allowed, jev_decision, jev_reason = jev_decide(
                     canonical_state, gate_result.allowed, config=jev_config

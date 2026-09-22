@@ -17,8 +17,10 @@ Politique transposée de .claude/skills/jev-model-router/hooks/policy.ts :
   peut que bloquer, jamais assouplir. Tout échec -> fail-open (verdict None).
 
 Jev ne voit que du TEXTE (phrase d'état), jamais d'image/screenshot.
-Config via env: POKER_JEV_MODE (observer|enforcing|off), POKER_JEV_MODEL,
-POKER_JEV_TIMEOUT_S. Jamais de clé en dur (le free n'en demande pas).
+Config : fichier (bloc ``bot.jev_gate`` de config.json, via ``base``) puis env
+(POKER_JEV_MODE, POKER_JEV_MODEL, POKER_JEV_TIMEOUT_S, POKER_JEV_BASE_URL),
+puis ``overrides`` explicites (ex. CLI). Précédence : overrides > env > base.
+Jamais de clé en dur (le free n'en demande pas).
 """
 
 from __future__ import annotations
@@ -71,8 +73,17 @@ class JevGateConfig:
     risky_threshold: float = RISKY_THRESHOLD
 
     @classmethod
-    def from_env(cls, overrides: dict[str, Any] | None = None) -> "JevGateConfig":
+    def from_env(
+        cls,
+        overrides: dict[str, Any] | None = None,
+        base: dict[str, Any] | None = None,
+    ) -> "JevGateConfig":
+        """Construit la config : fichier (``base``) < env < ``overrides``."""
         cfg = cls()
+        if base:
+            for key in ("mode", "model", "timeout_s", "base_url"):
+                if base.get(key) not in (None, "") and hasattr(cfg, key):
+                    setattr(cfg, key, base[key])
         env = os.environ
         if env.get("POKER_JEV_MODE"):
             cfg.mode = str(env["POKER_JEV_MODE"]).strip().lower()
