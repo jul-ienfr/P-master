@@ -26,10 +26,10 @@ from src.bot.jev_gate import JevGateConfig, build_state  # noqa: E402
 
 CAUSE_CRITERIA = {
     "vision_degraded": "OCR/crop illisible ou partiel : cartes, pot ou boutons manquants.",
-    "state_incoherent": "Champs visibles mais contradictoires entre eux.",
-    "stale_frame": "Frame trop vieille ou figée, état périmé.",
+    "state_incoherent": "Divergence STRUCTURELLE spot vs tracker (heros present/absent d'un cote, ou street differente avec heros visible). Un simple 'confidence drift' mineur n'est PAS incoherent.",
+    "stale_frame": "Frame trop vieille ou figee, etat perime.",
     "loop_error": "Erreur logicielle de la boucle (exception, timeout interne).",
-    "conservative_block": "Gate conservateur sur état lisible, pas de vrai problème.",
+    "conservative_block": "Gate conservateur sur etat coherent : spot et tracker d'accord (meme street, meme visibilite heros), confiance basse mais pas de vrai probleme - ex. IDLE sans heros en debut/fin de main.",
     "unknown": "Cause indéterminée.",
 }
 
@@ -121,6 +121,35 @@ def state_from_incident(incident: dict) -> tuple[str, str]:
     state = build_state(snapshot)
 
     extras: list[str] = []
+    # 0. Divergence spot canonique <-> tracker live — le signal readiness.
+    # canonical_spot = dernier état résolu (source de la décision live),
+    # tracker = dernier snapshot brut. Quand ils divergent (street, héros,
+    # confiance), la jambe vision/résolution est incohérente même si chaque
+    # jambe prise seule semble lisible (ex. PREFLOP Ah As conf 0.333 d'un
+    # côté, IDLE sans héros conf 0.25 de l'autre).
+    spot_street = spot.get("street") if isinstance(spot, dict) else None
+    tracker_street = tracker.get("street") if isinstance(tracker, dict) else None
+    spot_hero = spot.get("hero_cards") if isinstance(spot, dict) else None
+    tracker_hero = tracker.get("hero_cards") if isinstance(tracker, dict) else None
+    spot_conf = spot.get("state_confidence") if isinstance(spot, dict) else None
+    tracker_conf = tracker.get("state_confidence") if isinstance(tracker, dict) else None
+    # Divergence structurelle (sens métier) : présence/absence du héros, ou
+    # changement de street avec héros — pas les micro-écarts float de
+    # confiance (bruit : 78 % des readiness, "0.333 vs 0.25" lisible).
+    struct_div = (bool(spot_hero) != bool(tracker_hero)) or (
+        spot_street != tracker_street and (bool(spot_hero) or bool(tracker_hero))
+    )
+    if spot and tracker and struct_div:
+        extras.append(
+            "spot vs tracker DIVERGE (structural): "
+            f"spot {spot_street}/{spot_hero} "
+            f"vs tracker {tracker_street}/{tracker_hero}"
+        )
+    elif spot and tracker and spot_conf != tracker_conf:
+        extras.append(
+            f"spot vs tracker confidence drift {spot_conf} vs {tracker_conf} "
+            "(minor: same street, same hero visibility)"
+        )
     # 1. Context brut de l'incident — le plus discriminant, en premier.
     if isinstance(ctx.get("frame_age_ms"), (int, float)):
         extras.append(
