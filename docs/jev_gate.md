@@ -90,9 +90,9 @@ readiness 8/8 plausibles — STRUCT (héros présent/absent, 13 % du corpus) →
 (0.333 vs 0.25) → signalé `confidence drift (minor)`, jamais `DIVERGE`.
 Juge (même campagne, `POKER_JEV_TIMEOUT_S=30`) : paires identiques → `tie`
 conf 1.0 (`b_healthier` 0.09-0.10) ; paires contrastées (batch 0 incident vs
-batch 2 incidents) → verdict correct des deux côtés (`a` conf 1.0 quand le
-propre est en A, `b` conf 1.0 / `b_healthier` 0.95 quand il est en B — pas
-de biais de position).
+batch 2 incidents) → verdict correct des deux côtés (`a` conf 1.0 /
+`b_healthier` 0.03 quand le propre est en A, `b` conf 1.0 / `b_healthier` 0.93
+quand il est en B — pas de biais de position).
 Observer live (meme campagne, `POKER_JEV_TIMEOUT_S=30`, cout `"0"` mesure) :
 attention 2 tables ex-aequo OUR_TURN (alpha lisible pot 150 conf 0.9 vs beta
 floue pot unreadable conf 0.2) -> pick beta d'abord (`['beta','alpha']`,
