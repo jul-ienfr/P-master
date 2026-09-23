@@ -81,11 +81,20 @@ Offline d'abord (aucun effet live), live en observer uniquement.
 | 5 | Budget solveur piloté par tier | `DecisionMaker._apply_jev_tier_budget` (fast 400 / balanced = base / deep 2500 ms, clamp 256–9000, budget seul jamais logique GTO), branché via `jev_tier` du flow précédent dans `gate_flow.py` | zéro appel supplémentaire (réutilise la décision du gate) |
 | 6 | Détecteur de drift temporel | `src/bot/jev_drift.py` (`detect_drift` 5 règles pures + `confirm_with_jev` tier deep ou risky > 0.7 + `observer_drift_check` zéro appel) ; hook consultatif dans `gate_flow.py` (`summary["drift"]` + event `drift_pause_advised`, jamais de blocage) | zéro appel supplémentaire |
 
-Validation live (proxy :4000, `jev-1.13-free`, coût `"0"`) :
-autolabel `vision_degraded 0.26 / severity 0.68` ; attention pick `table_1 0.56` ;
-juge batch tie conf 1.0 (`b_healthier 0.09`) ; chat free `muse-spark-1.3-contributor-free`
-rapport FR « 908 records, 0 erreur solver ». Détail : le juge timeout à 0.8 s sur
-résumés métriques lourds → relancer avec `POKER_JEV_TIMEOUT_S=5` (fail-open sinon).
+Validation live (proxy :4000, `jev-1.13-free`, coût `"0"`, aveugle seed 11, 26/26 plausibles) :
+stale 6/6 (`stale_frame` ~0.95, sev ~1.57) ; loop 8/8 (`loop_error` ~0.88, sev ~1.87) ;
+vision 6-8/8 (`vision_degraded` 0.85-0.98, sev ~1.37) ;
+readiness 8/8 plausibles — STRUCT (héros présent/absent, 13 % du corpus) →
+`state_incoherent` ~0.98, IDLE cohérents → `conservative_block`, pot flou →
+`vision_degraded`. Leçon : 78 % des readiness n'ont qu'un micro-écart float
+(0.333 vs 0.25) → signalé `confidence drift (minor)`, jamais `DIVERGE`.
+Juge (même campagne, `POKER_JEV_TIMEOUT_S=30`) : paires identiques → `tie`
+conf 1.0 (`b_healthier` 0.09-0.10) ; paires contrastées (batch 0 incident vs
+batch 2 incidents) → verdict correct des deux côtés (`a` conf 1.0 quand le
+propre est en A, `b` conf 1.0 / `b_healthier` 0.95 quand il est en B — pas
+de biais de position).
+Détail : le juge et l'autolabel timeoutent à 0.8 s sur états lourds →
+`POKER_JEV_TIMEOUT_S=8..30` en batch offline (fail-open sinon, `unknown`, jamais d'erreur).
 
 Tests : `tests/test_jev_expansion.py` (20 tests mockés : autolabel, juge,
 attention, budgets tier, drift/détection/observer) + `tests/test_jev_gate.py`
