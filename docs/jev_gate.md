@@ -123,3 +123,14 @@ pot illisible, contradictions) → go 0.02-0.06, tier deep, risky ~0.89 →
 papier réelle (`POKER_JEV_MODE=enforcing`) avant tout usage réel — les états
 synthétiques ne remplacent pas le corpus. Option seuil 0.5 discutée, non
 appliquée (configurable par l'utilisateur).
+
+**Tri stale_frame (2026-09-23, corpus 185 incidents, offline)** : ages min 1719 /
+p10 1994 / méd 7531 / p90 8006 / max 8547 ms ; > 2000 ms : 166, > 5000 ms : 161,
+1250–2500 ms : 22. 159/185 viennent d'une seule session
+(`runtime-20260415T120632Z-393d9825`, spot `live:IDLE:idle`, gaps méd 23 s max
+3186 s → table figée/absence, pas capture lente). Le petit cluster actionnable
+(~24 PREFLOP, pots 23/8000/14428, ages 1719–2172 ms) rame ~2 s vs seuil 1250 ms
+(`main.py` `max_live_frame_age_s`, fallback readiness `frame_fresh <= 300 ms`
+dans `gate_flow.py`). Verdict : seuil 1250 ms **gardé** (relever légitimerait
+les frames figées) ; incident `stale_frame` enrichi (`street` +
+`actionable_spot`) pour trancher figé vs actionnable au prochain tri.
