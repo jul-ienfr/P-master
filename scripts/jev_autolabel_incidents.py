@@ -21,8 +21,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.eval_jev_gate import load_incidents, state_from_incident  # noqa: E402
-from src.bot.jev_gate import JevGateConfig  # noqa: E402
+from scripts.eval_jev_gate import load_incidents  # noqa: E402
+from src.bot.jev_gate import JevGateConfig, build_state  # noqa: E402
 
 CAUSE_CRITERIA = {
     "vision_degraded": "OCR/crop illisible ou partiel : cartes, pot ou boutons manquants.",
@@ -84,6 +84,75 @@ def autolabel(state: str, questions: dict, *, config: JevGateConfig) -> dict:
         if isinstance(sev_a.get("score"), (int, float)) else None,
         "reason": "parsed",
     }
+
+
+def state_from_incident(incident: dict) -> tuple[str, str]:
+    """État texte riche + vrai incident_id.
+
+    Matière discriminante (le context brut est le signal le plus direct) :
+    état table (canonical_spot sinon tracker : street, héros, board, pot,
+    boutons, confiance), puis signaux readiness/vision/loop — en premier le
+    ``context`` brut de l'incident (frame_age_ms vs max_age_ms pour stale,
+    message d'erreur pour loop_error, element/consecutive_rejected/avg_score
+    pour vision_quality_degraded) — puis readiness (reasons, degraded_fields),
+    crop quality pot (quality_score bas = flou), fallback utilisé.
+    Retourne (state, vrai incident_id).
+    """
+    ctx = incident.get("context") or {}
+    readiness = ctx.get("readiness") or {}
+    validation = ctx.get("validation") or {}
+    spot = incident.get("canonical_spot") or {}
+    tracker = incident.get("tracker") or {}
+    decision = incident.get("decision") or {}
+    incident_id = str(incident.get("incident_id") or "?")
+
+    snapshot = dict(spot) if isinstance(spot, dict) else {}
+    if not snapshot:
+        snapshot = dict(tracker) if isinstance(tracker, dict) else {}
+    meta = dict(snapshot.get("metadata") or {})
+    # build_state sérialiserait meta["ocr_confidence"] brut : ici c'est un
+    # gros dict de config OCR, pas un score -> on le retire (le signal utile
+    # est pot crop quality, ajouté séparément dans extras).
+    meta.pop("ocr_confidence", None)
+    meta.pop("ocr", None)
+    meta.setdefault("readiness_state", readiness.get("state"))
+    meta.setdefault("validation_state", validation.get("state"))
+    snapshot["metadata"] = meta
+    state = build_state(snapshot)
+
+    extras: list[str] = []
+    # 1. Context brut de l'incident — le plus discriminant, en premier.
+    if isinstance(ctx.get("frame_age_ms"), (int, float)):
+        extras.append(
+            f"frame age {ctx['frame_age_ms']:.0f} ms "
+            f"(max allowed {ctx.get('max_age_ms', '?')} ms)"
+        )
+    if ctx.get("error"):
+        extras.append(f"loop error: {ctx['error']}")
+    for key in ("element", "consecutive_rejected", "avg_score"):
+        if ctx.get(key) not in (None, ""):
+            extras.append(f"{key} {ctx[key]}")
+    # 2. Readiness (cas runtime_readiness_not_fully_valid).
+    reasons = readiness.get("reasons") or []
+    if reasons:
+        extras.append("readiness reasons: " + "; ".join(map(str, reasons)))
+    degraded = readiness.get("degraded_fields") or []
+    if degraded:
+        extras.append("degraded fields: " + ", ".join(map(str, degraded)))
+    if incident.get("severity"):
+        extras.append(f"logged severity {incident['severity']}")
+    # 3. Crop quality pot (flou) depuis vision_metadata.
+    vision_meta = tracker.get("vision_metadata") or {}
+    crop_q = (vision_meta.get("crop_quality") or {}) if isinstance(vision_meta, dict) else {}
+    pot_q = (crop_q.get("pot") or {}) if isinstance(crop_q, dict) else {}
+    if isinstance(pot_q.get("quality_score"), (int, float)):
+        extras.append(f"pot crop quality {pot_q['quality_score']:.2f}")
+    fallback_used = decision.get("fallback_used")
+    if fallback_used:
+        extras.append(f"fallback used ({decision.get('fallback_reason', '?')})")
+    if extras:
+        state += ". " + ". ".join(extras)
+    return state, incident_id
 
 
 def main() -> int:
