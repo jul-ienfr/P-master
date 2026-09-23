@@ -987,6 +987,11 @@ class GateFlowMixin:
             frame_age_ms=frame_age_ms,
             max_age_ms=max_age_ms,
             spot_id=canonical_state.spot_id,
+            street=canonical_state.street,
+            actionable_spot=bool(
+                len(canonical_state.hero_cards) == 2
+                and bool(canonical_state.legal_actions)
+            ),
         )
         self._push_runtime_event(
             "warning",
