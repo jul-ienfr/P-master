@@ -93,7 +93,15 @@ conf 1.0 (`b_healthier` 0.09-0.10) ; paires contrastées (batch 0 incident vs
 batch 2 incidents) → verdict correct des deux côtés (`a` conf 1.0 quand le
 propre est en A, `b` conf 1.0 / `b_healthier` 0.95 quand il est en B — pas
 de biais de position).
-Détail : le juge et l'autolabel timeoutent à 0.8 s sur états lourds →
+Observer live (meme campagne, `POKER_JEV_TIMEOUT_S=30`, cout `"0"` mesure) :
+attention 2 tables ex-aequo OUR_TURN (alpha lisible pot 150 conf 0.9 vs beta
+floue pot unreadable conf 0.2) -> pick beta d'abord (`['beta','alpha']`,
+avis seul, zero clic) ; drift synthetique street FLOP fixe board 2->3 pot
+100->150 -> `street_stalled` detecte pur, confirme live tier deep +
+risky 0.78 -> pause conseillee, wrapper `observer_drift_check` consultatif
+sans appel supplementaire ; budgets tier verifies fast 400 / balanced base /
+deep 2500 ms (clamp 256-9000, zero appel, reutilise la decision du gate).
+Detail : le juge et l'autolabel timeoutent à 0.8 s sur états lourds →
 `POKER_JEV_TIMEOUT_S=8..30` en batch offline (fail-open sinon, `unknown`, jamais d'erreur).
 
 Tests : `tests/test_jev_expansion.py` (20 tests mockés : autolabel, juge,
