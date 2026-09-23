@@ -115,7 +115,11 @@ Tests : `tests/test_jev_expansion.py` (20 tests mockés : autolabel, juge,
 attention, budgets tier, drift/détection/observer) + `tests/test_jev_gate.py`
 (17 : + `test_policy_boundary_partial_degradation_blocks_on_risky` figeant la
 strictness frontière — 5 cas risky-forcé + 1 blocage confiant) → 37 verts
-(+ 76 replay gate).
+(+ 78 replay gate : 76 existants + 2 câblage live
+`test_jev_enforcing_blocks_incoherent_go_without_network` et
+`test_jev_off_makes_no_call_in_live_flow`, mock `jev_decide` zéro réseau —
+enforcing bloque en `JEV_INCOHERENT_STATE` avec `action_intent` préservé,
+off n'appelle jamais).
 
 **Limites connues** : dataset `runtime_failures` unilatéral (0 cas `go`) — l'accord 1.00
 ne couvre que le côté bloqué. Enforcing mesuré sur 24 états synthétiques

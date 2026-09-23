@@ -2832,3 +2832,149 @@ def test_operator_snapshot_keeps_assisted_mode_even_when_go_live_gate_is_blocked
     snapshot = controller._build_operator_snapshot()
 
     assert snapshot["status"] == "assisted"
+
+
+def test_jev_enforcing_blocks_incoherent_go_without_network(monkeypatch):
+    """Câblage live gate_flow : enforcing + Jev incohérent mocké -> gate bloqué.
+
+    Mocke `src.bot.gate_flow.jev_decide` (pas de réseau) pour vérifier le
+    second avis : GateResult passe à blocked avec JEV_INCOHERENT_STATE et
+    action_intent/confidence préservés. Fail-open couvert par
+    test_policy_fail_open_keeps_heuristic (tests/test_jev_gate.py).
+    """
+    from unittest import mock
+
+    from src.bot import gate_flow as gate_flow_module
+    from src.bot.jev_gate import JevDecision
+
+    fixture = _load_fixture("main_gate_decision_trace_replay.json")
+    controller = object.__new__(SuperBotController)
+    controller.runtime_sanity = SanityChecker()
+    controller.runtime_history_store = FixtureHistoryStore()
+    controller.decision_maker = FixtureDecisionMaker(fixture["decision"])
+    controller.action_controller = FixtureActionController()
+    controller.tracker = types.SimpleNamespace(
+        current_hand_actions=list(fixture["tracker_snapshot"]["action_history"])
+    )
+    controller.last_tracker_snapshot = dict(fixture["tracker_snapshot"])
+    controller.last_decision_summary = {}
+    controller.last_gate_result = GateResult(allowed=False, status="idle", reasons=[])
+    controller.runtime_event_history = deque(maxlen=24)
+    controller.decision_trace_history = deque(maxlen=16)
+    controller.incident_history = deque(maxlen=16)
+    controller._last_runtime_street = "IDLE"
+    controller._last_hero_seat_id = fixture["tracker_snapshot"]["hero_seat_id"]
+    controller.fallback_coords = {}
+    controller.config = {"bot": {"jev_gate": {"mode": "enforcing"}}}
+    controller._get_dynamic_coordinates = lambda state: {
+        key: tuple(value) for key, value in fixture["dynamic_coords"].items()
+    }
+
+    tick = {"value": 0}
+
+    def fake_utc_now():
+        tick["value"] += 1
+        return f"2026-04-11T13:00:{tick['value']:02d}Z"
+
+    controller._utc_now = fake_utc_now
+
+    async def _fast_sleep(_delay):
+        await _ORIGINAL_ASYNCIO_SLEEP(0)
+
+    monkeypatch.setattr("src.main.asyncio.sleep", _fast_sleep)
+    controller._operator_action_mode = lambda: "ready"
+    # POKER_JEV_* vides -> la config fichier décide (enforcing ci-dessus).
+    monkeypatch.delenv("POKER_JEV_MODE", raising=False)
+    monkeypatch.delenv("POKER_JEV_MODEL", raising=False)
+    monkeypatch.delenv("POKER_JEV_TIMEOUT_S", raising=False)
+    monkeypatch.delenv("POKER_JEV_BASE_URL", raising=False)
+
+    jev_block = JevDecision(
+        verdict=None,
+        reason="parsed",
+        go=0.01,
+        tier="deep",
+        tier_confidence=1.0,
+        risky=0.84,
+        effort=2.85,
+    )
+    with mock.patch.object(
+        gate_flow_module,
+        "jev_decide",
+        return_value=(False, jev_block, "jev risky 0.84 > 0.7 (forced)"),
+    ) as mocked_decide:
+        canonical_state = _build_canonical_state(fixture["canonical_state"])
+        result = asyncio.run(
+            controller._run_decision_gate_flow(
+                canonical_state=canonical_state,
+                state=FixtureState(),
+                primary_villain=FixtureVillain(name="VillainBTN", has_button=True),
+                effective_stack=88.0,
+            )
+        )
+
+    assert mocked_decide.called  # zéro appel réseau, mock au niveau decide
+    assert controller.last_decision_summary["jev"]["mode"] == "enforcing"
+    assert controller.last_decision_summary["jev"]["go"] == 0.01
+    assert controller.last_decision_summary["gate_allowed"] is False
+    assert controller.last_decision_summary["gate_reason"].startswith("jev:")
+    assert any(
+        reason.code == "JEV_INCOHERENT_STATE"
+        for reason in result["gate_result"].reasons
+    )
+    assert result["gate_result"].action_intent is not None
+    assert controller.action_controller.calls == []  # rien exécuté
+
+
+def test_jev_off_makes_no_call_in_live_flow(monkeypatch):
+    """Câblage live gate_flow : mode off -> jev_decide jamais appelé."""
+    from unittest import mock
+
+    from src.bot import gate_flow as gate_flow_module
+
+    fixture = _load_fixture("main_gate_decision_trace_replay.json")
+    controller = object.__new__(SuperBotController)
+    controller.runtime_sanity = SanityChecker()
+    controller.runtime_history_store = FixtureHistoryStore()
+    controller.decision_maker = FixtureDecisionMaker(fixture["decision"])
+    controller.action_controller = FixtureActionController()
+    controller.tracker = types.SimpleNamespace(
+        current_hand_actions=list(fixture["tracker_snapshot"]["action_history"])
+    )
+    controller.last_tracker_snapshot = dict(fixture["tracker_snapshot"])
+    controller.last_decision_summary = {}
+    controller.last_gate_result = GateResult(allowed=False, status="idle", reasons=[])
+    controller.runtime_event_history = deque(maxlen=24)
+    controller.decision_trace_history = deque(maxlen=16)
+    controller.incident_history = deque(maxlen=16)
+    controller._last_runtime_street = "IDLE"
+    controller._last_hero_seat_id = fixture["tracker_snapshot"]["hero_seat_id"]
+    controller.fallback_coords = {}
+    controller.config = {"bot": {"jev_gate": {"mode": "off"}}}
+    controller._get_dynamic_coordinates = lambda state: {
+        key: tuple(value) for key, value in fixture["dynamic_coords"].items()
+    }
+    controller._utc_now = lambda: "2026-04-11T13:10:00Z"
+
+    async def _fast_sleep(_delay):
+        await _ORIGINAL_ASYNCIO_SLEEP(0)
+
+    monkeypatch.setattr("src.main.asyncio.sleep", _fast_sleep)
+    controller._operator_action_mode = lambda: "ready"
+
+    with mock.patch.object(
+        gate_flow_module, "jev_decide", side_effect=AssertionError("must not call")
+    ):
+        canonical_state = _build_canonical_state(fixture["canonical_state"])
+        result = asyncio.run(
+            controller._run_decision_gate_flow(
+                canonical_state=canonical_state,
+                state=FixtureState(),
+                primary_villain=FixtureVillain(name="VillainBTN", has_button=True),
+                effective_stack=88.0,
+            )
+        )
+
+    assert "jev" not in controller.last_decision_summary
+    assert result["decision"]["action"] == fixture["expected"]["executed_action"]
+
