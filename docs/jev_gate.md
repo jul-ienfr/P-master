@@ -49,6 +49,12 @@ Mode inconnu → repli `observer` (warning loggué). **Jamais de clé en dur**
 - `risky > 0.7` : escalade forcée, quel que soit le reste.
 - **Asymétrie** : Jev peut bloquer un « go » heuristique, mais ne peut **jamais**
   forcer un « go » si l'heuristique bloque. Sans confiance mesurée → heuristique gardée.
+- **Garde-fou tier** (correctif 2026-09-23) : si Jev déclare lui-même l'état lisible
+  (`tier` fast/balanced) mais que P(!go) atteint la bar basse 0.3, les signaux se
+  contredisent → blocage exigé seulement à la **bar haute 0.6**. La bar basse 0.3
+  ne s'applique que si `tier` = deep ou absent. `risky > 0.7` reste une escalade
+  forcée, quel que soit le tier. Sweep : 3/12 faux blocs (0.25) → 0/12 attendu
+  (les 3 spots bloqués à tort avaient tier fast + conf 0.33–0.59 < 0.6).
 - **Fail-open** : timeout, proxy down, réponse malformée → `verdict None`,
   décision heuristique inchangée. Jev ne casse jamais le gate (`try/except` global
   dans `gate_flow.py` + `JEV_INCOHERENT_STATE` préservant `action_intent`/`confidence`).
@@ -59,8 +65,8 @@ Mode inconnu → repli `observer` (warning loggué). **Jamais de clé en dur**
   p50 532 ms, p95 718 ms (budget 800 ms OK), 1 fail-open, coûts `['0']`.
 - `--mode enforcing --limit 50` : accord 47/47 = 1.00, p50 516 ms, p95 688 ms,
   3 fail-open (TimeoutError ~800 ms, heuristique gardée).
-- `tests/test_jev_gate.py` : 12 tests mockés (wire format, politique, fail-open, modes).
-- `pytest tests/test_jev_gate.py tests/test_main_decision_gate_replay.py` : 69 verts.
+- `tests/test_jev_gate.py` : 15 tests mockés (wire format, politique + garde-fou tier, fail-open, modes).
+- `pytest tests/test_jev_gate.py tests/test_main_decision_gate_replay.py` : 72 verts.
 
 **Limites connues** : dataset `runtime_failures` unilatéral (0 cas `go`) — l'accord 1.00
 ne couvre que le côté bloqué. Seuil 0.3 très conservateur en enforcing (bloque des

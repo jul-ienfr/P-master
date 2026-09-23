@@ -122,6 +122,35 @@ def test_policy_incoherent_go_blocked():
     assert "risky" in reason  # risky > 0.7 force l'escalade
 
 
+def test_policy_tier_fast_contradicts_weak_block():
+    """Garde-fou tier (sweep 2026-09-23 : 3/12 faux blocs) : tier fast/balanced
+    (= état lisible selon Jev lui-même) + conf < bar haute -> pas de bloc."""
+    cfg = JevGateConfig(mode="enforcing")
+    jev = JevDecision(verdict=None, reason="parsed", go=0.67, tier="fast",
+                      tier_confidence=0.56, risky=0.61, effort=1.06)
+    allowed, reason = apply_policy(True, jev, config=cfg)
+    assert allowed is True
+    assert "contradicts" in reason
+
+
+def test_policy_tier_fast_strong_block_still_blocks():
+    """Même avec tier fast, une conf >= bar haute (0.6) bloque toujours."""
+    cfg = JevGateConfig(mode="enforcing")
+    jev = JevDecision(verdict=None, reason="parsed", go=0.30, tier="fast",
+                      tier_confidence=0.4, risky=0.5, effort=1.0)
+    allowed, _ = apply_policy(True, jev, config=cfg)
+    assert allowed is False
+
+
+def test_policy_tier_deep_weak_block_still_blocks():
+    """tier deep (ou absent) : la bar basse 0.3 suffit, comportement inchangé."""
+    cfg = JevGateConfig(mode="enforcing")
+    jev = JevDecision(verdict=None, reason="parsed", go=0.61, tier="deep",
+                      tier_confidence=0.39, risky=0.5, effort=1.0)
+    allowed, _ = apply_policy(True, jev, config=cfg)
+    assert allowed is False
+
+
 def test_policy_never_unblocks_heuristic():
     cfg = JevGateConfig(mode="enforcing")
     jev = JevDecision(verdict=None, reason="parsed", go=0.99, tier="fast",

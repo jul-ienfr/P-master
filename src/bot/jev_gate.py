@@ -282,6 +282,10 @@ def apply_policy(
 
     Asymétrie (cf. mod) : Jev peut bloquer un "go" heuristique (bar basse),
     mais ne peut jamais forcer un "go" si l'heuristique bloque.
+    Garde-fou tier (correctif 2026-09-23, sweep 3/12 faux blocs) : si Jev
+    déclare lui-même l'état lisible (tier fast/balanced), le blocage exige
+    la bar haute (min_downgrade) — sinon le tier contredit le blocage.
+    La bar basse (min_upgrade) ne s'applique que si tier = deep ou absent.
     """
     cfg = config or JevGateConfig.from_env()
     if jev.verdict is None and jev.go is None and jev.tier is None:
@@ -301,9 +305,13 @@ def apply_policy(
         conf = max(c for c in (conf_go, jev.tier_confidence) if c is not None)
     if conf is None:
         return True, "jev no confidence, heuristic go kept"
-    if conf >= cfg.min_upgrade_confidence:
-        return False, f"jev blocks incoherent state (conf {_fmt(conf)})"
-    return True, "jev agrees with heuristic go"
+    if conf < cfg.min_upgrade_confidence:
+        return True, "jev agrees with heuristic go"
+    # Garde-fou tier : Jev dit "fast/balanced" (= lisible) mais P(!go)
+    # atteint la bar basse -> signaux contradictoires -> bar haute exigée.
+    if jev.tier in ("fast", "balanced") and conf < cfg.min_downgrade_confidence:
+        return True, f"jev tier {jev.tier} contradicts block (conf {_fmt(conf)} < {cfg.min_downgrade_confidence})"
+    return False, f"jev blocks incoherent state (conf {_fmt(conf)})"
 
 
 def decide(
