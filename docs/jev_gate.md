@@ -114,7 +114,12 @@ attention, budgets tier, drift/détection/observer) + `tests/test_jev_gate.py`
 (16) → 36 verts.
 
 **Limites connues** : dataset `runtime_failures` unilatéral (0 cas `go`) — l'accord 1.00
-ne couvre que le côté bloqué. Seuil 0.3 très conservateur en enforcing (bloque des
-`go` 0.64–0.70 sur états cohérents synthétiques) : mesurer le taux de faux blocs en
-session papier `POKER_JEV_MODE=enforcing` avant tout usage réel. Option seuil 0.5
-discutée, non appliquée (configurable par l'utilisateur).
+ne couvre que le côté bloqué. Enforcing mesuré sur 24 états synthétiques
+aveugles (seed 11, `POKER_JEV_TIMEOUT_S=30`, mode enforcing, coût `"0"`) :
+cohérents (héros visibles, pot lisible, conf 0.80-0.95) → go 0.62-0.86,
+tier fast → **0/12 faux blocs** (garde-fou tier) ; incohérents (héros absents,
+pot illisible, contradictions) → go 0.02-0.06, tier deep, risky ~0.89 →
+**12/12 vrais blocs**, 0 manqué, 0 fail-open. Reste à confirmer sur session
+papier réelle (`POKER_JEV_MODE=enforcing`) avant tout usage réel — les états
+synthétiques ne remplacent pas le corpus. Option seuil 0.5 discutée, non
+appliquée (configurable par l'utilisateur).
