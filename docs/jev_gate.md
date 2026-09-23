@@ -134,3 +134,29 @@ p10 1994 / méd 7531 / p90 8006 / max 8547 ms ; > 2000 ms : 166, > 5000 ms : 161
 dans `gate_flow.py`). Verdict : seuil 1250 ms **gardé** (relever légitimerait
 les frames figées) ; incident `stale_frame` enrichi (`street` +
 `actionable_spot`) pour trancher figé vs actionnable au prochain tri.
+
+**Tri near_miss (2026-09-23, corpus 1686 near_miss, offline)** : strates par
+métadonnées de validation résolues (street, héros, légales) — **A idle-vrai
+1380** (`IDLE,0,0` : 1177 `live:IDLE:idle` + 202 `waiting_next_hand` + 1
+observing), **B héros-présent 178** (164 `PREFLOP,2,1` + 11 `PREFLOP,2,0` + 2
+`PREFLOP,2,2` + 1 `TURN,2,1`), **C boutons-sans-héros 127** (123
+`PREFLOP,0,1` + 2 `FLOP,0,1` + 2 `IDLE,0,1`), + 1 résidu
+`FLOP:observing_hand:pot-0.0:no_buttons`. 163/178 de B et 87/127 de C viennent
+de la session figée `runtime-20260415T120632Z-393d9825`. États : 1679
+`degraded_valid` **zéro-reason** (règle validateur `conf < 0.6`) + 7
+`soft_invalid` (4 `missing_postflop_pot`, 3 `legal_actions_without_buttons`) ;
+readiness 1686/1686 `conservative` (`degraded_fields` : `state_confidence`
+1456 + `pot` 203 — règle `conf < 0.45`). Mécanisme B : `spot_id` ctx =
+**spot observé pré-résolution** (`live:IDLE:idle`, fallback sans
+board/héros/pot → boutons strippés) tandis que street/héros/légales résolues
+viennent de la fusion tracker-wins — staleness observé-vs-tracker, cosmétique
+pour le tri (`resolved_street` loggué). C = boutons sans héros, ambigu réel,
+à garder enregistré. Garde-fou : le suppresseur
+`_should_record_runtime_readiness_failure` (idle/waiting/sitting/observing)
+**pré-date le corpus** (bundle 030d9c7, mai 2026) — appliqué
+rétroactivement il tait la strate A en live, B/C passent
+(`active_hand`/`actionable_without_hero`). Arbitrage Jev live (campagne
+aveugle) : la confiance domine, **aucune pénalité de spot IDLE** — la garde
+n'est **pas** étendue à `actionable_without_hero`. Verdict : seuils `< 0.6` /
+`< 0.45` **non touchés** (ils pilotent le gating conservative live ;
+changement conditionné à la session papier tâche 2), zéro changement code.
