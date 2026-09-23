@@ -101,6 +101,11 @@ avis seul, zero clic) ; drift synthetique street FLOP fixe board 2->3 pot
 risky 0.78 -> pause conseillee, wrapper `observer_drift_check` consultatif
 sans appel supplementaire ; budgets tier verifies fast 400 / balanced base /
 deep 2500 ms (clamp 256-9000, zero appel, reutilise la decision du gate).
+Rapports (chat gratuit `muse-spark-1.3-contributor-free` via
+`/v1/chat/completions`, timeout 60 s, offline) : batch 2 propre (0 incident)
+-> « session saine, aucune anomalie » sans hallucination ; batch 0 (2
+`vision_quality_degraded`) -> pointe exactement les 2 degradations vision et
+recommande de controler la chaine capture. Factuel des deux cotes.
 Detail : le juge et l'autolabel timeoutent à 0.8 s sur états lourds →
 `POKER_JEV_TIMEOUT_S=8..30` en batch offline (fail-open sinon, `unknown`, jamais d'erreur).
 
