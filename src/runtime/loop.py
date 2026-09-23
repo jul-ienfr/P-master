@@ -464,7 +464,9 @@ class RuntimeLoop:
                         )[-4000:]
                     except Exception:
                         loop_traceback = ""
-                    loop_stage = str(getattr(self, "_loop_stage", "") or "")
+                    loop_stage = str(getattr(self.controller, "_loop_stage", "") or "")
+                    # _loop_stage est posé sur le contrôleur par _set_loop_stage ;
+                    # lecture explicite (pas via le wrapper) pour figer l'attribution.
                     logger.error(
                         "Erreur mineure dans l'analyse: %s (stage=%s)",
                         loop_err,

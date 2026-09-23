@@ -294,3 +294,49 @@ def test_runtime_loop_survives_exception_in_process_frame():
 
     incident_events = [e for e in events if e[0] == "incident"]
     assert incident_events  # l'erreur de la première frame a bien été encaissée
+
+
+def test_runtime_loop_loop_error_incident_carries_stage_type_and_traceback():
+    """Fige l'enrichissement loop_error : stage réel, error_type, traceback borné."""
+    processed = {"count": 0}
+
+    async def broken_process_frame(_frame):
+        processed["count"] += 1
+        if processed["count"] == 1:
+            raise RuntimeError("vision exploded")
+        controller.is_running = False
+        return types.SimpleNamespace(action_buttons=[], hero_cards=[])
+
+    controller, events = make_controller(
+        camera=FakeCamera([FRAME, FRAME, None]),
+        is_running=True,
+        _process_frame=broken_process_frame,
+        action_controller=types.SimpleNamespace(hwnd=None),
+        _convert_state_for_tracker=lambda state, frame: types.SimpleNamespace(
+            metadata={}, spot_id="s", street="IDLE", pot=0.0, board=(),
+            hero_cards=(), players=(), legal_actions=(), action_buttons=[],
+            state_confidence=0.9, to_tracker_payload=lambda: {}, to_dict=lambda: {},
+        ),
+        tracker=types.SimpleNamespace(update_from_vision=None, current_hand_actions=[]),
+        _build_resolved_runtime_state=lambda observed: observed,
+        _clear_live_decision_summary=lambda canonical_state: None,
+    )
+    # _set_loop_stage réaliste : pose _loop_stage sur le contrôleur
+    # (comme OperatorSnapshotMixin._set_loop_stage en prod).
+    controller._loop_stage = ""
+
+    def _fake_set_stage(stage, publish=False):
+        controller._loop_stage = str(stage or "")
+
+    controller._set_loop_stage = _fake_set_stage
+    controller.camera.controller = controller
+    asyncio.run(RuntimeLoop(controller).run())
+
+    incident_events = [e for e in events if e[0] == "incident"]
+    assert incident_events
+    _, args, kwargs = incident_events[0]
+    assert args[0] == "loop_error"
+    assert kwargs.get("loop_stage") == "process_frame"
+    assert kwargs.get("error_type") == "RuntimeError"
+    assert kwargs.get("error") == "vision exploded"
+    assert kwargs.get("traceback") and "RuntimeError" in kwargs["traceback"]
