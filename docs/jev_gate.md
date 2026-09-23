@@ -160,3 +160,20 @@ aveugle) : la confiance domine, **aucune pénalité de spot IDLE** — la garde
 n'est **pas** étendue à `actionable_without_hero`. Verdict : seuils `< 0.6` /
 `< 0.45` **non touchés** (ils pilotent le gating conservative live ;
 changement conditionné à la session papier tâche 2), zéro changement code.
+
+**Session papier enforcing (2026-09-23, proxy live, free, coût `"0"`)** :
+pas de table live disponible — rejouée offline via `eval_jev_gate.py`
+(`--mode enforcing`) : corpus 12 near_miss (`POKER_JEV_TIMEOUT_S=30`,
+0 fail-open) → accord heuristique/Jev **12/12 = 1.00** (go 0.02-0.03,
+tier deep, risky 0.81-0.86, blocage confirmé des deux côtés) ; 6 états
+cohérents synthétiques (héros visibles, pot lisible, conf 0.85-0.93) →
+go 0.90-0.94, tier fast, risky 0.12-0.22 → **0/6 faux blocs** ; 6 états
+frontière (héros flou, pot illisible, boutons partiels, 1 carte, conf 0.35,
+contradiction pot 500→50) → Jev bloque 6/6 (risky > 0.7 forcé ×5, blocage
+confiant ×1) — position **plus stricte** que l'heuristique sur dégradations
+partielles, à trancher en session papier réelle (table live). Latences :
+p50 ~800 ms, p95 1.4 s (budget 800 ms **dépassé** — fail-open couvre en
+live, timeout 0.8 s par défaut). Corollaire seuils : corpus 100 %
+non-actionnable (0 état `actionable=True` sur 1935) — la confirmation
+0-faux-bloc sur états **réels** reste due ; seuils `< 0.6` / `< 0.45`
+toujours non touchés.
