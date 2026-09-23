@@ -454,9 +454,39 @@ class RuntimeLoop:
                     await asyncio.sleep(self._get_live_loop_sleep_interval(actionable_spot))
 
                 except Exception as loop_err:
-                    logger.error(f"Erreur mineure dans l'analyse: {loop_err}")
-                    self._push_incident("loop_error", severity="error", error=str(loop_err))
-                    self._push_runtime_event("error", "loop_error", error=str(loop_err))
+                    try:
+                        import traceback as _tb_mod
+
+                        loop_traceback = "".join(
+                            _tb_mod.format_exception(
+                                type(loop_err), loop_err, loop_err.__traceback__
+                            )
+                        )[-4000:]
+                    except Exception:
+                        loop_traceback = ""
+                    loop_stage = str(getattr(self, "_loop_stage", "") or "")
+                    logger.error(
+                        "Erreur mineure dans l'analyse: %s (stage=%s)",
+                        loop_err,
+                        loop_stage,
+                    )
+                    if loop_traceback:
+                        logger.debug("loop_error traceback (stage=%s):\n%s", loop_stage, loop_traceback)
+                    self._push_incident(
+                        "loop_error",
+                        severity="error",
+                        error=str(loop_err),
+                        error_type=type(loop_err).__name__,
+                        loop_stage=loop_stage,
+                        traceback=loop_traceback,
+                    )
+                    self._push_runtime_event(
+                        "error",
+                        "loop_error",
+                        error=str(loop_err),
+                        error_type=type(loop_err).__name__,
+                        loop_stage=loop_stage,
+                    )
                     self._persist_runtime_metrics_snapshot(force=True)
                     self._publish_runtime_bridge_state(force=True)
                     await asyncio.sleep(1.0)

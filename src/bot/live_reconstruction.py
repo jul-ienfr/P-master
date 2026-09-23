@@ -194,12 +194,17 @@ def infer_hero_seat_id(
 
         candidates.append((score, seat_id))
 
+    if not candidates:
+        return None
+
     candidates.sort(key=lambda item: item[0])
     best_score, best_seat_id = candidates[0]
 
     # ... keep the rest of the switch logic
 
     candidates.sort(key=lambda item: item[0])
+    if not candidates:
+        return None
     best_score, best_seat_id = candidates[0]
 
     if last_hero_seat_id in available_seat_ids:
