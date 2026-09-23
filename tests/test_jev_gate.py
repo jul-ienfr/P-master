@@ -190,6 +190,32 @@ def test_decide_observer_never_changes_heuristic():
         assert allowed is False
 
 
+def test_policy_boundary_partial_degradation_blocks_on_risky():
+    """Session papier enforcing 2026-09-23 : dégradation partielle (héros flou,
+    pot illisible, boutons partiels, 1 carte, conf basse, contradiction pot)
+    -> Jev bloque via risky > 0.7 (forcé) ou blocage confiant. L'asymétrie
+    tient : l'heuristique seule laisserait passer, enforcing bloque."""
+    cfg = JevGateConfig(mode="enforcing")
+    # 5 cas risky-forcé (go 0.04-0.20, tier balanced/deep, risky 0.73-0.79).
+    for go, tier, conf, risky in [
+        (0.17, "balanced", 0.99, 0.78),  # héros flou conf 0.5
+        (0.09, "balanced", 0.92, 0.78),  # boutons partiels
+        (0.10, "balanced", 0.66, 0.79),  # 1 carte héros
+        (0.20, "balanced", 0.61, 0.73),  # conf 0.35
+        (0.04, "deep", 0.99, 0.75),      # contradiction pot
+    ]:
+        jev = JevDecision(verdict=None, reason="parsed", go=go, tier=tier,
+                          tier_confidence=conf, risky=risky, effort=2.0)
+        allowed, reason = apply_policy(True, jev, config=cfg)
+        assert allowed is False
+        assert "risky" in reason
+    # 1 cas blocage confiant sans risky (pot illisible, go 0.06, conf 0.77).
+    jev = JevDecision(verdict=None, reason="parsed", go=0.06, tier="balanced",
+                      tier_confidence=0.77, risky=0.56, effort=2.0)
+    allowed, _ = apply_policy(True, jev, config=cfg)
+    assert allowed is False
+
+
 def test_from_env_unknown_mode_falls_back_to_observer(monkeypatch):
     monkeypatch.setenv("POKER_JEV_MODE", "whatever")
     assert JevGateConfig.from_env().mode == "observer"

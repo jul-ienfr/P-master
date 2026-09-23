@@ -109,9 +109,13 @@ recommande de controler la chaine capture. Factuel des deux cotes.
 Detail : le juge et l'autolabel timeoutent à 0.8 s sur états lourds →
 `POKER_JEV_TIMEOUT_S=8..30` en batch offline (fail-open sinon, `unknown`, jamais d'erreur).
 
+toujours non touchés.
+
 Tests : `tests/test_jev_expansion.py` (20 tests mockés : autolabel, juge,
 attention, budgets tier, drift/détection/observer) + `tests/test_jev_gate.py`
-(16) → 36 verts.
+(17 : + `test_policy_boundary_partial_degradation_blocks_on_risky` figeant la
+strictness frontière — 5 cas risky-forcé + 1 blocage confiant) → 37 verts
+(+ 76 replay gate).
 
 **Limites connues** : dataset `runtime_failures` unilatéral (0 cas `go`) — l'accord 1.00
 ne couvre que le côté bloqué. Enforcing mesuré sur 24 états synthétiques
