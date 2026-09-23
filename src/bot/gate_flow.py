@@ -332,6 +332,10 @@ class GateFlowMixin:
 
         decision = self._get_cached_live_decision(canonical_state)
         if decision is None:
+            # Budget solve piloté par le tier Jev du flow précédent (observer,
+            # zéro appel réseau : tier déjà en mémoire). Premier flow : None.
+            _prev_jev = self.last_decision_summary.get("jev") or {}
+            _prev_tier = _prev_jev.get("tier") if isinstance(_prev_jev, dict) else None
             decision = await self.decision_maker.get_best_action(
                 hero_hand="".join(canonical_state.hero_cards),
                 board=list(canonical_state.board),
@@ -345,6 +349,7 @@ class GateFlowMixin:
                 action_history=self.tracker.current_hand_actions,
                 tournament_data=self._build_tournament_data(canonical_state),
                 active_villain_count=self._count_active_villains(canonical_state),
+                jev_tier=_prev_tier,
             )
             self._remember_cached_live_decision(canonical_state, decision)
         else:
@@ -442,6 +447,45 @@ class GateFlowMixin:
                     self.last_decision_summary["gate_reason"] = f"jev:{jev_reason}"
         except Exception as exc:  # fail-open : Jev ne casse jamais le gate
             logger.debug("JEV | disabled by error (%s), heuristic kept", exc)
+        # Drift temporel (observer, consultatif) : compare le snapshot tracker
+        # précédent au courant, avec la décision Jev ci-dessus comme confirmation
+        # zéro-réseau. Ne bloque jamais : pousse un event "advisory" si pause
+        # conseillée, le gate heuristique reste seul décideur.
+        try:
+            from src.bot.jev_drift import observer_drift_check as _observer_drift_check
+
+            _prev_drift_snapshot = getattr(self, "_prev_drift_snapshot", None)
+            _curr_drift_snapshot = (
+                dict(self.last_tracker_snapshot or {})
+                if isinstance(getattr(self, "last_tracker_snapshot", None), dict)
+                else {}
+            )
+            if isinstance(_prev_drift_snapshot, dict) and _curr_drift_snapshot:
+                _drift_signal, _drift_pause, _drift_reason = _observer_drift_check(
+                    _prev_drift_snapshot,
+                    _curr_drift_snapshot,
+                    jev=dict(self.last_decision_summary.get("jev", {}) or {}),
+                )
+                if _drift_signal is not None:
+                    self.last_decision_summary["drift"] = {
+                        "kind": _drift_signal.kind,
+                        "detail": _drift_signal.detail,
+                        "pause_advised": bool(_drift_pause),
+                        "reason": _drift_reason,
+                    }
+                    if _drift_pause:
+                        self._push_runtime_event(
+                            "advisory",
+                            "drift_pause_advised",
+                            kind=_drift_signal.kind,
+                            detail=_drift_signal.detail,
+                            reason=_drift_reason,
+                            spot_id=canonical_state.spot_id,
+                        )
+            if _curr_drift_snapshot:
+                self._prev_drift_snapshot = _curr_drift_snapshot
+        except Exception as exc:  # fail-open : le drift ne casse jamais le gate
+            logger.debug("JEV drift | disabled by error (%s)", exc)
         self.last_decision_summary["fallback_execution_readiness"] = fallback_execution_readiness
         assisted_result = self._evaluate_assisted_execution(canonical_state, decision, gate_result)
         self.last_decision_summary["assisted"] = assisted_result

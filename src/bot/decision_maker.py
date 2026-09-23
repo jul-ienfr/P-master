@@ -779,6 +779,8 @@ class DecisionMaker:
             self._preflop_store = PreflopSolutionStore(self.preflop_solutions_path)
         return self._preflop_store
 
+    _JEV_TIER_SOLVE_BUDGETS: dict[str, int] = {"fast": 400, "balanced": 1000, "deep": 2500}
+
     @staticmethod
     def _multiway_time_budget(active_villain_count: int) -> int:
         """Phase 3, garde-fou : budget solve réduit automatiquement en multiway."""
@@ -787,6 +789,25 @@ class DecisionMaker:
         if active_villain_count == 3:
             return 700
         return 500
+
+    def _apply_jev_tier_budget(
+        self, base_budget_ms: int, *, jev_tier: str | None = None
+    ) -> tuple[int, str | None]:
+        """Ajuste le budget solve selon le tier Jev (observer, sans toucher GTO).
+
+        ``fast`` -> budget réduit (état lisible, pas besoin de creuser) ;
+        ``deep`` -> budget augmenté, borné sous le timeout 10 s du solve ;
+        ``balanced``/absent -> budget inchangé (fail-open).
+        Retourne (budget_ms, tier_appliqué|None).
+        """
+        tier = str(jev_tier or "").strip().lower() or None
+        if tier not in self._JEV_TIER_SOLVE_BUDGETS:
+            return int(base_budget_ms), None
+        if tier == "balanced":
+            return int(base_budget_ms), tier
+        budget = int(self._JEV_TIER_SOLVE_BUDGETS[tier])
+        budget = max(256, min(9000, budget))
+        return budget, tier
 
     def _run_preflop_dual_mode(
         self,
@@ -1447,6 +1468,7 @@ class DecisionMaker:
         action_history: list[dict[str, Any]] | None = None,
         tournament_data: dict[str, Any] | None = None,
         active_villain_count: int | None = None,
+        jev_tier: str | None = None,
     ) -> dict:
         """
         Détermine la meilleure action à prendre en combinant GTO (Solver Rust),
@@ -1455,6 +1477,10 @@ class DecisionMaker:
         ``active_villain_count`` (>2) déclenche le mode multiway approché
         (Phase 3, garde-fous) : solve HU contre le villain principal avec range
         resserrée et budget d'itérations réduit, signalé dans les métadonnées.
+
+        ``jev_tier`` (fast/balanced/deep, décision Jev du gate) ajuste
+        uniquement le budget d'itérations du solve (400/1000/2500 ms) — jamais
+        la logique GTO. Absent/inconnu : budget inchangé (fail-open).
         """
         logger.info(f"Calcul de décision contre {villain_name}. Board: {board}, Pot: {pot}")
         hero_hand = _normalize_hero_hand_string(hero_hand)
@@ -1586,6 +1612,17 @@ class DecisionMaker:
                         hero_position,
                         legal_actions,
                     )
+                # Budget solve piloté par le tier Jev (observer) : seul levier
+                # live, jamais la logique GTO. Fail-open : tier inconnu = base.
+                _solve_budget_ms, _solve_tier = self._apply_jev_tier_budget(
+                    self._multiway_time_budget(multiway_players), jev_tier=jev_tier
+                )
+                if _solve_tier is not None and _solve_tier != "balanced":
+                    logger.info(
+                        "SOLVE_BUDGET | tier=%s budget_ms=%d (base multiway gardée sinon)",
+                        _solve_tier,
+                        _solve_budget_ms,
+                    )
                 try:
                     from src.runtime.debug import to_thread_with_context as _to_thread_ctx_dm
                 except ImportError:
@@ -1604,7 +1641,7 @@ class DecisionMaker:
                         hero_position=hero_position,
                         state_confidence=state_confidence,
                         action_history=action_history,
-                        time_budget_ms=self._multiway_time_budget(multiway_players),
+                        time_budget_ms=_solve_budget_ms,
                     ),
                     timeout=10.0,
                 )

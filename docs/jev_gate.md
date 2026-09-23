@@ -68,6 +68,29 @@ Mode inconnu → repli `observer` (warning loggué). **Jamais de clé en dur**
 - `tests/test_jev_gate.py` : 15 tests mockés (wire format, politique + garde-fou tier, fail-open, modes).
 - `pytest tests/test_jev_gate.py tests/test_main_decision_gate_replay.py` : 72 verts.
 
+## Extension — 6 usages Jev (2026-09-23, implémenté, live observer validé coût 0)
+
+Offline d'abord (aucun effet live), live en observer uniquement.
+
+| # | usage | module | réseau live ? |
+|---|-------|--------|---------------|
+| 1 | Autolabel incidents (cause + sévérité) | `scripts/jev_autolabel_incidents.py` | non (offline, `--limit/--out`, corpus source jamais modifié) |
+| 2 | Juge de sessions papier (A vs B) | `scripts/jev_judge_sessions.py` (`--a/--b`, `--batch-a/--batch-b/--store`) | non (offline, lit `RuntimeHistoryStore.export_records/batches` incl. `.bak`) |
+| 3 | Rapports de session en langage naturel | chat gratuit (`muse-spark-1.3-contributor-free` via `/v1/chat/completions`, texte résumé offline uniquement) | hors boucle live |
+| 4 | Routeur d'attention multi-tables | `src/bot/jev_attention.py` (`suggest_attention_order`) | lecture seule, tie-break ex-aequo `OUR_TURN` uniquement, zéro appel si < 2 ex-aequo ou top < `OUR_TURN` ou `off` ; jamais de clic, jamais de `signal_provider` |
+| 5 | Budget solveur piloté par tier | `DecisionMaker._apply_jev_tier_budget` (fast 400 / balanced = base / deep 2500 ms, clamp 256–9000, budget seul jamais logique GTO), branché via `jev_tier` du flow précédent dans `gate_flow.py` | zéro appel supplémentaire (réutilise la décision du gate) |
+| 6 | Détecteur de drift temporel | `src/bot/jev_drift.py` (`detect_drift` 5 règles pures + `confirm_with_jev` tier deep ou risky > 0.7 + `observer_drift_check` zéro appel) ; hook consultatif dans `gate_flow.py` (`summary["drift"]` + event `drift_pause_advised`, jamais de blocage) | zéro appel supplémentaire |
+
+Validation live (proxy :4000, `jev-1.13-free`, coût `"0"`) :
+autolabel `vision_degraded 0.26 / severity 0.68` ; attention pick `table_1 0.56` ;
+juge batch tie conf 1.0 (`b_healthier 0.09`) ; chat free `muse-spark-1.3-contributor-free`
+rapport FR « 908 records, 0 erreur solver ». Détail : le juge timeout à 0.8 s sur
+résumés métriques lourds → relancer avec `POKER_JEV_TIMEOUT_S=5` (fail-open sinon).
+
+Tests : `tests/test_jev_expansion.py` (20 tests mockés : autolabel, juge,
+attention, budgets tier, drift/détection/observer) + `tests/test_jev_gate.py`
+(16) → 36 verts.
+
 **Limites connues** : dataset `runtime_failures` unilatéral (0 cas `go`) — l'accord 1.00
 ne couvre que le côté bloqué. Seuil 0.3 très conservateur en enforcing (bloque des
 `go` 0.64–0.70 sur états cohérents synthétiques) : mesurer le taux de faux blocs en
