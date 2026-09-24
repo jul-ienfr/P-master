@@ -71,6 +71,8 @@ import {
 import {
   AutoAnnotatorPanel,
   InterfacePreferencesPanel,
+  JevGatePanel,
+  type JevGateLanTestState,
   PresetLibraryPanel,
   RuntimeControlsPanel,
   OcrSettingsPanel,
@@ -117,6 +119,13 @@ import {
   loadOcrConfig as loadPersistedOcrConfig,
   persistOcrConfig as persistStoredOcrConfig,
 } from "../lib/ocrConfig";
+import {
+  createDefaultJevGateConfig,
+  loadJevGateConfig,
+  normalizeJevGateConfig,
+  persistJevGateConfig,
+  type ConfigLabJevConfig,
+} from "../lib/jevGateConfig";
 import { useWorkstationThemeMode } from "../lib/theme";
 import {
   getBotCopy,
@@ -4787,20 +4796,25 @@ export function ConfigLabPage() {
   const { configCopy } = text;
   const [configPayload, setConfigPayload] = useState<ConfigBridgePayload | null>(null);
   const [ocrStatus, setOcrStatus] = useState<ConfigLabOcrStatus | null>(null);
+  const [jevGate, setJevGate] = useState<ConfigLabJevConfig>(() => createDefaultJevGateConfig());
+  const [jevLanTest, setJevLanTest] = useState<JevGateLanTestState>({ status: "idle", message: "" });
   const [isRefreshing, setIsRefreshing] = useState(true);
   const [statusMessage, setStatusMessage] = useState<string>(configCopy.loading);
   const [activePresetId, setActivePresetId] = useState("");
   const [benchmarkProfile, setBenchmarkProfile] = useState("balanced");
   const llmPersistRequestIdRef = useRef(0);
+  const jevPersistRequestIdRef = useRef(0);
+  const jevLanAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     let isActive = true;
 
     loadConfigLabPayload()
       .then(async (payload) => {
-        const [persistedOcr, status] = await Promise.all([
+        const [persistedOcr, status, persistedJev] = await Promise.all([
           loadPersistedOcrConfig().catch(() => payload.ocr),
           getConfigLabOcrStatus().catch(() => null),
+          loadJevGateConfig().catch(() => createDefaultJevGateConfig()),
         ]);
         if (!isActive) {
           return;
@@ -4811,6 +4825,7 @@ export function ConfigLabPage() {
         };
         const presetItems = buildConfigPresetItems(nextPayload, locale);
         setConfigPayload(nextPayload);
+        setJevGate(normalizeJevGateConfig(persistedJev));
         setActivePresetId(
           presetItems.some((preset) => preset.id === nextPayload.solver.selectedPresetId)
             ? nextPayload.solver.selectedPresetId
@@ -4843,6 +4858,7 @@ export function ConfigLabPage() {
 
     return () => {
       isActive = false;
+      jevLanAbortRef.current?.abort();
     };
   }, [configCopy.offline, locale]);
 
@@ -4927,9 +4943,10 @@ export function ConfigLabPage() {
     setStatusMessage(configCopy.refresh);
     try {
       const payload = await refreshConfigLabPayload();
-      const [persistedOcr, status] = await Promise.all([
+      const [persistedOcr, status, persistedJev] = await Promise.all([
         loadPersistedOcrConfig().catch(() => payload.ocr),
         getConfigLabOcrStatus().catch(() => null),
+        loadJevGateConfig().catch(() => jevGate),
       ]);
       const nextPayload = {
         ...payload,
@@ -4937,6 +4954,7 @@ export function ConfigLabPage() {
       };
       const presetItems = buildConfigPresetItems(nextPayload, locale);
       setConfigPayload(nextPayload);
+      setJevGate((current) => normalizeJevGateConfig(persistedJev ?? current));
       setOcrStatus(status);
       setActivePresetId((currentPresetId) =>
         presetItems.some((preset) => preset.id === currentPresetId)
@@ -5027,6 +5045,80 @@ export function ConfigLabPage() {
         : currentPayload
     );
     setOcrStatus((currentStatus) => status ?? currentStatus);
+  };
+
+  const updateConfigJev = async (next: ConfigLabJevConfig, successMessage: string) => {
+    const normalized = normalizeJevGateConfig(next);
+    const requestId = jevPersistRequestIdRef.current + 1;
+    jevPersistRequestIdRef.current = requestId;
+
+    setJevGate(normalized);
+    setStatusMessage(successMessage);
+
+    const persisted = await persistJevGateConfig(normalized).catch(() => normalized);
+    if (requestId !== jevPersistRequestIdRef.current) {
+      return;
+    }
+    setJevGate(normalizeJevGateConfig(persisted));
+  };
+
+  const handleTestJevLan = async () => {
+    jevLanAbortRef.current?.abort();
+    const controller = new AbortController();
+    jevLanAbortRef.current = controller;
+    // Frontend-only probe: GET <lanBaseUrl>/v1/models with a short timeout.
+    // No key is ever read or sent here — only the URL configured above.
+    const rawBase = jevGate.lan.baseUrl.trim().replace(/\/+$/, "");
+    if (!rawBase) {
+      setJevLanTest({
+        status: "error",
+        message: locale === "fr" ? "URL LAN vide." : "Empty LAN URL.",
+      });
+      return;
+    }
+    setJevLanTest({
+      status: "running",
+      message: locale === "fr" ? "Ping du serveur LAN…" : "Pinging LAN server…",
+    });
+    const timeoutMs = Math.max(500, Math.min(15000, Math.round(jevGate.lan.timeoutTextS * 1000)));
+    const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(`${rawBase}/v1/models`, {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      globalThis.clearTimeout(timeout);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      setJevLanTest({
+        status: "ok",
+        message:
+          locale === "fr"
+            ? `Serveur LAN joignable (${response.status}).`
+            : `LAN server reachable (${response.status}).`,
+      });
+    } catch (error) {
+      globalThis.clearTimeout(timeout);
+      const reason =
+        error instanceof Error && error.name === "AbortError"
+          ? locale === "fr"
+            ? "délai dépassé"
+            : "timed out"
+          : error instanceof Error
+            ? error.message
+            : locale === "fr"
+              ? "injoignable"
+              : "unreachable";
+      setJevLanTest({
+        status: "error",
+        message:
+          locale === "fr"
+            ? `Serveur LAN injoignable : ${reason}`
+            : `LAN server unreachable: ${reason}`,
+      });
+    }
   };
 
   const configAlertSeverity =
@@ -5216,6 +5308,27 @@ export function ConfigLabPage() {
               },
               locale === "fr" ? "OCR réinitialisé" : "OCR reset"
             );
+          }}
+        />
+        <JevGatePanel
+          locale={locale}
+          value={jevGate}
+          disabled={!configPayload || isRefreshing}
+          lanTest={jevLanTest}
+          onChange={(next) => {
+            void updateConfigJev(
+              next,
+              locale === "fr" ? "Second avis Jev mis à jour" : "Jev second opinion updated"
+            );
+          }}
+          onReset={() => {
+            void updateConfigJev(
+              createDefaultJevGateConfig(),
+              locale === "fr" ? "Second avis Jev réinitialisé" : "Jev second opinion reset"
+            );
+          }}
+          onTestLan={() => {
+            void handleTestJevLan();
           }}
         />
         <LlmSettingsPanel

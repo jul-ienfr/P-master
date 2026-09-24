@@ -4,6 +4,7 @@ import {
   getConfigCopy,
   getDecisionTraceCopy,
   getHistoryExportCopy,
+  getJevGateCopy,
   getOcrProbeCopy,
   getOcrSettingsCopy,
   getOperatorConsoleCopy,
@@ -50,6 +51,8 @@ describe("workstation i18n copies", () => {
     expect(getPresetLibraryCopy("en").newPreset).toBe("New preset");
     expect(getOcrSettingsCopy("fr").title.length).toBeGreaterThan(0);
     expect(getOcrProbeCopy("en").run).toBe("Run OCR probe");
+    expect(getJevGateCopy("fr").title.length).toBeGreaterThan(0);
+    expect(getJevGateCopy("en").testLan).toBe("Test LAN");
   });
 
   it("returns bot secondary copies", () => {

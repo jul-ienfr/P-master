@@ -5,6 +5,7 @@ import {
   CONFIG_COPY,
   DECISION_TRACE_COPY,
   HISTORY_EXPORT_COPY,
+  JEV_GATE_COPY,
   OCR_PROBE_COPY,
   OCR_SETTINGS_COPY,
   OPERATOR_CONSOLE_COPY,
@@ -93,6 +94,10 @@ export function getOcrSettingsCopy(locale: WorkstationLocale) {
 
 export function getOcrProbeCopy(locale: WorkstationLocale) {
   return OCR_PROBE_COPY[locale];
+}
+
+export function getJevGateCopy(locale: WorkstationLocale) {
+  return JEV_GATE_COPY[locale];
 }
 
 export function useWorkstationText(locale: WorkstationLocale) {

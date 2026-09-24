@@ -10,6 +10,7 @@ export {
 } from "./bot.copy";
 export {
   CONFIG_COPY,
+  JEV_GATE_COPY,
   OCR_PROBE_COPY,
   OCR_SETTINGS_COPY,
   PRESET_LIBRARY_COPY,

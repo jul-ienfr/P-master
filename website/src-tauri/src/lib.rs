@@ -20,6 +20,7 @@ struct AppState {
     started_instant: Instant,
     llm_config: Mutex<LlmConfig>,
     ocr_config: Mutex<OcrConfig>,
+    jev_gate_config: Mutex<JevGateConfig>,
     auto_annotator_config: Mutex<AutoAnnotatorConfig>,
     managed_runtime: Mutex<Option<ManagedRuntimeProcess>>,
 }
@@ -50,6 +51,127 @@ pub struct RuntimeConfigResponse {
     pub http_fallback_enabled: bool,
     pub llm: LlmConfig,
     pub ocr: OcrConfig,
+    pub jev_gate: JevGateConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct JevGateLanConfig {
+    pub base_url: String,
+    pub model: String,
+    pub timeout_text_s: f64,
+    pub timeout_image_s: f64,
+    pub api_key_env: String,
+}
+
+impl Default for JevGateLanConfig {
+    fn default() -> Self {
+        Self {
+            base_url: String::new(),
+            model: "qwen2.5-vl-3b".to_string(),
+            timeout_text_s: 1.0,
+            timeout_image_s: 15.0,
+            api_key_env: "POKER_JEV_LAN_KEY".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct JevGateMultimodalConfig {
+    pub enabled: bool,
+    pub mode: String,
+    pub max_images: u32,
+    pub crop_size_px: u32,
+    pub jpeg_quality: u32,
+}
+
+impl Default for JevGateMultimodalConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            mode: "text_only".to_string(),
+            max_images: 3,
+            crop_size_px: 160,
+            jpeg_quality: 80,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct JevGateUsageEntry {
+    pub enabled: bool,
+    pub timeout_s: f64,
+}
+
+impl Default for JevGateUsageEntry {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            timeout_s: 15.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct JevGateUsages {
+    pub autolabel: JevGateUsageEntry,
+    pub judge: JevGateUsageEntry,
+    pub report: JevGateUsageEntry,
+    pub attention: JevGateUsageEntry,
+    pub tier_budget: JevGateUsageEntry,
+    pub drift: JevGateUsageEntry,
+}
+
+impl Default for JevGateUsages {
+    fn default() -> Self {
+        Self {
+            autolabel: JevGateUsageEntry::default(),
+            judge: JevGateUsageEntry::default(),
+            report: JevGateUsageEntry::default(),
+            attention: JevGateUsageEntry::default(),
+            tier_budget: JevGateUsageEntry::default(),
+            drift: JevGateUsageEntry::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct JevGateConfig {
+    pub base_url: String,
+    pub model: String,
+    pub timeout_s: f64,
+    pub mode: String,
+    pub min_upgrade_confidence: f64,
+    pub min_downgrade_confidence: f64,
+    pub risky_threshold: f64,
+    pub deployment: String,
+    pub backend: String,
+    pub lan: JevGateLanConfig,
+    pub multimodal: JevGateMultimodalConfig,
+    pub usages: JevGateUsages,
+}
+
+impl Default for JevGateConfig {
+    fn default() -> Self {
+        Self {
+            base_url: "http://127.0.0.1:4000".to_string(),
+            model: "jev-1.13-free".to_string(),
+            timeout_s: 0.8,
+            mode: "observer".to_string(),
+            min_upgrade_confidence: 0.3,
+            min_downgrade_confidence: 0.6,
+            risky_threshold: 0.7,
+            deployment: "single".to_string(),
+            backend: "cloud".to_string(),
+            lan: JevGateLanConfig::default(),
+            multimodal: JevGateMultimodalConfig::default(),
+            usages: JevGateUsages::default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -701,6 +823,11 @@ fn build_runtime_config_response(state: &AppState) -> RuntimeConfigResponse {
             .lock()
             .expect("ocr config lock poisoned")
             .clone(),
+        jev_gate: state
+            .jev_gate_config
+            .lock()
+            .expect("jev gate config lock poisoned")
+            .clone(),
     }
 }
 
@@ -931,6 +1058,150 @@ fn stop_managed_runtime(state: &AppState) {
             let _ = process.child.wait();
         }
     }
+}
+
+fn normalize_jev_gate_config(mut config: JevGateConfig) -> JevGateConfig {
+    let defaults = JevGateConfig::default();
+
+    config.base_url = if config.base_url.trim().is_empty() {
+        defaults.base_url
+    } else {
+        config.base_url.trim().to_string()
+    };
+    config.model = if config.model.trim().is_empty() {
+        defaults.model
+    } else {
+        config.model.trim().to_string()
+    };
+    if !config.timeout_s.is_finite() || config.timeout_s < 0.05 {
+        config.timeout_s = defaults.timeout_s;
+    }
+
+    config.mode = match config.mode.trim().to_lowercase().as_str() {
+        "observer" | "enforcing" | "off" => config.mode.trim().to_lowercase(),
+        _ => defaults.mode,
+    };
+    config.deployment = match config.deployment.trim().to_lowercase().as_str() {
+        "dual" => "dual".to_string(),
+        _ => "single".to_string(),
+    };
+    config.backend = match config.backend.trim().to_lowercase().as_str() {
+        "local" | "auto" => config.backend.trim().to_lowercase(),
+        _ => "cloud".to_string(),
+    };
+
+    for value in [
+        &mut config.min_upgrade_confidence,
+        &mut config.min_downgrade_confidence,
+        &mut config.risky_threshold,
+    ] {
+        if !value.is_finite() {
+            *value = 0.0;
+        }
+        *value = value.clamp(0.0, 1.0);
+    }
+
+    config.lan.base_url = config.lan.base_url.trim().to_string();
+    config.lan.model = if config.lan.model.trim().is_empty() {
+        defaults.lan.model
+    } else {
+        config.lan.model.trim().to_string()
+    };
+    if !config.lan.timeout_text_s.is_finite() || config.lan.timeout_text_s < 0.05 {
+        config.lan.timeout_text_s = defaults.lan.timeout_text_s;
+    }
+    if !config.lan.timeout_image_s.is_finite() || config.lan.timeout_image_s < 0.5 {
+        config.lan.timeout_image_s = defaults.lan.timeout_image_s;
+    }
+    config.lan.api_key_env = if config.lan.api_key_env.trim().is_empty() {
+        defaults.lan.api_key_env
+    } else {
+        config.lan.api_key_env.trim().to_string()
+    };
+
+    // Verrou Phase 3 : crops_live parsé mais jamais actif.
+    config.multimodal.mode = match config.multimodal.mode.trim().to_lowercase().as_str() {
+        "crops_offline" => "crops_offline".to_string(),
+        _ => "text_only".to_string(),
+    };
+    if config.multimodal.mode == "text_only" {
+        config.multimodal.enabled = false;
+    }
+    config.multimodal.max_images = config.multimodal.max_images.clamp(1, 8);
+    config.multimodal.crop_size_px = config.multimodal.crop_size_px.clamp(32, 512);
+    config.multimodal.jpeg_quality = config.multimodal.jpeg_quality.clamp(10, 100);
+
+    // dual sans URL LAN -> repli single (même garde que JevGateConfig.from_env).
+    if config.deployment == "dual" && config.lan.base_url.is_empty() {
+        config.deployment = "single".to_string();
+    }
+
+    for entry in [
+        &mut config.usages.autolabel,
+        &mut config.usages.judge,
+        &mut config.usages.report,
+        &mut config.usages.attention,
+        &mut config.usages.tier_budget,
+        &mut config.usages.drift,
+    ] {
+        if !entry.timeout_s.is_finite() || entry.timeout_s < 0.1 {
+            entry.timeout_s = JevGateUsageEntry::default().timeout_s;
+        }
+    }
+
+    config
+}
+
+fn load_jev_gate_config_from_disk() -> JevGateConfig {
+    let path = match config_path() {
+        Ok(path) => path,
+        Err(_) => return JevGateConfig::default(),
+    };
+
+    let raw = match fs::read_to_string(path) {
+        Ok(raw) => raw,
+        Err(_) => return JevGateConfig::default(),
+    };
+
+    let parsed: serde_json::Value = match serde_json::from_str(&raw) {
+        Ok(value) => value,
+        Err(_) => return JevGateConfig::default(),
+    };
+
+    parsed
+        .get("bot")
+        .and_then(|bot| bot.get("jev_gate"))
+        .cloned()
+        .and_then(|value| serde_json::from_value::<JevGateConfig>(value).ok())
+        .map(normalize_jev_gate_config)
+        .unwrap_or_default()
+}
+
+fn persist_jev_gate_config_to_disk(config: &JevGateConfig) -> Result<(), String> {
+    let path = config_path()?;
+    let raw =
+        fs::read_to_string(&path).map_err(|err| format!("failed to read config.json: {err}"))?;
+    let mut parsed: serde_json::Value =
+        serde_json::from_str(&raw).map_err(|err| format!("invalid config.json: {err}"))?;
+
+    let root = parsed
+        .as_object_mut()
+        .ok_or_else(|| "config.json root must be an object".to_string())?;
+    let bot = root
+        .entry("bot".to_string())
+        .or_insert_with(|| serde_json::json!({}));
+    let bot_object = bot
+        .as_object_mut()
+        .ok_or_else(|| "config.json bot must be an object".to_string())?;
+    bot_object.insert(
+        "jev_gate".to_string(),
+        serde_json::to_value(config)
+            .map_err(|err| format!("failed to serialize Jev gate config: {err}"))?,
+    );
+
+    let next_raw = serde_json::to_string_pretty(&parsed)
+        .map_err(|err| format!("failed to format config.json: {err}"))?;
+    fs::write(path, next_raw).map_err(|err| format!("failed to write config.json: {err}"))
 }
 
 fn normalize_ocr_config(mut config: OcrConfig) -> OcrConfig {
@@ -1643,6 +1914,31 @@ fn get_ocr_config(state: tauri::State<'_, AppState>) -> OcrConfig {
 }
 
 #[tauri::command]
+fn get_jev_gate_config(state: tauri::State<'_, AppState>) -> JevGateConfig {
+    state
+        .jev_gate_config
+        .lock()
+        .expect("jev gate config lock poisoned")
+        .clone()
+}
+
+#[tauri::command]
+fn set_jev_gate_config(
+    state: tauri::State<'_, AppState>,
+    config: JevGateConfig,
+) -> Result<JevGateConfig, String> {
+    let normalized = normalize_jev_gate_config(config);
+    persist_jev_gate_config_to_disk(&normalized)?;
+    let mut guard = state
+        .jev_gate_config
+        .lock()
+        .map_err(|_| "jev gate config lock poisoned".to_string())?;
+
+    *guard = normalized.clone();
+    Ok(normalized)
+}
+
+#[tauri::command]
 fn get_auto_annotator_config(state: tauri::State<'_, AppState>) -> AutoAnnotatorConfig {
     state
         .auto_annotator_config
@@ -2070,6 +2366,7 @@ pub fn run() {
             started_instant: Instant::now(),
             llm_config: Mutex::new(LlmConfig::default()),
             ocr_config: Mutex::new(load_ocr_config_from_disk()),
+            jev_gate_config: Mutex::new(load_jev_gate_config_from_disk()),
             auto_annotator_config: Mutex::new(load_auto_annotator_config_from_disk()),
             managed_runtime: Mutex::new(None),
         })
@@ -2081,6 +2378,8 @@ pub fn run() {
             set_llm_config,
             get_ocr_config,
             set_ocr_config,
+            get_jev_gate_config,
+            set_jev_gate_config,
             get_auto_annotator_config,
             set_auto_annotator_config,
             get_ocr_status,

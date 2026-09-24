@@ -65,6 +65,22 @@ export interface ConfigLabBenchmarkEntry {
   note: string;
 }
 
+export type ConfigLabJevMode = "observer" | "enforcing" | "off";
+
+export type ConfigLabJevDeployment = "single" | "dual";
+
+export type ConfigLabJevBackend = "cloud" | "local" | "auto";
+
+export type ConfigLabJevMultimodalMode = "text_only" | "crops_offline" | "crops_live";
+
+export type ConfigLabJevUsageName =
+  | "autolabel"
+  | "judge"
+  | "report"
+  | "attention"
+  | "tier_budget"
+  | "drift";
+
 export interface ConfigLabPayload {
   kind: "config_lab";
   status: ConfigLabStatus;

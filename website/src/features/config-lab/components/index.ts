@@ -4,3 +4,4 @@ export * from "./AutoAnnotatorPanel";
 export * from "./OcrSettingsPanel";
 export * from "./OcrProbePanel";
 export * from "./InterfacePreferencesPanel";
+export * from "./JevGatePanel";
