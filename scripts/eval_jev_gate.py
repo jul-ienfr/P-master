@@ -138,22 +138,28 @@ def main() -> int:
         lat.append(decision.latency_ms)
         if decision.cost is not None:
             costs.add(str(decision.cost))
-        if decision.go is None and decision.tier is None:
+        cloud_ok = not (decision.go is None and decision.tier is None)
+        jev_go: bool | None = None
+        if not cloud_ok:
             fail_open += 1
             print(f"    JEV fail-open ({decision.reason}) {decision.latency_ms:.0f}ms")
-            continue
-        decided += 1
-        allowed, reason = apply_policy(heuristic, decision, config=cfg)
-        jev_go = (decision.go or 0) >= 0.5
-        if jev_go == heuristic:
-            agree += 1
-        print(
-            f"    JEV go={decision.go} tier={decision.tier} "
-            f"risky={decision.risky} effort={decision.effort} "
-            f"{decision.latency_ms:.0f}ms -> enforcing={allowed} ({reason})"
-        )
+            if not ab_mode:
+                continue
+        else:
+            decided += 1
+            allowed, reason = apply_policy(heuristic, decision, config=cfg)
+            jev_go = (decision.go or 0) >= 0.5
+            if jev_go == heuristic:
+                agree += 1
+            print(
+                f"    JEV go={decision.go} tier={decision.tier} "
+                f"risky={decision.risky} effort={decision.effort} "
+                f"{decision.latency_ms:.0f}ms -> enforcing={allowed} ({reason})"
+            )
         if ab_mode and lan_cfg is not None and not args.no_network:
-            # Requete isolee vers JUG avec le MEME state/questions.
+            # Requete isolee vers JUG avec le MEME state/questions, MEME quand
+            # le cloud est fail-open (sinon on ne mesurerait jamais le LAN
+            # quand le cloud flake — le cas redondance qui nous interesse).
             # Jamais decide()/apply_policy cote lan : on compare les avis
             # bruts, on ne gate rien.
             lan_decision = query(state, questions, config=lan_cfg)
@@ -163,23 +169,26 @@ def main() -> int:
                 print(f"    LAN fail-open ({lan_decision.reason}) "
                       f"{lan_decision.latency_ms:.0f}ms")
             else:
-                cloud_go = jev_go
                 lan_go = (lan_decision.go or 0) >= 0.5
-                ab_compared += 1
-                if lan_go == cloud_go:
-                    ab_agree += 1
-                if lan_go and not cloud_go:
-                    ab_false_go += 1
-                    print("    LAN FAUX-DEBLOCAGE : lan go alors que cloud no-go")
                 ab_rows.append({
                     "timestamp": ts,
                     "category": inc.get("category"),
                     "heuristic_go": heuristic,
-                    "cloud_go": cloud_go,
+                    "cloud_go": jev_go,
                     "lan_go": lan_go,
                     "cloud_latency_ms": round(decision.latency_ms, 1),
                     "lan_latency_ms": round(lan_decision.latency_ms, 1),
                 })
+                if jev_go is None:
+                    print(f"    LAN seul a decide (cloud fail-open) : "
+                          f"lan_go={lan_go} {lan_decision.latency_ms:.0f}ms")
+                else:
+                    ab_compared += 1
+                    if lan_go == jev_go:
+                        ab_agree += 1
+                    if lan_go and not jev_go:
+                        ab_false_go += 1
+                        print("    LAN FAUX-DEBLOCAGE : lan go alors que cloud no-go")
                 print(f"    LAN go={lan_decision.go} tier={lan_decision.tier} "
                       f"risky={lan_decision.risky} "
                       f"{lan_decision.latency_ms:.0f}ms")
