@@ -42,6 +42,35 @@ Précédence : **overrides > env > fichier**.
 Mode inconnu → repli `observer` (warning loggué). **Jamais de clé en dur**
 (le free n'en demande pas ; cf. règle sécurité).
 
+## Options déploiement / backend / multimodal (étape 1 : parsing seul, zéro réseau)
+
+Tout est optionnel dans `bot.jev_gate` (voir `config.example.json`) ; défauts =
+comportement actuel. Précédence inchangée : **overrides > env > fichier**.
+La logique live (`decide`/`query`/`apply_policy`, wire format) est **intouchée**.
+
+| clé / env | défaut | effet |
+|-----------|--------|-------|
+| `deployment` / `POKER_JEV_DEPLOYMENT` | `single` | `single` (tout sur TABLE-WIN) · `dual` (TABLE-WIN → SRV-LINUX via `lan`, repli `single` si `lan.base_url` vide) |
+| `backend` / `POKER_JEV_BACKEND` | `cloud` | `cloud` (Jev actuel) · `local` (clone LLM2Jev sur JUG) · `auto` (choix ultérieur, Phase 3+) |
+| `min_upgrade_confidence` / `POKER_JEV_MIN_UPGRADE` | `0.3` | Bar basse de blocage (exposée en option, valeur live inchangée) |
+| `min_downgrade_confidence` / `POKER_JEV_MIN_DOWNGRADE` | `0.6` | Bar haute garde-fou tier (exposée en option, valeur live inchangée) |
+| `risky_threshold` / `POKER_JEV_RISKY` | `0.7` | Seuil escalade forcée (exposé en option, valeur live inchangée) |
+| `lan.base_url` / `POKER_JEV_LAN_URL` | `""` | URL serveur JUG (ex. `http://192.168.1.10:30000`), vide = pas de LAN |
+| `lan.model` / `POKER_JEV_LAN_MODEL` | `qwen2.5-vl-3b` | Modèle local cible (parsing seul) |
+| `lan.timeout_text_s` / `POKER_JEV_LAN_TIMEOUT_TEXT_S` | `1.0` | Timeout requêtes texte vers JUG (parsing seul) |
+| `lan.timeout_image_s` / `POKER_JEV_LAN_TIMEOUT_IMAGE_S` | `15.0` | Timeout requêtes image offline vers JUG (parsing seul) |
+| `lan.api_key_env` / `POKER_JEV_LAN_KEY_ENV` | `POKER_JEV_LAN_KEY` | **Nom** de la var d'env portant la clé LAN — jamais la valeur, jamais en dur |
+| `multimodal.mode` / `POKER_JEV_MULTIMODAL` | `text_only` | `text_only` (actuel) · `crops_offline` (batch offline, Phase 3+) · `crops_live` **verrouillé** (repli `text_only` + warning tant que Phase 3 non validée) |
+| `multimodal.max_images` / — | `3` | Clampé 1–8 (parsing seul) |
+| `multimodal.crop_size_px` / — | `160` | Taille crops (parsing seul) |
+| `multimodal.jpeg_quality` / — | `80` | Qualité JPEG crops (parsing seul) |
+| `usages.<nom>.enabled` / — | `true` | Interrupteur par usage existant (`autolabel`, `judge`, `report`, `attention`, `tier_budget`, `drift`) ; non listé = actif ; inconnu = inactif |
+| `usages.<nom>.timeout_s` / — | `15.0` | Timeout batch offline par usage (parsing seul) |
+
+Valeurs inconnues (`deployment`, `backend`, `multimodal.mode`) → repli sûr
+(`single` / `cloud` / `text_only`, warning loggué). Aucun appel réseau ajouté :
+`query()` utilise toujours `base_url`/`model`/`timeout_s` historiques.
+
 ## Politique (transposée de `.claude/skills/jev-model-router/hooks/policy.ts`)
 
 - `min_upgrade_confidence = 0.3` : bar basse pour **bloquer** (bloquer coûte peu).

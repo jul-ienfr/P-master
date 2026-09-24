@@ -89,7 +89,34 @@
       "mode": "observer",
       "model": "jev-1.13-free",
       "base_url": "http://127.0.0.1:4000",
-      "timeout_s": 0.8
+      "timeout_s": 0.8,
+      "deployment": "single",
+      "backend": "cloud",
+      "min_upgrade_confidence": 0.3,
+      "min_downgrade_confidence": 0.6,
+      "risky_threshold": 0.7,
+      "lan": {
+        "base_url": "",
+        "model": "qwen2.5-vl-3b",
+        "timeout_text_s": 1.0,
+        "timeout_image_s": 15.0,
+        "api_key_env": "POKER_JEV_LAN_KEY"
+      },
+      "multimodal": {
+        "enabled": false,
+        "mode": "text_only",
+        "max_images": 3,
+        "crop_size_px": 160,
+        "jpeg_quality": 80
+      },
+      "usages": {
+        "autolabel": {"enabled": true, "timeout_s": 15.0},
+        "judge": {"enabled": true, "timeout_s": 15.0},
+        "report": {"enabled": true, "timeout_s": 15.0},
+        "attention": {"enabled": true, "timeout_s": 15.0},
+        "tier_budget": {"enabled": true, "timeout_s": 15.0},
+        "drift": {"enabled": true, "timeout_s": 15.0}
+      }
     },
     "site_profiles": {
       "PokerStars": {

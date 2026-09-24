@@ -238,3 +238,82 @@ def test_from_env_base_then_env_then_overrides(monkeypatch):
     assert cfg.mode == "off"  # env bat base
     cfg = JevGateConfig.from_env({"mode": "observer"}, base=base)
     assert cfg.mode == "observer"  # overrides bat env
+
+
+def test_extended_defaults_preserve_current_behavior(monkeypatch):
+    """Étape 1 options : sans bloc étendu, défauts = comportement actuel,
+    zéro appel réseau ajouté, usages actifs par défaut."""
+    for var in ("POKER_JEV_DEPLOYMENT", "POKER_JEV_BACKEND",
+                "POKER_JEV_LAN_URL", "POKER_JEV_MULTIMODAL"):
+        monkeypatch.delenv(var, raising=False)
+    cfg = JevGateConfig.from_env()
+    assert cfg.deployment == "single"
+    assert cfg.backend == "cloud"
+    assert cfg.lan.base_url == ""
+    assert cfg.multimodal.enabled is False
+    assert cfg.multimodal.mode == "text_only"
+    assert cfg.usage_enabled("autolabel") is True
+    assert cfg.usage_enabled("drift") is True
+    assert cfg.usage_enabled("unknown_usage") is False
+
+
+def test_extended_base_then_env_then_overrides(monkeypatch):
+    base = {
+        "deployment": "dual",
+        "backend": "local",
+        "min_upgrade_confidence": 0.3,
+        "min_downgrade_confidence": 0.6,
+        "risky_threshold": 0.7,
+        "lan": {"base_url": "http://192.168.1.10:30000",
+                "model": "qwen2.5-vl-3b"},
+        "multimodal": {"mode": "crops_offline", "max_images": 2},
+        "usages": {"autolabel": {"enabled": False, "timeout_s": 20.0}},
+    }
+    cfg = JevGateConfig.from_env(base=base)
+    assert cfg.deployment == "dual"
+    assert cfg.backend == "local"
+    assert cfg.lan.base_url == "http://192.168.1.10:30000"
+    assert cfg.multimodal.mode == "crops_offline"
+    assert cfg.multimodal.enabled is True
+    assert cfg.usage_enabled("autolabel") is False
+    assert cfg.usage_timeout_s("autolabel") == 20.0
+    assert cfg.usage_enabled("judge") is True  # non listé = actif
+    monkeypatch.setenv("POKER_JEV_DEPLOYMENT", "single")
+    monkeypatch.setenv("POKER_JEV_BACKEND", "auto")
+    monkeypatch.setenv("POKER_JEV_LAN_URL", "http://192.168.1.11:30000")
+    monkeypatch.setenv("POKER_JEV_MULTIMODAL", "text_only")
+    cfg = JevGateConfig.from_env(base=base)
+    assert cfg.deployment == "single"  # env bat base
+    assert cfg.backend == "auto"
+    assert cfg.lan.base_url == "http://192.168.1.11:30000"
+    assert cfg.multimodal.mode == "text_only"
+    assert cfg.multimodal.enabled is False
+    cfg = JevGateConfig.from_env({"deployment": "dual",
+                                  "lan": {"base_url": "http://192.168.1.12:30000"},
+                                  "multimodal": {"mode": "crops_offline"}},
+                                 base=base)
+    assert cfg.deployment == "dual"  # overrides bat env
+    assert cfg.lan.base_url == "http://192.168.1.12:30000"
+    assert cfg.multimodal.mode == "crops_offline"
+
+
+def test_extended_invalid_values_fall_back_safely(monkeypatch):
+    cfg = JevGateConfig.from_env(
+        {"deployment": "whatever", "backend": "whatever",
+         "multimodal": {"mode": "whatever"}})
+    assert cfg.deployment == "single"
+    assert cfg.backend == "cloud"
+    assert cfg.multimodal.mode == "text_only"
+    assert cfg.multimodal.enabled is False
+
+
+def test_dual_without_lan_url_falls_back_to_single():
+    cfg = JevGateConfig.from_env({"deployment": "dual"})
+    assert cfg.deployment == "single"  # pas de SRV-LINUX joignable -> single
+
+
+def test_crops_live_locked_until_phase3():
+    """crops_live parsé mais jamais actif en étape 1 : verrou Phase 3."""
+    cfg = JevGateConfig.from_env({"multimodal": {"mode": "crops_live"}})
+    assert cfg.multimodal.mode == "text_only"
+    assert cfg.multimodal.enabled is False

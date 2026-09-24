@@ -18,9 +18,18 @@ Politique transposée de .claude/skills/jev-model-router/hooks/policy.ts :
 
 Jev ne voit que du TEXTE (phrase d'état), jamais d'image/screenshot.
 Config : fichier (bloc ``bot.jev_gate`` de config.json, via ``base``) puis env
-(POKER_JEV_MODE, POKER_JEV_MODEL, POKER_JEV_TIMEOUT_S, POKER_JEV_BASE_URL),
+(POKER_JEV_MODE, POKER_JEV_MODEL, POKER_JEV_TIMEOUT_S, POKER_JEV_BASE_URL,
+POKER_JEV_DEPLOYMENT, POKER_JEV_BACKEND, POKER_JEV_MIN_UPGRADE,
+POKER_JEV_MIN_DOWNGRADE, POKER_JEV_RISKY, POKER_JEV_LAN_URL,
+POKER_JEV_LAN_MODEL, POKER_JEV_LAN_TIMEOUT_TEXT_S,
+POKER_JEV_LAN_TIMEOUT_IMAGE_S, POKER_JEV_LAN_KEY_ENV, POKER_JEV_MULTIMODAL),
 puis ``overrides`` explicites (ex. CLI). Précédence : overrides > env > base.
-Jamais de clé en dur (le free n'en demande pas).
+Étendue options (étape 1, parsing seul — zéro appel réseau ajouté) :
+``deployment`` single|dual, ``backend`` cloud|local|auto, ``lan`` (SRV-LINUX),
+``multimodal`` (text_only par défaut, crops_live verrouillé), ``usages``
+(6 usages existants : autolabel/judge/report/attention/tier_budget/drift).
+Jamais de clé en dur (le free n'en demande pas ; clé LAN via nom de var
+d'env ``lan.api_key_env``, jamais la valeur).
 """
 
 from __future__ import annotations
@@ -38,6 +47,31 @@ logger = logging.getLogger("SuperBot2026")
 DEFAULT_BASE_URL = "http://127.0.0.1:4000"
 DEFAULT_MODEL = "jev-1.13-free"
 DEFAULT_TIMEOUT_S = 0.8
+
+# Déploiement 1 / 2 machines (options, étape 1 — parsing seul, zéro réseau).
+# single = tout sur TABLE-WIN (comportement historique).
+# dual = TABLE-WIN -> SRV-LINUX en LAN (bloc ``lan`` ci-dessous).
+DEPLOYMENT_SINGLE = "single"
+DEPLOYMENT_DUAL = "dual"
+BACKEND_CLOUD = "cloud"
+BACKEND_LOCAL = "local"
+BACKEND_AUTO = "auto"
+
+DEFAULT_LAN_MODEL = "qwen2.5-vl-3b"
+DEFAULT_LAN_TIMEOUT_TEXT_S = 1.0
+DEFAULT_LAN_TIMEOUT_IMAGE_S = 15.0
+DEFAULT_LAN_API_KEY_ENV = "POKER_JEV_LAN_KEY"
+
+MULTIMODAL_TEXT_ONLY = "text_only"
+MULTIMODAL_CROPS_OFFLINE = "crops_offline"
+MULTIMODAL_CROPS_LIVE = "crops_live"  # verrouillé tant que Phase 3 non validée
+
+DEFAULT_MAX_IMAGES = 3
+DEFAULT_CROP_SIZE_PX = 160
+DEFAULT_JPEG_QUALITY = 80
+
+DEFAULT_USAGES = ("autolabel", "judge", "report", "attention", "tier_budget", "drift")
+DEFAULT_USAGE_TIMEOUT_S = 15.0
 
 MIN_UPGRADE_CONFIDENCE = 0.3
 MIN_DOWNGRADE_CONFIDENCE = 0.6
@@ -63,6 +97,28 @@ EFFORT_RUBRIC = ["almost none", "some", "a lot", "as much as possible"]
 
 
 @dataclass
+class JevLanConfig:
+    """Serveur SRV-LINUX (JUG) en LAN — étape 1 : parsing seul, jamais appelé en live."""
+
+    base_url: str = ""
+    model: str = DEFAULT_LAN_MODEL
+    timeout_text_s: float = DEFAULT_LAN_TIMEOUT_TEXT_S
+    timeout_image_s: float = DEFAULT_LAN_TIMEOUT_IMAGE_S
+    api_key_env: str = DEFAULT_LAN_API_KEY_ENV
+
+
+@dataclass
+class JevMultimodalConfig:
+    """Cadrage image — étape 1 : parsing seul. crops_live reste verrouillé."""
+
+    enabled: bool = False
+    mode: str = MULTIMODAL_TEXT_ONLY  # text_only | crops_offline | crops_live
+    max_images: int = DEFAULT_MAX_IMAGES
+    crop_size_px: int = DEFAULT_CROP_SIZE_PX
+    jpeg_quality: int = DEFAULT_JPEG_QUALITY
+
+
+@dataclass
 class JevGateConfig:
     base_url: str = DEFAULT_BASE_URL
     model: str = DEFAULT_MODEL
@@ -71,6 +127,29 @@ class JevGateConfig:
     min_upgrade_confidence: float = MIN_UPGRADE_CONFIDENCE
     min_downgrade_confidence: float = MIN_DOWNGRADE_CONFIDENCE
     risky_threshold: float = RISKY_THRESHOLD
+    deployment: str = DEPLOYMENT_SINGLE  # single | dual
+    backend: str = BACKEND_CLOUD  # cloud | local | auto
+    lan: JevLanConfig = field(default_factory=JevLanConfig)
+    multimodal: JevMultimodalConfig = field(default_factory=JevMultimodalConfig)
+    usages: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+    def usage_enabled(self, name: str) -> bool:
+        """Un usage listé dans DEFAULT_USAGES est actif sauf ``enabled: false`` explicite."""
+        if name not in DEFAULT_USAGES:
+            return False
+        entry = self.usages.get(name)
+        if not isinstance(entry, dict):
+            return True
+        return bool(entry.get("enabled", True))
+
+    def usage_timeout_s(self, name: str) -> float:
+        entry = self.usages.get(name)
+        if isinstance(entry, dict) and entry.get("timeout_s") not in (None, ""):
+            try:
+                return float(entry["timeout_s"])
+            except (TypeError, ValueError):
+                pass
+        return DEFAULT_USAGE_TIMEOUT_S
 
     @classmethod
     def from_env(
@@ -78,12 +157,44 @@ class JevGateConfig:
         overrides: dict[str, Any] | None = None,
         base: dict[str, Any] | None = None,
     ) -> "JevGateConfig":
-        """Construit la config : fichier (``base``) < env < ``overrides``."""
+        """Construit la config : fichier (``base``) < env < ``overrides``.
+
+        Bloc fichier attendu (tout optionnel, défauts = comportement actuel) :
+        ``{"mode","model","timeout_s","base_url","deployment","backend",
+        "min_upgrade_confidence","min_downgrade_confidence","risky_threshold",
+        "lan": {"base_url","model","timeout_text_s","timeout_image_s","api_key_env"},
+        "multimodal": {"enabled","mode","max_images","crop_size_px","jpeg_quality"},
+        "usages": {"autolabel": {"enabled","timeout_s"}, ...}}``
+        """
         cfg = cls()
         if base:
-            for key in ("mode", "model", "timeout_s", "base_url"):
+            for key in ("mode", "model", "timeout_s", "base_url",
+                        "deployment", "backend",
+                        "min_upgrade_confidence", "min_downgrade_confidence",
+                        "risky_threshold"):
                 if base.get(key) not in (None, "") and hasattr(cfg, key):
                     setattr(cfg, key, base[key])
+            lan_base = base.get("lan")
+            if isinstance(lan_base, dict):
+                for key in ("base_url", "model", "timeout_text_s",
+                            "timeout_image_s", "api_key_env"):
+                    if lan_base.get(key) not in (None, "") and hasattr(cfg.lan, key):
+                        setattr(cfg.lan, key, lan_base[key])
+            mm_base = base.get("multimodal")
+            if isinstance(mm_base, dict):
+                for key in ("enabled", "mode", "max_images",
+                            "crop_size_px", "jpeg_quality"):
+                    if mm_base.get(key) not in (None, "") and hasattr(cfg.multimodal, key):
+                        setattr(cfg.multimodal, key, mm_base[key])
+            usages_base = base.get("usages")
+            if isinstance(usages_base, dict):
+                for name in DEFAULT_USAGES:
+                    entry = usages_base.get(name)
+                    if isinstance(entry, dict):
+                        cfg.usages[name] = {
+                            k: v for k, v in entry.items()
+                            if k in ("enabled", "timeout_s")
+                        }
         env = os.environ
         if env.get("POKER_JEV_MODE"):
             cfg.mode = str(env["POKER_JEV_MODE"]).strip().lower()
@@ -94,16 +205,102 @@ class JevGateConfig:
                 cfg.timeout_s = float(env["POKER_JEV_TIMEOUT_S"])
             except ValueError:
                 pass
-        base = env.get("POKER_JEV_BASE_URL")
-        if base:
-            cfg.base_url = str(base).rstrip("/")
+        base_url = env.get("POKER_JEV_BASE_URL")
+        if base_url:
+            cfg.base_url = str(base_url).rstrip("/")
+        if env.get("POKER_JEV_DEPLOYMENT"):
+            cfg.deployment = str(env["POKER_JEV_DEPLOYMENT"]).strip().lower()
+        if env.get("POKER_JEV_BACKEND"):
+            cfg.backend = str(env["POKER_JEV_BACKEND"]).strip().lower()
+        if env.get("POKER_JEV_MIN_UPGRADE"):
+            try:
+                cfg.min_upgrade_confidence = float(env["POKER_JEV_MIN_UPGRADE"])
+            except ValueError:
+                pass
+        if env.get("POKER_JEV_MIN_DOWNGRADE"):
+            try:
+                cfg.min_downgrade_confidence = float(env["POKER_JEV_MIN_DOWNGRADE"])
+            except ValueError:
+                pass
+        if env.get("POKER_JEV_RISKY"):
+            try:
+                cfg.risky_threshold = float(env["POKER_JEV_RISKY"])
+            except ValueError:
+                pass
+        if env.get("POKER_JEV_LAN_URL"):
+            cfg.lan.base_url = str(env["POKER_JEV_LAN_URL"]).rstrip("/")
+        if env.get("POKER_JEV_LAN_MODEL"):
+            cfg.lan.model = str(env["POKER_JEV_LAN_MODEL"]).strip()
+        if env.get("POKER_JEV_LAN_TIMEOUT_TEXT_S"):
+            try:
+                cfg.lan.timeout_text_s = float(env["POKER_JEV_LAN_TIMEOUT_TEXT_S"])
+            except ValueError:
+                pass
+        if env.get("POKER_JEV_LAN_TIMEOUT_IMAGE_S"):
+            try:
+                cfg.lan.timeout_image_s = float(env["POKER_JEV_LAN_TIMEOUT_IMAGE_S"])
+            except ValueError:
+                pass
+        if env.get("POKER_JEV_LAN_KEY_ENV"):
+            cfg.lan.api_key_env = str(env["POKER_JEV_LAN_KEY_ENV"]).strip()
+        if env.get("POKER_JEV_MULTIMODAL"):
+            cfg.multimodal.mode = str(env["POKER_JEV_MULTIMODAL"]).strip().lower()
+            cfg.multimodal.enabled = cfg.multimodal.mode != MULTIMODAL_TEXT_ONLY
         if overrides:
             for key, value in overrides.items():
-                if hasattr(cfg, key):
+                if key == "lan" and isinstance(value, dict):
+                    for sub, val in value.items():
+                        if hasattr(cfg.lan, sub):
+                            setattr(cfg.lan, sub, val)
+                elif key == "multimodal" and isinstance(value, dict):
+                    for sub, val in value.items():
+                        if hasattr(cfg.multimodal, sub):
+                            setattr(cfg.multimodal, sub, val)
+                elif key == "usages" and isinstance(value, dict):
+                    for name, entry in value.items():
+                        if name in DEFAULT_USAGES and isinstance(entry, dict):
+                            cfg.usages[name] = {
+                                k: v for k, v in entry.items()
+                                if k in ("enabled", "timeout_s")
+                            }
+                elif hasattr(cfg, key):
                     setattr(cfg, key, value)
         if cfg.mode not in ("observer", "enforcing", "off"):
             logger.warning("JEV | unknown mode %r, falling back to observer", cfg.mode)
             cfg.mode = "observer"
+        if cfg.deployment not in (DEPLOYMENT_SINGLE, DEPLOYMENT_DUAL):
+            logger.warning("JEV | unknown deployment %r, falling back to single",
+                           cfg.deployment)
+            cfg.deployment = DEPLOYMENT_SINGLE
+        if cfg.backend not in (BACKEND_CLOUD, BACKEND_LOCAL, BACKEND_AUTO):
+            logger.warning("JEV | unknown backend %r, falling back to cloud",
+                           cfg.backend)
+            cfg.backend = BACKEND_CLOUD
+        if cfg.multimodal.mode not in (MULTIMODAL_TEXT_ONLY,
+                                       MULTIMODAL_CROPS_OFFLINE,
+                                       MULTIMODAL_CROPS_LIVE):
+            logger.warning("JEV | unknown multimodal mode %r, falling back to text_only",
+                           cfg.multimodal.mode)
+            cfg.multimodal.mode = MULTIMODAL_TEXT_ONLY
+            cfg.multimodal.enabled = False
+        if cfg.multimodal.mode == MULTIMODAL_TEXT_ONLY:
+            cfg.multimodal.enabled = False
+        else:
+            cfg.multimodal.enabled = True
+        if cfg.multimodal.mode == MULTIMODAL_CROPS_LIVE:
+            # Verrou Phase 3 : crops_live parsé mais jamais actif en étape 1.
+            logger.warning("JEV | crops_live locked (Phase 3 not validated), "
+                           "falling back to text_only")
+            cfg.multimodal.mode = MULTIMODAL_TEXT_ONLY
+            cfg.multimodal.enabled = False
+        if cfg.deployment == DEPLOYMENT_DUAL and not cfg.lan.base_url:
+            logger.warning("JEV | dual without lan.base_url, falling back to single")
+            cfg.deployment = DEPLOYMENT_SINGLE
+        try:
+            cfg.multimodal.max_images = max(1, min(int(cfg.multimodal.max_images),
+                                                  8))
+        except (TypeError, ValueError):
+            cfg.multimodal.max_images = DEFAULT_MAX_IMAGES
         return cfg
 
 
