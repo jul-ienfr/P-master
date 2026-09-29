@@ -1,6 +1,7 @@
 import { getLlmPrivacyLabel, getLlmProviderLabel } from "../features/llm/config";
 import type { LlmConfig as UiLlmConfig } from "../features/llm/types";
 import {
+  AI_GATE_COPY,
   BOT_COPY,
   CONFIG_COPY,
   DECISION_TRACE_COPY,
@@ -98,6 +99,10 @@ export function getOcrProbeCopy(locale: WorkstationLocale) {
 
 export function getJevGateCopy(locale: WorkstationLocale) {
   return JEV_GATE_COPY[locale];
+}
+
+export function getAiGateCopy(locale: WorkstationLocale) {
+  return AI_GATE_COPY[locale];
 }
 
 export function useWorkstationText(locale: WorkstationLocale) {

@@ -95,6 +95,7 @@ def evaluate_go_live_gate(
     thresholds: dict | None = None,
     strategy_metrics: dict | None = None,
     blueprint_metrics: dict | None = None,
+    djev_probe: dict | None = None,
 ) -> GoLiveGateResult:
     """Évalue le gate go-live.
 
@@ -108,11 +109,28 @@ def evaluate_go_live_gate(
     ``bet_tolerance_report`` ({present, generated_at_iso}). Quand il est
     absent, les checks blueprint sont neutralisés (non bloquants) — le mode
     zéro-approximation exige de les fournir avant un go-live réel.
+
+    ``djev_probe`` (fail-closed go-live UNIQUEMENT) : résultat d'un sondage
+    préalable du gate Djev, ex. ``{"reachable": True, "valid": True}`` ou
+    ``{"reachable": bool, "valid": bool, "source": "djev-cloud"|...}``.
+    Quand il est fourni et que ``reachable`` est faux ou que ``valid`` est
+    faux (Djev injoignable ou réponse invalide — y compris les fail-open
+    ``offline_mode, WAN refused`` / ``missing api key`` / ``malformed``), le
+    déploiement (go-live) est BLOQUÉ (``djev_unreachable_or_invalid``).
+    Quand il est absent, le check est neutralisé (non bloquant) — le live
+    garde son fail-open heuristique (``gate_flow`` + heuristique préservés :
+    ce garde-fou ne concerne que le go-live, jamais le live).
+    Zéro appel réseau ici : le sondage est fait par l'appelant.
     """
     strategy_metrics = dict(strategy_metrics or {})
     has_strategy_artifacts = bool(strategy_metrics)
     blueprint_metrics = dict(blueprint_metrics or {})
     has_blueprint_artifacts = bool(blueprint_metrics)
+    djev_probe = dict(djev_probe) if isinstance(djev_probe, dict) else {}
+    has_djev_probe = bool(djev_probe)
+    djev_probe_reachable = bool(djev_probe.get("reachable", False))
+    djev_probe_valid = bool(djev_probe.get("valid", False))
+    djev_probe_ok = bool(djev_probe_reachable and djev_probe_valid)
 
     thresholds = {**DEFAULT_GO_LIVE_THRESHOLDS, **dict(thresholds or {})}
     metrics = {
@@ -143,6 +161,11 @@ def evaluate_go_live_gate(
         )
         if has_blueprint_artifacts
         else 0.0,
+        # Garde-fou fail-closed go-live : pas de sonde = neutralisé (non
+        # bloquant, live fail-open préservé) ; sonde fournie = 1.0 si
+        # reachable+valid, 0.0 sinon (bloque le déploiement).
+        "djev_probe_evaluated": 1.0 if has_djev_probe else 0.0,
+        "djev_probe_ok": 1.0 if djev_probe_ok else 0.0,
     }
     checks = {
         "decision_count": {
@@ -237,6 +260,17 @@ def evaluate_go_live_gate(
             "threshold": thresholds["require_bet_tolerance_report"],
             "operator": "bool",
             "reason": "bet_tolerance_report_missing_or_stale",
+        },
+        # Garde-fou fail-closed go-live (documenté) : Djev injoignable ou
+        # réponse invalide => blocage du DÉPLOIEMENT uniquement. Neutralisé
+        # si ``djev_probe`` absent — le LIVE garde son fail-open heuristique
+        # (gate_flow / heuristique préservés, jamais touchés ici).
+        "djev_probe": {
+            "ok": (not has_djev_probe) or djev_probe_ok,
+            "metric": metrics["djev_probe_ok"],
+            "threshold": 1.0 if has_djev_probe else 0.0,
+            "operator": "==",
+            "reason": "djev_unreachable_or_invalid",
         },
     }
     reasons = [str(check["reason"]) for check in checks.values() if not bool(check["ok"])]

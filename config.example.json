@@ -118,6 +118,25 @@
         "drift": {"enabled": true, "timeout_s": 15.0}
       }
     },
+    "ai_gate": {
+      "provider": "jev",
+      "offline_mode": true,
+      "cloud_fallback": false,
+      "djev": {
+        "base_url": "http://127.0.0.1:4000",
+        "model": "jev-1.13.0",
+        "api_key_env": "TYPESAFE_API_KEY",
+        "timeout_s": 5.0,
+        "mode": "observer",
+        "lan_url": "http://127.0.0.1:4000",
+        "cloud_url": "https://api.typesafe.ai/v1/systemone",
+        "cloud_fallback": false,
+        "offline_mode": true,
+        "min_upgrade_confidence": 0.3,
+        "min_downgrade_confidence": 0.6,
+        "risky_threshold": 0.7
+      }
+    },
     "site_profiles": {
       "PokerStars": {
         "default_bb": 200,

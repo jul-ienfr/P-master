@@ -88,6 +88,33 @@ Valeurs inconnues (`deployment`, `backend`, `multimodal.mode`) → repli sûr
   décision heuristique inchangée. Jev ne casse jamais le gate (`try/except` global
   dans `gate_flow.py` + `JEV_INCOHERENT_STATE` préservant `action_intent`/`confidence`).
 
+## Gate IA unifiée — `bot.ai_gate` (Jev legacy + Djev officiel)
+
+Routeur unique validé contre `docs/ai_gate.schema.json`
+(trois normaliseurs : Python `src/bot/ai_router.py`, TS
+`website/src/lib/aiGateConfig.ts`, Rust `website/src-tauri/src/lib.rs`).
+`bot.jev_gate` reste un **alias compat** (miroir du bloc `jev`, ne pas étendre :
+toute nouveauté va dans `ai_gate`). Fail-open strict partout.
+
+| clé / env | défaut (lock LAN/Offline strict) | effet |
+|-----------|------------------------------|-------|
+| `provider` | `jev` | Lock : proxy local gratuit sans clé, cloud **désactivé par choix** (jamais proposé) ; `auto` = LAN Djev prioritaire si offline, cloud Djev si clé présente, sinon Jev proxy `:4000`, sinon fail-open |
+| `offline_mode` / `POKER_OFFLINE_MODE` | `true` | Lock : loopback uniquement (`127.0.0.1`/`localhost`/`::1`), **JAMAIS d'egress WAN** (fallbacks cloud tombés, Djev marqué offline, base Jev non-loopback rebasculée sur le proxy loopback) |
+| `cloud_fallback` / `POKER_DJEV_CLOUD_FALLBACK` | `false` | Lock : cloud désactivé par choix (forcé `false` si `offline_mode`) |
+| `djev.base_url` / `POKER_DJEV_BASE_URL` | `http://127.0.0.1:4000` | Lock LAN : proxy local gratuit sans clé (cloud officiel `https://api.typesafe.ai/v1/systemone` documenté mais non appelé en offline) |
+| `djev.cloud_url` / `POKER_DJEV_CLOUD_URL` | `https://api.typesafe.ai/v1/systemone` | URL cloud officielle |
+| `djev.lan_url` / `POKER_DJEV_LAN_URL` | `http://127.0.0.1:4000` | URL LAN prioritaire (sonde santé loopback uniquement, 250 ms, jamais bloquante) |
+| `djev.model` | `jev-1.13.0` | Version pinée (`jev-latest`/`jev-preview` = alias mouvants, NE PAS utiliser avec des seuils tunés) |
+| `djev.api_key_env` | `TYPESAFE_API_KEY` | **Nom** de la variable d'environnement portant la clé — jamais la valeur, jamais en dur |
+| `djev.timeout_s` | `5.0` | Timeout requêtes Djev (plancher 0.5 s, plafond 60 s) |
+| `djev.mode` | `observer` | `observer` / `enforcing` / `off` (même asymétrie que Jev : peut bloquer un go, jamais forcer) |
+| `djev.min_upgrade_confidence` / `min_downgrade_confidence` / `risky_threshold` | `0.3` / `0.6` / `0.7` | Seuils par risque Djev (mêmes bornes 0–1 que Jev) |
+
+Zéro réseau effectif côté config : la sonde santé LAN au `set` est un ping
+TCP loopback borné (250 ms, échec silencieux, jamais bloquant) ;
+`offline_mode=true` + URL morte `http://127.0.0.1:9` ⇒ aucun egress WAN.
+Zéro clé en dur : `TYPESAFE_API_KEY` = nom seul, jamais la valeur.
+
 ## Validation (2026-09-22, proxy live, modèle free, coût 0)
 
 - `scripts/eval_jev_gate.py --mode observer --limit 50` : accord 49/49 = 1.00,

@@ -790,17 +790,19 @@ class DecisionMaker:
             return 700
         return 500
 
-    def _apply_jev_tier_budget(
-        self, base_budget_ms: int, *, jev_tier: str | None = None
+    def _apply_ai_tier_budget(
+        self, base_budget_ms: int, *, ai_tier: str | None = None,
+        source: str | None = None,
     ) -> tuple[int, str | None]:
-        """Ajuste le budget solve selon le tier Jev (observer, sans toucher GTO).
+        """Ajuste le budget solve selon le tier IA (Jev ou Djev, observer).
 
-        ``fast`` -> budget réduit (état lisible, pas besoin de creuser) ;
-        ``deep`` -> budget augmenté, borné sous le timeout 10 s du solve ;
-        ``balanced``/absent -> budget inchangé (fail-open).
+        ``source`` (jev/djev-lan/djev-cloud/...) est loggué pour l'A/B mais ne
+        change jamais les budgets : seul le tier compte (fast 400 / balanced
+        base / deep 2500ms, clamp 256-9000). Seul levier live sur le solveur,
+        jamais la logique GTO (le code possède le control-flow).
         Retourne (budget_ms, tier_appliqué|None).
         """
-        tier = str(jev_tier or "").strip().lower() or None
+        tier = str(ai_tier or "").strip().lower() or None
         if tier not in self._JEV_TIER_SOLVE_BUDGETS:
             return int(base_budget_ms), None
         if tier == "balanced":
@@ -808,6 +810,13 @@ class DecisionMaker:
         budget = int(self._JEV_TIER_SOLVE_BUDGETS[tier])
         budget = max(256, min(9000, budget))
         return budget, tier
+
+    def _apply_jev_tier_budget(
+        self, base_budget_ms: int, *, jev_tier: str | None = None
+    ) -> tuple[int, str | None]:
+        """Wrapper compat : délègue à _apply_ai_tier_budget (source jev)."""
+        return self._apply_ai_tier_budget(
+            base_budget_ms, ai_tier=jev_tier, source="jev")
 
     def _run_preflop_dual_mode(
         self,

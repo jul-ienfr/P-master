@@ -129,6 +129,7 @@ class JevGateConfig:
     risky_threshold: float = RISKY_THRESHOLD
     deployment: str = DEPLOYMENT_SINGLE  # single | dual
     backend: str = BACKEND_CLOUD  # cloud | local | auto
+    offline_mode: bool = False  # POKER_OFFLINE_MODE : loopback uniquement, jamais de WAN
     lan: JevLanConfig = field(default_factory=JevLanConfig)
     multimodal: JevMultimodalConfig = field(default_factory=JevMultimodalConfig)
     usages: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -169,7 +170,7 @@ class JevGateConfig:
         cfg = cls()
         if base:
             for key in ("mode", "model", "timeout_s", "base_url",
-                        "deployment", "backend",
+                        "deployment", "backend", "offline_mode",
                         "min_upgrade_confidence", "min_downgrade_confidence",
                         "risky_threshold"):
                 if base.get(key) not in (None, "") and hasattr(cfg, key):
@@ -246,6 +247,10 @@ class JevGateConfig:
         if env.get("POKER_JEV_MULTIMODAL"):
             cfg.multimodal.mode = str(env["POKER_JEV_MULTIMODAL"]).strip().lower()
             cfg.multimodal.enabled = cfg.multimodal.mode != MULTIMODAL_TEXT_ONLY
+        if env.get("POKER_OFFLINE_MODE"):
+            # Ajout offline : parse seul, aucun comportement existant modifie.
+            cfg.offline_mode = str(env["POKER_OFFLINE_MODE"]).strip().lower() in (
+                "1", "true", "yes", "on")
         if overrides:
             for key, value in overrides.items():
                 if key == "lan" and isinstance(value, dict):
@@ -296,6 +301,17 @@ class JevGateConfig:
         if cfg.deployment == DEPLOYMENT_DUAL and not cfg.lan.base_url:
             logger.warning("JEV | dual without lan.base_url, falling back to single")
             cfg.deployment = DEPLOYMENT_SINGLE
+        if cfg.offline_mode:
+            # Ajout offline : WAN interdite -> repli loopback sur le proxy.
+            try:
+                from urllib.parse import urlparse as _urlparse
+                _host = (_urlparse(cfg.base_url).hostname or "").strip().lower()
+            except Exception:
+                _host = ""
+            if _host not in ("127.0.0.1", "localhost", "::1"):
+                logger.warning("JEV | offline_mode: non-loopback base_url %r, "
+                               "falling back to %s", cfg.base_url, DEFAULT_BASE_URL)
+                cfg.base_url = DEFAULT_BASE_URL
         try:
             cfg.multimodal.max_images = max(1, min(int(cfg.multimodal.max_images),
                                                   8))

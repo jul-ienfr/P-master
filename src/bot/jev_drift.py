@@ -33,6 +33,14 @@ from src.bot.jev_gate import JevGateConfig
 
 logger = logging.getLogger(__name__)
 
+# Source d'avis pour les rapports/events (observer uniquement, annotation
+# seule — seuils RISKY 0.7 / tier deep inchangés, logique de décision
+# inchangée). Vocabulaire partagé avec ai_router/djev : lan/cloud/jev/
+# legacy/djev-lan/djev-cloud/fail-open. Le drift (règles pures, zéro appel)
+# reporte "legacy" ; quand une décision Jev/Djev du gate le confirme,
+# ``observer_drift_check`` reporte la source de cette décision si fournie.
+DRIFT_SOURCE_RULES = "legacy"
+
 STALE_FRAME_AGE_MS = 300.0
 PROMOTION_MAX_FRAMES = 2
 
@@ -162,6 +170,26 @@ def confirm_with_jev(signal: DriftSignal, jev: Any) -> tuple[bool, str]:
         return False, "drift confirm fail-open"
 
 
+def drift_report_source(jev: Any = None, source: str | None = None) -> str:
+    """Résout la source d'avis pour rapports/events (annotation seule).
+
+    Priorité : ``source`` explicite > clé/attribut ``source`` de ``jev`` >
+    ``DRIFT_SOURCE_RULES`` ("legacy"). Seuils et logique inchangés.
+    """
+    if isinstance(source, str) and source.strip():
+        return source.strip()
+    try:
+        if isinstance(jev, dict):
+            cand = jev.get("source")
+        else:
+            cand = getattr(jev, "source", None)
+        if isinstance(cand, str) and cand.strip():
+            return cand.strip()
+    except Exception:
+        pass
+    return DRIFT_SOURCE_RULES
+
+
 def observer_drift_check(
     prev: dict[str, Any] | None,
     curr: dict[str, Any] | None,
@@ -176,6 +204,10 @@ def observer_drift_check(
     loggue "pause conseillée" si confirmé, ne bloque jamais — le retour
     ``pause_conseillee`` est purement consultatif. Fail-open : tout échec
     -> (signal|None, False, raison).
+
+    Annotation ``source`` (lan/cloud/jev/legacy/djev-lan/djev-cloud/
+    fail-open) : via ``drift_report_source()`` au site du rapport/event
+    (seuils et logique inchangés — seuils : tier deep ou risky > 0.7).
     """
     cfg = config or JevGateConfig.from_env()
     if cfg.mode == "off":

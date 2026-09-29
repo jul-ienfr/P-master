@@ -20,7 +20,7 @@ struct AppState {
     started_instant: Instant,
     llm_config: Mutex<LlmConfig>,
     ocr_config: Mutex<OcrConfig>,
-    jev_gate_config: Mutex<JevGateConfig>,
+    ai_gate_config: Mutex<AiGateConfig>,
     auto_annotator_config: Mutex<AutoAnnotatorConfig>,
     managed_runtime: Mutex<Option<ManagedRuntimeProcess>>,
 }
@@ -51,6 +51,8 @@ pub struct RuntimeConfigResponse {
     pub http_fallback_enabled: bool,
     pub llm: LlmConfig,
     pub ocr: OcrConfig,
+    pub ai_gate: AiGateConfig,
+    // Alias compat : miroir du bloc jev de ai_gate (ne pas étendre).
     pub jev_gate: JevGateConfig,
 }
 
@@ -170,6 +172,68 @@ impl Default for JevGateConfig {
             lan: JevGateLanConfig::default(),
             multimodal: JevGateMultimodalConfig::default(),
             usages: JevGateUsages::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AiGateDjevConfig {
+    pub base_url: String,
+    pub model: String,
+    pub api_key_env: String,
+    pub timeout_s: f64,
+    pub mode: String,
+    pub lan_url: String,
+    pub cloud_url: String,
+    pub cloud_fallback: bool,
+    pub offline_mode: bool,
+    pub min_upgrade_confidence: f64,
+    pub min_downgrade_confidence: f64,
+    pub risky_threshold: f64,
+}
+
+impl Default for AiGateDjevConfig {
+    fn default() -> Self {
+        Self {
+            // Lock LAN : proxy local gratuit sans cle (cloud desactive par choix,
+            // URL officielle documentee dans cloud_url mais non appelee en offline).
+            base_url: "http://127.0.0.1:4000".to_string(),
+            model: "jev-1.13.0".to_string(),
+            // NOM de variable d'environnement uniquement, jamais la valeur.
+            api_key_env: "TYPESAFE_API_KEY".to_string(),
+            timeout_s: 5.0,
+            mode: "observer".to_string(),
+            lan_url: "http://127.0.0.1:4000".to_string(),
+            cloud_url: "https://api.typesafe.ai/v1/systemone".to_string(),
+            cloud_fallback: false,
+            offline_mode: true,
+            min_upgrade_confidence: 0.3,
+            min_downgrade_confidence: 0.6,
+            risky_threshold: 0.7,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AiGateConfig {
+    pub provider: String,
+    pub offline_mode: bool,
+    pub cloud_fallback: bool,
+    pub jev: JevGateConfig,
+    pub djev: AiGateDjevConfig,
+}
+
+impl Default for AiGateConfig {
+    fn default() -> Self {
+        Self {
+            // Lock LAN prioritaire / Offline strict : cloud jamais propose.
+            provider: "jev".to_string(),
+            offline_mode: true,
+            cloud_fallback: false,
+            jev: JevGateConfig::default(),
+            djev: AiGateDjevConfig::default(),
         }
     }
 }
@@ -824,10 +888,81 @@ fn build_runtime_config_response(state: &AppState) -> RuntimeConfigResponse {
             .expect("ocr config lock poisoned")
             .clone(),
         jev_gate: state
-            .jev_gate_config
+            .ai_gate_config
             .lock()
-            .expect("jev gate config lock poisoned")
+            .expect("ai gate config lock poisoned")
+            .jev
             .clone(),
+        ai_gate: state
+            .ai_gate_config
+            .lock()
+            .expect("ai gate config lock poisoned")
+            .clone(),
+    }
+}
+
+fn is_loopback_url(raw: &str) -> bool {
+    let host = raw
+        .trim()
+        .rsplit("://")
+        .next()
+        .unwrap_or("")
+        .split('@')
+        .next_back()
+        .unwrap_or("")
+        .split('/')
+        .next()
+        .unwrap_or("")
+        .split(':')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .trim_matches(|c| c == '[' || c == ']')
+        .to_lowercase();
+    host == "127.0.0.1" || host == "localhost" || host == "::1"
+}
+
+/// Ping santé LAN borné loopback uniquement, jamais bloquant.
+/// N'ouvre une connexion que vers 127.0.0.1/localhost/::1 (parse host),
+/// timeout 250 ms, échec silencieux (log informatif, jamais d'erreur).
+fn ai_gate_lan_health_hint(url: &str) -> Option<String> {
+    if url.trim().is_empty() || !is_loopback_url(url) {
+        return None;
+    }
+    let without_scheme = url.trim().rsplit("://").next().unwrap_or("");
+    let host_port = without_scheme
+        .split('@')
+        .next_back()
+        .unwrap_or("")
+        .split('/')
+        .next()
+        .unwrap_or("");
+    let (host, port): (&str, Option<u16>) = match host_port.rsplit_once(':') {
+        Some((h, p)) => (
+            h.trim().trim_matches(|c| c == '[' || c == ']'),
+            p.trim().parse::<u16>().ok(),
+        ),
+        None => (
+            host_port
+                .split(':')
+                .next()
+                .unwrap_or("")
+                .trim()
+                .trim_matches(|c| c == '[' || c == ']'),
+            None,
+        ),
+    };
+    let port = port.unwrap_or(4000);
+    let ip: std::net::IpAddr = match host {
+        "127.0.0.1" => std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
+        "localhost" => std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
+        "::1" => std::net::IpAddr::V6(std::net::Ipv6Addr::LOCALHOST),
+        _ => return None,
+    };
+    let addr = SocketAddr::new(ip, port);
+    match TcpStream::connect_timeout(&addr, Duration::from_millis(250)) {
+        Ok(_) => None,
+        Err(_) => Some(format!("LAN {url} injoignable (ping loopback 250ms, non bloquant)")),
     }
 }
 
@@ -1152,6 +1287,88 @@ fn normalize_jev_gate_config(mut config: JevGateConfig) -> JevGateConfig {
     config
 }
 
+/// Normalisation ai_gate validée contre docs/ai_gate.schema.json.
+/// Garde offline : WAN refusée — fallbacks cloud tombés, Djev marqué offline,
+/// base Jev non-loopback rebasculée sur le proxy loopback (miroir TS
+/// normalizeAiGateConfig et Python ai_router._auto).
+fn normalize_ai_gate_djev(mut djev: AiGateDjevConfig) -> AiGateDjevConfig {
+    let defaults = AiGateDjevConfig::default();
+
+    djev.base_url = if djev.base_url.trim().is_empty() {
+        defaults.base_url
+    } else {
+        djev.base_url.trim().to_string()
+    };
+    djev.model = if djev.model.trim().is_empty() {
+        defaults.model
+    } else {
+        djev.model.trim().to_string()
+    };
+    // NOM de variable d'environnement uniquement, jamais la valeur.
+    djev.api_key_env = if djev.api_key_env.trim().is_empty() {
+        defaults.api_key_env
+    } else {
+        djev.api_key_env.trim().to_string()
+    };
+    if !djev.timeout_s.is_finite() || djev.timeout_s < 0.5 {
+        djev.timeout_s = defaults.timeout_s;
+    }
+    djev.mode = match djev.mode.trim().to_lowercase().as_str() {
+        "off" | "enforcing" => djev.mode.trim().to_lowercase(),
+        _ => "observer".to_string(),
+    };
+    djev.lan_url = if djev.lan_url.trim().is_empty() {
+        defaults.lan_url
+    } else {
+        djev.lan_url.trim().to_string()
+    };
+    djev.cloud_url = if djev.cloud_url.trim().is_empty() {
+        defaults.cloud_url
+    } else {
+        djev.cloud_url.trim().to_string()
+    };
+
+    for (value, fallback) in [
+        (
+            &mut djev.min_upgrade_confidence,
+            defaults.min_upgrade_confidence,
+        ),
+        (
+            &mut djev.min_downgrade_confidence,
+            defaults.min_downgrade_confidence,
+        ),
+        (&mut djev.risky_threshold, defaults.risky_threshold),
+    ] {
+        if !value.is_finite() {
+            *value = fallback;
+        }
+        *value = value.clamp(0.0, 1.0);
+    }
+
+    djev
+}
+
+fn normalize_ai_gate_config(mut config: AiGateConfig) -> AiGateConfig {
+    config.provider = match config.provider.trim().to_lowercase().as_str() {
+        "jev" | "djev" => config.provider.trim().to_lowercase(),
+        _ => "auto".to_string(),
+    };
+    config.jev = normalize_jev_gate_config(config.jev);
+    config.djev = normalize_ai_gate_djev(config.djev);
+
+    if config.offline_mode {
+        // Offline strict : aucun egress WAN.
+        config.cloud_fallback = false;
+        config.djev.cloud_fallback = false;
+        config.djev.offline_mode = true;
+        if !is_loopback_url(&config.jev.base_url) {
+            config.jev.base_url = "http://127.0.0.1:4000".to_string();
+        }
+    }
+
+    config
+}
+
 fn load_jev_gate_config_from_disk() -> JevGateConfig {
     let path = match config_path() {
         Ok(path) => path,
@@ -1196,6 +1413,76 @@ fn persist_jev_gate_config_to_disk(config: &JevGateConfig) -> Result<(), String>
     bot_object.insert(
         "jev_gate".to_string(),
         serde_json::to_value(config)
+            .map_err(|err| format!("failed to serialize Jev gate config: {err}"))?,
+    );
+
+    let next_raw = serde_json::to_string_pretty(&parsed)
+        .map_err(|err| format!("failed to format config.json: {err}"))?;
+    fs::write(path, next_raw).map_err(|err| format!("failed to write config.json: {err}"))
+}
+
+fn load_ai_gate_config_from_disk() -> AiGateConfig {
+    let path = match config_path() {
+        Ok(path) => path,
+        Err(_) => return AiGateConfig::default(),
+    };
+
+    let raw = match fs::read_to_string(path) {
+        Ok(raw) => raw,
+        Err(_) => return AiGateConfig::default(),
+    };
+
+    let parsed: serde_json::Value = match serde_json::from_str(&raw) {
+        Ok(value) => value,
+        Err(_) => return AiGateConfig::default(),
+    };
+
+    let bot = parsed.get("bot");
+    // Source unique : bot.ai_gate (schéma docs/ai_gate.schema.json).
+    if let Some(value) = bot.and_then(|bot| bot.get("ai_gate")).cloned() {
+        if let Ok(config) = serde_json::from_value::<AiGateConfig>(value) {
+            return normalize_ai_gate_config(config);
+        }
+    }
+    // Alias compat : bot.jev_gate legacy -> bloc jev de ai_gate (ne pas étendre).
+    if let Some(value) = bot.and_then(|bot| bot.get("jev_gate")).cloned() {
+        if let Ok(jev) = serde_json::from_value::<JevGateConfig>(value) {
+            let mut config = AiGateConfig::default();
+            config.jev = normalize_jev_gate_config(jev);
+            return normalize_ai_gate_config(config);
+        }
+    }
+    // Dernier repli : helper legacy (même lecture bot.jev_gate).
+    let mut fallback = AiGateConfig::default();
+    fallback.jev = load_jev_gate_config_from_disk();
+    normalize_ai_gate_config(fallback)
+}
+
+fn persist_ai_gate_config_to_disk(config: &AiGateConfig) -> Result<(), String> {
+    let path = config_path()?;
+    let raw =
+        fs::read_to_string(&path).map_err(|err| format!("failed to read config.json: {err}"))?;
+    let mut parsed: serde_json::Value =
+        serde_json::from_str(&raw).map_err(|err| format!("invalid config.json: {err}"))?;
+
+    let root = parsed
+        .as_object_mut()
+        .ok_or_else(|| "config.json root must be an object".to_string())?;
+    let bot = root
+        .entry("bot".to_string())
+        .or_insert_with(|| serde_json::json!({}));
+    let bot_object = bot
+        .as_object_mut()
+        .ok_or_else(|| "config.json bot must be an object".to_string())?;
+    bot_object.insert(
+        "ai_gate".to_string(),
+        serde_json::to_value(config)
+            .map_err(|err| format!("failed to serialize AI gate config: {err}"))?,
+    );
+    // Alias compat : miroir du bloc jev (ne pas étendre).
+    bot_object.insert(
+        "jev_gate".to_string(),
+        serde_json::to_value(&config.jev)
             .map_err(|err| format!("failed to serialize Jev gate config: {err}"))?,
     );
 
@@ -1914,11 +2201,42 @@ fn get_ocr_config(state: tauri::State<'_, AppState>) -> OcrConfig {
 }
 
 #[tauri::command]
-fn get_jev_gate_config(state: tauri::State<'_, AppState>) -> JevGateConfig {
+fn get_ai_gate_config(state: tauri::State<'_, AppState>) -> AiGateConfig {
     state
-        .jev_gate_config
+        .ai_gate_config
         .lock()
-        .expect("jev gate config lock poisoned")
+        .expect("ai gate config lock poisoned")
+        .clone()
+}
+
+#[tauri::command]
+fn set_ai_gate_config(
+    state: tauri::State<'_, AppState>,
+    config: AiGateConfig,
+) -> Result<AiGateConfig, String> {
+    let normalized = normalize_ai_gate_config(config);
+    // Ping santé LAN borné loopback uniquement, jamais bloquant (log informatif).
+    if let Some(hint) = ai_gate_lan_health_hint(&normalized.djev.lan_url) {
+        eprintln!("PokerMaster ai_gate LAN hint: {hint}");
+    }
+    persist_ai_gate_config_to_disk(&normalized)?;
+    let mut guard = state
+        .ai_gate_config
+        .lock()
+        .map_err(|_| "ai gate config lock poisoned".to_string())?;
+
+    *guard = normalized.clone();
+    Ok(normalized)
+}
+
+#[tauri::command]
+fn get_jev_gate_config(state: tauri::State<'_, AppState>) -> JevGateConfig {
+    // Délégation compat : miroir du bloc jev de ai_gate (rien ne casse).
+    state
+        .ai_gate_config
+        .lock()
+        .expect("ai gate config lock poisoned")
+        .jev
         .clone()
 }
 
@@ -1927,15 +2245,23 @@ fn set_jev_gate_config(
     state: tauri::State<'_, AppState>,
     config: JevGateConfig,
 ) -> Result<JevGateConfig, String> {
-    let normalized = normalize_jev_gate_config(config);
-    persist_jev_gate_config_to_disk(&normalized)?;
-    let mut guard = state
-        .jev_gate_config
+    // Délégation compat : met à jour le bloc jev de ai_gate, normalise tout
+    // (garde offline WAN refusée incluse), persiste bot.ai_gate + miroir jev_gate.
+    let mut current = state
+        .ai_gate_config
         .lock()
-        .map_err(|_| "jev gate config lock poisoned".to_string())?;
+        .map_err(|_| "ai gate config lock poisoned".to_string())?
+        .clone();
+    current.jev = normalize_jev_gate_config(config);
+    let normalized = normalize_ai_gate_config(current);
+    persist_ai_gate_config_to_disk(&normalized)?;
+    let mut guard = state
+        .ai_gate_config
+        .lock()
+        .map_err(|_| "ai gate config lock poisoned".to_string())?;
 
     *guard = normalized.clone();
-    Ok(normalized)
+    Ok(normalized.jev)
 }
 
 #[tauri::command]
@@ -2366,7 +2692,7 @@ pub fn run() {
             started_instant: Instant::now(),
             llm_config: Mutex::new(LlmConfig::default()),
             ocr_config: Mutex::new(load_ocr_config_from_disk()),
-            jev_gate_config: Mutex::new(load_jev_gate_config_from_disk()),
+            ai_gate_config: Mutex::new(load_ai_gate_config_from_disk()),
             auto_annotator_config: Mutex::new(load_auto_annotator_config_from_disk()),
             managed_runtime: Mutex::new(None),
         })
@@ -2380,6 +2706,8 @@ pub fn run() {
             set_ocr_config,
             get_jev_gate_config,
             set_jev_gate_config,
+            get_ai_gate_config,
+            set_ai_gate_config,
             get_auto_annotator_config,
             set_auto_annotator_config,
             get_ocr_status,

@@ -21,6 +21,12 @@ from typing import Any
 from src.bot.jev_gate import JevGateConfig, query
 from src.runtime.multi_table_loop import PRIORITY_OUR_TURN, SessionTurnSignal
 
+# Source d'avis pour les rapports/events (observer uniquement, annotation
+# seule — ne change ni l'ordre des règles ni le tie-break). Vocabulaire
+# partagé avec ai_router/djev : lan/cloud/jev/legacy/djev-lan/djev-cloud/
+# fail-open. Ce module (proxy Jev direct) reporte toujours "jev".
+ATTENTION_SOURCE = "jev"
+
 logger = logging.getLogger(__name__)
 
 
@@ -132,6 +138,7 @@ def attention_snapshot_extra(
     cfg = config or JevGateConfig.from_env()
     return {
         "mode": cfg.mode,
+        "source": ATTENTION_SOURCE,  # observer : annotation seule, seuils/decisions inchanges
         "suggested_order": suggest_attention_order(sessions, signals, config=cfg),
         "rule_priorities": {
             s.session_id: (signals.get(s.session_id) or SessionTurnSignal()).priority()

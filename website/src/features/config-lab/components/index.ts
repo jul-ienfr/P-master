@@ -5,3 +5,4 @@ export * from "./OcrSettingsPanel";
 export * from "./OcrProbePanel";
 export * from "./InterfacePreferencesPanel";
 export * from "./JevGatePanel";
+export * from "./AiGatePanel";

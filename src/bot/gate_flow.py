@@ -415,6 +415,7 @@ class GateFlowMixin:
                 )
                 self.last_decision_summary["jev"] = {
                     "mode": jev_config.mode,
+                    "source": "jev",  # observer : annotation rapport seule, seuils/decisions inchanges
                     "go": jev_decision.go,
                     "tier": jev_decision.tier,
                     "tier_confidence": jev_decision.tier_confidence,
@@ -447,11 +448,109 @@ class GateFlowMixin:
                     self.last_decision_summary["gate_reason"] = f"jev:{jev_reason}"
         except Exception as exc:  # fail-open : Jev ne casse jamais le gate
             logger.debug("JEV | disabled by error (%s), heuristic kept", exc)
+        # Second avis DJEV (provider alternatif via src.bot.ai_router) — observer pur :
+        # zero changement de decision (jamais de JEV_INCOHERENT_STATE pour djev),
+        # log seul. Actif uniquement si ``bot.ai_gate`` present et provider != jev.
+        # Fail-open : tout echec -> pas de cle "djev", heuristique inchangee.
+        try:
+            _ai_gate_base = ((self.config or {}).get("bot", {}) or {}).get("ai_gate", {}) or {}
+            _djev_provider = (
+                str(_ai_gate_base.get("provider", "jev"))
+                if isinstance(_ai_gate_base, dict)
+                else "jev"
+            ).strip().lower() or "jev"
+            if isinstance(_ai_gate_base, dict) and _ai_gate_base and _djev_provider != "jev":
+                from src.bot.ai_router import AiGateConfig as _AiGateConfig
+                from src.bot.ai_router import decide as _djev_decide
+
+                # Le routeur attend AiGateConfig (pas un dict brut) et la
+                # signature decide(snapshot, allowed, *, config=...) — forcer
+                # observer ici (avis seul, jamais d'enforcing via ce hook).
+                # Note : on ignore _djev_allowed (jamais appliqué au gate).
+                _djev_cfg = _AiGateConfig.from_env(
+                    overrides=None,
+                    base={"bot": {"ai_gate": _ai_gate_base}},
+                )
+                # Propager observer aux sous-configs jev/djev pour que l'avis
+                # loggué reflète la sémantique consultative (pas d'enforcing).
+                if isinstance(_djev_cfg.djev_base, dict):
+                    _djev_cfg.djev_base = {
+                        **_djev_cfg.djev_base, "mode": "observer",
+                    }
+                if isinstance(_djev_cfg.jev_base, dict):
+                    _djev_cfg.jev_base = {
+                        **_djev_cfg.jev_base, "mode": "observer",
+                    }
+                _djev_allowed, _djev_decision, _djev_reason, _djev_route = (
+                    _djev_decide(
+                        canonical_state,
+                        gate_result.allowed,
+                        config=_djev_cfg,
+                    )
+                )
+                if isinstance(_djev_decision, dict):
+                    _djev_go = _djev_decision.get("go")
+                    _djev_tier = _djev_decision.get("tier")
+                    _djev_tier_conf = _djev_decision.get("tier_confidence")
+                    _djev_risky = _djev_decision.get("risky")
+                    _djev_effort = _djev_decision.get("effort")
+                    _djev_lat = _djev_decision.get("latency_ms", 0.0)
+                    _djev_model = _djev_decision.get("model")
+                    # Source routeur (jev/djev-lan/djev-cloud/fail-open) fiable ;
+                    # la cle "source" d'un dict avis n'est qu'un repli.
+                    _djev_source = (
+                        _djev_decision.get("source") or _djev_route or "djev"
+                    )
+                else:
+                    _djev_go = getattr(_djev_decision, "go", None)
+                    _djev_tier = getattr(_djev_decision, "tier", None)
+                    _djev_tier_conf = getattr(_djev_decision, "tier_confidence", None)
+                    _djev_risky = getattr(_djev_decision, "risky", None)
+                    _djev_effort = getattr(_djev_decision, "effort", None)
+                    _djev_lat = getattr(_djev_decision, "latency_ms", 0.0)
+                    _djev_raw = getattr(_djev_decision, "raw", None)
+                    _djev_model = getattr(_djev_decision, "model", None)
+                    if _djev_model is None and isinstance(_djev_raw, dict):
+                        _djev_model = _djev_raw.get("model")
+                    _djev_source = (
+                        _djev_route
+                        or getattr(_djev_decision, "source", None)
+                        or "djev"
+                    )
+                try:
+                    _djev_latency = round(float(_djev_lat or 0.0), 1)
+                except (TypeError, ValueError):
+                    _djev_latency = 0.0
+                self.last_decision_summary["djev"] = {
+                    "provider": _djev_provider,
+                    "source": _djev_source,
+                    "go": _djev_go,
+                    "tier": _djev_tier,
+                    "tier_confidence": _djev_tier_conf,
+                    "risky": _djev_risky,
+                    "effort": _djev_effort,
+                    "latency_ms": _djev_latency,
+                    "model": _djev_model,
+                    "reason": _djev_reason,
+                }
+                logger.info(
+                    "DJEV | provider=%s source=%s go=%s tier=%s risky=%s %s (heuristic=%s)",
+                    _djev_provider,
+                    _djev_source,
+                    _djev_go,
+                    _djev_tier,
+                    _djev_risky,
+                    _djev_reason,
+                    "go" if gate_result.allowed else "block",
+                )
+        except Exception as exc:  # fail-open : DJEV ne casse jamais le gate
+            logger.debug("DJEV | disabled by error (%s), heuristic kept", exc)
         # Drift temporel (observer, consultatif) : compare le snapshot tracker
         # précédent au courant, avec la décision Jev ci-dessus comme confirmation
         # zéro-réseau. Ne bloque jamais : pousse un event "advisory" si pause
         # conseillée, le gate heuristique reste seul décideur.
         try:
+            from src.bot.jev_drift import drift_report_source as _drift_report_source
             from src.bot.jev_drift import observer_drift_check as _observer_drift_check
 
             _prev_drift_snapshot = getattr(self, "_prev_drift_snapshot", None)
@@ -467,11 +566,20 @@ class GateFlowMixin:
                     jev=dict(self.last_decision_summary.get("jev", {}) or {}),
                 )
                 if _drift_signal is not None:
+                    # observer : annotation rapport/event seule (seuils
+                    # confirm_with_jev inchangés : deep ou risky > 0.7). La
+                    # confirmation utilise la décision Jev ci-dessus, donc la
+                    # source reportée est celle du résumé "jev" ("jev"), ou
+                    # "legacy" (règles pures) si absent.
+                    _drift_jev_summary = dict(
+                        self.last_decision_summary.get("jev", {}) or {}
+                    )
                     self.last_decision_summary["drift"] = {
                         "kind": _drift_signal.kind,
                         "detail": _drift_signal.detail,
                         "pause_advised": bool(_drift_pause),
                         "reason": _drift_reason,
+                        "source": _drift_report_source(_drift_jev_summary),
                     }
                     if _drift_pause:
                         self._push_runtime_event(
@@ -481,6 +589,7 @@ class GateFlowMixin:
                             detail=_drift_signal.detail,
                             reason=_drift_reason,
                             spot_id=canonical_state.spot_id,
+                            source=self.last_decision_summary["drift"]["source"],
                         )
             if _curr_drift_snapshot:
                 self._prev_drift_snapshot = _curr_drift_snapshot

@@ -9,6 +9,7 @@ export {
   RUNTIME_METRICS_COPY,
 } from "./bot.copy";
 export {
+  AI_GATE_COPY,
   CONFIG_COPY,
   JEV_GATE_COPY,
   OCR_PROBE_COPY,

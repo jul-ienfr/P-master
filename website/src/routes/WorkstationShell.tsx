@@ -69,6 +69,7 @@ import {
   type SessionLeakGroup,
 } from "../features/replay-analytics/components";
 import {
+  AiGatePanel,
   AutoAnnotatorPanel,
   InterfacePreferencesPanel,
   JevGatePanel,
@@ -119,6 +120,13 @@ import {
   loadOcrConfig as loadPersistedOcrConfig,
   persistOcrConfig as persistStoredOcrConfig,
 } from "../lib/ocrConfig";
+import {
+  createDefaultAiGateConfig,
+  loadAiGateConfig,
+  normalizeAiGateConfig,
+  persistAiGateConfig,
+  type AiGateConfig,
+} from "../lib/aiGateConfig";
 import {
   createDefaultJevGateConfig,
   loadJevGateConfig,
@@ -4798,12 +4806,15 @@ export function ConfigLabPage() {
   const [ocrStatus, setOcrStatus] = useState<ConfigLabOcrStatus | null>(null);
   const [jevGate, setJevGate] = useState<ConfigLabJevConfig>(() => createDefaultJevGateConfig());
   const [jevLanTest, setJevLanTest] = useState<JevGateLanTestState>({ status: "idle", message: "" });
+  const [aiLanTest, setAiLanTest] = useState<JevGateLanTestState>({ status: "idle", message: "" });
+  const [aiGate, setAiGate] = useState<AiGateConfig>(() => createDefaultAiGateConfig());
   const [isRefreshing, setIsRefreshing] = useState(true);
   const [statusMessage, setStatusMessage] = useState<string>(configCopy.loading);
   const [activePresetId, setActivePresetId] = useState("");
   const [benchmarkProfile, setBenchmarkProfile] = useState("balanced");
   const llmPersistRequestIdRef = useRef(0);
   const jevPersistRequestIdRef = useRef(0);
+  const aiGatePersistRequestIdRef = useRef(0);
   const jevLanAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -4811,10 +4822,11 @@ export function ConfigLabPage() {
 
     loadConfigLabPayload()
       .then(async (payload) => {
-        const [persistedOcr, status, persistedJev] = await Promise.all([
+        const [persistedOcr, status, persistedJev, persistedAi] = await Promise.all([
           loadPersistedOcrConfig().catch(() => payload.ocr),
           getConfigLabOcrStatus().catch(() => null),
           loadJevGateConfig().catch(() => createDefaultJevGateConfig()),
+          loadAiGateConfig().catch(() => createDefaultAiGateConfig()),
         ]);
         if (!isActive) {
           return;
@@ -4826,6 +4838,7 @@ export function ConfigLabPage() {
         const presetItems = buildConfigPresetItems(nextPayload, locale);
         setConfigPayload(nextPayload);
         setJevGate(normalizeJevGateConfig(persistedJev));
+        setAiGate(normalizeAiGateConfig(persistedAi));
         setActivePresetId(
           presetItems.some((preset) => preset.id === nextPayload.solver.selectedPresetId)
             ? nextPayload.solver.selectedPresetId
@@ -4948,6 +4961,7 @@ export function ConfigLabPage() {
         getConfigLabOcrStatus().catch(() => null),
         loadJevGateConfig().catch(() => jevGate),
       ]);
+      const persistedAi = await loadAiGateConfig().catch(() => aiGate);
       const nextPayload = {
         ...payload,
         ocr: persistedOcr,
@@ -4955,6 +4969,7 @@ export function ConfigLabPage() {
       const presetItems = buildConfigPresetItems(nextPayload, locale);
       setConfigPayload(nextPayload);
       setJevGate((current) => normalizeJevGateConfig(persistedJev ?? current));
+      setAiGate((current) => normalizeAiGateConfig(persistedAi ?? current));
       setOcrStatus(status);
       setActivePresetId((currentPresetId) =>
         presetItems.some((preset) => preset.id === currentPresetId)
@@ -5062,25 +5077,47 @@ export function ConfigLabPage() {
     setJevGate(normalizeJevGateConfig(persisted));
   };
 
-  const handleTestJevLan = async () => {
+  const updateConfigAi = async (next: AiGateConfig, successMessage: string) => {
+    const normalized = normalizeAiGateConfig(next);
+    const requestId = aiGatePersistRequestIdRef.current + 1;
+    aiGatePersistRequestIdRef.current = requestId;
+
+    setAiGate(normalized);
+    setStatusMessage(successMessage);
+
+    const persisted = await persistAiGateConfig(normalized).catch(() => normalized);
+    if (requestId !== aiGatePersistRequestIdRef.current) {
+      return;
+    }
+    setAiGate(normalizeAiGateConfig(persisted));
+    // Miroir legacy : le bloc jev du routeur reste la source JevGatePanel (alias compat).
+    setJevGate(normalizeJevGateConfig(persisted.jev));
+  };
+
+  const probeLanUrl = async (
+    rawBaseUrl: string,
+    timeoutS: number,
+    setState: (state: JevGateLanTestState) => void,
+    activeLocale: typeof locale
+  ) => {
     jevLanAbortRef.current?.abort();
     const controller = new AbortController();
     jevLanAbortRef.current = controller;
     // Frontend-only probe: GET <lanBaseUrl>/v1/models with a short timeout.
     // No key is ever read or sent here — only the URL configured above.
-    const rawBase = jevGate.lan.baseUrl.trim().replace(/\/+$/, "");
+    const rawBase = rawBaseUrl.trim().replace(/\/+$/, "");
     if (!rawBase) {
-      setJevLanTest({
+      setState({
         status: "error",
-        message: locale === "fr" ? "URL LAN vide." : "Empty LAN URL.",
+        message: activeLocale === "fr" ? "URL LAN vide." : "Empty LAN URL.",
       });
       return;
     }
-    setJevLanTest({
+    setState({
       status: "running",
-      message: locale === "fr" ? "Ping du serveur LAN…" : "Pinging LAN server…",
+      message: activeLocale === "fr" ? "Ping du serveur LAN…" : "Pinging LAN server…",
     });
-    const timeoutMs = Math.max(500, Math.min(15000, Math.round(jevGate.lan.timeoutTextS * 1000)));
+    const timeoutMs = Math.max(500, Math.min(15000, Math.round(timeoutS * 1000)));
     const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetch(`${rawBase}/v1/models`, {
@@ -5092,10 +5129,10 @@ export function ConfigLabPage() {
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
-      setJevLanTest({
+      setState({
         status: "ok",
         message:
-          locale === "fr"
+          activeLocale === "fr"
             ? `Serveur LAN joignable (${response.status}).`
             : `LAN server reachable (${response.status}).`,
       });
@@ -5103,22 +5140,30 @@ export function ConfigLabPage() {
       globalThis.clearTimeout(timeout);
       const reason =
         error instanceof Error && error.name === "AbortError"
-          ? locale === "fr"
+          ? activeLocale === "fr"
             ? "délai dépassé"
             : "timed out"
           : error instanceof Error
             ? error.message
-            : locale === "fr"
+            : activeLocale === "fr"
               ? "injoignable"
               : "unreachable";
-      setJevLanTest({
+      setState({
         status: "error",
         message:
-          locale === "fr"
+          activeLocale === "fr"
             ? `Serveur LAN injoignable : ${reason}`
             : `LAN server unreachable: ${reason}`,
       });
     }
+  };
+
+  const handleTestJevLan = async () => {
+    await probeLanUrl(jevGate.lan.baseUrl, jevGate.lan.timeoutTextS, setJevLanTest, locale);
+  };
+
+  const handleTestAiLan = async () => {
+    await probeLanUrl(aiGate.djev.lanUrl, aiGate.djev.timeoutS, setAiLanTest, locale);
   };
 
   const configAlertSeverity =
@@ -5308,6 +5353,27 @@ export function ConfigLabPage() {
               },
               locale === "fr" ? "OCR réinitialisé" : "OCR reset"
             );
+          }}
+        />
+        <AiGatePanel
+          locale={locale}
+          value={aiGate}
+          disabled={!configPayload || isRefreshing}
+          lanTest={aiLanTest}
+          onChange={(next) => {
+            void updateConfigAi(
+              next,
+              locale === "fr" ? "Gate IA mise à jour" : "AI gate updated"
+            );
+          }}
+          onReset={() => {
+            void updateConfigAi(
+              createDefaultAiGateConfig(),
+              locale === "fr" ? "Gate IA réinitialisée" : "AI gate reset"
+            );
+          }}
+          onTestLan={() => {
+            void handleTestAiLan();
           }}
         />
         <JevGatePanel

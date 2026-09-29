@@ -153,3 +153,18 @@ export interface LlmAssistExecution {
   status: LlmProviderStatus;
   response: LlmAssistResponse;
 }
+
+export type DjevQuestionType = "choice" | "score" | "noul";
+
+export type DjevQuestionKey = "summary" | "recommendations" | "warnings" | "confidence";
+
+export interface DjevOutputQuestion {
+  key: DjevQuestionKey;
+  type: DjevQuestionType;
+  instructions: string;
+  criteria: Record<string, string> | string[];
+  boundaryCases: string[];
+  options: string[];
+}
+
+export type DjevQuestionSet = Record<DjevQuestionKey, DjevOutputQuestion>;
