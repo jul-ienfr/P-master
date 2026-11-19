@@ -27,6 +27,11 @@ if str(ROOT) not in sys.path:
 
 from pokerkit import Automation, Mode, NoLimitTexasHoldem, StandardHighHand  # noqa: E402
 
+try:  # évaluateur C, ~100x plus rapide et sans blocage sur certaines combinaisons
+    from phevaluator.evaluator import evaluate_cards as _phevaluate_cards
+except ImportError:  # pragma: no cover - dépendance de développement optionnelle
+    _phevaluate_cards = None
+
 BIG_BLIND = 2.0
 STARTING_STACK_BB = 100.0
 
@@ -72,17 +77,39 @@ def new_state(rng: Random) -> tuple[NoLimitTexasHoldem, list[str]]:
     return state, [hole_hero, hole_villain]
 
 
+def _phevaluator_rank(cards: str) -> int | None:
+    """Rang phevaluator (1 = meilleure main) ou ``None`` si indisponible."""
+    if _phevaluate_cards is None:
+        return None
+    try:
+        return int(
+            _phevaluate_cards(*(cards[index : index + 2] for index in range(0, len(cards), 2)))
+        )
+    except Exception:
+        return None
+
+
 def monte_carlo_equity(
     hole_cards: str,
-    board: Sequence[str],
+    board: Sequence[str] | str,
     *,
     samples: int = 120,
     rng: Random | None = None,
 ) -> float:
-    """Équité de la main héro contre une main aléatoire par échantillonnage."""
+    """Équité de la main héro contre une main aléatoire par échantillonnage.
+
+    ``phevaluator`` est utilisé quand il est disponible : il est nettement plus
+    rapide et évite un blocage observé dans ``pokerkit.StandardHighHand`` sur
+    certaines combinaisons de 7 cartes. Repli pokerkit sinon.
+    """
     rng = rng or Random()
+    board_cards = (
+        [board[index : index + 2] for index in range(0, len(board), 2)]
+        if isinstance(board, str)
+        else list(board)
+    )
     known = {hole_cards[i : i + 2] for i in range(0, len(hole_cards), 2)}
-    known.update(board)
+    known.update(board_cards)
     remaining = [card for card in DECK if card not in known]
     wins = ties = 0.0
 
@@ -90,10 +117,20 @@ def monte_carlo_equity(
         pool = remaining[:]
         rng.shuffle(pool)
         villain_hole = pool[0] + pool[1]
-        runout_needed = 5 - len(board)
+        runout_needed = 5 - len(board_cards)
         runout = "".join(pool[2 : 2 + runout_needed])
-        hero_all = hole_cards + "".join(board) + runout
-        villain_all = villain_hole + "".join(board) + runout
+        hero_all = hole_cards + "".join(board_cards) + runout
+        villain_all = villain_hole + "".join(board_cards) + runout
+
+        hero_rank = _phevaluator_rank(hero_all)
+        villain_rank = _phevaluator_rank(villain_all)
+        if hero_rank is not None and villain_rank is not None:
+            if hero_rank < villain_rank:
+                wins += 1.0
+            elif hero_rank == villain_rank:
+                ties += 0.5
+            continue
+
         try:
             hero_hand = StandardHighHand.from_game(hero_all)
             villain_hand = StandardHighHand.from_game(villain_all)
@@ -227,20 +264,44 @@ def make_archetype_policy(params: ArchetypeParams, seed: int) -> ActionFn:
 
 
 def make_heuristic_hero_policy() -> ActionFn:
-    """Politique héro par défaut : jeu serré/agressif basé équité (baseline GTO-like)."""
+    """Politique héro par défaut : jeu serré/agressif basé équité (baseline GTO-like).
+
+    Depuis le 16 novembre 2026, le préflop dépend de la position : en heads-up le
+    bouton (SB) ouvre large et la BB défend selon ses pot odds. La version
+    précédente appliquait les seuils 6-max (Chen 12 pour relancer, 9 pour payer)
+    à toutes les positions, ce qui abandonnait ATo/KQo au bouton et produisait
+    81 % de folds au premier tour du benchmark Slumbot.
+    """
     rng = Random(0x5EED_1234)
+
+    def _raise_to(view: View, target: float) -> float:
+        return min(max(target, view.min_raise_to), view.max_raise_to)
 
     def act(view: View) -> tuple[str, float | None]:
         if view.street_index == 0:
             strength = chen_formula(view.hole_cards)
-            if strength >= 12.0 and view.can_raise:
-                target = view.pot_amount * 3.0 + view.to_call
-                return "raise_to", min(max(target, view.min_raise_to), view.max_raise_to)
-            if strength >= 9.0 or (view.to_call <= BIG_BLIND and strength >= 7.0):
-                return "check_call", None
-            if view.to_call > 0:
+            facing_raise = view.to_call > 1.0
+
+            if view.is_button:
+                if not facing_raise:
+                    if strength >= 4.0 and view.can_raise:
+                        return "raise_to", _raise_to(view, view.to_call + 2.0)
+                    return "check_call", None
+                if strength >= 11.0 and view.can_raise:
+                    return "raise_to", _raise_to(view, view.pot_amount * 2.5 + view.to_call)
+                if strength >= 5.5:
+                    return "check_call", None
                 return "fold", None
-            return "check_call", None
+
+            if view.to_call <= 0:
+                if strength >= 7.0 and view.can_raise:
+                    return "raise_to", _raise_to(view, view.to_call + 3.0)
+                return "check_call", None
+            if strength >= 12.0 and view.can_raise:
+                return "raise_to", _raise_to(view, view.pot_amount * 2.5 + view.to_call)
+            if strength >= 1.5:
+                return "check_call", None
+            return "fold", None
 
         equity = monte_carlo_equity(
             view.hole_cards, view.board_cards, samples=140, rng=rng

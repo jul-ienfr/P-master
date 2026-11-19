@@ -1,0 +1,176 @@
+{
+  "kind": "golden_hero_range_replay",
+  "spot": {
+    "hero_hand": "AhKh",
+    "hero_hand_alt": "7c7d",
+    "board": [
+      "Jc",
+      "7s",
+      "2d"
+    ],
+    "pot": 6.0,
+    "effective_stack": 97.0,
+    "villain_range": "QQ+, AKs, AKo",
+    "time_budget_ms": 800
+  },
+  "ev_semantics": "hero_ev = EV de range (invariante au combo) ; actions[].ev avec selection=combo_ev_max = EV du combo cible",
+  "before_singleton": {
+    "hero_range": "AhKh",
+    "wall_ms": 491.9,
+    "chosen_action": "check",
+    "range_hero_ev": -2.9938337802886963,
+    "chosen_combo_ev": 0.04442045837640762,
+    "exploitability": 0.03886914253234863,
+    "backend": "native_solver",
+    "actions": [
+      {
+        "action": "check",
+        "freq": 0.2769407033920288,
+        "ev": 0.04442045837640762
+      },
+      {
+        "action": "bet_3",
+        "freq": 0.7230592370033264,
+        "ev": 0.0
+      }
+    ]
+  },
+  "after_full_range": {
+    "hero_range": "22+, A2s+, K5s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, ATo+, KJo+, QJo",
+    "hero_hand": "AhKh",
+    "wall_ms": 691.5,
+    "chosen_action": "bet_3",
+    "range_hero_ev": -14.798524856567383,
+    "chosen_combo_ev": -13.374641418457031,
+    "exploitability": 12.701528549194336,
+    "backend": "native_solver",
+    "selection": "combo_ev_max",
+    "converged": false,
+    "epsilon_target": 0.5,
+    "warnings": [
+      "convergence_not_reached"
+    ],
+    "actions": [
+      {
+        "action": "check",
+        "freq": 0.0,
+        "ev": -14.798524856567383
+      },
+      {
+        "action": "bet_3",
+        "freq": 1.0,
+        "ev": -13.374641418457031
+      }
+    ]
+  },
+  "combo_probe_same_range": {
+    "hero_hand": "7c7d",
+    "wall_ms": 810.9,
+    "chosen_action": "bet_3",
+    "range_hero_ev": -14.798524856567383,
+    "chosen_combo_ev": 10.742910385131836,
+    "selection": "combo_ev_max",
+    "actions": [
+      {
+        "action": "check",
+        "freq": 0.0,
+        "ev": -14.798524856567383
+      },
+      {
+        "action": "bet_3",
+        "freq": 1.0,
+        "ev": 10.742910385131836
+      }
+    ],
+    "note": "sonde indicative au budget de production : le nombre d'itérations qui tiennent dans 800 ms varie, donc l'EV du combo varie aussi ; la preuve déterministe est la paire convergée ci-dessous"
+  },
+  "combo_probe_converged_pair": {
+    "time_budget_ms": 12800,
+    "hero_range": "22+, A2s+, K5s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, ATo+, KJo+, QJo",
+    "hero_hand": "AhKh",
+    "chosen_combo_ev": 1.00807523727417,
+    "range_hero_ev": -1.0766915082931519,
+    "alt_hero_hand": "7c7d",
+    "alt_wall_ms": 10968.8,
+    "alt_chosen_action": "bet_3",
+    "alt_chosen_combo_ev": 21.405029296875,
+    "alt_range_hero_ev": -1.0766915082931519,
+    "note": "jeu résolu : les EV ne dépendent plus du nombre d'itérations. Même range dans les deux requêtes, seul hero_hand change."
+  },
+  "before_singleton_reference": {
+    "hero_range": "AhKh",
+    "time_budget_ms": 3200,
+    "wall_ms": 654.4,
+    "chosen_action": "check",
+    "range_hero_ev": -2.9938337802886963,
+    "exploitability": 0.03886914253234863,
+    "converged": true,
+    "note": "référence déterministe : à 800 ms la valeur rapportée du singleton dépend de la charge (rafraîchissement tous les 10 tours)"
+  },
+  "budget_sweep_full_range": [
+    {
+      "time_budget_ms": 100,
+      "wall_ms": 523.0,
+      "chosen_action": "check",
+      "range_hero_ev": -3.089925527572632,
+      "chosen_combo_ev": 0.01996159553527832,
+      "exploitability": 12.701528549194336,
+      "converged": false
+    },
+    {
+      "time_budget_ms": 800,
+      "wall_ms": 713.6,
+      "chosen_action": "check",
+      "range_hero_ev": -3.089925527572632,
+      "chosen_combo_ev": 0.01996159553527832,
+      "exploitability": 12.701528549194336,
+      "converged": false
+    },
+    {
+      "time_budget_ms": 1600,
+      "wall_ms": 1524.4,
+      "chosen_action": "bet_3",
+      "range_hero_ev": 1.952939510345459,
+      "chosen_combo_ev": 3.9216997623443604,
+      "exploitability": 12.701528549194336,
+      "converged": false
+    },
+    {
+      "time_budget_ms": 3200,
+      "wall_ms": 2996.7,
+      "chosen_action": "bet_3",
+      "range_hero_ev": -0.6867773532867432,
+      "chosen_combo_ev": 0.6628446578979492,
+      "exploitability": 5.142463684082031,
+      "converged": false
+    },
+    {
+      "time_budget_ms": 6400,
+      "wall_ms": 6323.7,
+      "chosen_action": "check",
+      "range_hero_ev": -1.0083234310150146,
+      "chosen_combo_ev": 0.6640037894248962,
+      "exploitability": 2.188241481781006,
+      "converged": false
+    },
+    {
+      "time_budget_ms": 12800,
+      "wall_ms": 10371.2,
+      "chosen_action": "check",
+      "range_hero_ev": -1.0766915082931519,
+      "chosen_combo_ev": 1.00807523727417,
+      "exploitability": 0.455322802066803,
+      "converged": true
+    }
+  ],
+  "converged_within_sweep": true,
+  "checks": {
+    "production_range_multi_combo": true,
+    "combo_ev_extracted": true,
+    "combo_ev_is_per_combo": true,
+    "strategy_differs": true,
+    "convergence_state_explicit": true,
+    "budget_sweep_improves": true
+  },
+  "verdict": "pass"
+}

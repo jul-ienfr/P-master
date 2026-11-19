@@ -1,0 +1,314 @@
+{
+  "bet_sizes": "50%",
+  "heads_up": true,
+  "kind": "runtime_benchmark",
+  "raise_sizes": "2.5x",
+  "results": [
+    {
+      "action": "RAISE",
+      "backend": "preflop_precomputed",
+      "bet_size": 1.0,
+      "cache_hit": true,
+      "elapsed_ms": 178.0,
+      "exploitability": 0.0,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "pass": "cold",
+      "reported_ms": 24,
+      "source": "GTO_PREFLOP_FAST",
+      "spot_id": "preflop_btn_aa",
+      "street": "preflop"
+    },
+    {
+      "action": "RAISE",
+      "backend": "preflop_precomputed",
+      "bet_size": 1.0,
+      "cache_hit": true,
+      "elapsed_ms": 0.1,
+      "exploitability": 0.0,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "pass": "warm",
+      "reported_ms": 0,
+      "source": "GTO_PREFLOP_FAST",
+      "spot_id": "preflop_btn_aa",
+      "street": "preflop"
+    },
+    {
+      "action": "CALL",
+      "backend": "preflop_precomputed",
+      "bet_size": null,
+      "cache_hit": true,
+      "elapsed_ms": 0.2,
+      "exploitability": 0.0,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "pass": "cold",
+      "reported_ms": 0,
+      "source": "GTO_PREFLOP_FAST",
+      "spot_id": "preflop_bb_kqo_face_open",
+      "street": "preflop"
+    },
+    {
+      "action": "CALL",
+      "backend": "preflop_precomputed",
+      "bet_size": null,
+      "cache_hit": true,
+      "elapsed_ms": 0.1,
+      "exploitability": 0.0,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "pass": "warm",
+      "reported_ms": 0,
+      "source": "GTO_PREFLOP_FAST",
+      "spot_id": "preflop_bb_kqo_face_open",
+      "street": "preflop"
+    },
+    {
+      "action": "CHECK",
+      "backend": "native_solver",
+      "bet_size": null,
+      "cache_hit": false,
+      "elapsed_ms": 774.1,
+      "exploitability": 12.491244316101074,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "pass": "cold",
+      "reported_ms": 769,
+      "source": "GTO_RUST",
+      "spot_id": "flop_srp_akhk",
+      "street": "flop"
+    },
+    {
+      "action": "CHECK",
+      "backend": "native_solver",
+      "bet_size": null,
+      "cache_hit": true,
+      "elapsed_ms": 0.7,
+      "exploitability": 12.491244316101074,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "pass": "warm",
+      "reported_ms": 769,
+      "source": "GTO_RUST",
+      "spot_id": "flop_srp_akhk",
+      "street": "flop"
+    },
+    {
+      "action": "BET",
+      "backend": "native_solver",
+      "bet_size": 2.0,
+      "cache_hit": false,
+      "elapsed_ms": 689.4,
+      "exploitability": 18.80258560180664,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "pass": "cold",
+      "reported_ms": 688,
+      "source": "GTO_RUST",
+      "spot_id": "flop_3bp_qq",
+      "street": "flop"
+    },
+    {
+      "action": "BET",
+      "backend": "native_solver",
+      "bet_size": 2.0,
+      "cache_hit": true,
+      "elapsed_ms": 0.8,
+      "exploitability": 18.80258560180664,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "pass": "warm",
+      "reported_ms": 688,
+      "source": "GTO_RUST",
+      "spot_id": "flop_3bp_qq",
+      "street": "flop"
+    },
+    {
+      "action": "CHECK",
+      "backend": "native_solver",
+      "bet_size": null,
+      "cache_hit": false,
+      "elapsed_ms": 96.4,
+      "exploitability": 0.3789558410644531,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "pass": "cold",
+      "reported_ms": 95,
+      "source": "GTO_RUST",
+      "spot_id": "turn_ts9s",
+      "street": "turn"
+    },
+    {
+      "action": "CHECK",
+      "backend": "native_solver",
+      "bet_size": null,
+      "cache_hit": true,
+      "elapsed_ms": 0.6,
+      "exploitability": 0.3789558410644531,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "pass": "warm",
+      "reported_ms": 95,
+      "source": "GTO_RUST",
+      "spot_id": "turn_ts9s",
+      "street": "turn"
+    },
+    {
+      "action": "CHECK",
+      "backend": "native_solver",
+      "bet_size": null,
+      "cache_hit": false,
+      "elapsed_ms": 3.9,
+      "exploitability": 0.1750166416168213,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "pass": "cold",
+      "reported_ms": 3,
+      "source": "GTO_RUST",
+      "spot_id": "river_55",
+      "street": "river"
+    },
+    {
+      "action": "CHECK",
+      "backend": "native_solver",
+      "bet_size": null,
+      "cache_hit": true,
+      "elapsed_ms": 0.5,
+      "exploitability": 0.1750166416168213,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "pass": "warm",
+      "reported_ms": 3,
+      "source": "GTO_RUST",
+      "spot_id": "river_55",
+      "street": "river"
+    }
+  ],
+  "spots": [
+    {
+      "board": [],
+      "effective_stack": 100.0,
+      "hero_hand": "AsAd",
+      "hero_position": "btn",
+      "legal_actions": [
+        "fold",
+        "call",
+        "raise"
+      ],
+      "pot": 1.5,
+      "spot_id": "preflop_btn_aa",
+      "street": "preflop"
+    },
+    {
+      "action_history": [
+        {
+          "action": "raise",
+          "amount": 2.5,
+          "player": "villain"
+        }
+      ],
+      "board": [],
+      "effective_stack": 98.0,
+      "hero_hand": "KhQd",
+      "hero_position": "bb",
+      "legal_actions": [
+        "fold",
+        "call",
+        "raise"
+      ],
+      "pot": 4.0,
+      "spot_id": "preflop_bb_kqo_face_open",
+      "street": "preflop"
+    },
+    {
+      "board": [
+        "Jc",
+        "7s",
+        "2d"
+      ],
+      "effective_stack": 97.0,
+      "hero_hand": "AhKh",
+      "hero_position": "ip",
+      "legal_actions": [
+        "check",
+        "bet_50",
+        "bet_75",
+        "allin"
+      ],
+      "pot": 6.0,
+      "spot_id": "flop_srp_akhk",
+      "street": "flop"
+    },
+    {
+      "board": [
+        "9h",
+        "8c",
+        "3c"
+      ],
+      "effective_stack": 85.0,
+      "hero_hand": "QsQd",
+      "hero_position": "oop",
+      "legal_actions": [
+        "check",
+        "bet_50",
+        "bet_75",
+        "allin"
+      ],
+      "pot": 20.0,
+      "spot_id": "flop_3bp_qq",
+      "street": "flop"
+    },
+    {
+      "board": [
+        "Ks",
+        "7h",
+        "2c",
+        "4d"
+      ],
+      "effective_stack": 78.0,
+      "hero_hand": "Ts9s",
+      "hero_position": "ip",
+      "legal_actions": [
+        "check",
+        "bet_50",
+        "bet_75",
+        "allin"
+      ],
+      "pot": 14.0,
+      "spot_id": "turn_ts9s",
+      "street": "turn"
+    },
+    {
+      "board": [
+        "Ah",
+        "Kd",
+        "9c",
+        "2s",
+        "7h"
+      ],
+      "effective_stack": 60.0,
+      "hero_hand": "5c5d",
+      "hero_position": "ip",
+      "legal_actions": [
+        "check",
+        "bet_50",
+        "bet_75",
+        "allin"
+      ],
+      "pot": 30.0,
+      "spot_id": "river_55",
+      "street": "river"
+    }
+  ],
+  "summary": {
+    "cache_hits": 8,
+    "cold_ms_p50": 137.2,
+    "cold_ms_p95": 774.1,
+    "exploitability_max": 18.8026,
+    "fallbacks": 0,
+    "runs": 12,
+    "warm_ms_p50": 0.6,
+    "warm_ms_p95": 0.8
+  }
+}

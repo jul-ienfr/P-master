@@ -1,0 +1,1007 @@
+{
+  "bet_sizes": "50%",
+  "kind": "runtime_multiway_benchmark",
+  "multiway_max_players": 6,
+  "raise_sizes": "2.5x",
+  "results": [
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": false,
+      "converged": false,
+      "elapsed_ms": 601.5,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 190.5,
+      "num_players": 3,
+      "pass": "cold",
+      "reported_ms": 596,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_3way_flop",
+      "street": "flop",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.7,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 190.6,
+      "num_players": 3,
+      "pass": "warm",
+      "reported_ms": 596,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_3way_flop",
+      "street": "flop",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": false,
+      "converged": false,
+      "elapsed_ms": 200.1,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.2,
+      "num_players": 4,
+      "pass": "cold",
+      "reported_ms": 199,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_4way_flop",
+      "street": "flop",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.6,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.2,
+      "num_players": 4,
+      "pass": "warm",
+      "reported_ms": 199,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_4way_flop",
+      "street": "flop",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": false,
+      "converged": false,
+      "elapsed_ms": 143.9,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 5,
+      "pass": "cold",
+      "reported_ms": 143,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_5way_turn",
+      "street": "turn",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.5,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 5,
+      "pass": "warm",
+      "reported_ms": 143,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_5way_turn",
+      "street": "turn",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": false,
+      "converged": false,
+      "elapsed_ms": 80.8,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 6,
+      "pass": "cold",
+      "reported_ms": 79,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_6way_river",
+      "street": "river",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.5,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 6,
+      "pass": "warm",
+      "reported_ms": 79,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_6way_river",
+      "street": "river",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.4,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 3,
+      "pass": "cold",
+      "reported_ms": 596,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_3way_flop",
+      "street": "flop",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.3,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 3,
+      "pass": "warm",
+      "reported_ms": 596,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_3way_flop",
+      "street": "flop",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.3,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 4,
+      "pass": "cold",
+      "reported_ms": 199,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_4way_flop",
+      "street": "flop",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.3,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 4,
+      "pass": "warm",
+      "reported_ms": 199,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_4way_flop",
+      "street": "flop",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.3,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 5,
+      "pass": "cold",
+      "reported_ms": 143,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_5way_turn",
+      "street": "turn",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.3,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 5,
+      "pass": "warm",
+      "reported_ms": 143,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_5way_turn",
+      "street": "turn",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.3,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 6,
+      "pass": "cold",
+      "reported_ms": 79,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_6way_river",
+      "street": "river",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.2,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 6,
+      "pass": "warm",
+      "reported_ms": 79,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_6way_river",
+      "street": "river",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.2,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 3,
+      "pass": "cold",
+      "reported_ms": 596,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_3way_flop",
+      "street": "flop",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.2,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 3,
+      "pass": "warm",
+      "reported_ms": 596,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_3way_flop",
+      "street": "flop",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.2,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 4,
+      "pass": "cold",
+      "reported_ms": 199,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_4way_flop",
+      "street": "flop",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.2,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 4,
+      "pass": "warm",
+      "reported_ms": 199,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_4way_flop",
+      "street": "flop",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.2,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 5,
+      "pass": "cold",
+      "reported_ms": 143,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_5way_turn",
+      "street": "turn",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.2,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 5,
+      "pass": "warm",
+      "reported_ms": 143,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_5way_turn",
+      "street": "turn",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.3,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 6,
+      "pass": "cold",
+      "reported_ms": 79,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_6way_river",
+      "street": "river",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.3,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 6,
+      "pass": "warm",
+      "reported_ms": 79,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_6way_river",
+      "street": "river",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.2,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 3,
+      "pass": "cold",
+      "reported_ms": 596,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_3way_flop",
+      "street": "flop",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.3,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 3,
+      "pass": "warm",
+      "reported_ms": 596,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_3way_flop",
+      "street": "flop",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.2,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 4,
+      "pass": "cold",
+      "reported_ms": 199,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_4way_flop",
+      "street": "flop",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.4,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 4,
+      "pass": "warm",
+      "reported_ms": 199,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_4way_flop",
+      "street": "flop",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.3,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 5,
+      "pass": "cold",
+      "reported_ms": 143,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_5way_turn",
+      "street": "turn",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.3,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 5,
+      "pass": "warm",
+      "reported_ms": 143,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_5way_turn",
+      "street": "turn",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.3,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 6,
+      "pass": "cold",
+      "reported_ms": 79,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_6way_river",
+      "street": "river",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.3,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 6,
+      "pass": "warm",
+      "reported_ms": 79,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_6way_river",
+      "street": "river",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.3,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 3,
+      "pass": "cold",
+      "reported_ms": 596,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_3way_flop",
+      "street": "flop",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.3,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 3,
+      "pass": "warm",
+      "reported_ms": 596,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_3way_flop",
+      "street": "flop",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.3,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 4,
+      "pass": "cold",
+      "reported_ms": 199,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_4way_flop",
+      "street": "flop",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.2,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 4,
+      "pass": "warm",
+      "reported_ms": 199,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_4way_flop",
+      "street": "flop",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.3,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 5,
+      "pass": "cold",
+      "reported_ms": 143,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_5way_turn",
+      "street": "turn",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.3,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 5,
+      "pass": "warm",
+      "reported_ms": 143,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_5way_turn",
+      "street": "turn",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.3,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 6,
+      "pass": "cold",
+      "reported_ms": 79,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_6way_river",
+      "street": "river",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    },
+    {
+      "action": "CHECK",
+      "backend": "multiway_mccfr",
+      "cache_hit": true,
+      "converged": false,
+      "elapsed_ms": 0.3,
+      "fallback_reason": null,
+      "fallback_used": false,
+      "memory_rss_mb": 191.5,
+      "num_players": 6,
+      "pass": "warm",
+      "reported_ms": 79,
+      "sampled": true,
+      "source": "GTO_RUST",
+      "spot_id": "multiway_6way_river",
+      "street": "river",
+      "warnings": [
+        "multiway_approximation"
+      ]
+    }
+  ],
+  "spots": [
+    {
+      "active_positions": [
+        "UTG",
+        "BTN",
+        "BB"
+      ],
+      "board": [
+        "Jc",
+        "7s",
+        "2d"
+      ],
+      "effective_stack": 97.0,
+      "hero_hand": "AhKd",
+      "hero_player_index": 1,
+      "hero_position": "BTN",
+      "legal_actions": [
+        "check",
+        "bet_50",
+        "bet_75",
+        "allin"
+      ],
+      "num_players": 3,
+      "pot": 6.0,
+      "spot_id": "multiway_3way_flop",
+      "street": "flop",
+      "villain_ranges": [
+        "AA,KK,QQ",
+        "AKs,AQo+,TT+"
+      ]
+    },
+    {
+      "active_positions": [
+        "UTG",
+        "CO",
+        "BTN",
+        "BB"
+      ],
+      "board": [
+        "9h",
+        "8c",
+        "3c"
+      ],
+      "effective_stack": 85.0,
+      "hero_hand": "QsQd",
+      "hero_player_index": 2,
+      "hero_position": "BTN",
+      "legal_actions": [
+        "check",
+        "bet_50",
+        "bet_75",
+        "allin"
+      ],
+      "num_players": 4,
+      "pot": 20.0,
+      "spot_id": "multiway_4way_flop",
+      "street": "flop",
+      "villain_ranges": [
+        "AA,KK,QQ",
+        "AKs,AQo+,TT+",
+        "JJ+,AKs"
+      ]
+    },
+    {
+      "active_positions": [
+        "UTG",
+        "MP",
+        "CO",
+        "BTN",
+        "BB"
+      ],
+      "board": [
+        "Ks",
+        "7h",
+        "2c",
+        "4d"
+      ],
+      "effective_stack": 78.0,
+      "hero_hand": "Ts9s",
+      "hero_player_index": 3,
+      "hero_position": "BTN",
+      "legal_actions": [
+        "check",
+        "bet_50",
+        "bet_75",
+        "allin"
+      ],
+      "num_players": 5,
+      "pot": 14.0,
+      "spot_id": "multiway_5way_turn",
+      "street": "turn",
+      "villain_ranges": [
+        "AA,KK,QQ",
+        "AKs,AQo+,TT+",
+        "JJ+,AKs",
+        "AQ+,KQ"
+      ]
+    },
+    {
+      "active_positions": [
+        "UTG",
+        "MP",
+        "HJ",
+        "CO",
+        "BTN",
+        "BB"
+      ],
+      "board": [
+        "Ah",
+        "Kd",
+        "9c",
+        "2s",
+        "7h"
+      ],
+      "effective_stack": 60.0,
+      "hero_hand": "5c5d",
+      "hero_player_index": 4,
+      "hero_position": "BTN",
+      "legal_actions": [
+        "check",
+        "bet_50",
+        "bet_75",
+        "allin"
+      ],
+      "num_players": 6,
+      "pot": 30.0,
+      "spot_id": "multiway_6way_river",
+      "street": "river",
+      "villain_ranges": [
+        "AA,KK,QQ",
+        "AKs,AQo+,TT+",
+        "JJ+,AKs",
+        "AQ+,KQ",
+        "99+,AJs+,KQo"
+      ]
+    }
+  ],
+  "summary": {
+    "by_num_players": {
+      "3": {
+        "cold_ms_p50": 0.3,
+        "cold_ms_p95": 601.5,
+        "fallbacks": 0,
+        "memory_rss_mb": 191.5,
+        "multiway_backends": [
+          "multiway_mccfr"
+        ],
+        "runs": 10,
+        "sampled": 10,
+        "warm_ms_p50": 0.3,
+        "warm_ms_p95": 0.7
+      },
+      "4": {
+        "cold_ms_p50": 0.3,
+        "cold_ms_p95": 200.1,
+        "fallbacks": 0,
+        "memory_rss_mb": 191.5,
+        "multiway_backends": [
+          "multiway_mccfr"
+        ],
+        "runs": 10,
+        "sampled": 10,
+        "warm_ms_p50": 0.3,
+        "warm_ms_p95": 0.6
+      },
+      "5": {
+        "cold_ms_p50": 0.3,
+        "cold_ms_p95": 143.9,
+        "fallbacks": 0,
+        "memory_rss_mb": 191.5,
+        "multiway_backends": [
+          "multiway_mccfr"
+        ],
+        "runs": 10,
+        "sampled": 10,
+        "warm_ms_p50": 0.3,
+        "warm_ms_p95": 0.5
+      },
+      "6": {
+        "cold_ms_p50": 0.3,
+        "cold_ms_p95": 80.8,
+        "fallbacks": 0,
+        "memory_rss_mb": 191.5,
+        "multiway_backends": [
+          "multiway_mccfr"
+        ],
+        "runs": 10,
+        "sampled": 10,
+        "warm_ms_p50": 0.3,
+        "warm_ms_p95": 0.5
+      }
+    },
+    "fallbacks": 0,
+    "max_memory_rss_mb": 191.5,
+    "multiway_backends": [
+      "multiway_mccfr"
+    ],
+    "runs": 40
+  }
+}

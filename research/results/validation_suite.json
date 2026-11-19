@@ -51,7 +51,7 @@
     "suite_ready": true
   },
   "oracle_randomized": {
-    "attempted": 0,
+    "attempted": 500,
     "cases": 500,
     "failure_samples": [],
     "failures": 0,
@@ -59,12 +59,12 @@
     "mismatches": [],
     "oracles": [
       {
-        "available": false,
+        "available": true,
         "metadata": {
           "module": "phevaluator"
         },
         "name": "phevaluator",
-        "reason": "python_module_missing"
+        "reason": "python_module"
       },
       {
         "available": true,
@@ -93,12 +93,12 @@
         "reason": "dotnet_runtime"
       }
     ],
-    "phevaluator_success_rate": null,
+    "phevaluator_success_rate": 1.0,
     "poker_evaluator_vs_pokersolver_agreement_rate": 1.0,
     "poker_evaluator_vs_pokersolver_agreements": 500,
-    "skipped": 500,
-    "skipped_reason": "phevaluator_not_installed",
-    "successful": 0
+    "skipped": 0,
+    "skipped_reason": null,
+    "successful": 500
   },
   "replay_validation": {
     "cache_hit_rate": 0.4,

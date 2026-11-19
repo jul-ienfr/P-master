@@ -1,0 +1,42 @@
+{
+  "kind": "mes_spot",
+  "policy_action": "check",
+  "preset_id": "river_jam_low_spr",
+  "result": {
+    "backend": "native_mes",
+    "best_response_gap": 0.0,
+    "exploitability": 0.1585,
+    "mes_ev": 36.7184,
+    "normalized_ip_range": "AA,AKo,AKs,AQs,JJ,KK,QQ,TT",
+    "normalized_oop_range": "88,99,AJs,AQo,ATs,KQs",
+    "policy_action": "check",
+    "policy_ev": 36.7184,
+    "removed_overlap": [
+      "AA",
+      "AKo",
+      "AKs",
+      "AQs",
+      "JJ",
+      "KK",
+      "QQ",
+      "TT"
+    ]
+  },
+  "spot": {
+    "board": [
+      "Jc",
+      "7d",
+      "4s",
+      "2c",
+      "2s"
+    ],
+    "effective_stack": 28.0,
+    "hero_is_oop": false,
+    "ip_range": "TT+,AQs+,AKo",
+    "oop_range": "88+,ATs+,KQs,AQo+",
+    "policy_action": "check",
+    "spot_id": "preset:river_jam_low_spr",
+    "starting_pot": 42.0
+  },
+  "title": "River Jam Low SPR"
+}

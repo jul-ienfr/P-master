@@ -1,0 +1,58 @@
+{
+  "hero_policy": "hero_heuristic",
+  "hands_total": 2500,
+  "aggregate_winrate_bb100": 3.92,
+  "beats_pool": false,
+  "matches": [
+    {
+      "villain": "nit",
+      "hands": 500,
+      "winrate_bb100": 8.4,
+      "ci95_bb100": 12.957,
+      "winrate_low": -4.557,
+      "winrate_high": 21.357,
+      "std_per_hand_bb": 1.4782,
+      "elapsed_s": 1.08
+    },
+    {
+      "villain": "tag",
+      "hands": 500,
+      "winrate_bb100": 5.4,
+      "ci95_bb100": 13.151,
+      "winrate_low": -7.751,
+      "winrate_high": 18.551,
+      "std_per_hand_bb": 1.5004,
+      "elapsed_s": 1.18
+    },
+    {
+      "villain": "lag",
+      "hands": 500,
+      "winrate_bb100": 12.6,
+      "ci95_bb100": 14.052,
+      "winrate_low": -1.452,
+      "winrate_high": 26.652,
+      "std_per_hand_bb": 1.6032,
+      "elapsed_s": 1.5
+    },
+    {
+      "villain": "station",
+      "hands": 500,
+      "winrate_bb100": -6.6,
+      "ci95_bb100": 12.804,
+      "winrate_low": -19.404,
+      "winrate_high": 6.204,
+      "std_per_hand_bb": 1.4607,
+      "elapsed_s": 1.53
+    },
+    {
+      "villain": "whale",
+      "hands": 500,
+      "winrate_bb100": -0.2,
+      "ci95_bb100": 13.686,
+      "winrate_low": -13.886,
+      "winrate_high": 13.486,
+      "std_per_hand_bb": 1.5614,
+      "elapsed_s": 1.47
+    }
+  ]
+}

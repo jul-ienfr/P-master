@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Seed de calibration Phase 0.7 : exerce le VRAI chemin de télémétrie live.
 
 Appelle `src.runtime.bet_logger.log_action_history_bets` (exactement la fonction

@@ -1,0 +1,37 @@
+{
+  "kind": "mes_spot",
+  "policy_action": "check",
+  "preset_id": "4bp_hu_100bb",
+  "result": {
+    "backend": "native_mes",
+    "best_response_gap": 17.2518,
+    "exploitability": 1.1471,
+    "mes_ev": 42.7416,
+    "normalized_ip_range": "AA,AKo,AKs,KK,QQ",
+    "normalized_oop_range": "AQs,JJ,TT",
+    "policy_action": "check",
+    "policy_ev": 25.4898,
+    "removed_overlap": [
+      "AA",
+      "AKo",
+      "AKs",
+      "KK",
+      "QQ"
+    ]
+  },
+  "spot": {
+    "board": [
+      "Jc",
+      "7s",
+      "2d"
+    ],
+    "effective_stack": 60.0,
+    "hero_is_oop": false,
+    "ip_range": "QQ+,AKs,AKo",
+    "oop_range": "TT+,AQs+,AKo",
+    "policy_action": "check",
+    "spot_id": "preset:4bp_hu_100bb",
+    "starting_pot": 40.0
+  },
+  "title": "4BP HU 100bb"
+}

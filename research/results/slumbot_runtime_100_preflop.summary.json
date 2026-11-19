@@ -1,0 +1,43 @@
+{
+  "hands": 100,
+  "total_winnings_bb": -108.0,
+  "winrate_bb100": -108.0,
+  "ci95_bb100": 334.118,
+  "winrate_low": -442.118,
+  "winrate_high": 226.118,
+  "std_per_hand_bb": 17.0468,
+  "wins": 38,
+  "losses": 62,
+  "ties": 0,
+  "decisions": 351,
+  "decisions_per_hand": 3.51,
+  "decision_ms_p50": 7.985,
+  "decision_ms_p95": 1270.942,
+  "hands_per_minute": 21.49,
+  "kind": "slumbot_runtime_benchmark",
+  "policy": "DecisionMaker.get_best_action",
+  "opponent": "slumbot.com",
+  "blinds": "50/100",
+  "starting_stack_bb": 200,
+  "fallbacks": 0,
+  "cache_hits": 109,
+  "sources": {
+    "GTO_PREFLOP_FAST": 109,
+    "GTO_RUST": 242
+  },
+  "backends": {
+    "native_solver": 242,
+    "preflop_fast_path": 103,
+    "preflop_precomputed": 6
+  },
+  "solver_decisions": 242,
+  "solver_elapsed_ms_p50": 254.5,
+  "solver_elapsed_ms_p95": 1279.0,
+  "seed": 20261116,
+  "started_at": "2026-11-16T22:06:37.177523+00:00",
+  "finished_at": "2026-11-16T22:11:21.463898+00:00",
+  "errors": 0,
+  "bet_sizes": "50%",
+  "raise_sizes": "2.5x",
+  "output": "research\\results\\slumbot_runtime_100_preflop.jsonl"
+}

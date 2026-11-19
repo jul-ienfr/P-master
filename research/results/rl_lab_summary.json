@@ -1,24 +1,29 @@
 {
   "best_response": {
     "average_gap": 0.0178,
+    "backend": "alternatives_fallback",
     "evaluated_records": 9,
     "lbr_gap": 0.16,
     "policy": "baseline_trace",
-    "records": 10
+    "records": 10,
+    "solver_evaluated_records": 0
   },
   "challenger_smoke": [
     {
-      "available": false,
+      "available": true,
       "capabilities": [
         "simulation_env",
         "replay_bridge"
       ],
       "challenger_id": "pokerkit",
-      "entry_points": [],
+      "entry_points": [
+        "State",
+        "Automation"
+      ],
       "factory_hint": "pokerkit.State / Automation",
       "kind": "simulation_env",
-      "loaded": false,
-      "reason": "module_unavailable",
+      "loaded": true,
+      "reason": "",
       "sample_payload_keys": [
         "action_history",
         "board",
@@ -33,7 +38,7 @@
         "street",
         "villain_ranges"
       ],
-      "status": "unavailable"
+      "status": "ready"
     },
     {
       "available": false,
@@ -56,25 +61,29 @@
       "status": "unavailable"
     },
     {
-      "available": false,
+      "available": true,
       "capabilities": [
         "offline_challenger",
         "evaluation",
         "self_play"
       ],
       "challenger_id": "rlcard",
-      "entry_points": [],
+      "entry_points": [
+        "make",
+        "models",
+        "agents"
+      ],
       "factory_hint": "rlcard.make('no-limit-holdem')",
       "kind": "rl_challenger",
-      "loaded": false,
-      "reason": "module_unavailable",
+      "loaded": true,
+      "reason": "",
       "sample_payload_keys": [
         "legal_actions",
         "obs",
         "raw_legal_actions",
         "raw_obs"
       ],
-      "status": "unavailable"
+      "status": "ready"
     },
     {
       "available": false,
@@ -155,7 +164,10 @@
     "always_bet_50",
     "always_jam"
   ],
-  "ready_challengers": [],
+  "ready_challengers": [
+    "pokerkit",
+    "rlcard"
+  ],
   "records": 10,
   "tournament": {
     "champion": "best_alt",
