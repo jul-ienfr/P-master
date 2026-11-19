@@ -65,5 +65,11 @@ htmlcov/
 research/results/best_response.json
 research/results/monte_carlo_sim.json
 research/results/synthetic_corpus.json
+# Mesures jetables de mise au point du gate de performance (non citables seules)
+research/results/runtime_benchmark_fresh*.json
+research/results/runtime_benchmark_run*.json
+research/results/runtime_benchmark_prev.json
+research/results/runtime_benchmark_rerun.json
+research/results/runtime_benchmark_50p_raise25.json
 # Legacy GUI model (25 Mo, non versionné)
 poker/loaded_model.h5
