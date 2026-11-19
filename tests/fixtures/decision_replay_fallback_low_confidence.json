@@ -41,7 +41,7 @@
     "fallback_used": true,
     "fallback_reason": "rust_solver_unavailable",
     "llm_advice": null,
-    "warnings": ["fallback_used", "ocr_low_confidence"],
+    "warnings": ["fallback_used", "ocr_low_confidence", "rust_solver_unavailable"],
     "incidents": [
       {
         "id": "solver_fallback",

@@ -26,8 +26,14 @@ fn gto_ev_bb_matches_ev_chips_over_bb() {
     let req = river_request(20.0);
     let bb = req.effective_stack / 100.0;
     let resp = solve_spot(req).expect("solve_spot river");
-    assert!(resp.hero_ev.is_finite(), "hero_ev not finite: {}", resp.hero_ev);
-    let ev_bb = resp.ev_bb.expect("ev_bb should be Some with positive stack");
+    assert!(
+        resp.hero_ev.is_finite(),
+        "hero_ev not finite: {}",
+        resp.hero_ev
+    );
+    let ev_bb = resp
+        .ev_bb
+        .expect("ev_bb should be Some with positive stack");
     // § D : ev_bb ≈ ev_chips / bb
     assert!(
         (ev_bb - resp.hero_ev / bb).abs() < 1e-4,
@@ -104,6 +110,56 @@ fn gto_action_ev_bb_consistent_with_ev_chips_and_combo() {
             bb
         );
     }
+}
+
+#[test]
+fn gto_action_history_advances_to_facing_bet_node() {
+    let mut req = river_request(20.0);
+    // Héros IP : au début de la rue c'est OOP qui parle. Sans historique, la
+    // racine expose check/bet (décision d'OOP) ; avec « OOP mise », la réponse
+    // doit être une décision face à une mise (fold/call/raise).
+    req.hero_is_oop = false;
+    req.use_cache = false;
+    req.action_history = vec!["oop:bet:4.0".to_string()];
+
+    let resp = solve_spot(req).expect("solve_spot facing bet");
+    let names: Vec<&str> = resp.actions.iter().map(|a| a.name.as_str()).collect();
+
+    assert!(
+        names
+            .iter()
+            .any(|name| name.starts_with("raise") || name.starts_with("allin")),
+        "aucune relance dans la décision face à une mise: {names:?}"
+    );
+    assert!(
+        !names.contains(&"check"),
+        "un check n'est pas légal face à une mise: {names:?}"
+    );
+}
+
+#[test]
+fn gto_action_history_after_check_reaches_facing_bet_node() {
+    let mut req = river_request(20.0);
+    req.hero_is_oop = true;
+    req.use_cache = false;
+    req.action_history = vec![
+        "hero:check:0.000".to_string(),
+        "villain:bet:4.000".to_string(),
+    ];
+
+    let resp = solve_spot(req).expect("solve_spot river facing bet after check");
+    let names: Vec<&str> = resp.actions.iter().map(|a| a.name.as_str()).collect();
+
+    assert!(
+        names
+            .iter()
+            .any(|name| name.starts_with("raise") || name.starts_with("allin")),
+        "aucune relance après check + mise: {names:?}"
+    );
+    assert!(
+        !names.contains(&"check"),
+        "un check n'est pas légal face à une mise: {names:?}"
+    );
 }
 
 #[test]

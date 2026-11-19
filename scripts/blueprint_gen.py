@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Générateur offline de blueprint (Phase 0.6.3) + audit de couverture (0.6.7).
 
 Usage (depuis la racine du projet, venv 3.11) :
@@ -75,7 +74,7 @@ def _native_solver():
 def _solve_spot_strict(solver_fn, spot: dict, epsilon: float) -> dict:
     """Solve un spot de la matrice en mode strict (epsilon_target)."""
     raw = solver_fn(
-        hero_range=str(spot.get("hero_hand") or ""),
+        hero_range=str(spot.get("hero_range") or spot.get("hero_hand") or ""),
         villain_ranges=[str(spot.get("villain_range") or "")],
         board=list(spot.get("board") or []),
         starting_pot=float(spot.get("starting_pot") or 0.0),
@@ -153,6 +152,7 @@ def run_generate(
                 hero_position=str(spot.get("hero_position") or ""),
                 action_history=list(spot.get("action_history") or []),
                 rake=float(spot.get("rake") or 0.0),
+                hero_range=str(spot.get("hero_range") or spot.get("hero_hand") or ""),
             )
             if store.lookup(key) is not None:
                 continue  # déjà convergé en base
@@ -253,7 +253,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(json.dumps(summary, indent=2, sort_keys=True, default=str))
         if not summary["solver_available"]:
-            print(f"ERREUR: solveur natif indisponible — {summary['solver_error']}", file=sys.stderr)
+            print(
+                f"ERREUR: solveur natif indisponible — {summary['solver_error']}", file=sys.stderr
+            )
             return 1
         return 0
 

@@ -7,8 +7,9 @@ from collections import deque
 import numpy as np
 
 from src.bot.humanization import ExecutionContext
-from src.bot.jev_gate import JevGateConfig, decide as jev_decide
-from src.bot.runtime_types import CanonicalTableState
+from src.bot.jev_gate import JevGateConfig
+from src.bot.jev_gate import decide as jev_decide
+from src.bot.runtime_types import CanonicalTableState, MultiwayContext
 from src.bot.sanity_checker import ActionIntent, GateReason, GateResult
 from src.vision.models import TableState
 
@@ -109,18 +110,22 @@ class GateFlowMixin:
             "context": dict(context or {}),
             "decision": dict(self.last_decision_summary or {}),
             "tracker": dict(self.last_tracker_snapshot or {}),
-            "canonical_spot": dict(self.last_resolved_runtime_state or {})
-            if isinstance(getattr(self, "last_resolved_runtime_state", None), dict)
-            else None,
+            "canonical_spot": (
+                dict(self.last_resolved_runtime_state or {})
+                if isinstance(getattr(self, "last_resolved_runtime_state", None), dict)
+                else None
+            ),
             "runtime_readiness": dict(
                 self.last_decision_summary.get("runtime_readiness", {}) or {}
             ),
             "fallback_execution_readiness": dict(
                 self.last_decision_summary.get("fallback_execution_readiness", {}) or {}
             ),
-            "frame": self.last_valid_frame.copy()
-            if isinstance(getattr(self, "last_valid_frame", None), np.ndarray)
-            else None,
+            "frame": (
+                self.last_valid_frame.copy()
+                if isinstance(getattr(self, "last_valid_frame", None), np.ndarray)
+                else None
+            ),
             "crops": self._build_runtime_failure_crops(),
         }
         dataset.record_incident(payload)
@@ -213,6 +218,138 @@ class GateFlowMixin:
             if not bool(player.is_hero) and bool(player.is_active) and not bool(player.has_folded)
         ]
         return max(2, 1 + len(villains))
+
+    @staticmethod
+    def _multiway_position_spec(num_players: int) -> tuple[tuple[str, ...], dict[str, str]] | None:
+        specs = {
+            3: (
+                ("UTG", "BTN", "BB"),
+                {"SB": "UTG", "UTG": "UTG", "BTN": "BTN", "BB": "BB"},
+            ),
+            4: (
+                ("UTG", "CO", "BTN", "BB"),
+                {"SB": "UTG", "UTG": "UTG", "CO": "CO", "BTN": "BTN", "BB": "BB"},
+            ),
+            5: (
+                ("UTG", "MP", "CO", "BTN", "BB"),
+                {
+                    "SB": "UTG",
+                    "UTG": "UTG",
+                    "HJ": "MP",
+                    "MP": "MP",
+                    "CO": "CO",
+                    "BTN": "BTN",
+                    "BB": "BB",
+                },
+            ),
+            6: (
+                ("UTG", "MP", "HJ", "CO", "BTN", "BB"),
+                {
+                    "SB": "UTG",
+                    "UTG": "MP",
+                    "MP": "MP",
+                    "HJ": "HJ",
+                    "CO": "CO",
+                    "BTN": "BTN",
+                    "BB": "BB",
+                },
+            ),
+        }
+        return specs.get(int(num_players))
+
+    def _build_multiway_context(self, canonical_state: CanonicalTableState, primary_villain):
+        num_players = self._count_active_villains(canonical_state)
+        spec = self._multiway_position_spec(num_players)
+        if spec is None:
+            return None
+        canonical_positions, position_map = spec
+
+        players = [
+            player
+            for player in (getattr(canonical_state, "players", ()) or [])
+            if bool(player.is_active) and not bool(player.has_folded)
+        ]
+        tracker_by_key = {}
+        for tracker_key, tracker_player in (getattr(self.tracker, "players", {}) or {}).items():
+            for key in (
+                tracker_key,
+                getattr(tracker_player, "seat_id", ""),
+                getattr(tracker_player, "name", ""),
+            ):
+                if key:
+                    tracker_by_key[str(key)] = tracker_player
+
+        entries = []
+        for player in players:
+            tracker_player = tracker_by_key.get(str(player.seat_id)) or tracker_by_key.get(
+                str(player.name)
+            )
+            raw_position = str(getattr(tracker_player, "position", "") or "").strip().upper()
+            canonical_position = position_map.get(raw_position)
+            if canonical_position is None:
+                ordered_index = sorted(players, key=lambda item: item.seat_index).index(player)
+                canonical_position = canonical_positions[
+                    min(ordered_index, len(canonical_positions) - 1)
+                ]
+                raw_position = canonical_position
+            entries.append(
+                {
+                    "player": player,
+                    "raw_position": raw_position,
+                    "canonical_position": canonical_position,
+                    "order": canonical_positions.index(canonical_position),
+                }
+            )
+
+        entries.sort(key=lambda item: item["order"])
+        if len({item["order"] for item in entries}) != num_players:
+            return None
+
+        hero_entry = next(
+            (item for item in entries if bool(item["player"].is_hero)),
+            None,
+        )
+        if hero_entry is None:
+            return None
+
+        preflop_manager = getattr(getattr(self, "decision_maker", None), "preflop_manager", None)
+        villain_ranges = []
+        for item in entries:
+            if bool(item["player"].is_hero):
+                continue
+            get_range = getattr(preflop_manager, "get_villain_range", None)
+            if callable(get_range):
+                try:
+                    villain_ranges.append(str(get_range(item["raw_position"], action="OPEN") or ""))
+                    continue
+                except TypeError:
+                    villain_ranges.append(str(get_range(item["raw_position"]) or ""))
+                    continue
+            villain_ranges.append("")
+
+        primary_index = -1
+        if primary_villain is not None:
+            primary_keys = (
+                str(getattr(primary_villain, "seat_id", "") or ""),
+                str(getattr(primary_villain, "name", "") or ""),
+            )
+            for index, item in enumerate(
+                [item for item in entries if not bool(item["player"].is_hero)]
+            ):
+                player = item["player"]
+                if any(
+                    key and key in (str(player.seat_id), str(player.name)) for key in primary_keys
+                ):
+                    primary_index = index
+                    break
+
+        return MultiwayContext(
+            num_players=int(num_players),
+            hero_player_index=int(hero_entry["order"]),
+            active_positions=tuple(str(item["raw_position"]) for item in entries),
+            villain_ranges=tuple(villain_ranges),
+            primary_villain_index=int(primary_index),
+        )
 
     def _build_tournament_data(self, canonical_state: CanonicalTableState) -> dict | None:
         """Phase 2.11 — peuple les données ICM depuis la session/tracker.
@@ -330,28 +467,42 @@ class GateFlowMixin:
                 "dynamic_coords": dynamic_coords,
             }
 
-        decision = self._get_cached_live_decision(canonical_state)
+        multiway_context = self._build_multiway_context(canonical_state, primary_villain)
+        decision = self._get_cached_live_decision(canonical_state, multiway_context)
         if decision is None:
             # Budget solve piloté par le tier Jev du flow précédent (observer,
             # zéro appel réseau : tier déjà en mémoire). Premier flow : None.
             _prev_jev = self.last_decision_summary.get("jev") or {}
             _prev_tier = _prev_jev.get("tier") if isinstance(_prev_jev, dict) else None
-            decision = await self.decision_maker.get_best_action(
-                hero_hand="".join(canonical_state.hero_cards),
-                board=list(canonical_state.board),
-                pot=canonical_state.pot,
-                effective_stack=effective_stack,
-                villain_name=primary_villain.name,
-                legal_actions=list(canonical_state.legal_actions),
-                spot_id=canonical_state.spot_id,
-                hero_position=hero_position,
-                state_confidence=canonical_state.state_confidence,
-                action_history=self.tracker.current_hand_actions,
-                tournament_data=self._build_tournament_data(canonical_state),
-                active_villain_count=self._count_active_villains(canonical_state),
-                jev_tier=_prev_tier,
-            )
-            self._remember_cached_live_decision(canonical_state, decision)
+            solver_config = (getattr(self, "config", None) or {}).get("solver", {}) or {}
+            decision_kwargs = {
+                "hero_hand": "".join(canonical_state.hero_cards),
+                "board": list(canonical_state.board),
+                "pot": canonical_state.pot,
+                "effective_stack": effective_stack,
+                "villain_name": primary_villain.name,
+                "legal_actions": list(canonical_state.legal_actions),
+                "spot_id": canonical_state.spot_id,
+                "hero_position": hero_position,
+                "state_confidence": canonical_state.state_confidence,
+                "action_history": self.tracker.current_hand_actions,
+                "tournament_data": self._build_tournament_data(canonical_state),
+                "active_villain_count": self._count_active_villains(canonical_state),
+                "jev_tier": _prev_tier,
+            }
+            if multiway_context is not None:
+                decision_kwargs.update(
+                    {
+                        "num_players": multiway_context.num_players,
+                        "villain_ranges": list(multiway_context.villain_ranges),
+                        "hero_player_index": multiway_context.hero_player_index,
+                        "active_positions": list(multiway_context.active_positions),
+                        "primary_villain_index": multiway_context.primary_villain_index,
+                        "strict_mode": bool(solver_config.get("multiway_strict", False)),
+                    }
+                )
+            decision = await self.decision_maker.get_best_action(**decision_kwargs)
+            self._remember_cached_live_decision(canonical_state, decision, multiway_context)
         else:
             decision["cache_hit"] = True
         normalized_incidents = self._normalize_incidents(list(decision.get("incidents", [])))
@@ -475,18 +626,18 @@ class GateFlowMixin:
                 # loggué reflète la sémantique consultative (pas d'enforcing).
                 if isinstance(_djev_cfg.djev_base, dict):
                     _djev_cfg.djev_base = {
-                        **_djev_cfg.djev_base, "mode": "observer",
+                        **_djev_cfg.djev_base,
+                        "mode": "observer",
                     }
                 if isinstance(_djev_cfg.jev_base, dict):
                     _djev_cfg.jev_base = {
-                        **_djev_cfg.jev_base, "mode": "observer",
+                        **_djev_cfg.jev_base,
+                        "mode": "observer",
                     }
-                _djev_allowed, _djev_decision, _djev_reason, _djev_route = (
-                    _djev_decide(
-                        canonical_state,
-                        gate_result.allowed,
-                        config=_djev_cfg,
-                    )
+                _djev_allowed, _djev_decision, _djev_reason, _djev_route = _djev_decide(
+                    canonical_state,
+                    gate_result.allowed,
+                    config=_djev_cfg,
                 )
                 if isinstance(_djev_decision, dict):
                     _djev_go = _djev_decision.get("go")
@@ -498,9 +649,7 @@ class GateFlowMixin:
                     _djev_model = _djev_decision.get("model")
                     # Source routeur (jev/djev-lan/djev-cloud/fail-open) fiable ;
                     # la cle "source" d'un dict avis n'est qu'un repli.
-                    _djev_source = (
-                        _djev_decision.get("source") or _djev_route or "djev"
-                    )
+                    _djev_source = _djev_decision.get("source") or _djev_route or "djev"
                 else:
                     _djev_go = getattr(_djev_decision, "go", None)
                     _djev_tier = getattr(_djev_decision, "tier", None)
@@ -512,11 +661,7 @@ class GateFlowMixin:
                     _djev_model = getattr(_djev_decision, "model", None)
                     if _djev_model is None and isinstance(_djev_raw, dict):
                         _djev_model = _djev_raw.get("model")
-                    _djev_source = (
-                        _djev_route
-                        or getattr(_djev_decision, "source", None)
-                        or "djev"
-                    )
+                    _djev_source = _djev_route or getattr(_djev_decision, "source", None) or "djev"
                 try:
                     _djev_latency = round(float(_djev_lat or 0.0), 1)
                 except (TypeError, ValueError):
@@ -571,9 +716,7 @@ class GateFlowMixin:
                     # confirmation utilise la décision Jev ci-dessus, donc la
                     # source reportée est celle du résumé "jev" ("jev"), ou
                     # "legacy" (règles pures) si absent.
-                    _drift_jev_summary = dict(
-                        self.last_decision_summary.get("jev", {}) or {}
-                    )
+                    _drift_jev_summary = dict(self.last_decision_summary.get("jev", {}) or {})
                     self.last_decision_summary["drift"] = {
                         "kind": _drift_signal.kind,
                         "detail": _drift_signal.detail,
@@ -600,9 +743,9 @@ class GateFlowMixin:
         self.last_decision_summary["assisted"] = assisted_result
         self.last_decision_summary["trace_updated_at"] = self._utc_now()
         self.last_decision_summary["history"] = {
-            "fallback": [decision.get("fallback_reason")]
-            if decision.get("fallback_reason")
-            else [],
+            "fallback": (
+                [decision.get("fallback_reason")] if decision.get("fallback_reason") else []
+            ),
             "warnings": list(decision.get("warnings", [])),
             "incidents": self._normalize_incidents(
                 normalized_incidents + (["gate_blocked"] if not gate_result.allowed else [])
@@ -1032,9 +1175,9 @@ class GateFlowMixin:
                 "actions_region_stable": actions_region_stable,
                 "stable_signature_count": stable_signature_count,
                 "visual_changed_regions": sorted(visual_changed_regions),
-                "frame_age_ms": None
-                if frame_age_ms is None
-                else round(float(frame_age_ms or 0.0), 1),
+                "frame_age_ms": (
+                    None if frame_age_ms is None else round(float(frame_age_ms or 0.0), 1)
+                ),
             },
         }
 
@@ -1098,8 +1241,7 @@ class GateFlowMixin:
             spot_id=canonical_state.spot_id,
             street=canonical_state.street,
             actionable_spot=bool(
-                len(canonical_state.hero_cards) == 2
-                and bool(canonical_state.legal_actions)
+                len(canonical_state.hero_cards) == 2 and bool(canonical_state.legal_actions)
             ),
         )
         self._push_runtime_event(

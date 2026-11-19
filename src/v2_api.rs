@@ -382,6 +382,14 @@ pub struct SolveRequestV2 {
     pub sample_mixed: bool,
     pub random_seed: Option<u64>,
     pub bet_size_spec: Option<crate::gto_api::BetSizeSpec>,
+    /// Compression mémoire de l'arbre (i16 + échelle) — mode de production.
+    /// `false` uniquement pour les diagnostics de fidélité f32.
+    #[serde(default = "default_compress_tree_v2")]
+    pub compress_tree: bool,
+}
+
+fn default_compress_tree_v2() -> bool {
+    true
 }
 
 impl Default for SolveRequestV2 {
@@ -411,6 +419,7 @@ impl Default for SolveRequestV2 {
             sample_mixed: false,
             random_seed: None,
             bet_size_spec: None,
+            compress_tree: default_compress_tree_v2(),
         }
     }
 }
@@ -667,7 +676,8 @@ impl From<&crate::gto_api::SolveRequest> for SolveRequestV2 {
             state_confidence: None,
             range_model_version: RangeModelVersion::default(),
             use_cache: request.use_cache,
-            time_budget_ms: None,
+            time_budget_ms: request.time_budget_ms,
+            compress_tree: request.compress_tree,
             epsilon_target: None,
             hero_hand: request.hero_hand.clone(),
             sample_mixed: request.sample_mixed,
@@ -977,9 +987,8 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
     // The action history and the rake are now first-class inputs: already-played actions define
     // the entry state of the tree (board/pot/stacks sent by the runtime) and the rake is modeled
     // inside the tree via rake_rate/rake_cap.
-    let can_bridge_to_legacy = request.villain_ranges.len() == 1
-        && request.num_players <= 2
-        && parsed_position.is_some();
+    let can_bridge_to_legacy =
+        request.villain_ranges.len() == 1 && request.num_players <= 2 && parsed_position.is_some();
 
     // V1 bloc 3..6-way N-param MCCFR (S1 préflop inclus).
     let multiway_max_players = multiway_max_players_limit();
@@ -1021,20 +1030,22 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
         // sampled solver path is never `converged=true` (Phase 0.5).
         let n = request.num_players as usize;
         let hero_player = hero_position_to_index(&request.hero_position, n);
-        let mut ranges = build_ordered_ranges(&request.hero_range, &request.villain_ranges, hero_player, n);
+        let mut ranges =
+            build_ordered_ranges(&request.hero_range, &request.villain_ranges, hero_player, n);
         // normalize already ensures hero at hero_player; pad/truncate to n
         while ranges.len() < n {
             ranges.push(request.villain_ranges[0].clone());
         }
         ranges.truncate(n);
-        let base_iters = solve_iterations_for_budget(request.time_budget_ms) as u32;
+        let base_iters = solve_iterations_for_budget(request.time_budget_ms);
         // S2: 1.5bb injected preflop when board_len==0 and caller left starting_pot at 0
         let starting_pot = if request.board.is_empty() && request.starting_pot <= 0.0 {
             1.5
         } else {
             request.starting_pot
         };
-        let scaled_iterations = crate::multiway::scaled_max_iterations(base_iters.saturating_mul(5).max(100), n);
+        let scaled_iterations =
+            crate::multiway::scaled_max_iterations(base_iters.saturating_mul(5).max(100), n);
         let multiway_request = crate::multiway::MultiwayRequest {
             ranges,
             board: request.board.clone(),
@@ -1060,7 +1071,7 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
                     selection: String::new(),
                     ev_bb: multiway.ev_bb,
                     ev_bb_per_100: multiway.ev_bb_per_100,
-                    ev_dollars: multiway.ev_dollars.clone(),
+                    ev_dollars: multiway.ev_dollars,
                     dollar_ev_note: multiway.dollar_ev_note.clone(),
                     combo_ev_bb: multiway.ev_bb,
                 });
@@ -1081,7 +1092,7 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
                 // enrichissement depuis multiway.* (symétrique bridge legacy)
                 response.ev_bb = multiway.ev_bb;
                 response.ev_bb_per_100 = multiway.ev_bb_per_100;
-                response.ev_dollars = multiway.ev_dollars.clone();
+                response.ev_dollars = multiway.ev_dollars;
                 response.dollar_ev_note = multiway.dollar_ev_note.clone();
                 response.combo_ev_bb = multiway.ev_bb;
                 response.backend = "multiway_mccfr".to_string();
@@ -1110,10 +1121,9 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
                 response
                     .metadata
                     .insert("iterations".to_string(), multiway.iterations.to_string());
-                response.metadata.insert(
-                    "equity_mode".to_string(),
-                    "monte_carlo_sampled".to_string(),
-                );
+                response
+                    .metadata
+                    .insert("equity_mode".to_string(), "monte_carlo_sampled".to_string());
                 response.warnings = warnings;
                 Ok(response)
             }
@@ -1181,10 +1191,17 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
     response.epsilon_target = epsilon_units;
     response.converged = legacy_response.exploitability <= epsilon_units;
 
+    // La non-convergence est étiquetée dans les deux modes : en mode legacy
+    // (production, budget mural) la stratégie reste jouable mais l'appelant
+    // doit pouvoir la tracer. Sans cela une réponse à 12,5 d'exploitabilité
+    // sortait avec `warnings = []` et `converged = false` invisible.
+    if !response.converged {
+        push_warning(&mut warnings, DecisionWarning::ConvergenceNotReached);
+    }
+
     // Fail-closed: in strict mode a non-converged answer is worth nothing —
     // return it with no action instead of letting a half-solved strategy play.
     if strict_mode && !response.converged {
-        push_warning(&mut warnings, DecisionWarning::ConvergenceNotReached);
         response.chosen_action = String::new();
         for action in response.actions.iter_mut() {
             action.is_recommended = false;
@@ -1201,7 +1218,7 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
     response.normalized_ranges = normalized_ranges;
     response.decision_confidence = decision_confidence_hint(&request, response.warnings.len());
     // Ne pas écraser le motif fail-closed posé ci-dessus en mode strict.
-    if !(strict_mode && !response.converged) {
+    if !strict_mode || response.converged {
         response.fallback_reason = None;
     }
     response.metadata.insert(
@@ -1329,11 +1346,14 @@ fn to_legacy_solve_request(
         target_exploitability,
         use_cache: request.use_cache && !matches!(request.cache_policy, CachePolicy::Disabled),
         hero_hand: request.hero_hand.clone(),
+        action_history: request.action_history.clone(),
         rake_rate: request.rake.clamp(0.0, 1.0),
         rake_cap: request.rake_cap.max(0.0),
         sample_mixed: request.sample_mixed,
         random_seed: request.random_seed,
         bet_size_spec: request.bet_size_spec.clone(),
+        time_budget_ms: request.time_budget_ms,
+        compress_tree: request.compress_tree,
     }
 }
 
@@ -1351,9 +1371,9 @@ fn solve_iterations_for_budget(time_budget_ms: Option<u64>) -> u32 {
 fn parse_hero_position(value: Option<&str>) -> Option<bool> {
     let normalized = value?.trim().to_ascii_lowercase();
     match normalized.as_str() {
-        "oop" | "out_of_position" | "out-of-position" | "sb" | "small_blind"
-        | "small blind" | "utg" | "under_the_gun" | "under the gun" | "ep"
-        | "early_position" | "early position" => Some(true),
+        "oop" | "out_of_position" | "out-of-position" | "sb" | "small_blind" | "small blind"
+        | "utg" | "under_the_gun" | "under the gun" | "ep" | "early_position"
+        | "early position" => Some(true),
         "ip" | "in_position" | "in-position" | "btn" | "button" | "bb" | "big_blind"
         | "big blind" | "mp" | "middle_position" | "middle position" | "co" | "cutoff"
         | "cut-off" | "hj" | "hijack" | "lojack" | "lj" => Some(false),
@@ -1395,17 +1415,27 @@ fn hero_position_to_index(hero_position: &Option<String>, n: usize) -> usize {
     let raw = raw.as_str();
     // Table exacte 3..6 par n (UTG=0, ... , BB = n-1). Fallback oop/ip historiques.
     // n=3: UTG(0) BTN(1) BB(2) ; n=4: UTG(0) CO(1) BTN(2) BB(3) ; n=5: UTG(0) MP(1) CO(2) BTN(3) BB(4) ; n=6: UTG(0) MP(1) HJ(2) CO(3) BTN(4) BB(5)
-    if matches!(raw, "utg" | "ep" | "early position" | "under the gun" | "oop" | "sb" | "small blind") {
+    if matches!(
+        raw,
+        "utg" | "ep" | "early position" | "under the gun" | "oop" | "sb" | "small blind"
+    ) {
         return 0;
     }
     if matches!(raw, "bb" | "big blind") {
         return n.saturating_sub(1).min(5);
     }
     if matches!(raw, "btn" | "button") {
-        return if n >= 3 { n.saturating_sub(2).min(5) } else { 0 };
+        return if n >= 3 {
+            n.saturating_sub(2).min(5)
+        } else {
+            0
+        };
     }
     match (n, raw) {
-        (3, "mp" | "middle position" | "hj" | "hijack" | "lj" | "lojack" | "co" | "cutoff" | "ip") => 1,
+        (
+            3,
+            "mp" | "middle position" | "hj" | "hijack" | "lj" | "lojack" | "co" | "cutoff" | "ip",
+        ) => 1,
         (4, "mp" | "middle position" | "hj" | "hijack" | "lj" | "lojack") => 1,
         (4, "co" | "cutoff" | "ip") => 1,
         (5, "mp" | "middle position" | "lj" | "lojack") => 1,
@@ -1415,7 +1445,17 @@ fn hero_position_to_index(hero_position: &Option<String>, n: usize) -> usize {
         (6, "hj" | "hijack") => 2,
         (6, "co" | "cutoff" | "ip") => 3,
         _ => {
-            if matches!(raw, "ip" | "co" | "cutoff" | "hj" | "hijack" | "mp" | "middle position" | "lj" | "lojack") {
+            if matches!(
+                raw,
+                "ip" | "co"
+                    | "cutoff"
+                    | "hj"
+                    | "hijack"
+                    | "mp"
+                    | "middle position"
+                    | "lj"
+                    | "lojack"
+            ) {
                 (n / 2).min(n.saturating_sub(1))
             } else {
                 0
@@ -1454,7 +1494,9 @@ fn fallback_reason(request: &SolveRequestV2, has_position: bool) -> String {
     {
         return "multiway_not_supported".to_string();
     }
-    if request.num_players > 2 && request.villain_ranges.len() != (request.num_players as usize).saturating_sub(1) {
+    if request.num_players > 2
+        && request.villain_ranges.len() != (request.num_players as usize).saturating_sub(1)
+    {
         return "multiway_not_supported".to_string();
     }
     if !has_position {

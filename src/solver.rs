@@ -4,6 +4,7 @@ use crate::sliceop::*;
 use crate::utility::*;
 use std::io::{self, Write};
 use std::mem::MaybeUninit;
+use std::time::Instant;
 
 #[cfg(feature = "custom-alloc")]
 use crate::alloc::*;
@@ -46,6 +47,54 @@ pub fn solve<T: Game>(
     target_exploitability: f32,
     print_progress: bool,
 ) -> f32 {
+    solve_with_deadline(
+        game,
+        max_num_iterations,
+        target_exploitability,
+        print_progress,
+        None,
+    )
+}
+
+/// Variante de [`solve`] avec une échéance murale optionnelle.
+///
+/// Le budget est vérifié **entre deux itérations** : une itération déjà
+/// commencée n'est pas interrompue (le DCFR n'est pas réentrant). C'est le
+/// compromis nécessaire pour qu'un `time_budget_ms` côté API corresponde à une
+/// latence réelle au lieu d'un simple plafond d'itérations.
+pub fn solve_with_deadline<T: Game>(
+    game: &mut T,
+    max_num_iterations: u32,
+    target_exploitability: f32,
+    print_progress: bool,
+    deadline: Option<Instant>,
+) -> f32 {
+    solve_with_deadline_storing(
+        game,
+        max_num_iterations,
+        target_exploitability,
+        print_progress,
+        deadline,
+        None,
+    )
+}
+
+/// Variante de [`solve_with_deadline`] qui ne stocke les valeurs finales que
+/// pour `stored_player` (ou les deux joueurs si `None`).
+///
+/// La finalisation parcourt l'arbre une fois par joueur stocké ; sur un flop à
+/// range complète (~600 ms pour deux joueurs) c'est le poste dominant du
+/// budget. Le chemin de production ne lit que les valeurs du héros : stocker
+/// un seul joueur divise le coût par deux. Les valeurs de l'autre joueur
+/// restent périmées, donc le jeu ne doit pas survivre à l'appel.
+pub fn solve_with_deadline_storing<T: Game>(
+    game: &mut T,
+    max_num_iterations: u32,
+    target_exploitability: f32,
+    print_progress: bool,
+    deadline: Option<Instant>,
+    stored_player: Option<usize>,
+) -> f32 {
     if game.is_solved() {
         panic!("Game is already solved");
     }
@@ -55,7 +104,15 @@ pub fn solve<T: Game>(
     }
 
     let mut root = game.root();
+    let expl_start = Instant::now();
     let mut exploitability = compute_exploitability(game);
+    let initial_expl = expl_start.elapsed();
+
+    // `finalize` reparcourt l'arbre pour stocker les EV après l'échéance : sans
+    // réserve, il s'ajoute au budget mural (mesuré : 85–110 ms sur un flop froid).
+    // Le premier calcul d'exploitabilité fait un parcours comparable, sa durée
+    // est donc une bonne estimation, disponible dès le premier appel.
+    let deadline = deadline.map(|d| d.checked_sub(initial_expl).unwrap_or(d));
 
     if print_progress {
         print!("iteration: 0 / {max_num_iterations} ");
@@ -63,11 +120,39 @@ pub fn solve<T: Game>(
         io::stdout().flush().unwrap();
     }
 
+    // Durée de la dernière itération complète (itérations + calcul
+    // d'exploitabilité périodique). Elle sert à ne pas démarrer une itération
+    // qui dépasserait l'échéance : sans cela, `time_budget_ms` pouvait être
+    // dépassé de 100 à 200 ms sur un flop.
+    let mut last_iteration = std::time::Duration::ZERO;
+
     for t in 0..max_num_iterations {
         if exploitability <= target_exploitability {
             break;
         }
 
+        if let Some(deadline) = deadline {
+            let now = Instant::now();
+            if now >= deadline {
+                break;
+            }
+            // Première itération : aucune durée passée n'est connue, et sur un
+            // arbre à range complète une itération peut coûter plus que le
+            // budget restant. La réserve de l'exploitabilité initiale
+            // (effectuée ci-dessus) a la même forme que la boucle DCFR, sa
+            // durée en est donc un majorant raisonnable : on ne démarre la
+            // première itération que si elle a une chance de finir.
+            let expected = if last_iteration.is_zero() {
+                initial_expl
+            } else {
+                last_iteration
+            };
+            if now + expected >= deadline {
+                break;
+            }
+        }
+
+        let iteration_start = Instant::now();
         let params = DiscountParams::new(t);
 
         // alternating updates
@@ -96,6 +181,8 @@ pub fn solve<T: Game>(
             print!("(exploitability = {exploitability:.4e})");
             io::stdout().flush().unwrap();
         }
+
+        last_iteration = iteration_start.elapsed();
     }
 
     if print_progress {
@@ -103,7 +190,10 @@ pub fn solve<T: Game>(
         io::stdout().flush().unwrap();
     }
 
-    finalize(game);
+    match stored_player {
+        Some(player) => finalize_players(game, &[player]),
+        None => finalize(game),
+    }
 
     exploitability
 }

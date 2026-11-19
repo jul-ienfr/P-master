@@ -81,6 +81,15 @@ pub struct SolveRequest {
     pub use_cache: bool,
     #[serde(default)]
     pub hero_hand: Option<String>,
+    /// Historique d'actions de la rue courante, du plus ancien au plus récent.
+    ///
+    /// Chaque entrée est soit un token simple (`check`, `call`, `fold`, `bet`,
+    /// `raise`, `allin`) soit `player:action:amount` (montant en bb). Le solveur
+    /// avance l'arbre résolu jusqu'au nœud correspondant avant de lire la
+    /// stratégie : sans cela, un spot « face à une mise » était résolu à la
+    /// racine de la rue (check/bet) et répondait à un autre problème.
+    #[serde(default)]
+    pub action_history: Vec<String>,
     #[serde(default)]
     pub rake_rate: f32,
     #[serde(default)]
@@ -91,6 +100,18 @@ pub struct SolveRequest {
     pub random_seed: Option<u64>,
     #[serde(default)]
     pub bet_size_spec: Option<BetSizeSpec>,
+    /// Échéance murale optionnelle du solve (millisecondes). `None` conserve le
+    /// comportement historique : seul `max_iterations` borne le calcul.
+    #[serde(default)]
+    pub time_budget_ms: Option<u64>,
+    /// Compression mémoire de l'arbre (i16 + échelle). Défaut : `true` —
+    /// c'est le mode de production ; `false` uniquement pour les diagnostics.
+    #[serde(default = "default_compress_tree")]
+    pub compress_tree: bool,
+}
+
+fn default_compress_tree() -> bool {
+    true
 }
 
 impl Default for SolveRequest {
@@ -106,11 +127,14 @@ impl Default for SolveRequest {
             target_exploitability: 0.5,
             use_cache: default_use_cache(),
             hero_hand: None,
+            action_history: Vec::new(),
             rake_rate: 0.0,
             rake_cap: 0.0,
             sample_mixed: false,
             random_seed: None,
             bet_size_spec: None,
+            time_budget_ms: None,
+            compress_tree: default_compress_tree(),
         }
     }
 }
@@ -235,11 +259,16 @@ struct NormalizedSolveRequest {
     target_exploitability: f32,
     use_cache: bool,
     hero_hand: Option<[Card; 2]>,
+    action_history: Vec<String>,
     rake_rate: f32,
     rake_cap: f32,
     sample_mixed: bool,
     random_seed: Option<u64>,
     bet_size_spec: BetSizeSpec,
+    time_budget_ms: Option<u64>,
+    /// Compression mémoire de l'arbre (i16 + échelle) : ~2× moins de RAM et
+    /// parcours plus rapides sur les gros arbres. Défaut : activée.
+    compress_tree: bool,
 }
 
 /// Runs the postflop solver directly from Rust.
@@ -263,18 +292,29 @@ fn bb_for_request(effective_stack: f32) -> (Option<f32>, Option<String>) {
                 bb,
                 "bb dérivé de effective_stack/100 (fallback 100bb deep)"
             );
-            return (Some(bb), Some("bb=effective_stack/100 (fallback 100bb deep)".to_string()));
+            return (
+                Some(bb),
+                Some("bb=effective_stack/100 (fallback 100bb deep)".to_string()),
+            );
         }
     }
     (None, None)
 }
+
+type EvFields = (
+    Option<f32>,
+    Option<f32>,
+    Option<f32>,
+    Option<String>,
+    Option<f32>,
+);
 
 fn enrich_ev_fields(
     hero_ev: f32,
     hero_combo_ev: f32,
     actions: &mut [ActionDetail],
     effective_stack: f32,
-) -> (Option<f32>, Option<f32>, Option<f32>, Option<String>, Option<f32>) {
+) -> EvFields {
     let (bb_opt, note) = bb_for_request(effective_stack);
     let bb = bb_opt;
     let summary = crate::ev::ev_summary(hero_ev, bb, None, note.clone());
@@ -291,6 +331,197 @@ fn enrich_ev_fields(
         summary.dollar_ev_note,
         combo_ev_bb,
     )
+}
+
+/// Type d'action attendu dans un token d'historique.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum HistoryActionKind {
+    Fold,
+    Check,
+    Call,
+    Bet,
+    Raise,
+    AllIn,
+}
+
+/// Parse un token d'historique (`check`, `oop:bet:4.0`, `raise 2.5`, ...).
+/// Le montant, quand il est présent, est une contribution totale de rue.
+fn parse_history_token(token: &str) -> Option<(HistoryActionKind, Option<f32>)> {
+    let lower = token.trim().to_ascii_lowercase();
+    if lower.is_empty() {
+        return None;
+    }
+    let fields: Vec<&str> = lower.split(':').collect();
+    let (label, amount) = if fields.len() >= 2 {
+        (
+            fields[1].trim(),
+            fields
+                .get(2)
+                .and_then(|value| value.trim().parse::<f32>().ok()),
+        )
+    } else {
+        (fields[0].trim(), None)
+    };
+    let label = label.split_whitespace().next().unwrap_or(label);
+    let kind = if label.starts_with("fold") {
+        HistoryActionKind::Fold
+    } else if label.starts_with("check") {
+        HistoryActionKind::Check
+    } else if label.starts_with("call") {
+        HistoryActionKind::Call
+    } else if label.contains("all-in")
+        || label.contains("allin")
+        || label.contains("all_in")
+        || label.starts_with("jam")
+        || label.starts_with("shove")
+    {
+        HistoryActionKind::AllIn
+    } else if label.starts_with("raise") {
+        HistoryActionKind::Raise
+    } else if label.starts_with("bet") {
+        HistoryActionKind::Bet
+    } else {
+        return None;
+    };
+    Some((kind, amount))
+}
+
+/// Contribution totale de rue portée par une action agressive, pour la
+/// comparer aux jetons d'historique (mise ou « relance à »).
+fn history_action_total(action: &Action) -> Option<f32> {
+    match action {
+        Action::Bet(size) | Action::Raise(size) | Action::AllIn(size) => Some(*size as f32),
+        _ => None,
+    }
+}
+
+/// Choisit l'action de l'arbre la plus proche du token : même classe d'abord,
+/// puis all-in en repli (une mise observée peut correspondre à un jam abstrait).
+fn best_history_action(
+    actions: &[Action],
+    kind: HistoryActionKind,
+    amount: Option<f32>,
+) -> Option<usize> {
+    let class_matches = |action: &Action| match kind {
+        HistoryActionKind::Fold => matches!(action, Action::Fold),
+        HistoryActionKind::Check => matches!(action, Action::Check),
+        HistoryActionKind::Call => matches!(action, Action::Call),
+        HistoryActionKind::Bet => matches!(action, Action::Bet(_)),
+        HistoryActionKind::Raise => matches!(action, Action::Raise(_)),
+        HistoryActionKind::AllIn => matches!(action, Action::AllIn(_)),
+    };
+    let pick = |allow_allin: bool| -> Option<usize> {
+        let mut best: Option<(usize, f32)> = None;
+        for (index, action) in actions.iter().enumerate() {
+            let eligible =
+                class_matches(action) || (allow_allin && matches!(action, Action::AllIn(_)));
+            if !eligible {
+                continue;
+            }
+            let score = amount
+                .map(|value| (history_action_total(action).unwrap_or(0.0) - value).abs())
+                .unwrap_or(0.0);
+            if best.is_none_or(|(_, best_score)| score < best_score) {
+                best = Some((index, score));
+            }
+        }
+        best.map(|(index, _)| index)
+    };
+    pick(false).or_else(|| pick(true))
+}
+
+fn parse_history_card(token: &str) -> Option<Card> {
+    let trimmed = token.trim();
+    if trimmed.len() != 2 {
+        return None;
+    }
+    let normalized = format!(
+        "{}{}",
+        trimmed[..1].to_ascii_uppercase(),
+        trimmed[1..].to_ascii_lowercase()
+    );
+    card_from_str(&normalized).ok()
+}
+
+/// Avance l'arbre résolu jusqu'au nœud décrit par `history`.
+///
+/// Le solveur résout toujours l'arbre complet de la rue ; appliquer l'historique
+/// ensuite conditionne les ranges et lit la stratégie du bon nœud. En cas
+/// d'historique incompatible (taille absente, joueur inattendu, nœud terminal),
+/// l'arbre est remis à la racine et la réponse reste celle du nœud racine.
+fn apply_action_history(
+    game: &mut PostFlopGame,
+    history: &[String],
+    hero_player: usize,
+) -> Result<(), SolveError> {
+    game.back_to_root();
+    for token in history {
+        if game.is_terminal_node() {
+            game.back_to_root();
+            return Err(SolveError::new("action_history after terminal node"));
+        }
+        if game.is_chance_node() {
+            let Some(card) = parse_history_card(token) else {
+                game.back_to_root();
+                return Err(SolveError::new(format!(
+                    "chance node without a card token: '{token}'"
+                )));
+            };
+            game.play(card as usize);
+            continue;
+        }
+        let Some((kind, amount)) = parse_history_token(token) else {
+            game.back_to_root();
+            return Err(SolveError::new(format!(
+                "unsupported action_history token: '{token}'"
+            )));
+        };
+        let actions = game.available_actions();
+        let Some(index) = best_history_action(&actions, kind, amount) else {
+            game.back_to_root();
+            return Err(SolveError::new(format!(
+                "no matching action in tree for token: '{token}'"
+            )));
+        };
+        game.play(index);
+    }
+
+    if game.is_terminal_node() || game.is_chance_node() {
+        game.back_to_root();
+        return Err(SolveError::new(
+            "action_history ends at a non-decision node",
+        ));
+    }
+    if game.current_player() != hero_player {
+        game.back_to_root();
+        return Err(SolveError::new(
+            "action_history does not end on the hero's decision",
+        ));
+    }
+    Ok(())
+}
+
+/// EV de range du joueur à la racine, lue dans les valeurs stockées par
+/// `finalize` (lecture O(#mains)) au lieu d'un parcours complet de l'arbre.
+///
+/// Équivalence avec `compute_current_ev(game)[player]` : la valeur stockée est
+/// le counterfactual value mis à l'échelle (`expected_values_detail`) ; sa
+/// moyenne pondérée par les poids normalisés vaut l'EV de range plus `pot/2`
+/// (biais retiré par `compute_current_ev`). Vérifié sur le spot de production
+/// dans `examples/ev_equiv.rs` et `examples/phase_profile.rs` (écart nul).
+fn root_range_ev(game: &PostFlopGame, player: usize) -> f32 {
+    let values = game.expected_values(player);
+    let weights = game.normalized_weights(player);
+    let mut weighted = 0.0f64;
+    let mut total = 0.0f64;
+    for (&value, &weight) in values.iter().zip(weights) {
+        weighted += value as f64 * weight as f64;
+        total += weight as f64;
+    }
+    if total <= 0.0 || !weighted.is_finite() {
+        return compute_current_ev(game)[player];
+    }
+    (weighted / total) as f32 - game.tree_config().starting_pot as f32 * 0.5
 }
 
 fn solve_spot_inner(request: SolveRequest) -> SolveResult {
@@ -320,17 +551,52 @@ fn solve_spot_inner(request: SolveRequest) -> SolveResult {
     let start = Instant::now();
     let mut game = build_game(&normalized)?;
 
-    let exploitability = crate::solve(
+    let hero_player = if normalized.hero_is_oop {
+        0usize
+    } else {
+        1usize
+    };
+
+    let deadline = normalized
+        .time_budget_ms
+        .map(|ms| start + std::time::Duration::from_millis(ms));
+    // Pas de sortie `print!` sur le chemin de production : chaque décision
+    // écrirait des milliers de caractères sur stdout (coût I/O et logs
+    // illisibles). Les binaires de debug gardent leur propre boucle.
+    // Seules les valeurs du héros sont stockées : c'est le seul joueur lu par
+    // la réponse, et la finalisation ne parcourt l'arbre qu'une fois au lieu de
+    // deux (~300 ms économisées sur un flop à range complète).
+    let exploitability = crate::solve_with_deadline_storing(
         &mut game,
         normalized.max_iterations,
         normalized.target_exploitability,
-        true,
+        false,
+        deadline,
+        Some(hero_player),
     );
+
+    // L'arbre est résolu depuis la racine de la rue ; on avance ensuite au
+    // nœud réellement joué pour conditionner les ranges et lire la bonne
+    // stratégie. Un historique incompatible laisse la réponse au nœud racine.
+    if !normalized.action_history.is_empty() {
+        if let Err(err) = apply_action_history(&mut game, &normalized.action_history, hero_player) {
+            tracing::debug!(%err, "action_history ignoré, réponse au nœud racine");
+        }
+    }
 
     game.cache_normalized_weights();
 
-    let hero_player = if normalized.hero_is_oop { 0usize } else { 1usize };
-    let hero_ev = compute_current_ev(&game)[hero_player];
+    // EV de range lue dans les valeurs stockées par `finalize` : lecture
+    // O(#mains) au lieu d'un parcours complet de l'arbre (~440 ms sur le flop
+    // de production à range complète). L'équivalence exacte avec
+    // `compute_current_ev` est démontrée à la racine du spot
+    // (`examples/ev_equiv.rs`) ; au-delà (historique joué), les ranges sont
+    // conditionnées et le calcul complet reste utilisé.
+    let hero_ev = if normalized.action_history.is_empty() {
+        root_range_ev(&game, hero_player)
+    } else {
+        compute_current_ev(&game)[hero_player]
+    };
 
     let raw_actions = game.available_actions().to_vec();
     let num_actions = raw_actions.len();
@@ -418,27 +684,29 @@ fn solve_spot_inner(request: SolveRequest) -> SolveResult {
     }
 
     // Select the recommended action.
-    let reference_evs = combo_action_evs.clone().unwrap_or_else(|| action_evs.clone());
+    let reference_evs = combo_action_evs
+        .clone()
+        .unwrap_or_else(|| action_evs.clone());
     let mut sample_seed: Option<u64> = None;
     let selection;
 
-    let recommended_index = if combo_matched && normalized.sample_mixed && root_player == hero_player
-    {
-        let seed = normalized.random_seed.unwrap_or_else(random_seed_u64);
-        sample_seed = Some(seed);
-        selection = "mixed_sample";
-        let combo = combo_index.unwrap();
-        let row: Vec<f32> = (0..num_actions)
-            .map(|index| strategy[index * num_root_hands + combo])
-            .collect();
-        sample_categorical(&row, seed)
-    } else if combo_matched {
-        selection = "combo_ev_max";
-        argmax_by_score(&reference_evs, &frequencies)
-    } else {
-        selection = "range_frequency";
-        argmax_by_score(&frequencies, &[])
-    };
+    let recommended_index =
+        if combo_matched && normalized.sample_mixed && root_player == hero_player {
+            let seed = normalized.random_seed.unwrap_or_else(random_seed_u64);
+            sample_seed = Some(seed);
+            selection = "mixed_sample";
+            let combo = combo_index.unwrap();
+            let row: Vec<f32> = (0..num_actions)
+                .map(|index| strategy[index * num_root_hands + combo])
+                .collect();
+            sample_categorical(&row, seed)
+        } else if combo_matched {
+            selection = "combo_ev_max";
+            argmax_by_score(&reference_evs, &frequencies)
+        } else {
+            selection = "range_frequency";
+            argmax_by_score(&frequencies, &[])
+        };
 
     let actions: Vec<ActionDetail> = raw_actions
         .iter()
@@ -516,6 +784,10 @@ pub struct BestResponseRequest {
     pub hero_is_oop: bool,
     #[serde(default = "default_max_iterations")]
     pub max_iterations: u32,
+    /// Optional comma-separated bet sizes (e.g. `"25%,50%"`) used to build the tree.
+    /// `None` keeps the solver default (`33%,50%,75%,100%`).
+    #[serde(default)]
+    pub bet_sizes: Option<String>,
     #[serde(default)]
     pub policy_action: Option<String>,
 }
@@ -530,6 +802,7 @@ impl Default for BestResponseRequest {
             effective_stack: 0.0,
             hero_is_oop: true,
             max_iterations: default_max_iterations(),
+            bet_sizes: None,
             policy_action: None,
         }
     }
@@ -566,6 +839,10 @@ pub fn measure_best_response_gap(
         hero_is_oop: request.hero_is_oop,
         max_iterations: request.max_iterations,
         target_exploitability: 0.5,
+        bet_size_spec: request.bet_sizes.map(|sizes| BetSizeSpec {
+            bet_sizes: sizes,
+            ..BetSizeSpec::default()
+        }),
         use_cache: true,
         ..SolveRequest::default()
     };
@@ -594,7 +871,11 @@ pub fn measure_best_response_gap(
     Ok(BestResponseResponse {
         policy_action: request.policy_action,
         policy_ev,
-        mes_ev: if mes_ev.is_finite() { mes_ev } else { response.hero_ev },
+        mes_ev: if mes_ev.is_finite() {
+            mes_ev
+        } else {
+            response.hero_ev
+        },
         best_response_gap,
         exploitability: response.exploitability,
         actions: response.actions,
@@ -610,8 +891,9 @@ fn normalize_solve_request(request: SolveRequest) -> Result<NormalizedSolveReque
 
     let hero_hand = match request.hero_hand.as_deref() {
         Some(hand) => Some(parse_hero_hand(hand).map_err(SolveError::new)?),
-        None => detect_exact_hand(&request.oop_range)
-            .or_else(|| detect_exact_hand(&request.ip_range)),
+        None => {
+            detect_exact_hand(&request.oop_range).or_else(|| detect_exact_hand(&request.ip_range))
+        }
     };
 
     Ok(NormalizedSolveRequest {
@@ -627,11 +909,14 @@ fn normalize_solve_request(request: SolveRequest) -> Result<NormalizedSolveReque
         target_exploitability: request.target_exploitability,
         use_cache: request.use_cache,
         hero_hand,
+        action_history: request.action_history,
         rake_rate: request.rake_rate.clamp(0.0, 1.0),
         rake_cap: request.rake_cap.max(0.0),
         sample_mixed: request.sample_mixed,
         random_seed: request.random_seed,
         bet_size_spec: request.bet_size_spec.unwrap_or_default(),
+        time_budget_ms: request.time_budget_ms,
+        compress_tree: request.compress_tree,
     })
 }
 
@@ -721,7 +1006,23 @@ fn argmax_by_score(scores: &[f32], tiebreakers: &[f32]) -> usize {
                 tiebreakers.get(index).copied().unwrap_or(0.0)
                     > tiebreakers.get(best).copied().unwrap_or(0.0)
             }
-            _ => false,
+            Some(std::cmp::Ordering::Less) => false,
+            // NaN = action non évaluée (fréquence nulle dans la stratégie
+            // courante : `evaluate_hero_ev_after_action` n'est pas appelé).
+            // Elle ne doit jamais gagner par défaut contre une action
+            // réellement évaluée ; si la meilleure courante est NaN, la
+            // candidate finie gagne. Deux NaN se départagent par les
+            // tiebreakers (fréquences).
+            None => {
+                if !current.is_nan() {
+                    false
+                } else if !candidate.is_nan() {
+                    true
+                } else {
+                    tiebreakers.get(index).copied().unwrap_or(0.0)
+                        > tiebreakers.get(best).copied().unwrap_or(0.0)
+                }
+            }
         };
         if better {
             best = index;
@@ -834,14 +1135,14 @@ fn build_game(request: &NormalizedSolveRequest) -> Result<PostFlopGame, SolveErr
     let mut game = PostFlopGame::with_config(card_config, action_tree)
         .map_err(|err| SolveError::new(format!("PostFlopGame: {err}")))?;
 
-    game.allocate_memory(false);
+    game.allocate_memory(request.compress_tree);
     Ok(game)
 }
 
 fn solve_cache_key(request: &NormalizedSolveRequest) -> String {
     let spec = &request.bet_size_spec;
     format!(
-        "oop={}|ip={}|board={}|pot={:.3}|stack={:.3}|hero_oop={}|iters={}|target={:.6}|hand={}|rake={:.4}|cap={:.3}|mixed={}|bets={}|raises={}|donks={},{}",
+        "oop={}|ip={}|board={}|pot={:.3}|stack={:.3}|hero_oop={}|iters={}|target={:.6}|hand={}|rake={:.4}|cap={:.3}|mixed={}|bets={}|raises={}|donks={},{}|budget={}|history={}",
         request.oop_range_text,
         request.ip_range_text,
         request.board.strings.join(","),
@@ -861,6 +1162,11 @@ fn solve_cache_key(request: &NormalizedSolveRequest) -> String {
         spec.raise_sizes,
         spec.turn_donk_sizes,
         spec.river_donk_sizes,
+        request
+            .time_budget_ms
+            .map(|value| value.to_string())
+            .unwrap_or_default(),
+        request.action_history.join(","),
     )
 }
 
@@ -874,5 +1180,40 @@ fn action_name(action: &Action) -> String {
         Action::AllIn(size) => format!("allin_{size}"),
         Action::Chance(_) => "chance".into(),
         Action::None => "none".into(),
+    }
+}
+
+#[cfg(test)]
+mod selection_tests {
+    use super::argmax_by_score;
+
+    /// Une action jamais évaluée (fréquence nulle → EV NaN) ne doit pas gagner
+    /// l'argmax par défaut : c'est ce qui faisait recommander `check` (freq 0.0)
+    /// alors que `bet_3` (freq 1.0) avait un EV fini et supérieur, sur le flop
+    /// de production à budget 800 ms.
+    #[test]
+    fn nan_score_never_wins_against_finite_score() {
+        let scores = [f32::NAN, -13.374];
+        assert_eq!(argmax_by_score(&scores, &[0.0, 1.0]), 1);
+    }
+
+    #[test]
+    fn nan_score_wins_when_every_score_is_nan_and_tiebreaker_decides() {
+        let scores = [f32::NAN, f32::NAN];
+        assert_eq!(argmax_by_score(&scores, &[0.2, 0.8]), 1);
+    }
+
+    #[test]
+    fn finite_best_score_still_wins() {
+        let scores = [-5.0, -1.0, f32::NAN];
+        assert_eq!(argmax_by_score(&scores, &[1.0, 0.0, 0.0]), 1);
+    }
+
+    /// Le cas mesuré : `check` non évalué (NaN) contre `bet_3` fini, supérieur
+    /// en EV (−13,37 > −14,80).
+    #[test]
+    fn production_flop_prefers_evaluated_action() {
+        let scores = [-14.798, -13.374];
+        assert_eq!(argmax_by_score(&scores, &[0.0, 1.0]), 1);
     }
 }

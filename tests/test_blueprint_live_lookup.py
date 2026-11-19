@@ -56,6 +56,7 @@ def _converged_entry(store: BlueprintStore) -> dict:
         hero_position=SPOT["hero_position"],
         action_history=SPOT["action_history"],
         rake=SPOT["rake"],
+        hero_range=SPOT["hero_range"],
     )
     return {
         "key": key,
@@ -111,7 +112,7 @@ def test_lookup_only_hit_serves_blueprint(monkeypatch, tmp_path):
 def test_key_parity_generator_vs_live_lookup(tmp_path):
     """Le générateur écrit avec blueprint_key(spot) ; le live interroge avec
     le payload — les deux doivent produire la même clé (Phase 0.6.4 / 6g)."""
-    store = _make_store(tmp_path, entries=[])
+    _make_store(tmp_path, entries=[])
     gen_key = blueprint_key(
         hero_hand=SPOT["hero_range"],
         villain_range=SPOT["villain_ranges"][0],
@@ -123,6 +124,7 @@ def test_key_parity_generator_vs_live_lookup(tmp_path):
         hero_position=SPOT["hero_position"],
         action_history=SPOT["action_history"],
         rake=SPOT["rake"],
+        hero_range=SPOT["hero_range"],
     )
     live_key = SolverProvider._blueprint_key(dict(SPOT))
     assert gen_key == live_key
@@ -172,7 +174,9 @@ def test_bet_within_tolerance_passes_quantization(monkeypatch, tmp_path):
     assert response["metadata"]["native_reason"] != "bet_out_of_quantization_tolerance"
 
 
-def test_quantize_observed_bet_semantics():
+def test_quantize_observed_bet_semantics(tmp_path, monkeypatch):
+    # Ne jamais écrire dans evidence/bet_observations.jsonl depuis un test.
+    monkeypatch.setenv("POKER_BET_LOG_PATH", str(tmp_path / "bet_observations.jsonl"))
     assert quantize_observed_bet(7.0, 10.0) is None  # 70% hors tolérance (Δ 4% au nœud 0.66)
     assert quantize_observed_bet(3.3, 10.0) == pytest.approx(0.33)
     assert quantize_observed_bet(0.0, 10.0) is None

@@ -1,10 +1,12 @@
 """Solutions préflop pré-calculées + résolution live (Phase 1 — dual-mode).
 
 Le moteur DCFR embarqué ne couvre que le postflop (BoardState::Flop..River). Les
-"solutions" préférlop sont donc synthétisées hors-ligne par équité Monte-Carlo
-(combo héro vs range villain) et des seuils EV (pot odds / agressivité par
-profondeur), puis compressées sous ``models/preflop/``. Le loader runtime lit ce
-cache (<10ms une fois chargé) ; à défaut, repli sur les charts existants.
+"solutions" préflop sont donc dérivées hors-ligne des charts par position
+(``PreflopManager``) : RFI, 3-bet et bande de call, puis compressées sous
+``models/preflop/``. Pour ces tables, l'équité Monte-Carlo ne sert qu'à estimer
+l'EV affiché — les anciens seuils étaient position-agnostiques et leur bande de
+call était vide à 100 bb. Le loader runtime lit ce cache (<10ms une fois
+chargé) ; à défaut, repli sur les charts existants.
 
 Mode ``live`` : même calcul mais exécuté au moment de la décision avec un budget
 d'échantillons supérieur (borné par ``live_time_budget_ms``).
@@ -19,6 +21,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+from functools import lru_cache
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -39,19 +42,33 @@ except ImportError:  # pragma: no cover
 PREFLOP_POSITIONS = ("UTG", "HJ", "CO", "BTN", "SB", "BB")
 DEPTH_BUCKETS = (20, 50, 100)
 CONTEXTS = ("rfi", "vs_raise", "vs_3bet")
+HU_CONTEXTS = ("hu_rfi", "hu_vs_raise")
+HU_POSITIONS = ("SB", "BB")
+
+# Ranges de relance par contexte. Les bandes de call viennent des charts du
+# ``PreflopManager`` (défense BB et défenses heads-up) ; les positions 6-max
+# hors BB jouent « 3-bet or fold », donc sans bande de call.
+VS_RAISE_3BET_RANGE = "TT+, AQs+, AKo"
+VS_3BET_RAISE_RANGE = "QQ+, AKs, AKo"
+VS_3BET_CALL_RANGE = "JJ, TT, AQs"
 
 DEFAULT_SOLUTIONS_PATH = "models/preflop"
 
 _RANKS = "23456789TJQKA"
+_RANKS_DESC = _RANKS[::-1]
 _DECK = tuple(rank + suit for rank in _RANKS for suit in "cdhs")
 
 
 def enumerate_combos() -> list[str]:
-    """Toutes les notations de combos (169 mains : 'AA', 'AKs', 'AKo', ...)."""
+    """Toutes les notations de combos (169 mains : 'AA', 'AKs', 'AKo', ...).
+
+    Les rangs sont **décroissants** ('AKs', '32o'), comme
+    ``hero_combo_notation`` : les anciennes clés ascendantes ('KAs', '23o') ne
+    matchaient que les paires.
+    """
     combos: list[str] = []
-    for i, high in enumerate(_RANKS):
-        for j in range(i, len(_RANKS)):
-            low = _RANKS[j]
+    for i, high in enumerate(_RANKS_DESC):
+        for low in _RANKS_DESC[i:]:
             if high == low:
                 combos.append(f"{high}{low}")
             else:
@@ -90,13 +107,14 @@ def monte_carlo_equity_vs_range(
 
     for _ in range(samples):
         pool = remaining[:]
-        idx = rng.randrange(len(pool))
-        c1 = pool.pop(idx)
-        idx = rng.randrange(len(pool))
-        c2 = pool.pop(idx)
-        villain_hole = c1 + c2
-        extra = "".join(pool[k] for k in range(runout_needed))
-        full_board = "".join(board) + extra
+        villain_hole = pool.pop(rng.randrange(len(pool))) + pool.pop(rng.randrange(len(pool)))
+        # Le runout doit être tiré, pas pris en tête de paquet : un board fixe
+        # biaisait l'équité (72o « gagnait » 93 % sur un board 22233 commun).
+        runout = "".join(
+            pool.pop(rng.randrange(len(pool)))
+            for _ in range(min(runout_needed, len(pool)))
+        )
+        full_board = "".join(board) + runout
         try:
             hero = StandardHighHand.from_game(hole_cards + full_board)
             villain = StandardHighHand.from_game(villain_hole + full_board)
@@ -109,6 +127,31 @@ def monte_carlo_equity_vs_range(
     return wins / max(samples, 1)
 
 
+@lru_cache(maxsize=512)
+def _cached_combo_equity(combo: str, samples: int, seed: int) -> float:
+    """Équité MC d'un combo contre une main aléatoire, stable et mise en cache."""
+    from random import Random
+
+    rng = Random(f"{seed}:{combo}")
+    hand = combo_to_sample_hand(combo, rng)
+    return monte_carlo_equity_vs_range(hand, (), samples=samples, rng=rng)
+
+
+def _chart_ranges(context: str, position: str, heads_up: bool) -> tuple[str, str]:
+    """(range de relance, range de call) du chart pour ce contexte/position."""
+    from .preflop_ranges import PreflopManager
+
+    manager = PreflopManager(heads_up=heads_up)
+    base_context = context[3:] if context.startswith("hu_") else context
+    position = manager.hu_position(position) if heads_up else position
+
+    if base_context == "rfi":
+        return manager.get_hero_range(position, facing_raise=False), ""
+    if base_context == "vs_raise":
+        return VS_RAISE_3BET_RANGE, manager.get_hero_range(position, facing_raise=True)
+    return VS_3BET_RAISE_RANGE, VS_3BET_CALL_RANGE
+
+
 def build_spot_solution(
     *,
     context: str,
@@ -116,43 +159,31 @@ def build_spot_solution(
     depth_bb: int,
     samples_per_combo: int = 24,
     seed: int = 0,
+    heads_up: bool = False,
 ) -> dict[str, dict[str, float]]:
-    """Synthétise {combo: {'raise': f, 'call': f, 'fold': f, 'ev': e}} pour un spot canonique.
+    """Construit {combo: {'raise', 'call', 'fold', 'ev'}} depuis les charts.
 
-    Seuils dérivés de la profondeur et du contexte (RFI plus large que vs 3bet),
-    appliqués sur l'équité Monte-Carlo plutôt que sur des charts figés.
+    L'action suit l'appartenance aux ranges de la position (RFI, 3-bet, défense
+    BB / heads-up) : une vraie bande de call existe là où le chart en prévoit
+    une. L'équité Monte-Carlo ne sert qu'à l'EV indicatif.
     """
-    from random import Random
+    from .preflop_support import combo_in_range
 
-    rng = Random(
-        seed * 104729 + DEPTH_BUCKETS.index(min(DEPTH_BUCKETS, key=lambda d: abs(d - depth_bb)))
-    )
-    aggression = {"rfi": 0.46, "vs_raise": 0.52, "vs_3bet": 0.58}.get(context, 0.5)
-    depth_factor = min(depth_bb, 100) / 100.0
-    call_threshold = (0.47 + 0.05 * CONTEXTS.index(context)) * depth_factor + (
-        1.0 - depth_factor
-    ) * 0.08
+    raise_range, call_range = _chart_ranges(context, position, heads_up)
 
     table: dict[str, dict[str, float]] = {}
     for combo in enumerate_combos():
-        hand = combo_to_sample_hand(combo, rng)
-        equity = monte_carlo_equity_vs_range(hand, (), samples=samples_per_combo, rng=rng)
-        entry: dict[str, float] = {}
-        if equity >= aggression:
-            entry["raise"] = round(min(1.0, (equity - aggression) / 0.15 + 0.55), 3)
-            entry["call"] = round(1.0 - entry["raise"], 3)
-            entry["fold"] = 0.0
-        elif equity >= call_threshold:
-            entry["raise"] = 0.0
-            entry["call"] = round(
-                (equity - call_threshold) / max(aggression - call_threshold, 1e-6), 3
-            )
-            entry["call"] = round(min(max(entry["call"], 0.25), 1.0), 3)
-            entry["fold"] = round(1.0 - entry["call"], 3)
+        if combo_in_range(combo, raise_range):
+            entry = {"raise": 1.0, "call": 0.0, "fold": 0.0}
+        elif combo_in_range(combo, call_range):
+            entry = {"raise": 0.0, "call": 1.0, "fold": 0.0}
         else:
-            entry["raise"] = 0.0
-            entry["call"] = 0.0
-            entry["fold"] = 1.0
+            entry = {"raise": 0.0, "call": 0.0, "fold": 1.0}
+        equity = (
+            _cached_combo_equity(combo, samples_per_combo, seed)
+            if samples_per_combo > 0
+            else 0.5
+        )
         entry["ev"] = round(equity * depth_bb / 2.0, 3)
         table[combo] = entry
     return table
@@ -169,7 +200,7 @@ class PreflopSolutionStore:
 
     @staticmethod
     def spot_key(context: str, position: str, depth_bb: float) -> str:
-        bucket = min(DEPTH_BUCKETS, key=lambda d: abs(d - depth_bb))
+        bucket = min(DEPTH_BUCKETS, key=lambda d: abs(d - float(depth_bb)))
         return f"{context}_{position}_{bucket}"
 
     def ensure_loaded(self) -> bool:
@@ -195,7 +226,7 @@ class PreflopSolutionStore:
                     for row, key in enumerate(keys)
                 }
                 name = file.stem
-                context, position, bucket = name.split("_", 2)
+                context, position, bucket = name.rsplit("_", 2)
                 self._tables[f"{context}_{position}_{bucket}"] = table
             except Exception as exc:  # pragma: no cover
                 logger.warning("Solution préflop illisible (%s): %s", file.name, exc)
@@ -226,9 +257,15 @@ class PreflopSolutionStore:
         sample_mixed: bool = False,
         rng=None,
     ) -> tuple[str | None, float | None, dict]:
-        """Décision instantanée depuis la solution pré-calculée (None si spot absent)."""
-        started = time.perf_counter()
+        """Décision instantanée depuis la solution pré-calculée (None si spot absent).
+
+        ``elapsed_ms`` ne compte que la décision ; le chargement disque initial
+        (unique) est rapporté à part dans ``load_ms``.
+        """
+        load_started = time.perf_counter()
         strategy = self.get_strategy(context, position, depth_bb)
+        load_ms = (time.perf_counter() - load_started) * 1000.0
+        started = time.perf_counter()
         if strategy is None or hero_combo not in strategy:
             return None, None, {"backend": "preflop_precomputed", "available": False}
 
@@ -254,6 +291,7 @@ class PreflopSolutionStore:
             },
             "ev": entry["ev"],
             "elapsed_ms": round(elapsed_ms, 3),
+            "load_ms": round(load_ms, 3),
         }
         return chosen, None, metadata
 

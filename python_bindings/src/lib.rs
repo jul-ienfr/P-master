@@ -4,10 +4,9 @@ use postflop_solver::{
     range_relative_strength as range_relative_strength_native, solve_spot as solve_spot_native,
     solve_spot_v2 as solve_spot_v2_native, ActionOptionV2, BestResponseRequest, BetSizeSpec,
     CachePolicy, CacheTier, DecisionWarning, EquityMode, EquityRequest, EquityResponse,
-    LlmAssistResponse, LlmAssistTask, LlmConfig, LlmContextScope, LlmPrivacyMode,
-    LlmProviderMode, RangeModelVersion, RangeStrengthRequest, RangeStrengthResponse,
-    SolveActionV2, SolveRequest, SolveRequestV2, SolveResponse, SolveResponseV2, TreePresetId,
-    WinnerTypeDetail,
+    LlmAssistResponse, LlmAssistTask, LlmConfig, LlmContextScope, LlmPrivacyMode, LlmProviderMode,
+    RangeModelVersion, RangeStrengthRequest, RangeStrengthResponse, SolveActionV2, SolveRequest,
+    SolveRequestV2, SolveResponse, SolveResponseV2, TreePresetId, WinnerTypeDetail,
 };
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
@@ -49,11 +48,14 @@ fn solve_spot(
         target_exploitability: target_exploitability as f32,
         use_cache,
         hero_hand: None,
+        action_history: Vec::new(),
         rake_rate: 0.0,
         rake_cap: 0.0,
         sample_mixed: false,
         random_seed: None,
         bet_size_spec: None,
+        time_budget_ms: None,
+        compress_tree: true,
     };
 
     let response =
@@ -95,8 +97,8 @@ fn evaluate_equity(
         pot: None,
     };
 
-    let response = evaluate_equity_native(request)
-        .map_err(|err| PyRuntimeError::new_err(err.to_string()))?;
+    let response =
+        evaluate_equity_native(request).map_err(|err| PyRuntimeError::new_err(err.to_string()))?;
     equity_response_to_python(py, response)
 }
 
@@ -247,6 +249,7 @@ fn solve_spot_v2(
         } else {
             None
         },
+        compress_tree: true,
     };
     let started = Instant::now();
     let mut response =
@@ -264,7 +267,8 @@ fn solve_spot_v2(
     effective_stack,
     hero_is_oop,
     max_iterations = 200,
-    policy_action = None
+    policy_action = None,
+    bet_sizes = None
 ))]
 fn measure_best_response_gap(
     py: Python<'_>,
@@ -276,6 +280,7 @@ fn measure_best_response_gap(
     hero_is_oop: bool,
     max_iterations: u32,
     policy_action: Option<String>,
+    bet_sizes: Option<String>,
 ) -> PyResult<PyObject> {
     let request = BestResponseRequest {
         oop_range,
@@ -285,6 +290,7 @@ fn measure_best_response_gap(
         effective_stack: effective_stack as f32,
         hero_is_oop,
         max_iterations,
+        bet_sizes: normalize_optional_string(bet_sizes),
         policy_action: normalize_optional_string(policy_action),
     };
 
@@ -362,7 +368,10 @@ fn llm_assist_stub(
 }
 
 fn trim_cards(values: Vec<String>) -> Vec<String> {
-    values.into_iter().map(|value| value.trim().to_string()).collect()
+    values
+        .into_iter()
+        .map(|value| value.trim().to_string())
+        .collect()
 }
 
 fn normalize_optional_string(value: Option<String>) -> Option<String> {
@@ -407,7 +416,10 @@ fn equity_response_to_python(py: Python<'_>, response: EquityResponse) -> PyResu
     result.set_item("samples", response.samples)?;
     result.set_item("cache_hit", response.cache_hit)?;
     result.set_item("elapsed_ms", response.elapsed_ms)?;
-    result.set_item("winner_types", winner_types_to_python(py, response.winner_types)?)?;
+    result.set_item(
+        "winner_types",
+        winner_types_to_python(py, response.winner_types)?,
+    )?;
     Ok(result.into())
 }
 
@@ -484,7 +496,10 @@ fn llm_assist_response_to_python(
         llm_context_list_to_python(py, response.used_context)?,
     )?;
     result.set_item("latency_ms", response.latency_ms)?;
-    result.set_item("provider_metadata", map_to_python_dict(py, response.provider_metadata)?)?;
+    result.set_item(
+        "provider_metadata",
+        map_to_python_dict(py, response.provider_metadata)?,
+    )?;
     Ok(result.into())
 }
 
@@ -563,9 +578,7 @@ fn parse_provider_mode(mode: Option<&str>) -> LlmProviderMode {
         Some(value) if value == "openai_compatible_remote" => {
             LlmProviderMode::OpenaiCompatibleRemote
         }
-        Some(value) if value == "openai_compatible_local" => {
-            LlmProviderMode::OpenaiCompatibleLocal
-        }
+        Some(value) if value == "openai_compatible_local" => LlmProviderMode::OpenaiCompatibleLocal,
         _ => LlmProviderMode::Disabled,
     }
 }

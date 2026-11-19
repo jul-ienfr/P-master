@@ -115,8 +115,7 @@ def test_normalize_solver_action_never_maps_allin_to_fold():
 
     # allin_* doit être ramené vers ALL_IN, jamais FOLD (P0.2)
     assert (
-        decision_maker._normalize_solver_action("allin_500", ["FOLD", "CALL", "ALL_IN"])
-        == "ALL_IN"
+        decision_maker._normalize_solver_action("allin_500", ["FOLD", "CALL", "ALL_IN"]) == "ALL_IN"
     )
     assert decision_maker._normalize_runtime_actions(["allin_500", "ALLIN_75"]) == ["ALL_IN"]
     assert decision_maker._normalize_runtime_actions(["ALL_IN_999"]) == ["ALL_IN"]
@@ -247,7 +246,10 @@ def test_get_best_action_uses_injected_solver_backend_and_returns_backend_name()
     assert decision["bet_size"] == 7.5
     assert decision["fallback_used"] is False
     assert decision["backend"] == "fake_solver"
-    assert solver.calls[0]["action_history"] == ["Hero:BET:5.0"]
+    assert solver.calls[0]["action_history"] == [
+        "villain:check:0.000",
+        "hero:bet:5.000",
+    ]
     assert solver.calls[0]["legal_actions"] == ["FOLD", "CALL", "BET"]
 
 
@@ -492,8 +494,11 @@ def test_get_best_action_uses_preflop_fast_path_without_solver_or_db_fetch():
 
     assert decision["action"] == "BET"
     assert decision["source"] == "GTO_PREFLOP_FAST"
-    assert decision["backend"] == "preflop_fast_path"
-    assert decision["elapsed_ms"] == 0
+    # Le store préflop pré-calculé remplace le fast-path depuis que ses clés
+    # matchent la notation héro ; les deux restent 100 % locaux.
+    assert decision["backend"] in {"preflop_fast_path", "preflop_precomputed"}
+    # Le fast-path est instantané ; le store paie un chargement disque unique.
+    assert decision["elapsed_ms"] < 100
     assert decision["fallback_used"] is False
     assert solver.calls == []
     assert db.calls == []
@@ -533,9 +538,7 @@ def test_get_best_action_uses_dynamic_villain_position_from_history():
     sent_items = {item.strip() for item in sent_range.split(",")}
     base_items = {item.strip().rstrip("+") for item in base_co.split(",")}
     assert sent_items
-    assert all(
-        item.rstrip("+") in base_items or item in base_items for item in sent_items
-    )
+    assert all(item.rstrip("+") in base_items or item in base_items for item in sent_items)
     assert len(sent_items) < len(base_items)
 
 
@@ -965,3 +968,355 @@ def test_validated_rl_ab_comparison_exposes_solver_freq_and_ev_deltas_without_re
         "freq_delta": -0.24,
         "ev_delta": 0.56,
     }
+
+
+# --- Spec 001 : range héros multi-combos + main cible séparée -------------
+
+
+def test_solver_receives_multi_combo_hero_range_and_target_combo():
+    solver = FakeSolver(
+        {
+            "chosen_action": "BET_75",
+            "hero_ev": 1.2,
+            "exploitability": 0.03,
+            "decision_confidence": 0.84,
+            "actions": [{"action": "BET_75", "freq": 1.0}],
+            "elapsed_ms": 7,
+        }
+    )
+    decision_maker = DecisionMaker(FakeDB(), solver_backend=solver, rl_agent=None)
+
+    decision = run(
+        decision_maker.get_best_action(
+            hero_hand="AhKd",
+            board=["2c", "7d", "Jh"],
+            pot=10.0,
+            effective_stack=80.0,
+            villain_name="Villain",
+            legal_actions=["CHECK", "BET"],
+            hero_position="BTN",
+        )
+    )
+
+    call = solver.calls[0]
+    assert call["hero_hand"] == "AhKd"
+    assert call["hero_range"] != call["hero_hand"]
+    assert len(call["hero_range"].split(",")) > 1
+    assert decision["metadata"]["hero_range"] == call["hero_range"]
+    assert decision["metadata"]["hero_range_size"] > 1
+    assert decision["metadata"]["hero_combo"] == "AKo"
+    assert decision["metadata"]["degenerate_range"] is False
+    assert "degenerate_hero_range" not in decision["warnings"]
+
+
+def test_two_target_combos_of_same_range_do_not_share_cache():
+    solver = FakeSolver(
+        {
+            "chosen_action": "CHECK",
+            "hero_ev": 0.1,
+            "exploitability": 0.02,
+            "actions": [{"action": "CHECK", "freq": 1.0}],
+            "elapsed_ms": 5,
+        }
+    )
+    decision_maker = DecisionMaker(FakeDB(), solver_backend=solver, rl_agent=None)
+
+    for hero_hand in ("AhKd", "7h6h"):
+        run(
+            decision_maker.get_best_action(
+                hero_hand=hero_hand,
+                board=["2c", "7d", "Jh"],
+                pot=10.0,
+                effective_stack=80.0,
+                villain_name="Villain",
+                legal_actions=["CHECK", "BET"],
+                hero_position="BTN",
+            )
+        )
+
+    assert len(solver.calls) == 2
+    assert solver.calls[0]["hero_range"] == solver.calls[1]["hero_range"]
+
+
+def test_target_combo_absent_from_range_is_augmented_and_traced():
+    solver = FakeSolver(
+        {
+            "chosen_action": "CHECK",
+            "hero_ev": 0.0,
+            "exploitability": 0.02,
+            "actions": [{"action": "CHECK", "freq": 1.0}],
+            "elapsed_ms": 5,
+        }
+    )
+    decision_maker = DecisionMaker(FakeDB(), solver_backend=solver, rl_agent=None)
+
+    decision = run(
+        decision_maker.get_best_action(
+            hero_hand="3c2d",
+            board=["2c", "7d", "Jh"],
+            pot=10.0,
+            effective_stack=80.0,
+            villain_name="Villain",
+            legal_actions=["CHECK", "BET"],
+            hero_position="UTG",
+        )
+    )
+
+    call = solver.calls[0]
+    assert "32o" in call["hero_range"]
+    assert decision["metadata"]["hero_range_source"].endswith("_augmented")
+    assert decision["metadata"]["hero_combo"] == "32o"
+
+
+def test_preflop_fast_path_does_not_call_postflop_solver():
+    solver = FakeSolver({"chosen_action": "CALL", "elapsed_ms": 3})
+    decision_maker = DecisionMaker(FakeDB(), solver_backend=solver, rl_agent=None)
+
+    decision = run(
+        decision_maker.get_best_action(
+            hero_hand="AhKd",
+            board=[],
+            pot=3.0,
+            effective_stack=100.0,
+            villain_name="Villain",
+            legal_actions=["FOLD", "CALL", "RAISE"],
+            hero_position="BTN",
+        )
+    )
+
+    assert solver.calls == []
+    assert decision["action"] in {"FOLD", "CALL", "RAISE"}
+
+
+def test_production_path_never_sends_hero_hand_as_hero_range():
+    solver = FakeSolver(
+        {
+            "chosen_action": "CHECK",
+            "actions": [{"action": "CHECK", "freq": 1.0}],
+            "elapsed_ms": 5,
+        }
+    )
+    decision_maker = DecisionMaker(FakeDB(), solver_backend=solver, rl_agent=None)
+
+    run(
+        decision_maker.get_best_action(
+            hero_hand="AhKd",
+            board=["2c", "7d", "Jh"],
+            pot=10.0,
+            effective_stack=80.0,
+            villain_name="Villain",
+            legal_actions=["CHECK", "BET"],
+            hero_position="CO",
+        )
+    )
+
+    assert solver.calls[0]["hero_range"] != "AhKd"
+
+
+def multiway_response(players, *, backend="multiway_mccfr", fallback_reason=None):
+    payload = {
+        "chosen_action": "CHECK",
+        "actions": [{"action": "CHECK", "freq": 1.0}],
+        "hero_ev": 0.2,
+        "exploitability": 0.4,
+        "decision_confidence": 0.55,
+        "elapsed_ms": 11,
+        "backend": backend,
+        "converged": fallback_reason is None,
+        "num_players": players,
+        "warnings": ["multiway_approximation", "convergence_not_reached"],
+    }
+    if fallback_reason is not None:
+        payload.update(
+            {
+                "chosen_action": "",
+                "actions": [],
+                "fallback_used": True,
+                "fallback_reason": fallback_reason,
+                "backend": "refused",
+            }
+        )
+    return payload
+
+
+def call_three_way(decision_maker, villain_ranges):
+    return run(
+        decision_maker.get_best_action(
+            hero_hand="AhKd",
+            board=["2c", "7d", "Jh"],
+            pot=12.0,
+            effective_stack=80.0,
+            villain_name="Villain",
+            legal_actions=["CHECK", "BET"],
+            spot_id="multiway-spot",
+            hero_position="ip",
+            active_villain_count=3,
+            num_players=3,
+            villain_ranges=list(villain_ranges),
+            hero_player_index=1,
+            active_positions=["SB", "BTN", "BB"],
+            strict_mode=False,
+        )
+    )
+
+
+def test_three_way_request_contains_num_players_and_ordered_ranges():
+    solver = FakeSolver(multiway_response(3))
+    decision_maker = DecisionMaker(FakeDB(), solver_backend=solver, rl_agent=None)
+
+    call_three_way(decision_maker, ["range:SB", "range:BB"])
+
+    assert solver.calls[0]["num_players"] == 3
+    assert len(solver.calls[0]["villain_ranges"]) == 2
+    assert solver.calls[0]["villain_ranges"][1] == "range:BB"
+    assert solver.calls[0]["hero_position"] == "BTN"
+
+
+def test_multiway_ranges_are_normalized_for_the_native_parser():
+    solver = FakeSolver(multiway_response(3))
+    decision_maker = DecisionMaker(FakeDB(), solver_backend=solver, rl_agent=None)
+
+    call_three_way(decision_maker, ["AA, KK", "QQ+, AKs"])
+
+    assert solver.calls[0]["villain_ranges"] == ["AA,KK", "QQ+,AKs"]
+
+
+def test_six_way_request_contains_num_players_and_five_ranges():
+    solver = FakeSolver(multiway_response(6))
+    decision_maker = DecisionMaker(FakeDB(), solver_backend=solver, rl_agent=None)
+
+    run(
+        decision_maker.get_best_action(
+            hero_hand="AhKd",
+            board=["2c", "7d", "Jh"],
+            pot=20.0,
+            effective_stack=120.0,
+            villain_name="Villain",
+            legal_actions=["CHECK", "BET"],
+            spot_id="six-way-spot",
+            hero_position="ip",
+            active_villain_count=6,
+            num_players=6,
+            villain_ranges=[f"range:{position}" for position in ("UTG", "MP", "HJ", "CO", "BB")],
+            hero_player_index=4,
+            active_positions=["UTG", "MP", "HJ", "CO", "BTN", "BB"],
+            strict_mode=False,
+        )
+    )
+
+    call = solver.calls[0]
+    assert call["num_players"] == 6
+    assert len(call["villain_ranges"]) == 5
+    assert call["hero_position"] == "BTN"
+
+
+def test_multiway_backend_and_warnings_are_exposed_on_decision():
+    solver = FakeSolver(multiway_response(3))
+    decision_maker = DecisionMaker(FakeDB(), solver_backend=solver, rl_agent=None)
+
+    decision = call_three_way(decision_maker, ["range:SB", "range:BB"])
+
+    assert decision["backend"] == "multiway_mccfr"
+    assert "multiway_approximation" in decision["warnings"]
+    assert "convergence_not_reached" in decision["warnings"]
+    assert decision["metadata"]["multiway"]["mode"] == "multiway"
+    assert decision["metadata"]["multiway"]["num_players"] == 3
+    assert decision["metadata"]["multiway"]["converged"] is False
+    assert decision["metadata"]["multiway"]["sampled"] is True
+
+
+def test_strict_multiway_refusal_is_preserved():
+    solver = FakeSolver(multiway_response(3, fallback_reason="multiway_strict_refused"))
+    decision_maker = DecisionMaker(FakeDB(), solver_backend=solver, rl_agent=None)
+
+    decision = run(
+        decision_maker.get_best_action(
+            hero_hand="AhKd",
+            board=["2c", "7d", "Jh"],
+            pot=12.0,
+            effective_stack=80.0,
+            villain_name="Villain",
+            legal_actions=["CHECK", "BET"],
+            spot_id="strict-spot",
+            hero_position="ip",
+            active_villain_count=3,
+            num_players=3,
+            villain_ranges=["range:SB", "range:BB"],
+            hero_player_index=1,
+            active_positions=["SB", "BTN", "BB"],
+            strict_mode=True,
+            epsilon_target=0.001,
+        )
+    )
+
+    assert solver.calls[0]["epsilon_target"] == 0.001
+    assert decision["fallback_reason"] == "multiway_strict_refused"
+    assert "multiway_strict_refused" in decision["warnings"]
+    assert decision["metadata"]["multiway"]["converged"] is False
+    assert decision["metadata"]["multiway"]["sampled"] is False
+
+
+def test_heads_up_path_keeps_two_players_and_single_range():
+    solver = FakeSolver(multiway_response(2, backend="fake_solver"))
+    decision_maker = DecisionMaker(FakeDB(), solver_backend=solver, rl_agent=None)
+
+    run(
+        decision_maker.get_best_action(
+            hero_hand="AhKd",
+            board=["2c", "7d", "Jh"],
+            pot=10.0,
+            effective_stack=80.0,
+            villain_name="Villain",
+            legal_actions=["CHECK", "BET"],
+            hero_position="ip",
+            active_villain_count=2,
+            num_players=2,
+            villain_ranges=["range:BB"],
+            hero_player_index=1,
+            active_positions=["SB", "BB"],
+        )
+    )
+
+    call = solver.calls[0]
+    assert call["num_players"] == 2
+    assert len(call["villain_ranges"]) == 1
+    assert call["hero_position"] == "ip"
+    assert "epsilon_target" not in call
+
+
+def test_multiway_cache_key_includes_all_ranges():
+    solver = FakeSolver(multiway_response(3))
+    decision_maker = DecisionMaker(FakeDB(), solver_backend=solver, rl_agent=None)
+
+    call_three_way(decision_maker, ["range:SB", "range:BB"])
+    call_three_way(decision_maker, ["range:SB", "range:STRONG_BB"])
+
+    assert len(solver.calls) == 2
+    assert solver.calls[1]["villain_ranges"][1] == "range:STRONG_BB"
+
+
+def test_invalid_multiway_state_falls_back_explicitly():
+    solver = FakeSolver(multiway_response(3))
+    decision_maker = DecisionMaker(FakeDB(), solver_backend=solver, rl_agent=None)
+
+    decision = run(
+        decision_maker.get_best_action(
+            hero_hand="AhKd",
+            board=["2c", "7d", "Jh"],
+            pot=12.0,
+            effective_stack=80.0,
+            villain_name="Villain",
+            legal_actions=["CHECK", "BET"],
+            active_villain_count=7,
+            num_players=7,
+            villain_ranges=[f"range:{index}" for index in range(6)],
+            hero_player_index=0,
+            active_positions=["UTG"] + [f"V{index}" for index in range(6)],
+        )
+    )
+
+    assert solver.calls == []
+    assert decision["fallback_used"] is True
+    assert decision["fallback_reason"] == "multiway_not_supported"
+    assert decision["metadata"]["multiway"]["converged"] is False
+    assert decision["metadata"]["multiway"]["sampled"] is False

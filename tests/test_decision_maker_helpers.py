@@ -134,3 +134,36 @@ def test_build_exploit_profile_computes_confidence_and_cap():
     assert 0.05 <= profile["deviation_cap"] <= 0.25
     assert profile["gap"] == pytest.approx(round(profile["vpip"] - profile["pfr"], 4))
     assert isinstance(profile["rl_ready"], bool)
+
+
+def test_solver_history_call_is_not_mistaken_for_allin():
+    from src.bot.decision_maker import _solver_history_action_name
+
+    assert _solver_history_action_name("CALL", facing_bet=True) == "call"
+    assert _solver_history_action_name("CALLS 200", facing_bet=True) == "call"
+    assert _solver_history_action_name("CALL 2.5", facing_bet=False) == "call"
+    assert _solver_history_action_name("ALL_IN", facing_bet=True) == "allin"
+    assert _solver_history_action_name("ALL-IN", facing_bet=True) == "allin"
+    assert _solver_history_action_name("ALL IN", facing_bet=True) == "allin"
+    assert _solver_history_action_name("JAM", facing_bet=True) == "allin"
+
+
+def test_format_solver_action_history_reconstructs_checks_in_order():
+    from src.bot.decision_maker import _format_solver_action_history
+
+    entries = [
+        {"actor": "hero", "action": "check", "amount": 0, "street": "FLOP"},
+        {"actor": "villain", "action": "bet", "amount": 2.0, "street": "FLOP"},
+        {"actor": "hero", "action": "call", "amount": 0, "street": "FLOP"},
+    ]
+    board = ["As", "Jc", "3c"]
+
+    assert _format_solver_action_history(
+        entries, board, hero_position="oop", villain_name="bot"
+    ) == ["hero:check:0.000", "villain:bet:2.000", "hero:call:0.000"]
+
+    assert _format_solver_action_history(
+        entries[1:2], board, hero_position="ip", villain_name="bot"
+    ) == ["villain:bet:2.000"]
+
+    assert _format_solver_action_history(entries, ["As", "Jc"], hero_position="ip") == []

@@ -92,6 +92,45 @@ def test_build_local_metrics_counts_blocks_fallbacks_and_latency():
     # deux timestamps valides espacés de 60s -> 3 décisions / minute
     assert m["decision_rate"] == 3.0
     assert m["window_size"] == 3
+    assert m["fallback_reasons"] == {}
+    assert m["multiway_count"] == 0
+    assert m["sampled_count"] == 0
+
+
+def test_build_local_metrics_counts_multiway_and_fallback_reasons():
+    c = make_controller()
+    history = {
+        "decisions": [
+            {
+                "source": "solver",
+                "num_players": 3,
+                "sampled": True,
+                "metadata": {
+                    "multiway": {
+                        "num_players": 3,
+                        "mode": "multiway",
+                        "converged": False,
+                    }
+                },
+            },
+            {
+                "source": "fallback",
+                "metadata": {
+                    "multiway": {
+                        "num_players": 4,
+                        "mode": "multiway",
+                        "converged": False,
+                        "fallback_reason": "multiway_solver_error: timeout",
+                    }
+                },
+            },
+            {"source": "solver", "num_players": 2},
+        ]
+    }
+    m = c._build_local_metrics(history)
+    assert m["multiway_count"] == 2
+    assert m["sampled_count"] == 2
+    assert m["fallback_reasons"] == {"multiway_solver_error: timeout": 1}
 
 
 def test_build_local_metrics_handles_empty_history():

@@ -30,6 +30,20 @@ def test_get_hero_range_facing_raise(manager):
     assert manager.get_hero_range("BB", facing_raise=True) == manager.defense_ranges["BB"]
 
 
+def test_heads_up_button_uses_sb_ranges():
+    hu = PreflopManager(heads_up=True)
+    assert hu.get_hero_range("BTN") == hu.hu_rfi_ranges["SB"]
+    assert hu.get_hero_range("btn", facing_raise=True) == hu.hu_defense_ranges["SB"]
+    assert hu.get_hero_range("BB", facing_raise=True) == hu.hu_defense_ranges["BB"]
+    assert hu.get_villain_range("BTN", action="OPEN") == hu.hu_rfi_ranges["SB"]
+
+
+def test_heads_up_alias_does_not_leak_into_six_max():
+    six_max = PreflopManager(heads_up=False)
+    assert six_max.get_hero_range("BTN") == six_max.rfi_ranges["BTN"]
+    assert six_max.get_hero_range("BTN", facing_raise=True) == "TT+, AQs+, AKo"
+
+
 def test_get_villain_range_actions(manager):
     assert manager.get_villain_range("HJ", action="OPEN") == manager.rfi_ranges["HJ"]
     assert manager.get_villain_range("UTG", action="3BET") == "JJ+, AQs+, AKo"

@@ -161,23 +161,28 @@ def run_preflop_fast_path(
                 chosen_action = "CHECK"
             elif "FOLD" in legal_actions:
                 chosen_action = "FOLD"
-        else:
-            if aggressive_action:
+        elif "CHECK" in legal_actions:
+            # Option (BB après un limp) : on ne relance pas 85 % de sa range.
+            # Check par défaut, relance réservée aux premiums.
+            if aggressive_action and combo_in_range(hero_combo, PREFLOP_FAST_3BET_RANGE):
                 chosen_action = aggressive_action
-                if effective_stack > pot * 50:
-                    dynamic_amount = pot * 1.5
-                elif effective_stack < pot * 15 and effective_stack > 0:
-                    dynamic_amount = effective_stack
-                else:
-                    dynamic_amount = pot * 1.8
-            elif "CHECK" in legal_actions:
+                dynamic_amount = pot * 1.5 if pot > 0 else None
+            else:
                 chosen_action = "CHECK"
-            elif "CALL" in legal_actions:
-                chosen_action = "CALL"
+        elif aggressive_action:
+            chosen_action = aggressive_action
+            if effective_stack > pot * 50:
+                dynamic_amount = pot * 1.5
+            elif effective_stack < pot * 15 and effective_stack > 0:
+                dynamic_amount = effective_stack
+            else:
+                dynamic_amount = pot * 1.8
+        elif "CALL" in legal_actions:
+            chosen_action = "CALL"
     else:
         if "CHECK" in legal_actions:
             chosen_action = "CHECK"
-        elif facing_raise and "FOLD" in legal_actions:
+        elif "FOLD" in legal_actions:
             chosen_action = "FOLD"
         elif legal_actions:
             chosen_action = legal_actions[0]

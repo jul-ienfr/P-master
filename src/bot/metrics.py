@@ -1,5 +1,7 @@
 """Snapshots de métriques runtime (extrait de src/main.py)."""
 
+from collections import Counter
+
 try:
     from datetime import UTC, datetime
 except ImportError:  # Python 3.10 compatibility
@@ -23,6 +25,9 @@ class MetricsMixin:
         decision_count = len(decisions)
         blocked_count = 0
         fallback_count = 0
+        multiway_count = 0
+        sampled_count = 0
+        fallback_reasons: Counter[str] = Counter()
         latencies: list[float] = []
 
         for entry in decisions:
@@ -34,6 +39,26 @@ class MetricsMixin:
                 blocked_count += 1
             if str(entry.get("source", "")).lower() == "fallback":
                 fallback_count += 1
+            metadata = entry.get("metadata") if isinstance(entry.get("metadata"), dict) else {}
+            multiway = (
+                metadata.get("multiway") if isinstance(metadata.get("multiway"), dict) else {}
+            )
+            num_players = entry.get("num_players") or multiway.get("num_players")
+            try:
+                is_multiway = int(num_players) > 2
+            except (TypeError, ValueError):
+                is_multiway = bool(multiway)
+            if is_multiway:
+                multiway_count += 1
+                if entry.get("sampled") or multiway.get("converged") is False:
+                    sampled_count += 1
+            reason = (
+                entry.get("fallback_reason")
+                or metadata.get("fallback_reason")
+                or multiway.get("fallback_reason")
+            )
+            if reason:
+                fallback_reasons[str(reason)] += 1
             latency_ms = entry.get("latency_ms")
             if isinstance(latency_ms, (int, float)):
                 latencies.append(float(latency_ms))
@@ -63,6 +88,9 @@ class MetricsMixin:
             "decision_count": decision_count,
             "blocked_count": blocked_count,
             "fallback_count": fallback_count,
+            "fallback_reasons": dict(fallback_reasons),
+            "multiway_count": multiway_count,
+            "sampled_count": sampled_count,
             "block_rate": block_rate,
             "fallback_rate": fallback_rate,
             "rolling_latency_ms": rolling_latency_ms,
@@ -92,6 +120,9 @@ class MetricsMixin:
             "decision_count": int(local_metrics.get("decision_count", 0) or 0),
             "blocked_count": int(local_metrics.get("blocked_count", 0) or 0),
             "fallback_count": int(local_metrics.get("fallback_count", 0) or 0),
+            "fallback_reasons": dict(local_metrics.get("fallback_reasons", {}) or {}),
+            "multiway_count": int(local_metrics.get("multiway_count", 0) or 0),
+            "sampled_count": int(local_metrics.get("sampled_count", 0) or 0),
             "block_rate": float(local_metrics.get("block_rate", 0.0) or 0.0),
             "fallback_rate": float(local_metrics.get("fallback_rate", 0.0) or 0.0),
             "rolling_latency_ms": float(local_metrics.get("rolling_latency_ms", 0.0) or 0.0),
@@ -158,6 +189,9 @@ class MetricsMixin:
             snapshot["decision_count"],
             snapshot["blocked_count"],
             snapshot["fallback_count"],
+            tuple(sorted(snapshot["fallback_reasons"].items())),
+            snapshot["multiway_count"],
+            snapshot["sampled_count"],
             snapshot["runtime"]["event_count"],
             snapshot["runtime"]["incident_count"],
             snapshot["persisted"]["event_count"],

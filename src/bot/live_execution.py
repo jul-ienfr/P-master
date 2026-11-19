@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from src.bot.gate_flow import compact_solver_payload as _compact_solver_payload
 from src.bot.runtime_types import CanonicalTableState
 from src.bot.sanity_checker import GateResult
+from src.runtime.decision_log import SCHEMA_VERSION, spot_hash
 from src.vision.models import TableState
 
 logger = logging.getLogger("SuperBot2026")
@@ -96,9 +97,11 @@ class LiveExecutionMixin:
             self._normalize_live_execution_actions(canonical_state.legal_actions),
             actionable_buttons,
             hero_seat_id,
-            tuple(metadata_signature)
-            if isinstance(metadata_signature, (list, tuple))
-            else metadata_signature,
+            (
+                tuple(metadata_signature)
+                if isinstance(metadata_signature, (list, tuple))
+                else metadata_signature
+            ),
         )
 
     def _build_live_execution_signature(self, canonical_state: CanonicalTableState) -> tuple:
@@ -109,8 +112,20 @@ class LiveExecutionMixin:
     ) -> tuple:
         return (self._build_live_execution_material_signature(canonical_state),)
 
-    def _build_live_decision_signature(self, canonical_state: CanonicalTableState) -> tuple:
-        return self._build_live_execution_material_signature(canonical_state)
+    def _build_live_decision_signature(
+        self, canonical_state: CanonicalTableState, multiway_context=None
+    ) -> tuple:
+        signature = self._build_live_execution_material_signature(canonical_state)
+        if multiway_context is not None and bool(
+            getattr(multiway_context, "is_multiway", lambda: False)()
+        ):
+            return signature + (
+                int(multiway_context.num_players),
+                tuple(multiway_context.active_positions),
+                tuple(multiway_context.villain_ranges),
+                int(multiway_context.hero_player_index),
+            )
+        return signature
 
     def _clear_live_decision_lock(self) -> None:
         self._last_locked_decision_signature = ()
@@ -206,9 +221,9 @@ class LiveExecutionMixin:
         }
 
     def _get_cached_live_decision(
-        self, canonical_state: CanonicalTableState
+        self, canonical_state: CanonicalTableState, multiway_context=None
     ) -> dict[str, object] | None:
-        decision_signature = self._build_live_decision_signature(canonical_state)
+        decision_signature = self._build_live_decision_signature(canonical_state, multiway_context)
         if decision_signature != getattr(self, "_last_decision_signature", ()):
             return None
         payload = getattr(self, "_last_decision_payload", None)
@@ -221,9 +236,14 @@ class LiveExecutionMixin:
         return dict(payload)
 
     def _remember_cached_live_decision(
-        self, canonical_state: CanonicalTableState, decision: dict[str, object]
+        self,
+        canonical_state: CanonicalTableState,
+        decision: dict[str, object],
+        multiway_context=None,
     ) -> None:
-        self._last_decision_signature = self._build_live_decision_signature(canonical_state)
+        self._last_decision_signature = self._build_live_decision_signature(
+            canonical_state, multiway_context
+        )
         self._last_decision_payload = dict(decision)
         self._last_decision_cached_at = time.monotonic()
 
@@ -680,7 +700,13 @@ class LiveExecutionMixin:
             decision.get("ab_decision") if isinstance(decision.get("ab_decision"), dict) else None
         )
         metadata = decision.get("metadata") if isinstance(decision.get("metadata"), dict) else {}
+        multiway = metadata.get("multiway") if isinstance(metadata.get("multiway"), dict) else {}
         solver_metadata = _compact_solver_payload(metadata.get("solver", {}) or {})
+        if multiway:
+            solver_metadata.setdefault("num_players", multiway.get("num_players"))
+            solver_metadata.setdefault("multiway_mode", multiway.get("mode"))
+            solver_metadata.setdefault("converged", multiway.get("converged"))
+            solver_metadata.setdefault("sampled", bool(multiway.get("sampled", False)))
         trace_metadata = dict(metadata)
         trace_metadata["solver"] = solver_metadata
         session_id = self._get_runtime_session_id()
@@ -688,9 +714,35 @@ class LiveExecutionMixin:
             incidents.append("gate_blocked")
 
         trace = {
+            "schema_version": SCHEMA_VERSION,
             "timestamp": self._utc_now(),
             "session_id": session_id,
             "spot_id": canonical_state.spot_id,
+            "spot_hash": spot_hash(
+                {
+                    "hero_hand": "".join(canonical_state.hero_cards),
+                    "board": list(canonical_state.board),
+                    "pot": canonical_state.pot,
+                    "effective_stack": float(
+                        (metadata.get("effective_stack") if isinstance(metadata, dict) else 0.0)
+                        or 0.0
+                    ),
+                    "legal_actions": list(canonical_state.legal_actions),
+                    "spot_id": canonical_state.spot_id,
+                    "hero_position": str(
+                        (metadata.get("hero_position") if isinstance(metadata, dict) else "") or ""
+                    ),
+                    "num_players": multiway.get("num_players"),
+                    "active_positions": list(multiway.get("active_positions") or []),
+                    "hero_player_index": multiway.get("hero_player_index"),
+                    "villain_ranges": list(multiway.get("villain_ranges") or []),
+                    "action_history": list(self.tracker.current_hand_actions),
+                    "state_confidence": canonical_state.state_confidence,
+                    "hero_range": str(
+                        (metadata.get("hero_range") if isinstance(metadata, dict) else "") or ""
+                    ),
+                }
+            ),
             "street": canonical_state.street,
             "board": list(canonical_state.board),
             "hero_cards": list(canonical_state.hero_cards),
@@ -705,6 +757,15 @@ class LiveExecutionMixin:
             "warnings": warnings,
             "incidents": list(dict.fromkeys(incidents)),
             "backend": decision.get("backend", "unknown"),
+            "num_players": multiway.get("num_players", 2),
+            "active_positions": list(multiway.get("active_positions") or []),
+            "hero_player_index": multiway.get("hero_player_index"),
+            "villain_ranges": list(multiway.get("villain_ranges") or []),
+            "multiway_mode": str(multiway.get("mode") or ""),
+            "converged": solver_metadata.get("converged"),
+            "sampled": bool(solver_metadata.get("sampled", False)),
+            "fallback_used": bool(decision.get("fallback_used", False)),
+            "fallback_reason": decision.get("fallback_reason"),
             "cache_hit": bool(decision.get("cache_hit", solver_metadata.get("cache_hit", False))),
             "chosen_action_raw": solver_metadata.get("chosen_action_raw"),
             "gto_action": solver_metadata.get("gto_action"),

@@ -31,7 +31,8 @@ fn three_way_river_solves_and_prefers_aggression_with_top_set() {
 
 #[test]
 fn three_way_flop_solves_with_chance_sampling() {
-    let response = solve_multiway(base_request(3, &["Ah", "7d", "2c"])).expect("flop multiway solve");
+    let response =
+        solve_multiway(base_request(3, &["Ah", "7d", "2c"])).expect("flop multiway solve");
     assert!(response.iterations >= 500);
     assert_ne!(response.recommended_action, "fold");
     assert!(response.hero_ev > 1.5, "hero_ev = {}", response.hero_ev);
@@ -55,7 +56,18 @@ fn multiple_raise_sizes_available_in_abstraction() {
     assert!(names.contains(&"call"));
     for name in &names {
         assert!(
-            matches!(*name, "fold" | "call" | "bet_0.33" | "bet_0.5" | "bet_0.75" | "bet_1" | "bet_1.5" | "bet_2bb" | "bet_3bb"),
+            matches!(
+                *name,
+                "fold"
+                    | "call"
+                    | "bet_0.33"
+                    | "bet_0.5"
+                    | "bet_0.75"
+                    | "bet_1"
+                    | "bet_1.5"
+                    | "bet_2bb"
+                    | "bet_3bb"
+            ),
             "taille inattendue: {name}"
         );
     }
@@ -79,7 +91,11 @@ fn multiway_solve_is_deterministic_with_seed() {
 fn preflop_board_is_rejected() {
     // S2: board 0 is now valid (preflop), board 1-2 remains invalid
     let empty_ok = solve_multiway(base_request(3, &[]));
-    assert!(empty_ok.is_ok(), "preflop board 0 should be valid, got {:?}", empty_ok.err());
+    assert!(
+        empty_ok.is_ok(),
+        "preflop board 0 should be valid, got {:?}",
+        empty_ok.err()
+    );
     for len in [1, 2] {
         let board: Vec<&str> = vec!["Ah", "7d"][..len].to_vec();
         let result = solve_multiway(base_request(3, &board));
@@ -110,7 +126,15 @@ fn weak_hero_range_converges_toward_passive_play() {
     );
     assert!(matches!(
         response.recommended_action.as_str(),
-        "fold" | "call" | "bet_0.33" | "bet_0.5" | "bet_0.75" | "bet_1" | "bet_1.5" | "bet_2bb" | "bet_3bb"
+        "fold"
+            | "call"
+            | "bet_0.33"
+            | "bet_0.5"
+            | "bet_0.75"
+            | "bet_1"
+            | "bet_1.5"
+            | "bet_2bb"
+            | "bet_3bb"
     ));
     let mut strong = base_request(3, &["Jh", "7d", "2c"]);
     strong.max_iterations = 4_000;
@@ -146,15 +170,23 @@ fn six_way_river() {
     assert!(response.iterations >= 500);
     assert!(!response.actions.is_empty());
     assert!(response.hero_ev.is_finite());
-    assert!(response.hero_ev < 20.0, "hero_ev unreasonably high: {}", response.hero_ev);
+    assert!(
+        response.hero_ev < 20.0,
+        "hero_ev unreasonably high: {}",
+        response.hero_ev
+    );
 }
 
 #[test]
 fn board_1_2_rejected() {
     for board in [vec!["Ah"], vec!["Ah", "Kd"]] {
-        let refs: Vec<&str> = board.iter().map(|s| s.as_ref() as &str).collect();
+        let refs: Vec<&str> = board.to_vec();
         let result = solve_multiway(base_request(3, &refs));
-        assert!(result.is_err(), "board len {} should be rejected", board.len());
+        assert!(
+            result.is_err(),
+            "board len {} should be rejected",
+            board.len()
+        );
         let err = result.unwrap_err();
         assert!(err.contains("0|3"), "err should mention 0|3, got: {err}");
     }
@@ -172,39 +204,32 @@ fn n_2_7_rejected() {
 
 #[test]
 fn hero_exhaustif() {
-    // Exhaustif : chaque hero_player 0..n-1 est accepté par validate_request et
-    // produit un résultat exploitable (Ok ou erreur de stratégie vide tolérée si
-    // l'implémentation actuelle ne remplit le sum que pour hero=0). L'essentiel :
-    // pas d'erreur "joueur/position invalide" et au moins le siège 0 est Ok.
     let n = 4;
     let board = &["9c", "3d", "2h", "Ks", "4d"];
-    let mut ok_count = 0usize;
     for hero in 0..n {
         let mut req = base_request(n, board);
         req.hero_player = hero;
         req.max_iterations = 4000;
-        let res = solve_multiway(req);
-        match res {
-            Ok(r) => {
-                assert!(!r.actions.is_empty(), "hero {hero} actions empty");
-                assert!(!r.recommended_action.is_empty(), "hero {hero} recommended empty");
-                assert!(r.iterations >= 400, "hero {hero} iterations {}", r.iterations);
-                ok_count += 1;
-            }
-            Err(err) => {
-                // Seule erreur tolérée : stratégie vide (impl actuelle). Toute erreur de validation est un échec.
-                assert!(
-                    err.contains("stratégie moyenne") || err.contains("itération"),
-                    "hero {hero}/{n} unexpected validation err: {err}"
-                );
-            }
-        }
+        let response =
+            solve_multiway(req).unwrap_or_else(|err| panic!("hero {hero}/{n} solve failed: {err}"));
+        assert!(!response.actions.is_empty(), "hero {hero} actions empty");
+        assert!(
+            !response.recommended_action.is_empty(),
+            "hero {hero} recommended empty"
+        );
+        assert!(
+            response.iterations >= 400,
+            "hero {hero} iterations {}",
+            response.iterations
+        );
     }
-    assert!(ok_count >= 1, "au moins hero 0 doit réussir, got {ok_count}/{n}");
     // siège hors borne doit être rejeté (garde-fou exhaustif)
     let mut bad = base_request(n, board);
     bad.hero_player = n;
-    assert!(solve_multiway(bad).is_err(), "hero_player {n} should be rejected");
+    assert!(
+        solve_multiway(bad).is_err(),
+        "hero_player {n} should be rejected"
+    );
 }
 
 #[test]
@@ -218,10 +243,20 @@ fn determinism_seeded() {
     let ra = solve_multiway(a).expect("seeded a");
     let rb = solve_multiway(b).expect("seeded b");
     assert_eq!(ra.recommended_action, rb.recommended_action);
-    assert!((ra.hero_ev - rb.hero_ev).abs() < 1e-6, "EV drift: {} vs {}", ra.hero_ev, rb.hero_ev);
+    assert!(
+        (ra.hero_ev - rb.hero_ev).abs() < 1e-6,
+        "EV drift: {} vs {}",
+        ra.hero_ev,
+        rb.hero_ev
+    );
     for (la, lb) in ra.actions.iter().zip(rb.actions.iter()) {
         assert_eq!(la.name, lb.name);
-        assert!((la.frequency - lb.frequency).abs() < 1e-6, "freq drift {} vs {}", la.frequency, lb.frequency);
+        assert!(
+            (la.frequency - lb.frequency).abs() < 1e-6,
+            "freq drift {} vs {}",
+            la.frequency,
+            lb.frequency
+        );
     }
     // Seed différent peut diverger mais doit rester valide (non-égal strict non requis, juste non-crash)
     let mut c = base_request(3, &["Ah", "7d", "2c"]);
@@ -307,10 +342,10 @@ fn fuzz_1k_no_panic_on_random_valid_requests() {
         state
     };
     let card_names = [
-        "Ah", "Kh", "Qh", "Jh", "Th", "9h", "8h", "7h", "6h", "5h", "4h", "3h", "2h",
-        "As", "Ks", "Qs", "Js", "Ts", "9s", "8s", "7s", "6s", "5s", "4s", "3s", "2s",
-        "Ad", "Kd", "Qd", "Jd", "Td", "9d", "8d", "7d", "6d", "5d", "4d", "3d", "2d",
-        "Ac", "Kc", "Qc", "Jc", "Tc", "9c", "8c", "7c", "6c", "5c", "4c", "3c", "2c",
+        "Ah", "Kh", "Qh", "Jh", "Th", "9h", "8h", "7h", "6h", "5h", "4h", "3h", "2h", "As", "Ks",
+        "Qs", "Js", "Ts", "9s", "8s", "7s", "6s", "5s", "4s", "3s", "2s", "Ad", "Kd", "Qd", "Jd",
+        "Td", "9d", "8d", "7d", "6d", "5d", "4d", "3d", "2d", "Ac", "Kc", "Qc", "Jc", "Tc", "9c",
+        "8c", "7c", "6c", "5c", "4c", "3c", "2c",
     ];
     // pool sans 22 (cross-board collision massive river) — utilise ranges disjointes pour garante
     let pool = ["AA", "KK", "QQ", "JJ", "TT", "AKs"];
@@ -327,28 +362,71 @@ fn fuzz_1k_no_panic_on_random_valid_requests() {
         for _ in 0..blen {
             for _ in 0..80 {
                 let idx = (next() % card_names.len() as u64) as usize;
-                if !used[idx] { used[idx] = true; board.push(card_names[idx].to_string()); break; }
+                if !used[idx] {
+                    used[idx] = true;
+                    board.push(card_names[idx].to_string());
+                    break;
+                }
             }
         }
-        if board.len() != blen { continue; }
-        let ranges: Vec<String> = (0..n).map(|_| pool[(next() % pool.len() as u64) as usize].to_string()).collect();
+        if board.len() != blen {
+            continue;
+        }
+        let ranges: Vec<String> = (0..n)
+            .map(|_| pool[(next() % pool.len() as u64) as usize].to_string())
+            .collect();
         let hero = (next() % n as u64) as usize;
         if !is_sampled {
             // validation-only: construction + clone ne doit pas paniquer; pas de MCCFR
-            let req = MultiwayRequest { ranges: ranges.clone(), board: board.clone(), starting_pot: 6.0, effective_stack: 20.0, hero_player: hero, max_iterations: 120, random_seed: Some(next()), rake_rate: 0.0, rake_cap: 0.0 };
-            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { let _ = req.ranges.clone(); let _ = req.board.clone(); }));
+            let req = MultiwayRequest {
+                ranges: ranges.clone(),
+                board: board.clone(),
+                starting_pot: 6.0,
+                effective_stack: 20.0,
+                hero_player: hero,
+                max_iterations: 120,
+                random_seed: Some(next()),
+                rake_rate: 0.0,
+                rake_cap: 0.0,
+            };
+            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let _ = req.ranges.clone();
+                let _ = req.board.clone();
+            }));
             validates += 1;
             continue;
         }
-        let req = MultiwayRequest { ranges, board, starting_pot: 6.0, effective_stack: 20.0, hero_player: hero, max_iterations: 400, random_seed: Some(next()), rake_rate: 0.0, rake_cap: 0.0 };
+        let req = MultiwayRequest {
+            ranges,
+            board,
+            starting_pot: 6.0,
+            effective_stack: 20.0,
+            hero_player: hero,
+            max_iterations: 400,
+            random_seed: Some(next()),
+            rake_rate: 0.0,
+            rake_cap: 0.0,
+        };
         // consomme un tirage pour diversité
-        let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| solve_multiway(req.clone())));
+        let res =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| solve_multiway(req.clone())));
         assert!(res.is_ok(), "panic solve #{i}");
         sampled_solves += 1;
-        if let Ok(Ok(r)) = &res { let total: f32 = r.actions.iter().map(|a| a.frequency).sum(); assert!((total-1.0).abs()<0.06, "freq drift {total} at #{i}"); }
+        if let Ok(Ok(r)) = &res {
+            let total: f32 = r.actions.iter().map(|a| a.frequency).sum();
+            assert!((total - 1.0).abs() < 0.06, "freq drift {total} at #{i}");
+        }
     }
-    assert!(validates + sampled_solves >= 900, "fuzz coverage too low: {}+{}", validates, sampled_solves);
-    assert!(sampled_solves >= 15, "not enough sampled solves: {sampled_solves}");
+    assert!(
+        validates + sampled_solves >= 900,
+        "fuzz coverage too low: {}+{}",
+        validates,
+        sampled_solves
+    );
+    assert!(
+        sampled_solves >= 15,
+        "not enough sampled solves: {sampled_solves}"
+    );
 }
 
 // ── § D — EV : ev_bb ≈ ev_chips/bb, ev_bb_per_100 = ev_bb*100 ──
@@ -358,7 +436,9 @@ fn multiway_ev_bb_matches_ev_chips_over_bb() {
     let req = base_request(3, &["Ah", "7d", "2c", "Kd", "9s"]);
     let bb = req.effective_stack / 100.0; // 0.2
     let resp = solve_multiway(req).expect("river 3-way for EV check");
-    let ev_bb = resp.ev_bb.expect("ev_bb should be Some with positive stack");
+    let ev_bb = resp
+        .ev_bb
+        .expect("ev_bb should be Some with positive stack");
     assert!(
         (ev_bb - resp.hero_ev / bb).abs() < 1e-4,
         "ev_bb {} != hero_ev {} / bb {} (diff {})",
@@ -418,7 +498,11 @@ fn multiway_action_ev_bb_consistent() {
         } else {
             panic!("action {} ev_bb is None with bb={}", action.name, bb);
         }
-        assert!(action.ev.is_finite(), "action {} ev not finite", action.name);
+        assert!(
+            action.ev.is_finite(),
+            "action {} ev not finite",
+            action.name
+        );
     }
 }
 
@@ -427,10 +511,18 @@ fn multiway_equity_ev_formula_sanity() {
     // § D : EV = equity*pot - cost — helper pur, mais vérifie la convention
     // utilisée aussi par equity_api ev_chips_given_pot
     let ev = postflop_solver::ev::equity_ev(100.0, 0.55, 50.0);
-    assert!((ev - 5.0).abs() < 1e-6, "equity_ev(100,0.55,50) should be 5, got {}", ev);
+    assert!(
+        (ev - 5.0).abs() < 1e-6,
+        "equity_ev(100,0.55,50) should be 5, got {}",
+        ev
+    );
     // multiway response hero_ev doit être fini et borné par la taille du pot effectif
     let resp = solve_multiway(base_request(3, &["2c", "3d", "7h", "8s", "4d"]))
         .expect("neutral river EV sanity");
     assert!(resp.hero_ev.is_finite());
-    assert!(resp.hero_ev.abs() < 50.0, "hero_ev unreasonably large: {}", resp.hero_ev);
+    assert!(
+        resp.hero_ev.abs() < 50.0,
+        "hero_ev unreasonably large: {}",
+        resp.hero_ev
+    );
 }

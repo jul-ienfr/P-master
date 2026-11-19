@@ -1,4 +1,4 @@
-﻿use postflop_solver::{
+use postflop_solver::{
     llm_assist_stub_response, solve_spot_v2, BetSizeSpec, CachePolicy, CacheTier, DecisionSource,
     DecisionWarning, LlmAssistTask, LlmConfig, LlmContextScope, LlmPrivacyMode, LlmProviderMode,
     RangeModelVersion, SolveRequestV2, SpotSnapshot, SpotSource, TreePresetId,
@@ -91,6 +91,7 @@ fn unsupported_v2_spot_returns_structured_warnings() {
         sample_mixed: false,
         random_seed: None,
         bet_size_spec: None,
+        compress_tree: true,
     })
     .expect("structured V2 fallback response");
 
@@ -141,6 +142,7 @@ fn supported_v2_spot_populates_backend_metadata() {
         sample_mixed: false,
         random_seed: None,
         bet_size_spec: None,
+        compress_tree: true,
     })
     .expect("supported v2 solve");
 
@@ -186,6 +188,7 @@ fn action_history_and_rake_bridge_to_native_solver() {
         sample_mixed: false,
         random_seed: None,
         bet_size_spec: None,
+        compress_tree: true,
     })
     .expect("v2 solve with history and rake");
 
@@ -193,7 +196,7 @@ fn action_history_and_rake_bridge_to_native_solver() {
     assert_eq!(response.fallback_reason, None);
     assert!(!response.chosen_action.is_empty());
     assert!(!response.actions.is_empty());
-    assert!(response.actions.iter().all(|action| action.ev != 0.0 || true));
+    assert!(response.actions.iter().all(|action| action.ev.is_finite()));
     assert!(response.warnings.iter().all(|warning| {
         !matches!(
             warning,
@@ -235,6 +238,7 @@ fn three_way_river_routes_to_native_multiway_solver() {
         sample_mixed: false,
         random_seed: None,
         bet_size_spec: None,
+        compress_tree: true,
     })
     .expect("3-way river solve");
 
@@ -244,13 +248,131 @@ fn three_way_river_routes_to_native_multiway_solver() {
     assert!(!response.actions.is_empty());
     // Phase 0.5: the multiway path is Monte-Carlo sampled, so the approximation
     // warning is always kept and the response is never certified as converged.
-    assert!(
-        response
-            .warnings
-            .iter()
-            .any(|warning| *warning == DecisionWarning::MultiwayApproximation)
-    );
+    assert!(response
+        .warnings
+        .contains(&DecisionWarning::MultiwayApproximation));
     assert!(!response.converged);
+    assert_eq!(
+        response.metadata.get("equity_mode").map(String::as_str),
+        Some("monte_carlo_sampled")
+    );
+}
+
+#[test]
+fn same_spot_three_way_differs_from_heads_up_and_logs_multiway_mode() {
+    let base = SolveRequestV2 {
+        spot_id: Some("spot-3way-vs-hu".to_string()),
+        hero_range: "AsKs".to_string(),
+        board: vec![
+            "Ah".to_string(),
+            "7d".to_string(),
+            "2c".to_string(),
+            "Kd".to_string(),
+            "9s".to_string(),
+        ],
+        starting_pot: 6.0,
+        effective_stack: 20.0,
+        hero_position: Some("oop".to_string()),
+        action_history: Vec::new(),
+        tree_preset_id: TreePresetId::river_jam_low_spr(),
+        rake: 0.0,
+        rake_cap: 0.0,
+        legal_actions: Vec::new(),
+        cache_policy: CachePolicy::Memory,
+        hero_confidence: Some(0.95),
+        state_confidence: Some(0.95),
+        range_model_version: RangeModelVersion::BoardAwareV2,
+        use_cache: false,
+        time_budget_ms: Some(150),
+        epsilon_target: None,
+        hero_hand: None,
+        sample_mixed: false,
+        random_seed: Some(42),
+        bet_size_spec: None,
+        compress_tree: true,
+        ..SolveRequestV2::default()
+    };
+    let heads_up = solve_spot_v2(SolveRequestV2 {
+        num_players: 2,
+        villain_ranges: vec!["QQ+".to_string()],
+        ..base.clone()
+    })
+    .expect("heads-up golden solve");
+    let three_way = solve_spot_v2(SolveRequestV2 {
+        num_players: 3,
+        villain_ranges: vec!["QQ+".to_string(), "JJ-88".to_string()],
+        ..base
+    })
+    .expect("3-way golden solve");
+
+    assert_eq!(heads_up.backend, "native_solver");
+    assert_eq!(three_way.backend, "multiway_mccfr");
+    assert!(three_way
+        .warnings
+        .contains(&DecisionWarning::MultiwayApproximation));
+    assert!(!three_way.converged);
+    assert_eq!(
+        three_way.metadata.get("equity_mode").map(String::as_str),
+        Some("monte_carlo_sampled")
+    );
+    assert!(
+        heads_up.chosen_action != three_way.chosen_action
+            || (heads_up.hero_ev - three_way.hero_ev).abs() > 1e-4,
+        "HU and 3-way golden results must differ: {:?} vs {:?}",
+        heads_up,
+        three_way
+    );
+}
+
+#[test]
+fn six_way_river_routes_to_native_multiway_solver() {
+    let response = solve_spot_v2(SolveRequestV2 {
+        spot_id: Some("spot-6way-river".to_string()),
+        hero_range: "AsKs".to_string(),
+        villain_ranges: vec![
+            "QQ+".to_string(),
+            "JJ".to_string(),
+            "TT".to_string(),
+            "99".to_string(),
+            "88".to_string(),
+        ],
+        board: vec![
+            "2c".to_string(),
+            "3d".to_string(),
+            "7h".to_string(),
+            "8s".to_string(),
+            "4d".to_string(),
+        ],
+        starting_pot: 6.0,
+        effective_stack: 20.0,
+        hero_position: Some("btn".to_string()),
+        action_history: Vec::new(),
+        tree_preset_id: TreePresetId::river_jam_low_spr(),
+        rake: 0.0,
+        rake_cap: 0.0,
+        legal_actions: Vec::new(),
+        cache_policy: CachePolicy::Memory,
+        hero_confidence: Some(0.95),
+        state_confidence: Some(0.95),
+        range_model_version: RangeModelVersion::BoardAwareV2,
+        num_players: 6,
+        use_cache: false,
+        time_budget_ms: Some(150),
+        epsilon_target: None,
+        hero_hand: None,
+        sample_mixed: false,
+        random_seed: Some(42),
+        bet_size_spec: None,
+        compress_tree: true,
+    })
+    .expect("6-way V2 river solve");
+
+    assert_eq!(response.backend, "multiway_mccfr");
+    assert!(!response.converged);
+    assert!(response
+        .warnings
+        .contains(&DecisionWarning::MultiwayApproximation));
+    assert!(!response.chosen_action.is_empty());
     assert_eq!(
         response.metadata.get("equity_mode").map(String::as_str),
         Some("monte_carlo_sampled")
@@ -284,6 +406,7 @@ fn strict_mode_refuses_heuristic_ranges() {
         sample_mixed: false,
         random_seed: None,
         bet_size_spec: None,
+        compress_tree: true,
     })
     .expect("strict heuristic refusal");
     assert_eq!(response.backend, "refused");
@@ -322,6 +445,7 @@ fn strict_mode_refuses_sampled_multiway() {
         sample_mixed: false,
         random_seed: None,
         bet_size_spec: None,
+        compress_tree: true,
     })
     .expect("strict multiway refusal");
     assert_eq!(response.backend, "refused");
@@ -333,8 +457,7 @@ fn strict_mode_refuses_sampled_multiway() {
     );
     assert!(response
         .warnings
-        .iter()
-        .any(|warning| *warning == DecisionWarning::ConvergenceNotReached));
+        .contains(&DecisionWarning::ConvergenceNotReached));
 }
 
 #[test]
@@ -372,6 +495,7 @@ fn strict_mode_heads_up_reports_convergence() {
         sample_mixed: false,
         random_seed: None,
         bet_size_spec: None,
+        compress_tree: true,
     })
     .expect("strict heads-up solve");
     assert_eq!(response.backend, "native_solver");
@@ -386,7 +510,7 @@ fn strict_mode_heads_up_reports_convergence() {
         response
             .warnings
             .contains(&DecisionWarning::ConvergenceNotReached)
-            == !response.converged
+            != response.converged
     );
 }
 
@@ -425,6 +549,7 @@ fn hero_combo_ev_selection_prefers_best_ev_for_exact_hand() {
         sample_mixed: false,
         random_seed: None,
         bet_size_spec: None,
+        compress_tree: true,
     })
     .expect("combo EV solve");
 
@@ -466,6 +591,7 @@ fn bet_size_spec_controls_tree_abstraction() {
         sample_mixed: false,
         random_seed: None,
         bet_size_spec: spec,
+        compress_tree: true,
     };
 
     // Abstraction restreinte : bets 100% uniquement, pas de raises.
@@ -534,7 +660,10 @@ fn preflop_three_way() {
     } else {
         assert_eq!(response.backend, "fallback");
         let reason = response.fallback_reason.as_deref().unwrap_or("");
-        assert!(reason.starts_with("multiway_solver_error"), "expected solver_error not not_supported, got {reason:?}");
+        assert!(
+            reason.starts_with("multiway_solver_error"),
+            "expected solver_error not not_supported, got {reason:?}"
+        );
     }
 }
 
@@ -545,8 +674,14 @@ fn preflop_nine_way() {
         spot_id: Some("s4-preflop-9w".to_string()),
         hero_range: "AA".to_string(),
         villain_ranges: vec![
-            "KK".to_string(), "QQ".to_string(), "JJ".to_string(), "TT".to_string(),
-            "99".to_string(), "88".to_string(), "77".to_string(), "AKs".to_string(),
+            "KK".to_string(),
+            "QQ".to_string(),
+            "JJ".to_string(),
+            "TT".to_string(),
+            "99".to_string(),
+            "88".to_string(),
+            "77".to_string(),
+            "AKs".to_string(),
         ],
         board: vec![],
         starting_pot: 1.5,
@@ -562,7 +697,10 @@ fn preflop_nine_way() {
     })
     .expect("preflop 9-way fallback");
     assert_eq!(response.backend, "fallback");
-    assert_eq!(response.fallback_reason.as_deref(), Some("multiway_not_supported"));
+    assert_eq!(
+        response.fallback_reason.as_deref(),
+        Some("multiway_not_supported")
+    );
     assert!(response.warnings.contains(&DecisionWarning::FallbackUsed));
 }
 
@@ -573,7 +711,13 @@ fn sizing_river_overbet() {
         spot_id: Some("s4-sizing-river-ob".to_string()),
         hero_range: "AsKs".to_string(),
         villain_ranges: vec!["QQ+".to_string()],
-        board: vec!["Ah".to_string(), "7d".to_string(), "2c".to_string(), "Kd".to_string(), "9s".to_string()],
+        board: vec![
+            "Ah".to_string(),
+            "7d".to_string(),
+            "2c".to_string(),
+            "Kd".to_string(),
+            "9s".to_string(),
+        ],
         starting_pot: 8.0,
         effective_stack: 20.0,
         hero_position: Some("oop".to_string()),
@@ -589,15 +733,27 @@ fn sizing_river_overbet() {
             turn_donk_sizes: String::new(),
             river_donk_sizes: String::new(),
         }),
+        compress_tree: true,
         ..SolveRequestV2::default()
     })
     .expect("sizing river overbet");
     assert_eq!(response.backend, "native_solver");
     // CSP natif: 50% et 150% du pot -> 4 et 12 sur pot 8 (sizing HUD natif)
-    let has_overbet = response.actions.iter().any(|a| a.name.contains("12") || a.name.contains("1.5") || a.name.contains("150"));
-    assert!(has_overbet, "expected overbet sizing in actions, got: {:?}", response.actions.iter().map(|a| &a.name).collect::<Vec<_>>());
+    let has_overbet = response
+        .actions
+        .iter()
+        .any(|a| a.name.contains("12") || a.name.contains("1.5") || a.name.contains("150"));
+    assert!(
+        has_overbet,
+        "expected overbet sizing in actions, got: {:?}",
+        response.actions.iter().map(|a| &a.name).collect::<Vec<_>>()
+    );
     // Et le 50% (4) doit aussi être présent
-    assert!(response.actions.iter().any(|a| a.name.contains("4")), "expected 50% sizing, got {:?}", response.actions.iter().map(|a| &a.name).collect::<Vec<_>>());
+    assert!(
+        response.actions.iter().any(|a| a.name.contains("4")),
+        "expected 50% sizing, got {:?}",
+        response.actions.iter().map(|a| &a.name).collect::<Vec<_>>()
+    );
 }
 
 #[test]
@@ -621,8 +777,14 @@ fn board_1_2_still_rejected() {
             ..SolveRequestV2::default()
         })
         .expect("board 1-2 still rejected");
-        assert_eq!(response.backend, "fallback", "board len {len} should fallback");
-        assert_eq!(response.fallback_reason.as_deref(), Some("multiway_not_supported"));
+        assert_eq!(
+            response.backend, "fallback",
+            "board len {len} should fallback"
+        );
+        assert_eq!(
+            response.fallback_reason.as_deref(),
+            Some("multiway_not_supported")
+        );
     }
 }
 
@@ -632,7 +794,13 @@ fn bench_preflop_n6() {
     let response = solve_spot_v2(SolveRequestV2 {
         spot_id: Some("s4-bench-preflop-n6".to_string()),
         hero_range: "AA".to_string(),
-        villain_ranges: vec!["KK".to_string(), "QQ".to_string(), "JJ".to_string(), "TT".to_string(), "99".to_string()],
+        villain_ranges: vec![
+            "KK".to_string(),
+            "QQ".to_string(),
+            "JJ".to_string(),
+            "TT".to_string(),
+            "99".to_string(),
+        ],
         board: vec![],
         starting_pot: 1.5,
         effective_stack: 100.0,
@@ -656,11 +824,21 @@ fn bench_preflop_n6() {
         assert!(!response.chosen_action.is_empty());
     } else {
         let r = response.fallback_reason.as_deref().unwrap_or("");
-        assert!(r.starts_with("multiway_solver_error"), "unexpected fallback {r:?}");
+        assert!(
+            r.starts_with("multiway_solver_error"),
+            "unexpected fallback {r:?}"
+        );
     }
     // Le bench vérifie le routage préflop N=6, pas la perf brute : budget large (flaky en run parallèle)
-    assert!(elapsed_ms < 35000, "bench preflop N=6 exceeded budget: {elapsed_ms}ms");
-    assert!(response.elapsed_ms < 35000, "response elapsed_ms too high: {}", response.elapsed_ms);
+    assert!(
+        elapsed_ms < 35000,
+        "bench preflop N=6 exceeded budget: {elapsed_ms}ms"
+    );
+    assert!(
+        response.elapsed_ms < 35000,
+        "response elapsed_ms too high: {}",
+        response.elapsed_ms
+    );
 }
 
 // ── § D — EV : ev_bb ≈ hero_ev/bb, ev_bb_per_100 = ev_bb*100 ──
@@ -672,7 +850,13 @@ fn v2_ev_bb_matches_ev_chips_over_bb_and_per100() {
         spot_id: Some("v2-ev-bb".to_string()),
         hero_range: "AA,KK,QQ".to_string(),
         villain_ranges: vec!["JJ,TT,AKs".to_string()],
-        board: vec!["Ah".to_string(), "7d".to_string(), "2c".to_string(), "Kd".to_string(), "9s".to_string()],
+        board: vec![
+            "Ah".to_string(),
+            "7d".to_string(),
+            "2c".to_string(),
+            "Kd".to_string(),
+            "9s".to_string(),
+        ],
         starting_pot: 8.0,
         effective_stack: 20.0,
         hero_position: Some("oop".to_string()),
@@ -688,16 +872,23 @@ fn v2_ev_bb_matches_ev_chips_over_bb_and_per100() {
     let resp = solve_spot_v2(req).expect("v2 HU EV check");
     assert_eq!(resp.backend, "native_solver");
     assert!(resp.hero_ev.is_finite());
-    let ev_bb = resp.ev_bb.expect("v2 ev_bb should be Some with positive stack");
+    let ev_bb = resp
+        .ev_bb
+        .expect("v2 ev_bb should be Some with positive stack");
     assert!(
         (ev_bb - resp.hero_ev / bb).abs() < 1e-4,
         "v2 ev_bb {} != hero_ev {} / bb {} (diff {})",
-        ev_bb, resp.hero_ev, bb, (ev_bb - resp.hero_ev / bb).abs()
+        ev_bb,
+        resp.hero_ev,
+        bb,
+        (ev_bb - resp.hero_ev / bb).abs()
     );
     let ev_bb_per_100 = resp.ev_bb_per_100.expect("v2 ev_bb_per_100");
     assert!(
         (ev_bb_per_100 - ev_bb * 100.0).abs() < 1e-4,
-        "v2 ev_bb_per_100 {} != ev_bb {} *100", ev_bb_per_100, ev_bb
+        "v2 ev_bb_per_100 {} != ev_bb {} *100",
+        ev_bb_per_100,
+        ev_bb
     );
     // cohérence helpers purs
     assert!((postflop_solver::ev::ev_chips_to_bb(resp.hero_ev, bb).unwrap() - ev_bb).abs() < 1e-6);
@@ -706,15 +897,31 @@ fn v2_ev_bb_matches_ev_chips_over_bb_and_per100() {
     if let Some(combo) = resp.combo_ev_bb {
         let expected_combo = postflop_solver::ev::ev_chips_to_bb(resp.hero_ev, bb).unwrap();
         // v2 bridge met combo_ev_bb = ev_bb (hero_ev/bb) pour multiway/HU
-        assert!((combo - expected_combo).abs() < 1e-4, "combo_ev_bb {} != {}", combo, expected_combo);
+        assert!(
+            (combo - expected_combo).abs() < 1e-4,
+            "combo_ev_bb {} != {}",
+            combo,
+            expected_combo
+        );
     }
     for action in &resp.actions {
         if let Some(ev_bb_a) = action.ev_bb {
-            assert!((ev_bb_a - action.ev / bb).abs() < 1e-4,
-                "v2 action {} ev_bb {} != ev {} / bb {}", action.name, ev_bb_a, action.ev, bb);
+            assert!(
+                (ev_bb_a - action.ev / bb).abs() < 1e-4,
+                "v2 action {} ev_bb {} != ev {} / bb {}",
+                action.name,
+                ev_bb_a,
+                action.ev,
+                bb
+            );
             let p100 = action.ev_bb_per_100.expect("action ev_bb_per_100");
-            assert!((p100 - ev_bb_a * 100.0).abs() < 1e-4,
-                "v2 action {} ev_bb_per_100 {} != {}*100", action.name, p100, ev_bb_a);
+            assert!(
+                (p100 - ev_bb_a * 100.0).abs() < 1e-4,
+                "v2 action {} ev_bb_per_100 {} != {}*100",
+                action.name,
+                p100,
+                ev_bb_a
+            );
         }
     }
 }
@@ -726,7 +933,13 @@ fn v2_multiway_ev_bb_matches_ev_chips_over_bb() {
         spot_id: Some("v2-ev-3w".to_string()),
         hero_range: "AsKs".to_string(),
         villain_ranges: vec!["QQ+".to_string(), "JJ-88".to_string()],
-        board: vec!["Ah".to_string(), "7d".to_string(), "2c".to_string(), "Kd".to_string(), "9s".to_string()],
+        board: vec![
+            "Ah".to_string(),
+            "7d".to_string(),
+            "2c".to_string(),
+            "Kd".to_string(),
+            "9s".to_string(),
+        ],
         starting_pot: 6.0,
         effective_stack: 20.0,
         hero_position: Some("oop".to_string()),
@@ -742,8 +955,13 @@ fn v2_multiway_ev_bb_matches_ev_chips_over_bb() {
     let resp = solve_spot_v2(req).expect("v2 3-way EV");
     assert_eq!(resp.backend, "multiway_mccfr");
     let ev_bb = resp.ev_bb.expect("v2 3-way ev_bb");
-    assert!((ev_bb - resp.hero_ev / bb).abs() < 1e-4,
-        "v2 3-way ev_bb {} != hero_ev {} / bb {}", ev_bb, resp.hero_ev, bb);
+    assert!(
+        (ev_bb - resp.hero_ev / bb).abs() < 1e-4,
+        "v2 3-way ev_bb {} != hero_ev {} / bb {}",
+        ev_bb,
+        resp.hero_ev,
+        bb
+    );
     assert!((resp.ev_bb_per_100.unwrap() - ev_bb * 100.0).abs() < 1e-4);
     // equity*pot - cost helper sanity (convention § D)
     assert!((postflop_solver::ev::equity_ev(100.0, 0.55, 50.0) - 5.0).abs() < 1e-6);
@@ -766,4 +984,3 @@ fn llm_stub_response_is_offline_safe() {
         .contains(&DecisionWarning::ModelUnavailable));
     assert_eq!(response.used_context.len(), 2);
 }
-

@@ -19,7 +19,7 @@ Ne pas « figer » ces valeurs sans le rapport ``docs/bet_tolerance_report.md``.
 from __future__ import annotations
 
 import os
-from typing import Iterable
+from collections.abc import Iterable
 
 # Menu pratique solveurs (PioSOLVER & co.) — PROVISOIRE Phase 0.7.
 DEFAULT_BET_MENU: tuple[float, ...] = (0.25, 0.33, 0.5, 0.66, 0.75, 1.0, 1.5)

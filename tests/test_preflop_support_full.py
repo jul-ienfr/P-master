@@ -169,6 +169,53 @@ def test_run_preflop_fast_path_checks_when_out_of_range_no_bet():
     assert action == "CHECK"
 
 
+def test_run_preflop_fast_path_limped_bb_checks_non_premium():
+    manager = SimpleNamespace(get_hero_range=lambda position, facing_raise: "99,88,77")
+    action, response = run_preflop_fast_path(
+        hero_hand="9h9d",
+        legal_actions=["CHECK", "RAISE"],
+        hero_position="BB",
+        effective_stack=200.0,
+        pot=2.0,
+        preflop_manager=manager,
+        facing_raise=False,
+        aggressive_action="RAISE",
+    )
+    assert action == "CHECK"
+    assert response["dynamic_amount"] is None
+
+
+def test_run_preflop_fast_path_limped_bb_raises_premium():
+    manager = make_manager(in_range=True)
+    action, response = run_preflop_fast_path(
+        hero_hand="AhAd",
+        legal_actions=["CHECK", "RAISE"],
+        hero_position="BB",
+        effective_stack=200.0,
+        pot=2.0,
+        preflop_manager=manager,
+        facing_raise=False,
+        aggressive_action="RAISE",
+    )
+    assert action == "RAISE"
+    assert response["dynamic_amount"] == pytest.approx(3.0)
+
+
+def test_run_preflop_fast_path_out_of_range_opening_folds():
+    manager = make_manager(in_range=False)
+    action, _response = run_preflop_fast_path(
+        hero_hand="7h2d",
+        legal_actions=["RAISE", "FOLD"],
+        hero_position="BTN",
+        effective_stack=100.0,
+        pot=1.5,
+        preflop_manager=manager,
+        facing_raise=False,
+        aggressive_action="RAISE",
+    )
+    assert action == "FOLD"
+
+
 def test_fast_3bet_range_constant_shape():
     assert "TT+" in PREFLOP_FAST_3BET_RANGE
     assert "AKo" in PREFLOP_FAST_3BET_RANGE

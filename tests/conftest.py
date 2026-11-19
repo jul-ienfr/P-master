@@ -108,6 +108,23 @@ def _restore_debug_logging_state():
         _dbg._throttle_state.update(saved_throttle)  # type: ignore[attr-defined]
 
 
+@pytest.fixture(autouse=True)
+def _isolate_evidence_writes(tmp_path_factory, monkeypatch):
+    """Aucun test ne doit écrire dans les fichiers suivis de ``evidence/``.
+
+    Les modules concernés lisent leur chemin à chaque appel via
+    ``POKER_BET_LOG_PATH`` / ``POKER_BLUEPRINT_MISS_LOG`` : on les redirige
+    vers un répertoire temporaire de session.
+    """
+    evidence_dir = tmp_path_factory.mktemp("evidence")
+    monkeypatch.setenv(
+        "POKER_BET_LOG_PATH", str(evidence_dir / "bet_observations.jsonl")
+    )
+    monkeypatch.setenv(
+        "POKER_BLUEPRINT_MISS_LOG", str(evidence_dir / "blueprint_misses.jsonl")
+    )
+
+
 from src.data.database import DatabaseManager
 
 DEFAULT_TEST_DSN = (

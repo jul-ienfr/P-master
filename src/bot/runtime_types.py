@@ -65,3 +65,26 @@ class CanonicalTableState:
 
     def to_tracker_payload(self) -> dict[str, Any]:
         return self.to_dict()
+
+
+@dataclass(frozen=True)
+class MultiwayContext:
+    num_players: int
+    hero_player_index: int
+    active_positions: tuple[str, ...]
+    villain_ranges: tuple[str, ...]
+    primary_villain_index: int = -1
+    mode: str = "multiway"
+
+    def is_multiway(self) -> bool:
+        return self.num_players > 2
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "num_players": self.num_players,
+            "hero_player_index": self.hero_player_index,
+            "active_positions": list(self.active_positions),
+            "villain_ranges": list(self.villain_ranges),
+            "primary_villain_index": self.primary_villain_index,
+            "mode": self.mode,
+        }

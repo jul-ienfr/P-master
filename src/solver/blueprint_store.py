@@ -23,7 +23,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import time
 from pathlib import Path
 from typing import Any
 
@@ -59,6 +58,11 @@ def blueprint_key(
     hero_position: str,
     action_history: list[str],
     rake: float = 0.0,
+    hero_range: str = "",
+    num_players: int | None = None,
+    villain_ranges: list[str] | tuple[str, ...] | None = None,
+    hero_player_index: int | None = None,
+    active_positions: list[str] | tuple[str, ...] | None = None,
 ) -> str:
     """Clé canonique de lookup blueprint.
 
@@ -79,6 +83,11 @@ def blueprint_key(
         hero_position=hero_position,
         action_history=action_history,
         rake=rake,
+        hero_range=hero_range,
+        num_players=num_players,
+        villain_ranges=villain_ranges,
+        hero_player_index=hero_player_index,
+        active_positions=active_positions,
     )
 
 
@@ -244,6 +253,7 @@ class BlueprintStore:
                     hero_position=str(spot.get("hero_position") or ""),
                     action_history=list(spot.get("action_history") or []),
                     rake=float(spot.get("rake") or 0.0),
+                    hero_range=str(spot.get("hero_range") or ""),
                 )
                 (covered if key in keys_present else missing).append(key)
             total = len(spots)

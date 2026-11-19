@@ -28,6 +28,35 @@ DEFAULT_GTO_SERVER_TIMEOUT_S = 1.2
 
 _AGGRESSIVE_ACTIONS = {"bet", "raise", "all_in", "allin", "all-in"}
 
+_NATIVE_SOLVE_KEYS = {
+    "hero_range",
+    "villain_ranges",
+    "board",
+    "starting_pot",
+    "effective_stack",
+    "hero_position",
+    "action_history",
+    "tree_preset_id",
+    "rake",
+    "rake_cap",
+    "num_players",
+    "spot_id",
+    "legal_actions",
+    "cache_policy",
+    "hero_confidence",
+    "state_confidence",
+    "use_cache",
+    "time_budget_ms",
+    "epsilon_target",
+    "hero_hand",
+    "sample_mixed",
+    "random_seed",
+    "bet_sizes",
+    "raise_sizes",
+    "turn_donk_sizes",
+    "river_donk_sizes",
+}
+
 
 def _env_truthy(value: object) -> bool:
     return str(value or "").strip().lower() in ("1", "true", "yes", "on")
@@ -105,6 +134,9 @@ class SolverProvider:
         normalized.setdefault("backend", backend)
         normalized.setdefault("fallback_used", False)
         normalized.setdefault("fallback_reason", "")
+        if bool(normalized.get("fallback_used")) or str(normalized.get("fallback_reason") or ""):
+            normalized["fallback_used"] = True
+            return normalized
         if not self._supports_action_payload(normalized):
             return None
         return normalized
@@ -126,11 +158,12 @@ class SolverProvider:
                 )
             return None, "solver_backend_missing_entrypoint"
 
+        native_payload = {key: value for key, value in payload.items() if key in _NATIVE_SOLVE_KEYS}
         try:
-            result = solver_fn(**payload)
+            result = solver_fn(**native_payload)
         except TypeError:
             try:
-                result = solver_fn(payload)
+                result = solver_fn(native_payload)
             except Exception as exc:
                 logger.debug("Native solver backend failed after payload fallback: %s", exc)
                 if self.health_monitor is not None:
@@ -258,9 +291,7 @@ class SolverProvider:
         return blueprint_key(
             hero_hand=str(payload.get("hero_range") or ""),
             villain_range=str(
-                (payload.get("villain_ranges") or [""])[0]
-                if payload.get("villain_ranges")
-                else ""
+                (payload.get("villain_ranges") or [""])[0] if payload.get("villain_ranges") else ""
             ),
             board=list(payload.get("board") or []),
             pot=float(payload.get("starting_pot") or 0.0),
@@ -270,6 +301,11 @@ class SolverProvider:
             hero_position=str(payload.get("hero_position") or ""),
             action_history=list(payload.get("action_history") or []),
             rake=float(payload.get("rake") or 0.0),
+            hero_range=str(payload.get("hero_range") or ""),
+            num_players=payload.get("num_players"),
+            villain_ranges=list(payload.get("villain_ranges") or []),
+            hero_player_index=payload.get("hero_player_index"),
+            active_positions=list(payload.get("active_positions") or []),
         )
 
     def _check_bet_quantization(self, payload: dict) -> str | None:
@@ -351,15 +387,19 @@ class SolverProvider:
             self._active_backend = str(
                 native_response.get("backend") or self._native_backend_name()
             )
-            self._last_fallback_reason = ""
-            self._last_success_at = _utc_now()
+            native_fallback_reason = str(native_response.get("fallback_reason") or "")
+            self._last_fallback_reason = native_fallback_reason
+            if not native_fallback_reason:
+                self._last_success_at = _utc_now()
             return native_response
 
         http_response, http_reason = self._invoke_http(payload)
         if http_response is not None:
             self._active_backend = str(http_response.get("backend") or "gto_server")
-            self._last_fallback_reason = ""
-            self._last_success_at = _utc_now()
+            http_fallback_reason = str(http_response.get("fallback_reason") or "")
+            self._last_fallback_reason = http_fallback_reason
+            if not http_fallback_reason:
+                self._last_success_at = _utc_now()
             return http_response
 
         fallback_reason = native_reason or http_reason or "no_backend_result"

@@ -102,7 +102,9 @@ fn bet_target(bet: &BetSize, pot_total: i64, bet_to_match: i64, effective_stack:
             let amt = ((*f) * pot_total as f64).ceil() as i64;
             bet_to_match.saturating_add(amt.max(1))
         }
-        BetSize::Additive(add, _) => bet_to_match.saturating_add(*add as i64).max(bet_to_match + 1),
+        BetSize::Additive(add, _) => bet_to_match
+            .saturating_add(*add as i64)
+            .max(bet_to_match + 1),
         BetSize::PrevBetRelative(f) => {
             let amt = ((bet_to_match as f64) * (*f - 1.0)).ceil() as i64;
             bet_to_match.saturating_add(amt.max(1))
@@ -268,9 +270,7 @@ pub(crate) struct GameState {
 impl GameState {
     fn new(n: usize, board_cards: [u8; 5], board_len: usize, starting_pot: i64) -> Self {
         let mut needs_action = [false; MAX_PLAYERS];
-        for i in 0..n {
-            needs_action[i] = true;
-        }
+        needs_action[..n].fill(true);
         Self {
             n,
             committed: [0; MAX_PLAYERS],
@@ -325,7 +325,8 @@ impl GameState {
                 // avoid duplicate targets
                 let duplicate = actions.iter().any(|a| {
                     if let Action::Bet(j) = a {
-                        let t2 = bet_target(&bets[*j], pot_total, self.bet_to_match, effective_stack);
+                        let t2 =
+                            bet_target(&bets[*j], pot_total, self.bet_to_match, effective_stack);
                         t2 == target
                     } else {
                         false
@@ -340,9 +341,18 @@ impl GameState {
                 }
             }
             // fallback: ensure at least one raise if can_raise and none added but room>to_call
-            if actions.iter().all(|a| matches!(a, Action::Fold | Action::Call)) && room > to_call {
+            if actions
+                .iter()
+                .all(|a| matches!(a, Action::Fold | Action::Call))
+                && room > to_call
+            {
                 // add largest bet as fallback
-                if let Some((i, _)) = sizing.bets_for(self.board_len).iter().enumerate().last() {
+                if let Some((i, _)) = sizing
+                    .bets_for(self.board_len)
+                    .iter()
+                    .enumerate()
+                    .next_back()
+                {
                     if Action::Bet(i).slot() < ACTION_SLOTS {
                         actions.push(Action::Bet(i));
                     }
@@ -358,7 +368,12 @@ fn total_pot(state: &GameState) -> i64 {
     state.starting_pot + (0..state.n).map(|i| state.committed[i]).sum::<i64>()
 }
 
-fn apply_static(state: &GameState, action: Action, effective_stack: i64, sizing: &SizingConfig) -> GameState {
+fn apply_static(
+    state: &GameState,
+    action: Action,
+    effective_stack: i64,
+    sizing: &SizingConfig,
+) -> GameState {
     let mut next = state.clone();
     let player = next.current;
     match action {
@@ -433,13 +448,15 @@ struct Solver<'a> {
     n: usize,
     hands: &'a [Vec<[u8; 2]>; MAX_PLAYERS],
     effective_stack: i64,
-    #[allow(dead_code)] // conservé pour traçabilité du pot initial ; le pot effectif vit dans GameState::starting_pot / total_pot
+    #[allow(dead_code)]
+    // conservé pour traçabilité du pot initial ; le pot effectif vit dans GameState::starting_pot / total_pot
     starting_pot: i64,
     rake_rate: f64,
     rake_cap: f64,
     sizing: SizingConfig,
     regrets: FxHashMap<u64, [f64; ACTION_SLOTS]>,
     strategy_sum: FxHashMap<u64, [f64; ACTION_SLOTS]>,
+    strategy_sum_by_player_combo: FxHashMap<(usize, usize), [f64; ACTION_SLOTS]>,
     chosen_stats: PlayerArray<[f64; ACTION_SLOTS]>,
     rng_state: u64,
     iterations_done: u64,
@@ -485,8 +502,7 @@ impl<'a> Solver<'a> {
             used |= 1u64 << card;
         }
         let mut dealt = [0usize; MAX_PLAYERS];
-        for player in 0..self.n {
-            let combos = &self.hands[player];
+        for (player, combos) in self.hands.iter().enumerate().take(self.n) {
             if combos.is_empty() {
                 return Err(format!("range vide joueur {}", player));
             }
@@ -514,7 +530,11 @@ impl<'a> Solver<'a> {
     }
     fn average_strategy(&self, key: u64, legal: &[Action]) -> [f64; ACTION_SLOTS] {
         let mut strategy = [0.0f64; ACTION_SLOTS];
-        let sum = self.strategy_sum.get(&key).copied().unwrap_or([0.0; ACTION_SLOTS]);
+        let sum = self
+            .strategy_sum
+            .get(&key)
+            .copied()
+            .unwrap_or([0.0; ACTION_SLOTS]);
         let total: f64 = legal.iter().map(|a| sum[a.slot()]).sum();
         if total <= 0.0 {
             let uniform = 1.0 / legal.len() as f64;
@@ -537,7 +557,11 @@ impl<'a> Solver<'a> {
             }
         }
         let mut strategy = [0.0f64; ACTION_SLOTS];
-        let regrets = self.regrets.get(&key).copied().unwrap_or([0.0; ACTION_SLOTS]);
+        let regrets = self
+            .regrets
+            .get(&key)
+            .copied()
+            .unwrap_or([0.0; ACTION_SLOTS]);
         let mut total = 0.0f64;
         for action in legal {
             let slot = action.slot();
@@ -562,8 +586,8 @@ impl<'a> Solver<'a> {
         for &card in &state.board_cards[..state.board_len] {
             mask |= 1u64 << card;
         }
-        for player in 0..self.n {
-            for &card in &self.hands[player][dealt[player]] {
+        for (player, combos) in self.hands.iter().enumerate().take(self.n) {
+            for &card in &combos[dealt[player]] {
                 mask |= 1u64 << card;
             }
         }
@@ -617,8 +641,9 @@ impl<'a> Solver<'a> {
             let winner = (0..state.n).find(|&p| !state.folded[p]).unwrap();
             let mut payoffs = [0.0; MAX_PLAYERS];
             payoffs[winner] = pot_after_rake;
-            for p in 0..state.n {
-                payoffs[p] -= state.committed[p] as f64;
+            for (payoff, committed) in payoffs.iter_mut().zip(state.committed.iter()).take(state.n)
+            {
+                *payoff -= *committed as f64;
             }
             return payoffs;
         }
@@ -627,8 +652,8 @@ impl<'a> Solver<'a> {
             board_hand = board_hand.add_card(card as usize);
         }
         let mut best_rank = 0u16;
-        for p in 0..state.n {
-            if !state.folded[p] {
+        for (p, folded) in state.folded.iter().enumerate().take(state.n) {
+            if !*folded {
                 let rank = board_hand
                     .add_card(self.hands[p][dealt[p]][0] as usize)
                     .add_card(self.hands[p][dealt[p]][1] as usize)
@@ -648,15 +673,25 @@ impl<'a> Solver<'a> {
             .collect();
         let share = pot_after_rake / winners.len() as f64;
         let mut payoffs = [0.0; MAX_PLAYERS];
-        for p in 0..state.n {
-            payoffs[p] -= state.committed[p] as f64;
+        for (p, (payoff, committed)) in payoffs
+            .iter_mut()
+            .zip(state.committed.iter())
+            .enumerate()
+            .take(state.n)
+        {
+            *payoff -= *committed as f64;
             if winners.contains(&p) {
-                payoffs[p] += share;
+                *payoff += share;
             }
         }
         payoffs
     }
-    fn traverse(&mut self, state: &GameState, dealt: &[usize; MAX_PLAYERS], traverser: usize) -> [f64; MAX_PLAYERS] {
+    fn traverse(
+        &mut self,
+        state: &GameState,
+        dealt: &[usize; MAX_PLAYERS],
+        traverser: usize,
+    ) -> [f64; MAX_PLAYERS] {
         let Some(state) = self.normalize(state, dealt) else {
             return [0.0; MAX_PLAYERS];
         };
@@ -683,12 +718,20 @@ impl<'a> Solver<'a> {
             let entry = self.regrets.entry(key).or_insert([0.0; ACTION_SLOTS]);
             for action in &legal {
                 let slot = action.slot();
-                entry[slot] = (entry[slot] + utilities[slot][traverser] - expected[traverser]).max(0.0);
+                entry[slot] =
+                    (entry[slot] + utilities[slot][traverser] - expected[traverser]).max(0.0);
             }
             let weight = (self.iterations_done + 1) as f64;
             let sum = self.strategy_sum.entry(key).or_insert([0.0; ACTION_SLOTS]);
+            let aggregate = self
+                .strategy_sum_by_player_combo
+                .entry((player, combo_index))
+                .or_insert([0.0; ACTION_SLOTS]);
             for action in &legal {
-                sum[action.slot()] += strategy[action.slot()] * weight;
+                let slot = action.slot();
+                let weighted = strategy[slot] * weight;
+                sum[slot] += weighted;
+                aggregate[slot] += weighted;
             }
             expected
         } else {
@@ -716,17 +759,30 @@ fn parse_cards(texts: &[String]) -> Result<Vec<u8>, String> {
     texts
         .iter()
         .map(|text| {
-            let normalized = format!("{}{}", text[..1].to_ascii_uppercase(), text[1..].to_ascii_lowercase());
+            let normalized = format!(
+                "{}{}",
+                text[..1].to_ascii_uppercase(),
+                text[1..].to_ascii_lowercase()
+            );
             card_from_str(&normalized).map_err(|err| err.to_string())
         })
         .collect()
 }
 fn build_combo_list(range_text: &str, dead_mask: u64) -> Result<Vec<[u8; 2]>, String> {
-    let range = Range::from_sanitized_str(range_text).map_err(|err| format!("range invalide '{range_text}': {err}"))?;
+    let range = Range::from_sanitized_str(range_text)
+        .map_err(|err| format!("range invalide '{range_text}': {err}"))?;
     let (hands, _weights) = range.get_hands_weights(dead_mask);
-    Ok(hands.into_iter().map(|(first, second)| [first, second]).collect())
+    Ok(hands
+        .into_iter()
+        .map(|(first, second)| [first, second])
+        .collect())
 }
-fn sample_deal_free(hands: &[Vec<[u8; 2]>; MAX_PLAYERS], n: usize, board_known: &[u8], rng: &mut impl Rng) -> Option<[usize; MAX_PLAYERS]> {
+fn sample_deal_free(
+    hands: &[Vec<[u8; 2]>; MAX_PLAYERS],
+    n: usize,
+    board_known: &[u8],
+    rng: &mut impl Rng,
+) -> Option<[usize; MAX_PLAYERS]> {
     let mut used: u64 = 0;
     for &card in board_known {
         used |= 1u64 << card;
@@ -761,7 +817,10 @@ pub fn solve_multiway(request: MultiwayRequest) -> Result<MultiwayResponse, Stri
     let mut seen = [false; 52];
     for &card in &board {
         if seen[card as usize] {
-            return Err(format!("carte dupliquée dans le board: {}", crate::card_to_string(card)?));
+            return Err(format!(
+                "carte dupliquée dans le board: {}",
+                crate::card_to_string(card)?
+            ));
         }
         seen[card as usize] = true;
     }
@@ -794,7 +853,9 @@ pub fn solve_multiway(request: MultiwayRequest) -> Result<MultiwayResponse, Stri
         sizing: sizing.clone(),
         regrets: FxHashMap::new(),
         strategy_sum: FxHashMap::new(),
+        strategy_sum_by_player_combo: FxHashMap::new(),
         chosen_stats: [[0.0; ACTION_SLOTS]; MAX_PLAYERS],
+
         rng_state: seed | 1,
         iterations_done: 0,
     };
@@ -823,22 +884,44 @@ pub fn solve_multiway(request: MultiwayRequest) -> Result<MultiwayResponse, Stri
         solver.iterations_done += 1;
     }
     if successes + failures > 0 && successes * 2 <= successes + failures {
-        return Err(format!("taux de distribution <50% {}/{}", successes, successes + failures));
+        return Err(format!(
+            "taux de distribution <50% {}/{}",
+            successes,
+            successes + failures
+        ));
     }
     if solver.iterations_done == 0 {
         return Err("aucune itération réussie".to_string());
     }
-    evaluate_solution(&solver, hands_ref, &request, effective_stack, starting_pot, seed)
+    evaluate_solution(
+        &solver,
+        hands_ref,
+        &request,
+        effective_stack,
+        starting_pot,
+        seed,
+    )
 }
 
-fn evaluate_solution(solver: &Solver, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], request: &MultiwayRequest, effective_stack: i64, starting_pot: i64, seed: u64) -> Result<MultiwayResponse, String> {
+fn evaluate_solution(
+    solver: &Solver,
+    hands: &[Vec<[u8; 2]>; MAX_PLAYERS],
+    request: &MultiwayRequest,
+    effective_stack: i64,
+    starting_pot: i64,
+    seed: u64,
+) -> Result<MultiwayResponse, String> {
     let hero = request.hero_player;
     if hands[hero].is_empty() {
         return Err("la range héro est vide après retrait du board".to_string());
     }
     let mut board_array = [0u8; 5];
     for (index, text) in request.board.iter().enumerate() {
-        let normalized = format!("{}{}", text[..1].to_ascii_uppercase(), text[1..].to_ascii_lowercase());
+        let normalized = format!(
+            "{}{}",
+            text[..1].to_ascii_uppercase(),
+            text[1..].to_ascii_lowercase()
+        );
         board_array[index] = card_from_str(&normalized).map_err(|err| err.to_string())?;
     }
     let n = solver.n;
@@ -847,8 +930,10 @@ fn evaluate_solution(solver: &Solver, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], reque
     let mut freq_sum = [0.0f64; ACTION_SLOTS];
     let mut counted_combos = 0usize;
     for combo_index in 0..hands[hero].len() {
-        let key = solver.node_key(&root, hero, combo_index);
-        if let Some(sum) = solver.strategy_sum.get(&key) {
+        if let Some(sum) = solver
+            .strategy_sum_by_player_combo
+            .get(&(hero, combo_index))
+        {
             let total: f64 = sum.iter().sum();
             if total > 0.0 {
                 for slot in 0..ACTION_SLOTS {
@@ -886,7 +971,13 @@ fn evaluate_solution(solver: &Solver, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], reque
             });
             // avoid duplicates
             if !actions.iter().any(|ad| ad.name == name) {
-                actions.push(ActionDetail { name, frequency: freq_sum[slot] as f32, ev: 0.0, ev_bb: None, ev_bb_per_100: None });
+                actions.push(ActionDetail {
+                    name,
+                    frequency: freq_sum[slot] as f32,
+                    ev: 0.0,
+                    ev_bb: None,
+                    ev_bb_per_100: None,
+                });
             }
         }
     }
@@ -898,17 +989,26 @@ fn evaluate_solution(solver: &Solver, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], reque
             recommended_slot = slot;
         }
     }
-    let recommended_action = actions.iter().find(|a| {
-        // map recommended slot to name
-        let target_name = slot_to_name[recommended_slot].clone().unwrap_or_else(|| match recommended_slot {
-            0 => "fold".to_string(),
-            1 => "call".to_string(),
-            _ => format!("bet_{}", recommended_slot),
+    let recommended_action = actions
+        .iter()
+        .find(|a| {
+            // map recommended slot to name
+            let target_name =
+                slot_to_name[recommended_slot]
+                    .clone()
+                    .unwrap_or_else(|| match recommended_slot {
+                        0 => "fold".to_string(),
+                        1 => "call".to_string(),
+                        _ => format!("bet_{}", recommended_slot),
+                    });
+            a.name == target_name
+        })
+        .map(|a| a.name.clone())
+        .unwrap_or_else(|| {
+            slot_to_name[recommended_slot]
+                .clone()
+                .unwrap_or("call".to_string())
         });
-        a.name == target_name
-    }).map(|a| a.name.clone()).unwrap_or_else(|| {
-        slot_to_name[recommended_slot].clone().unwrap_or("call".to_string())
-    });
     let mut mc_rng = XorShift::new(seed ^ 0x5EED_CAFE_F00D_0001);
     let samples = 4000usize;
     let mut ev_sum = 0.0f64;
@@ -916,19 +1016,44 @@ fn evaluate_solution(solver: &Solver, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], reque
     let mut action_ev_sums = [0.0f64; ACTION_SLOTS];
     let mut action_ev_counts = [0usize; ACTION_SLOTS];
     for _ in 0..samples {
-        let Some(dealt) = sample_deal_free(hands, n, &request_board_bytes(request), &mut mc_rng) else { continue; };
-        let ev = rollout_average(solver, hands, dealt, &root, hero, effective_stack, starting_pot, &mut mc_rng, 24);
+        let Some(dealt) = sample_deal_free(hands, n, &request_board_bytes(request), &mut mc_rng)
+        else {
+            continue;
+        };
+        let ev = rollout_average(
+            solver,
+            hands,
+            dealt,
+            &root,
+            hero,
+            effective_stack,
+            starting_pot,
+            &mut mc_rng,
+            24,
+        );
         ev_sum += ev;
         let mut best = f64::NEG_INFINITY;
         for action in root.legal_actions(effective_stack, sizing) {
             let child = apply_static(&root, action, effective_stack, sizing);
-            let value = rollout_average(solver, hands, dealt, &child, hero, effective_stack, starting_pot, &mut mc_rng, 24);
+            let value = rollout_average(
+                solver,
+                hands,
+                dealt,
+                &child,
+                hero,
+                effective_stack,
+                starting_pot,
+                &mut mc_rng,
+                24,
+            );
             let slot = action.slot();
             action_ev_sums[slot] += value;
             action_ev_counts[slot] += 1;
             best = best.max(value);
         }
-        if best.is_finite() { br_best_sum += best; }
+        if best.is_finite() {
+            br_best_sum += best;
+        }
     }
     let hero_ev = ev_sum / samples as f64;
     let br_ev = br_best_sum / samples as f64;
@@ -942,11 +1067,15 @@ fn evaluate_solution(solver: &Solver, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], reque
         }
     }
     // Helper inverse : name -> slot
-    let name_to_slot = |name: &str| -> Option<usize> {
-        for s in 0..ACTION_SLOTS {
-            if let Some(n) = &slot_to_name[s] { if n == name { return Some(s); } }
+    let name_to_slot = |target: &str| -> Option<usize> {
+        for (s, slot_name) in slot_to_name.iter().enumerate() {
+            if let Some(name) = slot_name {
+                if name == target {
+                    return Some(s);
+                }
+            }
         }
-        match name {
+        match target {
             "fold" => Some(0),
             "call" => Some(1),
             _ => None,
@@ -954,8 +1083,11 @@ fn evaluate_solution(solver: &Solver, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], reque
     };
     for action in &mut actions {
         if let Some(slot) = name_to_slot(&action.name) {
-            if let Some(avg) = slot_to_avg[slot] { action.ev = avg; }
-            else { action.ev = hero_ev as f32; }
+            if let Some(avg) = slot_to_avg[slot] {
+                action.ev = avg;
+            } else {
+                action.ev = hero_ev as f32;
+            }
         } else {
             action.ev = hero_ev as f32;
         }
@@ -973,7 +1105,10 @@ fn evaluate_solution(solver: &Solver, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], reque
                     bb,
                     "bb dérivé de effective_stack/100 (fallback 100bb deep) [multiway]"
                 );
-                (Some(bb), Some("bb=effective_stack/100 (fallback 100bb deep)".to_string()))
+                (
+                    Some(bb),
+                    Some("bb=effective_stack/100 (fallback 100bb deep)".to_string()),
+                )
             } else {
                 (None, None)
             }
@@ -1006,13 +1141,32 @@ fn evaluate_solution(solver: &Solver, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], reque
 }
 
 fn request_board_bytes(request: &MultiwayRequest) -> Vec<u8> {
-    request.board.iter().map(|text| {
-        let normalized = format!("{}{}", text[..1].to_ascii_uppercase(), text[1..].to_ascii_lowercase());
-        card_from_str(&normalized).unwrap_or(0)
-    }).collect()
+    request
+        .board
+        .iter()
+        .map(|text| {
+            let normalized = format!(
+                "{}{}",
+                text[..1].to_ascii_uppercase(),
+                text[1..].to_ascii_lowercase()
+            );
+            card_from_str(&normalized).unwrap_or(0)
+        })
+        .collect()
 }
 
-fn rollout_average(solver: &Solver, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], dealt: [usize; MAX_PLAYERS], state: &GameState, hero: usize, effective_stack: i64, _starting_pot: i64, rng: &mut impl Rng, step_budget: usize) -> f64 {
+#[allow(clippy::too_many_arguments)]
+fn rollout_average(
+    solver: &Solver,
+    hands: &[Vec<[u8; 2]>; MAX_PLAYERS],
+    dealt: [usize; MAX_PLAYERS],
+    state: &GameState,
+    hero: usize,
+    effective_stack: i64,
+    _starting_pot: i64,
+    rng: &mut impl Rng,
+    step_budget: usize,
+) -> f64 {
     let mut state = state.clone();
     let mut guard = 0usize;
     while !state.is_terminal() && guard < step_budget {
@@ -1021,16 +1175,24 @@ fn rollout_average(solver: &Solver, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], dealt: 
             let to_deal = if state.board_len == 0 { 3 } else { 1 };
             let mut dealt_any = false;
             for _ in 0..to_deal {
-                if state.board_len >= 5 { break; }
-                let Some(card) = sample_next_card_rollout(&state, hands, dealt, rng) else { break; };
+                if state.board_len >= 5 {
+                    break;
+                }
+                let Some(card) = sample_next_card_rollout(&state, hands, dealt, rng) else {
+                    break;
+                };
                 state.board_cards[state.board_len] = card;
                 state.board_len += 1;
                 dealt_any = true;
             }
-            if !dealt_any { break; }
+            if !dealt_any {
+                break;
+            }
             state.num_raises = 0;
             state.bet_to_match = 0;
-            for p in 0..state.n { state.needs_action[p] = !state.folded[p]; }
+            for p in 0..state.n {
+                state.needs_action[p] = !state.folded[p];
+            }
             state.current = (0..state.n).find(|&p| !state.folded[p]).unwrap_or(0);
             continue;
         }
@@ -1044,7 +1206,10 @@ fn rollout_average(solver: &Solver, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], dealt: 
         let mut chosen = legal[legal.len() - 1];
         for action in &legal {
             cumulative += strategy[action.slot()];
-            if draw <= cumulative { chosen = *action; break; }
+            if draw <= cumulative {
+                chosen = *action;
+                break;
+            }
         }
         state = apply_static(&state, chosen, effective_stack, &solver.sizing);
     }
@@ -1055,12 +1220,21 @@ fn rollout_average(solver: &Solver, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], dealt: 
             state.committed[p] += to_add.max(0);
         }
         while state.board_len < 5 {
-            let Some(card) = sample_next_card_rollout(&state, hands, dealt, rng) else { break; };
+            let Some(card) = sample_next_card_rollout(&state, hands, dealt, rng) else {
+                break;
+            };
             state.board_cards[state.board_len] = card;
             state.board_len += 1;
         }
     }
-    static_payoffs(&state, hands, dealt, total_pot(&state), solver.rake_rate, solver.rake_cap)[hero]
+    static_payoffs(
+        &state,
+        hands,
+        dealt,
+        total_pot(&state),
+        solver.rake_rate,
+        solver.rake_cap,
+    )[hero]
 }
 
 #[cfg(feature = "multiway-debug")]
@@ -1072,43 +1246,89 @@ thread_local! {
     static ROLLOUT_FOLDS_BY: std::cell::Cell<[u64; MAX_PLAYERS]> = const { std::cell::Cell::new([0; MAX_PLAYERS]) };
 }
 
-fn sample_next_card_rollout(state: &GameState, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], dealt: [usize; MAX_PLAYERS], rng: &mut impl Rng) -> Option<u8> {
+fn sample_next_card_rollout(
+    state: &GameState,
+    hands: &[Vec<[u8; 2]>; MAX_PLAYERS],
+    dealt: [usize; MAX_PLAYERS],
+    rng: &mut impl Rng,
+) -> Option<u8> {
     let mut used: u64 = 0;
-    for &card in &state.board_cards[..state.board_len] { used |= 1u64 << card; }
+    for &card in &state.board_cards[..state.board_len] {
+        used |= 1u64 << card;
+    }
     for player in 0..state.n {
-        for &card in &hands[player][dealt[player]] { used |= 1u64 << card; }
+        for &card in &hands[player][dealt[player]] {
+            used |= 1u64 << card;
+        }
     }
     let mut candidates = [0u8; 52];
     let mut count = 0usize;
-    for card in 0u8..52 { if used & (1u64 << card) == 0 { candidates[count]=card; count+=1; } }
-    if count==0 { return None; }
+    for card in 0u8..52 {
+        if used & (1u64 << card) == 0 {
+            candidates[count] = card;
+            count += 1;
+        }
+    }
+    if count == 0 {
+        return None;
+    }
     let draw = (rng.next_f64() * count as f64) as usize;
-    Some(candidates[draw.min(count-1)])
+    Some(candidates[draw.min(count - 1)])
 }
-fn static_payoffs(state: &GameState, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], dealt: [usize; MAX_PLAYERS], pot_total: i64, rake_rate: f64, rake_cap: f64) -> [f64; MAX_PLAYERS] {
+fn static_payoffs(
+    state: &GameState,
+    hands: &[Vec<[u8; 2]>; MAX_PLAYERS],
+    dealt: [usize; MAX_PLAYERS],
+    pot_total: i64,
+    rake_rate: f64,
+    rake_cap: f64,
+) -> [f64; MAX_PLAYERS] {
     let pot_f = pot_total as f64;
     let pot_after = crate::ev::pot_after_rake(pot_f, rake_rate, rake_cap);
     if state.active_players() == 1 {
         let winner = (0..state.n).find(|&p| !state.folded[p]).unwrap();
         let mut payoffs = [0.0; MAX_PLAYERS];
         payoffs[winner] = pot_after;
-        for p in 0..state.n { payoffs[p] -= state.committed[p] as f64; }
+        for (payoff, committed) in payoffs.iter_mut().zip(state.committed.iter()).take(state.n) {
+            *payoff -= *committed as f64;
+        }
         return payoffs;
     }
     let mut board_hand = Hand::new();
-    for &card in &state.board_cards[..state.board_len.min(5)] { board_hand = board_hand.add_card(card as usize); }
+    for &card in &state.board_cards[..state.board_len.min(5)] {
+        board_hand = board_hand.add_card(card as usize);
+    }
     let mut best_rank = 0u16;
     for p in 0..state.n {
         if !state.folded[p] {
-            let rank = board_hand.add_card(hands[p][dealt[p]][0] as usize).add_card(hands[p][dealt[p]][1] as usize).evaluate();
+            let rank = board_hand
+                .add_card(hands[p][dealt[p]][0] as usize)
+                .add_card(hands[p][dealt[p]][1] as usize)
+                .evaluate();
             best_rank = best_rank.max(rank);
         }
     }
-    let winners = (0..state.n).filter(|&p| !state.folded[p] && board_hand.add_card(hands[p][dealt[p]][0] as usize).add_card(hands[p][dealt[p]][1] as usize).evaluate() == best_rank).count().max(1) as f64;
+    let winners = (0..state.n)
+        .filter(|&p| {
+            !state.folded[p]
+                && board_hand
+                    .add_card(hands[p][dealt[p]][0] as usize)
+                    .add_card(hands[p][dealt[p]][1] as usize)
+                    .evaluate()
+                    == best_rank
+        })
+        .count()
+        .max(1) as f64;
     let mut payoffs = [0.0; MAX_PLAYERS];
     for p in 0..state.n {
         payoffs[p] -= state.committed[p] as f64;
-        if !state.folded[p] && board_hand.add_card(hands[p][dealt[p]][0] as usize).add_card(hands[p][dealt[p]][1] as usize).evaluate() == best_rank {
+        if !state.folded[p]
+            && board_hand
+                .add_card(hands[p][dealt[p]][0] as usize)
+                .add_card(hands[p][dealt[p]][1] as usize)
+                .evaluate()
+                == best_rank
+        {
             payoffs[p] += pot_after / winners;
         }
     }
@@ -1118,19 +1338,23 @@ fn static_payoffs(state: &GameState, hands: &[Vec<[u8; 2]>; MAX_PLAYERS], dealt:
 #[cfg(test)]
 mod internal_tests {
     use super::*;
-    fn card(text: &str) -> u8 { crate::card_from_str(text).unwrap() }
+    fn card(text: &str) -> u8 {
+        crate::card_from_str(text).unwrap()
+    }
     #[test]
     fn showdown_payoffs_are_zero_sum_and_correct() {
         let board_cards = [card("Ah"), card("7d"), card("2c"), card("Kd"), card("9s")];
         let state = GameState::new(3, board_cards, 5, 6);
-        let mut hands: [Vec<[u8;2]>; MAX_PLAYERS] = Default::default();
-        hands[0]=vec![[card("As"), card("Ac")]];
-        hands[1]=vec![[card("Ks"), card("Kh")]];
-        hands[2]=vec![[card("Qs"), card("Qh")]];
-        let dealt = [0,0,0,0,0,0];
+        let mut hands: [Vec<[u8; 2]>; MAX_PLAYERS] = Default::default();
+        hands[0] = vec![[card("As"), card("Ac")]];
+        hands[1] = vec![[card("Ks"), card("Kh")]];
+        hands[2] = vec![[card("Qs"), card("Qh")]];
+        let dealt = [0, 0, 0, 0, 0, 0];
         let mut bet_state = state.clone();
-        bet_state.committed[0]=2; bet_state.committed[1]=2; bet_state.committed[2]=2;
-        let pot_total = 6+6;
+        bet_state.committed[0] = 2;
+        bet_state.committed[1] = 2;
+        bet_state.committed[2] = 2;
+        let pot_total = 6 + 6;
         let payoffs = static_payoffs(&bet_state, &hands, dealt, pot_total, 0.0, 0.0);
         assert_eq!(payoffs[0], 10.0);
         assert_eq!(payoffs[1], -2.0);
@@ -1140,13 +1364,15 @@ mod internal_tests {
     fn rake_reduces_payoffs() {
         let board_cards = [card("Ah"), card("7d"), card("2c"), card("Kd"), card("9s")];
         let state = GameState::new(3, board_cards, 5, 6);
-        let mut hands: [Vec<[u8;2]>; MAX_PLAYERS] = Default::default();
-        hands[0]=vec![[card("As"), card("Ac")]];
-        hands[1]=vec![[card("Ks"), card("Kh")]];
-        hands[2]=vec![[card("Qs"), card("Qh")]];
-        let dealt = [0,0,0,0,0,0];
+        let mut hands: [Vec<[u8; 2]>; MAX_PLAYERS] = Default::default();
+        hands[0] = vec![[card("As"), card("Ac")]];
+        hands[1] = vec![[card("Ks"), card("Kh")]];
+        hands[2] = vec![[card("Qs"), card("Qh")]];
+        let dealt = [0, 0, 0, 0, 0, 0];
         let mut bet_state = state.clone();
-        bet_state.committed[0]=2; bet_state.committed[1]=2; bet_state.committed[2]=2;
+        bet_state.committed[0] = 2;
+        bet_state.committed[1] = 2;
+        bet_state.committed[2] = 2;
         let pot_total = 12;
         let payoffs_no_rake = static_payoffs(&bet_state, &hands, dealt, pot_total, 0.0, 0.0);
         let payoffs_rake = static_payoffs(&bet_state, &hands, dealt, pot_total, 0.05, 3.0);
@@ -1156,20 +1382,20 @@ mod internal_tests {
     fn fold_payoffs_award_pot_to_last_player() {
         let board_cards = [card("Ah"), card("7d"), card("2c"), card("Kd"), card("9s")];
         let mut state = GameState::new(3, board_cards, 5, 6);
-        state.folded=[false, true, true, false,false,false];
-        state.committed=[4,1,1,0,0,0];
-        let mut hands: [Vec<[u8;2]>; MAX_PLAYERS] = Default::default();
-        hands[0]=vec![[card("As"), card("Ac")]];
-        hands[1]=vec![[card("Ks"), card("Kh")]];
-        hands[2]=vec![[card("Qs"), card("Qh")]];
-        let payoffs = static_payoffs(&state, &hands, [0,0,0,0,0,0], 12, 0.0, 0.0);
+        state.folded = [false, true, true, false, false, false];
+        state.committed = [4, 1, 1, 0, 0, 0];
+        let mut hands: [Vec<[u8; 2]>; MAX_PLAYERS] = Default::default();
+        hands[0] = vec![[card("As"), card("Ac")]];
+        hands[1] = vec![[card("Ks"), card("Kh")]];
+        hands[2] = vec![[card("Qs"), card("Qh")]];
+        let payoffs = static_payoffs(&state, &hands, [0, 0, 0, 0, 0, 0], 12, 0.0, 0.0);
         assert_eq!(payoffs[0], 8.0);
     }
     #[test]
     fn betting_closed_after_all_active_players_call() {
         let sizing = SizingConfig::default();
-        let mut state = GameState::new(3, [card("Ah"), card("7d"), card("2c"),0,0], 3, 6);
-        let stack=20;
+        let mut state = GameState::new(3, [card("Ah"), card("7d"), card("2c"), 0, 0], 3, 6);
+        let stack = 20;
         state = apply_static(&state, Action::Bet(1), stack, &sizing);
         assert_eq!(state.current, 1);
         state = apply_static(&state, Action::Call, stack, &sizing);

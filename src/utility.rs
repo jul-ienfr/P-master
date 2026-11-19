@@ -243,6 +243,19 @@ pub(crate) fn apply_swap<T>(slice: &mut [T], swap_list: &[(u16, u16)]) {
 /// Finalizes the solving process.
 #[inline]
 pub fn finalize<T: Game>(game: &mut T) {
+    finalize_players(game, &[0, 1]);
+}
+
+/// Finalizes the solving process, storing the counterfactual values of the
+/// listed players only.
+///
+/// `finalize` parcout l'arbre une fois par joueur ; sur un flop à range
+/// complète cela coûte ~600 ms. Le chemin de production ne lit que les valeurs
+/// du héros, donc stocker un seul joueur divise ce coût par deux. Les valeurs
+/// des joueurs absents restent périmées : à n'utiliser que lorsque rien ne les
+/// lit (le jeu ne doit pas survivre à l'appel).
+#[inline]
+pub fn finalize_players<T: Game>(game: &mut T, players: &[usize]) {
     if game.is_solved() {
         panic!("Game is already solved");
     }
@@ -252,7 +265,7 @@ pub fn finalize<T: Game>(game: &mut T) {
     }
 
     // compute the expected values and save them
-    for player in 0..2 {
+    for &player in players {
         let mut cfvalues = Vec::with_capacity(game.num_private_hands(player));
         compute_cfvalue_recursive(
             cfvalues.spare_capacity_mut(),

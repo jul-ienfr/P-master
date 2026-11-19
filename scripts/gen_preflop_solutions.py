@@ -23,6 +23,8 @@ from src.bot.preflop_solutions import (  # noqa: E402
     CONTEXTS,
     DEFAULT_SOLUTIONS_PATH,
     DEPTH_BUCKETS,
+    HU_CONTEXTS,
+    HU_POSITIONS,
     PREFLOP_POSITIONS,
     PreflopSolutionStore,
     build_spot_solution,
@@ -61,6 +63,25 @@ def main() -> None:
                     depth_bb=depth,
                     samples_per_combo=args.samples,
                     seed=args.seed + hash((context, position, depth)) % 1000,
+                )
+                target = store.save_table(context, position, depth, table)
+                sample_combo = next(iter(table))
+                print(
+                    f"[{target.name}] combos={len(table)} "
+                    f"ex({sample_combo})={table[sample_combo]}"
+                )
+                written += 1
+
+    for context in HU_CONTEXTS:
+        for position in HU_POSITIONS:
+            for depth in args.depths:
+                table = build_spot_solution(
+                    context=context,
+                    position=position,
+                    depth_bb=depth,
+                    samples_per_combo=args.samples,
+                    seed=args.seed + hash((context, position, depth)) % 1000,
+                    heads_up=True,
                 )
                 target = store.save_table(context, position, depth, table)
                 sample_combo = next(iter(table))

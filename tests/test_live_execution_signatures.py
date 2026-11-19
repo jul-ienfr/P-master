@@ -1,7 +1,9 @@
 """Tests des signatures et gardes de décision live (src/bot/live_execution.py)."""
 
 import sys
+from collections import deque
 from pathlib import Path
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -9,6 +11,7 @@ if str(ROOT) not in sys.path:
 
 from src.bot.live_execution import LiveExecutionMixin
 from src.bot.runtime_types import CanonicalTableState
+from src.bot.sanity_checker import GateResult
 from src.vision.table_geometry import detection_center
 
 
@@ -125,6 +128,59 @@ def test_locked_decision_skip_flow():
     assert skip["action"] == "CHECK"
     assert skip["reason"] == "same_spot_locked"
     assert isinstance(skip["log_now"], bool)
+
+
+def test_decision_trace_uses_explicit_multiway_sampled_flag():
+    c = make_controller()
+    c.decision_trace_history = deque(maxlen=10)
+    c.runtime_history_store = SimpleNamespace(append=lambda *_args: None)
+    c.tracker = SimpleNamespace(current_hand_actions=[])
+    c._get_runtime_session_id = lambda: "session"
+    c._utc_now = lambda: "2026-11-17T12:00:00+00:00"
+    gate = GateResult(allowed=True, status="ready")
+    base_multiway = {
+        "mode": "multiway",
+        "num_players": 3,
+        "active_positions": ["SB", "BTN", "BB"],
+        "hero_player_index": 1,
+        "villain_ranges": ["range:SB", "range:BB"],
+    }
+
+    sampled_decision = {
+        "action": "CHECK",
+        "source": "GTO_RUST",
+        "warnings": ["multiway_approximation"],
+        "incidents": [],
+        "backend": "multiway_mccfr",
+        "metadata": {
+            "multiway": dict(base_multiway, converged=False, sampled=True),
+            "solver": {"backend": "multiway_mccfr", "warnings": ["multiway_approximation"]},
+        },
+    }
+    c._record_decision_trace(canonical(), sampled_decision, gate)
+    sampled_trace = c.decision_trace_history[0]
+    assert sampled_trace["converged"] is False
+    assert sampled_trace["sampled"] is True
+    assert sampled_trace["metadata"]["solver"]["sampled"] is True
+
+    refused_decision = {
+        "action": "FOLD",
+        "source": "FALLBACK",
+        "warnings": ["multiway_strict_refused"],
+        "incidents": [],
+        "fallback_used": True,
+        "fallback_reason": "multiway_strict_refused",
+        "backend": "refused",
+        "metadata": {
+            "multiway": dict(base_multiway, converged=False, sampled=False),
+            "solver": {"backend": "refused", "warnings": ["multiway_strict_refused"]},
+        },
+    }
+    c._record_decision_trace(canonical(), refused_decision, gate)
+    refused_trace = c.decision_trace_history[0]
+    assert refused_trace["converged"] is False
+    assert refused_trace["sampled"] is False
+    assert refused_trace["metadata"]["solver"]["sampled"] is False
 
 
 def test_build_minimal_skipped_decision_shape():

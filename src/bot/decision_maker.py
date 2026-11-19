@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 import time
 from collections import OrderedDict
 from functools import lru_cache
@@ -11,6 +12,7 @@ import numpy as np
 from src.data.redis_cache import AsyncRedisCache
 from src.runtime.bet_logger import log_action_history_bets
 from src.solver.provider import SolverProvider
+from src.solver.spot_key import spot_cache_key  # noqa: F401  (ré-export)
 
 from .icm_calculator import ICMCalculator
 from .preflop_ranges import PreflopManager
@@ -38,14 +40,26 @@ from .preflop_support import (
 from .preflop_support import (
     run_preflop_fast_path as _run_preflop_fast_path_impl,
 )
+from .range_model import range_class_count, range_combo_count
 from .range_updater import BayesianRangeUpdater
 
 _DEFAULT_DEPENDENCY = object()
+
+
+def _normalize_solver_range_string(value: str) -> str:
+    return ",".join(token.strip() for token in str(value or "").split(",") if token.strip())
+
 
 # Phase 2.6 — circuit breaker solver : seuil, base et cap du backoff exponentiel
 _SOLVER_BREAKER_THRESHOLD = 3
 _SOLVER_BREAKER_BASE_COOLDOWN_S = 60.0
 _SOLVER_BREAKER_MAX_COOLDOWN_S = 300.0
+
+# F-13 — garde-fou d'annulation : le solveur respecte son budget lui-même, mais
+# une itération DCFR n'est pas interruptible (plancher mesuré ~454 ms, voir
+# `docs/PHASE1_BASELINE_2026-11-14.md` §5.6). La marge couvre ce plancher plus
+# la réservation d'échéance ; au-delà, l'appel est annulé proprement.
+_SOLVER_TIMEOUT_MARGIN_S = 2.0
 
 try:
     from .rl_agent import RLAdapterAgent
@@ -134,6 +148,103 @@ def _normalize_action_name(action: str | None) -> str | None:
     if not action:
         return None
     return str(action).strip().upper()
+
+
+def _solver_history_action_name(action: str | None, *, facing_bet: bool) -> str | None:
+    """Traduit une action du tracker en token compris par le solveur."""
+    name = _normalize_action_name(action)
+    if not name:
+        return None
+    # « CALL » contient la sous-chaîne « ALL » : tester l'all-in sur des
+    # préfixes complets, sinon tout call était traduit en jam.
+    compact = name.replace("-", "").replace("_", "").replace(" ", "")
+    if name in {"JAM", "SHOVE"} or compact.startswith("ALLIN"):
+        return "allin"
+    if name.startswith("RAISE"):
+        return "raise" if facing_bet else "bet"
+    if name.startswith("BET"):
+        return "bet"
+    if name.startswith("CALL"):
+        return "call"
+    if name.startswith("CHECK"):
+        return "check"
+    if name.startswith("FOLD"):
+        return "fold"
+    return None
+
+
+def _format_solver_action_history(
+    action_history: list[dict[str, Any]] | None,
+    board: list[str] | None,
+    *,
+    hero_position: str = "ip",
+    villain_name: str = "",
+) -> list[str]:
+    """Construit l'historique de la rue courante au format du solveur.
+
+    Le tracker ne consigne que les actions qui font baisser un stack : les
+    checks (et les folds) n'y figurent pas. En heads-up, un trou dans la
+    séquence ne peut être qu'un check, donc les checks manquants sont insérés
+    en respectant l'ordre OOP → IP. Sans cette reconstruction, un spot « face
+    à une mise après un check » ne correspondrait à aucun nœud de l'arbre.
+    """
+    street_label = {3: "FLOP", 4: "TURN", 5: "RIVER"}.get(len(board or []))
+    if street_label is None or not action_history:
+        return []
+
+    entries: list[tuple[str, dict[str, Any]]] = []
+    for item in action_history:
+        if not isinstance(item, dict):
+            continue
+        item_street = str(item.get("street") or "").strip().upper()
+        if item_street and item_street != street_label:
+            continue
+        actor = str(item.get("actor") or "").strip().lower()
+        if actor in {"hero", "villain"}:
+            who = actor
+        else:
+            player = str(item.get("player") or "")
+            is_villain = bool(villain_name) and player.strip().lower() == (
+                villain_name.strip().lower()
+            )
+            who = "villain" if is_villain else "hero"
+        entries.append((who, item))
+
+    if not entries:
+        return []
+
+    hero_is_oop = str(hero_position or "ip").strip().lower() in {"oop", "bb"}
+
+    def other(who: str) -> str:
+        return "villain" if who == "hero" else "hero"
+
+    expected = "hero" if hero_is_oop else "villain"
+    level_open = False
+    tokens: list[str] = []
+
+    def add(who: str, action: str, amount: float) -> None:
+        nonlocal level_open
+        if action in {"bet", "raise", "allin"}:
+            level_open = True
+        elif action in {"call", "fold"}:
+            level_open = False
+        tokens.append(f"{who}:{action}:{amount:.3f}")
+
+    for who, item in entries:
+        while who != expected:
+            add(expected, "check", 0.0)
+            expected = other(expected)
+        action = _solver_history_action_name(item.get("action"), facing_bet=level_open)
+        if action is None:
+            return []
+        try:
+            amount = float(item.get("amount") or 0.0)
+        except (TypeError, ValueError):
+            amount = 0.0
+        add(who, action, amount)
+        expected = other(expected)
+
+    return tokens
 
 
 def _normalize_hero_hand_string(hero_hand: str) -> str:
@@ -379,12 +490,6 @@ def _safe_string(value: Any) -> str | None:
     return text or None
 
 
-# Phase 0.5.6/4.1 — helper partagé déplacé dans src.solver.spot_key (module
-# neutre, sans dépendances lourdes ; évite un import circulaire avec
-# src.solver.provider qui l'utilise pour le lookup blueprint live).
-from src.solver.spot_key import spot_cache_key  # noqa: F401  (ré-export)
-
-
 def _compact_solver_list(value: Any) -> list | None:
     if not isinstance(value, list):
         return None
@@ -411,16 +516,29 @@ class DecisionMaker:
         enable_validated_rl: bool = False,
         autoload_rl_model: bool = True,
         redis_cache: Any = None,
+        heads_up: bool | None = None,
     ):
         self.db = db_manager
         self.icm_calculator = ICMCalculator()
-        self.preflop_manager = PreflopManager()
+        if heads_up is None:
+            table_mode = str(os.getenv("POKER_TABLE_MODE", "")).strip().lower()
+            heads_up = table_mode in {"hu", "heads_up", "heads-up"} or str(
+                os.getenv("POKER_HEADS_UP", "")
+            ).strip().lower() in {"1", "true", "yes", "on"}
+        self.heads_up = bool(heads_up)
+        self.preflop_manager = PreflopManager(heads_up=self.heads_up)
+        # Abstraction de mises du solveur. Le défaut de la librairie Rust
+        # (33/50/75/100 % + raises 2.5x/3x) construit un arbre de 3,8 s sur un
+        # flop HU, très au-delà du budget runtime ; l'arbre 50 % / 2.5x tombe à
+        # 128 ms (mesure `scripts/bench_production_runtime.py`). Le défaut de
+        # production est donc l'arbre réduit, surchargeable par variables
+        # d'environnement pour retrouver l'abstraction complète.
+        self.solver_bet_sizes = (os.getenv("POKER_SOLVER_BET_SIZES") or "").strip() or "50%"
+        self.solver_raise_sizes = (os.getenv("POKER_SOLVER_RAISE_SIZES") or "").strip() or "2.5x"
         resolved_solver_backend = (
             postflop_solver_py
             if solver_backend is _DEFAULT_DEPENDENCY and RUST_SOLVER_AVAILABLE
-            else None
-            if solver_backend is _DEFAULT_DEPENDENCY
-            else solver_backend
+            else None if solver_backend is _DEFAULT_DEPENDENCY else solver_backend
         )
         self.solver_backend = resolved_solver_backend
         self._solver_backend_explicit = solver_backend is not _DEFAULT_DEPENDENCY
@@ -455,6 +573,18 @@ class DecisionMaker:
         self.rake_percentage = 0.05
         # Plafond de rake transmis au solveur (0 = pas de cap)
         self.rake_cap = 0.0
+        self.multiway_max_players = max(2, int(os.getenv("POKER_MULTIWAY_MAX_PLAYERS", "6") or 6))
+        self.multiway_strict = str(os.getenv("POKER_MULTIWAY_STRICT", "")).strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        epsilon_raw = str(os.getenv("POKER_EPSILON_TARGET", "0.005") or "0.005").strip()
+        try:
+            self.epsilon_target = float(epsilon_raw)
+        except (TypeError, ValueError):
+            self.epsilon_target = 0.005
         # Échantillonnage mixte : jouer parfois les fréquences du combo héro
         # au lieu de l'action à EV max (défaut: déterministe).
         self.sample_mixed = False
@@ -484,6 +614,60 @@ class DecisionMaker:
             return "native_solver"
         return getattr(self.solver_backend, "backend_name", self.solver_backend.__class__.__name__)
 
+    @staticmethod
+    def _canonical_multiway_positions(num_players: int) -> tuple[str, ...]:
+        positions = {
+            3: ("UTG", "BTN", "BB"),
+            4: ("UTG", "CO", "BTN", "BB"),
+            5: ("UTG", "MP", "CO", "BTN", "BB"),
+            6: ("UTG", "MP", "HJ", "CO", "BTN", "BB"),
+        }
+        return positions.get(int(num_players), ())
+
+    def _canonical_multiway_hero_position(
+        self, num_players: int, hero_player_index: int | None, fallback: str
+    ) -> str:
+        positions = self._canonical_multiway_positions(num_players)
+        if not positions or hero_player_index is None:
+            return str(fallback or "unknown")
+        try:
+            index = int(hero_player_index)
+        except (TypeError, ValueError):
+            return str(fallback or "unknown")
+        if 0 <= index < len(positions):
+            return positions[index]
+        return str(fallback or "unknown")
+
+    def _multiway_fallback_action(
+        self,
+        legal_actions: list[str],
+        reason: str,
+        *,
+        num_players: int | None = None,
+        active_positions: list[str] | tuple[str, ...] | None = None,
+        hero_player_index: int | None = None,
+    ) -> dict:
+        decision = self._fallback_action(legal_actions)
+        decision["fallback_reason"] = reason
+        decision["warnings"] = ["fallback_used", reason]
+        decision["incidents"] = [
+            {
+                "id": "solver_fallback",
+                "severity": "warning",
+                "kind": "fallback",
+                "label": reason,
+            }
+        ]
+        decision["metadata"]["multiway"] = {
+            "mode": "multiway",
+            "num_players": num_players,
+            "active_positions": list(active_positions or []),
+            "hero_player_index": hero_player_index,
+            "converged": False,
+            "sampled": False,
+        }
+        return decision
+
     def _call_solver_backend(
         self,
         hero_hand: str,
@@ -497,6 +681,14 @@ class DecisionMaker:
         state_confidence: float,
         action_history: list[dict[str, Any]] | None,
         time_budget_ms: int = 1000,
+        villain_name: str = "",
+        hero_range: str = "",
+        hero_range_meta: dict[str, Any] | None = None,
+        num_players: int = 2,
+        villain_ranges: list[str] | tuple[str, ...] | None = None,
+        hero_player_index: int | None = None,
+        active_positions: list[str] | tuple[str, ...] | None = None,
+        epsilon_target: float | None = None,
     ) -> dict:
         # La rake est désormais modélisée DANS l'arbre (rake_rate/rake_cap) et non
         # plus en déflatant le pot.
@@ -510,8 +702,26 @@ class DecisionMaker:
         except Exception:  # noqa: BLE001 — télémétrie best-effort
             pass
 
+        solver_history = _format_solver_action_history(
+            action_history,
+            board,
+            hero_position=hero_position,
+            villain_name=villain_name,
+        )
+        solver_hero_range = _normalize_solver_range_string(hero_range)
+        range_meta = dict(hero_range_meta or {})
+        if not solver_hero_range:
+            # Compatibilité des appelants directs (harnais, scripts) : la
+            # production passe toujours par `_resolve_hero_range`. On trace la
+            # dégénérescence au lieu de la masquer.
+            solver_hero_range = _normalize_solver_range_string(hero_hand)
+            range_meta.setdefault("hero_range_source", "legacy_singleton")
+            range_meta.setdefault("hero_range_size", 1)
+            range_meta.setdefault("degenerate_range", True)
+        range_meta["hero_range"] = solver_hero_range
         cache_key = self._solve_cache_key(
             hero_hand=hero_hand,
+            hero_range=solver_hero_range,
             villain_range=villain_range,
             board=board,
             pot=pot,
@@ -521,18 +731,36 @@ class DecisionMaker:
             hero_position=hero_position,
             rake=self.rake_percentage,
             state_confidence=state_confidence,
-            action_history=[
-                f"{item.get('player', '')}:{item.get('action', '')}:{item.get('amount', 0)}"
-                for item in (action_history or [])
-            ],
+            action_history=solver_history,
+            num_players=num_players,
+            villain_ranges=villain_ranges,
+            hero_player_index=hero_player_index,
+            active_positions=active_positions,
         )
         cached_response = self._solve_cache_get(cache_key)
         if cached_response is not None:
-            return cached_response
+            response = self._annotate_hero_range(cached_response, range_meta)
+            if int(num_players) > 2:
+                response = self._annotate_multiway_response(
+                    response,
+                    num_players=num_players,
+                    hero_player_index=hero_player_index,
+                    active_positions=active_positions,
+                    villain_ranges=villain_ranges,
+                )
+            return response
 
+        ordered_ranges = (
+            [_normalize_solver_range_string(value) for value in (villain_ranges or [])]
+            if int(num_players) > 2
+            else [_normalize_solver_range_string(villain_range)]
+        )
+        provider_extra: dict[str, Any] = {}
+        if epsilon_target is not None:
+            provider_extra["epsilon_target"] = epsilon_target
         response = self.solver_provider.solve_spot_v2(
-            hero_range=hero_hand,
-            villain_ranges=[villain_range],
+            hero_range=solver_hero_range,
+            villain_ranges=ordered_ranges,
             board=board,
             starting_pot=pot,
             effective_stack=effective_stack,
@@ -540,19 +768,94 @@ class DecisionMaker:
             spot_id=spot_id,
             hero_position=hero_position,
             state_confidence=state_confidence,
-            action_history=[
-                f"{item.get('player', '')}:{item.get('action', '')}:{item.get('amount', 0)}"
-                for item in (action_history or [])
-            ],
+            action_history=solver_history,
             use_cache=True,
             time_budget_ms=time_budget_ms,
             rake=self.rake_percentage,
             rake_cap=self.rake_cap,
+            num_players=int(num_players),
+            hero_player_index=hero_player_index,
+            active_positions=list(active_positions or []),
             hero_hand=hero_hand,
             sample_mixed=self.sample_mixed,
+            bet_sizes=self.solver_bet_sizes,
+            raise_sizes=self.solver_raise_sizes,
+            **provider_extra,
         )
+        response = self._annotate_hero_range(response, range_meta)
+        if int(num_players) > 2:
+            response = self._annotate_multiway_response(
+                response,
+                num_players=num_players,
+                hero_player_index=hero_player_index,
+                active_positions=active_positions,
+                villain_ranges=villain_ranges,
+            )
         self._solve_cache_put(cache_key, response)
         return response
+
+    @staticmethod
+    def _annotate_hero_range(response: dict, range_meta: dict[str, Any]) -> dict:
+        """Expose la range utilisée et le combo cible dans la réponse."""
+        if not isinstance(response, dict):
+            return response
+        annotated = dict(response)
+        for key in (
+            "hero_range",
+            "hero_range_size",
+            "hero_range_class_count",
+            "hero_range_source",
+            "hero_combo",
+            "degenerate_range",
+        ):
+            if key in range_meta and key not in annotated:
+                annotated[key] = range_meta[key]
+        metadata = annotated.get("metadata")
+        metadata = dict(metadata) if isinstance(metadata, dict) else {}
+        metadata.setdefault("hero_range", range_meta.get("hero_range", ""))
+        metadata.setdefault("hero_range_size", range_meta.get("hero_range_size"))
+        metadata.setdefault("hero_range_source", range_meta.get("hero_range_source"))
+        metadata.setdefault("hero_combo", range_meta.get("hero_combo"))
+        metadata.setdefault("degenerate_range", range_meta.get("degenerate_range"))
+        annotated["metadata"] = metadata
+        return annotated
+
+    @staticmethod
+    def _annotate_multiway_response(
+        response: dict,
+        *,
+        num_players: int,
+        hero_player_index: int | None,
+        active_positions: list[str] | tuple[str, ...] | None,
+        villain_ranges: list[str] | tuple[str, ...] | None,
+    ) -> dict:
+        if not isinstance(response, dict):
+            return response
+        annotated = dict(response)
+        annotated.setdefault("num_players", int(num_players))
+        annotated.setdefault("villain_ranges", list(villain_ranges or []))
+        multiway = dict(annotated.get("multiway") or {})
+        multiway.update(
+            {
+                "mode": "multiway",
+                "num_players": int(num_players),
+                "hero_player_index": hero_player_index,
+                "active_positions": list(active_positions or []),
+                "villain_ranges": list(villain_ranges or []),
+                "converged": (
+                    False
+                    if str(annotated.get("backend") or "") == "multiway_mccfr"
+                    else bool(annotated.get("converged", False))
+                ),
+                "sampled": str(annotated.get("backend") or "") == "multiway_mccfr",
+                "warnings": list(annotated.get("warnings") or []),
+            }
+        )
+        annotated["multiway"] = multiway
+        metadata = dict(annotated.get("metadata") or {})
+        metadata["multiway"] = multiway
+        annotated["metadata"] = metadata
+        return annotated
 
     @staticmethod
     def _solve_cache_key(
@@ -566,8 +869,13 @@ class DecisionMaker:
         spot_id: str,
         hero_position: str,
         action_history: list[str],
+        hero_range: str = "",
         rake: float = 0.0,
         state_confidence: float | None = None,
+        num_players: int | None = None,
+        villain_ranges: list[str] | tuple[str, ...] | None = None,
+        hero_player_index: int | None = None,
+        active_positions: list[str] | tuple[str, ...] | None = None,
     ) -> str:
         # Phase 0.5.6/4.1 — délégué au helper partagé `spot_cache_key`.
         return spot_cache_key(
@@ -580,8 +888,13 @@ class DecisionMaker:
             spot_id=spot_id,
             hero_position=hero_position,
             action_history=action_history,
+            hero_range=hero_range,
             rake=rake,
             state_confidence=state_confidence,
+            num_players=num_players,
+            villain_ranges=villain_ranges,
+            hero_player_index=hero_player_index,
+            active_positions=active_positions,
         )
 
     def _solve_cache_get(self, key: str) -> dict | None:
@@ -709,6 +1022,111 @@ class DecisionMaker:
         return False
 
     @staticmethod
+    def _preflop_actor_was_aggressive(
+        action_history: list[dict[str, Any]] | None,
+        actor: str,
+    ) -> bool:
+        """True si `actor` (hero/villain) a misé ou relancé préflop."""
+        target = str(actor or "").strip().lower()
+        if target not in {"hero", "villain"}:
+            return False
+        for item in action_history or []:
+            if not isinstance(item, dict):
+                continue
+            street = str(item.get("street") or "").strip().upper()
+            if street and street not in {"PREFLOP", "PRE-FLOP"}:
+                continue
+            if str(item.get("actor") or "").strip().lower() != target:
+                continue
+            action_name = _normalize_action_name(item.get("action"))
+            if not action_name:
+                continue
+            if action_name.startswith(("BET", "RAISE", "ALLIN", "ALL_IN", "OPEN", "3BET")):
+                return True
+        return False
+
+    def _resolve_hero_range(
+        self,
+        *,
+        hero_hand: str,
+        hero_position: str,
+        action_history: list[dict[str, Any]] | None,
+        board: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Résout la range héros multi-combos réellement jouée.
+
+        Le solveur reçoit cette range (``hero_range``) et la main cible
+        séparément (``hero_hand``). Résoudre le héros sur un seul combo
+        reviendrait à révéler sa main au villain : l'équilibre serait biaisé.
+        """
+        combo = _hero_combo_notation(hero_hand)
+        hero_aggressive = self._preflop_actor_was_aggressive(action_history, "hero")
+        villain_aggressive = self._preflop_actor_was_aggressive(action_history, "villain")
+        normalized_position = _normalize_preflop_position(hero_position) or "BTN"
+        preflop_played = bool(board) or bool(action_history)
+
+        if villain_aggressive and hero_aggressive:
+            source = "position_3bet"
+            facing_raise = True
+        elif villain_aggressive:
+            source = "position_defense"
+            facing_raise = True
+        elif hero_aggressive:
+            source = "position_rfi"
+            facing_raise = False
+        elif normalized_position == "BB" and preflop_played:
+            source = "position_defense"
+            facing_raise = True
+        else:
+            source = "position_rfi"
+            facing_raise = False
+
+        hero_range = self.preflop_manager.get_hero_range(hero_position, facing_raise=facing_raise)
+        if not str(hero_range or "").strip():
+            hero_range = BASE_GTO_RANGE
+            source = "fallback"
+
+        if combo and not _combo_in_range(combo, hero_range):
+            logger.warning(
+                "Hero combo %s absent de la range %s (%s) : combo ajouté à la "
+                "range résolue, jamais de range singleton silencieuse.",
+                combo,
+                hero_hand,
+                source,
+            )
+            hero_range = f"{hero_range}, {combo}"
+            source = f"{source}_augmented"
+
+        combo_count = range_combo_count(hero_range)
+        class_count = range_class_count(hero_range)
+        return {
+            "hero_range": hero_range,
+            "hero_range_size": combo_count,
+            "hero_range_class_count": class_count,
+            "hero_range_source": source,
+            "hero_combo": combo,
+            "degenerate_range": combo_count <= 1,
+        }
+
+    @staticmethod
+    def _is_facing_preflop_raise(
+        legal_actions: list[str],
+        action_history: list[dict[str, Any]] | None,
+    ) -> bool:
+        """Distingue « face à une relance » de « doit compléter la blind ».
+
+        En heads-up, le SB doit 0,5 bb pour compléter sa blind : ``CALL`` est
+        légal et ``CHECK`` ne l'est pas, donc l'ancienne heuristique
+        (``CALL`` sans ``CHECK``) le croyait face à une relance. Le bouton
+        jouait alors la range de défense et se couchait ~100 % du temps.
+        L'historique agressif est la source fiable ; l'ancienne heuristique ne
+        sert que si aucun historique n'est fourni (appelants legacy).
+        """
+        if action_history is None:
+            return "CALL" in legal_actions and "CHECK" not in legal_actions
+        return DecisionMaker._has_aggressive_preflop_history(action_history)
+
+    @staticmethod
     def _preferred_aggressive_action(legal_actions: list[str]) -> str | None:
         normalized_legal_actions = [_normalize_action_name(action) for action in legal_actions]
         if "RAISE" in normalized_legal_actions:
@@ -730,9 +1148,7 @@ class DecisionMaker:
         pot: float = 0.0,
     ) -> tuple[str, dict]:
         # Phase 2.7 — logique déléguée à preflop_support.run_preflop_fast_path.
-        facing_raise = (
-            "CALL" in legal_actions and "CHECK" not in legal_actions
-        ) or self._has_aggressive_preflop_history(action_history)
+        facing_raise = self._is_facing_preflop_raise(legal_actions, action_history)
         aggressive_action = self._preferred_aggressive_action(legal_actions)
         return _run_preflop_fast_path_impl(
             hero_hand=hero_hand,
@@ -783,15 +1199,24 @@ class DecisionMaker:
 
     @staticmethod
     def _multiway_time_budget(active_villain_count: int) -> int:
-        """Phase 3, garde-fou : budget solve réduit automatiquement en multiway."""
+        """Phase 3, garde-fou : budget solve réduit automatiquement en multiway.
+
+        Le budget HU est fixé à 800 ms : avec l'arbre de production 50 %/2.5x
+        cela donne un p95 à froid sous la seconde, alors que les itérations
+        supplémentaires au-delà de 800 ms ne font plus converger
+        l'exploitabilité (voir `docs/PHASE1_BASELINE_2026-11-14.md` §5.3).
+        """
         if active_villain_count <= 2:
-            return 1000
+            return 800
         if active_villain_count == 3:
             return 700
         return 500
 
     def _apply_ai_tier_budget(
-        self, base_budget_ms: int, *, ai_tier: str | None = None,
+        self,
+        base_budget_ms: int,
+        *,
+        ai_tier: str | None = None,
         source: str | None = None,
     ) -> tuple[int, str | None]:
         """Ajuste le budget solve selon le tier IA (Jev ou Djev, observer).
@@ -815,8 +1240,7 @@ class DecisionMaker:
         self, base_budget_ms: int, *, jev_tier: str | None = None
     ) -> tuple[int, str | None]:
         """Wrapper compat : délègue à _apply_ai_tier_budget (source jev)."""
-        return self._apply_ai_tier_budget(
-            base_budget_ms, ai_tier=jev_tier, source="jev")
+        return self._apply_ai_tier_budget(base_budget_ms, ai_tier=jev_tier, source="jev")
 
     def _run_preflop_dual_mode(
         self,
@@ -886,10 +1310,17 @@ class DecisionMaker:
                 store = self._get_preflop_store()
                 from random import Random
 
+                if self.heads_up:
+                    store_context = "hu_vs_raise" if facing_raise else "hu_rfi"
+                    store_position = self.preflop_manager.hu_position(hero_position)
+                else:
+                    store_context = "vs_raise" if facing_raise else "rfi"
+                    store_position = _normalize_preflop_position_impl(hero_position) or "BTN"
+
                 chosen, dynamic_amount, metadata = store.decide(
                     _hero_combo_notation_impl(hero_hand),
-                    context="vs_raise" if facing_raise else "rfi",
-                    position=_normalize_preflop_position_impl(hero_position) or "BTN",
+                    context=store_context,
+                    position=store_position,
                     depth_bb=effective_stack,
                     facing_raise=facing_raise,
                     aggressive_action=aggressive_action,
@@ -1330,6 +1761,16 @@ class DecisionMaker:
         if exploitability is not None:
             solver_metadata["exploitability"] = exploitability
 
+        # Étiquette de convergence (US3-AC3) : un spot dont le solve a épuisé le
+        # budget mural sort avec `converged=false` ; la trace doit le porter,
+        # sinon la réponse est indiscernable d'une réponse convergée.
+        converged = gto_details.get("converged")
+        if converged is not None:
+            solver_metadata["converged"] = bool(converged)
+        epsilon_target = _safe_float(gto_details.get("epsilon_target"))
+        if epsilon_target is not None:
+            solver_metadata["epsilon_target"] = epsilon_target
+
         for string_key in ("solver_id", "preset_id"):
             string_value = _safe_string(gto_details.get(string_key))
             if string_value is not None:
@@ -1478,14 +1919,20 @@ class DecisionMaker:
         tournament_data: dict[str, Any] | None = None,
         active_villain_count: int | None = None,
         jev_tier: str | None = None,
+        num_players: int | None = None,
+        villain_ranges: list[str] | tuple[str, ...] | None = None,
+        hero_player_index: int | None = None,
+        active_positions: list[str] | tuple[str, ...] | None = None,
+        primary_villain_index: int | None = None,
+        strict_mode: bool | None = None,
+        epsilon_target: float | None = None,
     ) -> dict:
         """
         Détermine la meilleure action à prendre en combinant GTO (Solver Rust),
         Reinforcement Learning (Agent RL), Node-Locking, et ICM.
 
-        ``active_villain_count`` (>2) déclenche le mode multiway approché
-        (Phase 3, garde-fous) : solve HU contre le villain principal avec range
-        resserrée et budget d'itérations réduit, signalé dans les métadonnées.
+        ``num_players`` (>2) active le solveur multiway natif avec une range par
+        adversaire actif. Les états non supportés refusent explicitement.
 
         ``jev_tier`` (fast/balanced/deep, décision Jev du gate) ajuste
         uniquement le budget d'itérations du solve (400/1000/2500 ms) — jamais
@@ -1497,7 +1944,54 @@ class DecisionMaker:
         if not legal_actions:
             return self._fallback_action([])
 
-        # CIRCUIT BREAKER CHECK
+        resolved_num_players = int(
+            num_players if num_players is not None else (active_villain_count or 2)
+        )
+        is_multiway = resolved_num_players > 2
+        ordered_ranges = tuple(str(value) for value in (villain_ranges or []))
+        solver_hero_position = str(hero_position or "unknown")
+        multiway_reason = None
+        primary_index = 0
+        strict_multiway = False
+        multiway_epsilon = None
+        if is_multiway:
+            strict_multiway = self.multiway_strict if strict_mode is None else bool(strict_mode)
+            multiway_epsilon = (
+                (self.epsilon_target if epsilon_target is None else float(epsilon_target))
+                if strict_multiway
+                else None
+            )
+            if resolved_num_players > min(6, self.multiway_max_players):
+                multiway_reason = "multiway_not_supported"
+            elif len(ordered_ranges) != resolved_num_players - 1 or not all(ordered_ranges):
+                multiway_reason = "multiway_invalid_state"
+            elif (
+                hero_player_index is None or not 0 <= int(hero_player_index) < resolved_num_players
+            ):
+                multiway_reason = "multiway_invalid_state"
+            elif active_positions is not None and len(active_positions) != resolved_num_players:
+                multiway_reason = "multiway_invalid_state"
+            elif not self._canonical_multiway_positions(resolved_num_players):
+                multiway_reason = "multiway_not_supported"
+            else:
+                try:
+                    primary_index = int(primary_villain_index or 0)
+                except (TypeError, ValueError):
+                    primary_index = 0
+                if not 0 <= primary_index < len(ordered_ranges):
+                    primary_index = 0
+                solver_hero_position = self._canonical_multiway_hero_position(
+                    resolved_num_players, hero_player_index, hero_position
+                )
+            if multiway_reason is not None:
+                return self._multiway_fallback_action(
+                    legal_actions,
+                    multiway_reason,
+                    num_players=resolved_num_players,
+                    active_positions=active_positions,
+                    hero_player_index=hero_player_index,
+                )
+
         if time.monotonic() < self._solver_cooldown_until:
             logger.error("🛑 CIRCUIT BREAKER ACTIF: Solver en cooldown. Auto-Fallback.")
             return self._fallback_action(legal_actions)
@@ -1505,6 +1999,7 @@ class DecisionMaker:
         is_preflop = len(board or []) == 0
         use_preflop_fast_path = bool(
             is_preflop
+            and not is_multiway
             and self.solver_backend is not None
             and (not self._solver_backend_explicit or _normalize_preflop_position(hero_position))
             and not self.enable_validated_rl
@@ -1518,8 +2013,10 @@ class DecisionMaker:
         structured_profile = self._build_structured_profile(profile)
         villain_position = self._infer_villain_position(villain_name, hero_position, action_history)
 
-        # Obtenir la range théorique via le PreflopManager
-        base_villain_range = self.preflop_manager.get_villain_range(villain_position)
+        if is_multiway:
+            base_villain_range = ordered_ranges[primary_index]
+        else:
+            base_villain_range = self.preflop_manager.get_villain_range(villain_position)
 
         # Phase 2.9 — resserrement bayésien de la range villain par action observée
         range_updater = BayesianRangeUpdater()
@@ -1532,29 +2029,20 @@ class DecisionMaker:
         if villain_range_observed:
             base_villain_range = villain_range_observed
 
-        # Phase 3 — garde-fous multiway : le moteur ne supporte que HU. En 3+ way,
-        # on résout en HU contre le villain principal avec une range encore plus
-        # resserrée (les autres joueurs exercent une pression supplémentaire) et un
-        # budget d'itérations réduit ; l'approximation est tracée dans les métadonnées.
-        multiway_players = int(active_villain_count or 2)
-        multiway_approximation = multiway_players > 2
-        if multiway_approximation:
-            second_pass = BayesianRangeUpdater(min_weight=0.6)
-            tightened = second_pass.update(
-                base_villain_range,
-                action_history,
-                street=max(len(board or []) - 3, 0),
-                board_texture=_analyze_board_texture(board or []),
-            )
-            base_villain_range = tightened or base_villain_range
-            logger.warning(
-                "Multiway (%d joueurs) non supporté par le moteur : approximation "
-                "HU vs villain principal activée.",
-                multiway_players,
-            )
-
-        # Appliquer le Node-Locking
         villain_range = self._apply_node_locking(base_villain_range, profile, board)
+        if is_multiway:
+            ordered_ranges = list(ordered_ranges)
+            ordered_ranges[primary_index] = villain_range
+
+        # Range héros réellement jouée : le solveur reçoit la range complète et
+        # la main cible séparément (jamais un singleton assimilé à la range).
+        hero_range_meta = self._resolve_hero_range(
+            hero_hand=hero_hand,
+            hero_position=hero_position,
+            action_history=action_history,
+            board=board,
+        )
+        hero_range = hero_range_meta["hero_range"]
 
         # 2. Utilisation du Deep Reinforcement Learning pour dévier de la GTO
         rl_action_name = None
@@ -1587,9 +2075,10 @@ class DecisionMaker:
         fallback_used = False
         fallback_reason = None
         if use_preflop_fast_path:
-            facing_raise_preflop = (
-                "CALL" in legal_actions and "CHECK" not in legal_actions
-            ) or self._has_aggressive_preflop_history(action_history)
+            facing_raise_preflop = self._is_facing_preflop_raise(
+                legal_actions,
+                action_history,
+            )
             gto_action, gto_details = self._run_preflop_dual_mode(
                 hero_hand=hero_hand,
                 legal_actions=legal_actions,
@@ -1624,7 +2113,7 @@ class DecisionMaker:
                 # Budget solve piloté par le tier Jev (observer) : seul levier
                 # live, jamais la logique GTO. Fail-open : tier inconnu = base.
                 _solve_budget_ms, _solve_tier = self._apply_jev_tier_budget(
-                    self._multiway_time_budget(multiway_players), jev_tier=jev_tier
+                    self._multiway_time_budget(resolved_num_players), jev_tier=jev_tier
                 )
                 if _solve_tier is not None and _solve_tier != "balanced":
                     logger.info(
@@ -1637,6 +2126,9 @@ class DecisionMaker:
                 except ImportError:
                     _to_thread_ctx_dm = None  # type: ignore[assignment]
                 _solver_call = _to_thread_ctx_dm or asyncio.to_thread  # type: ignore[assignment]
+                solver_extra: dict[str, Any] = {}
+                if is_multiway and multiway_epsilon is not None:
+                    solver_extra["epsilon_target"] = multiway_epsilon
                 response = await asyncio.wait_for(
                     _solver_call(
                         self._call_solver_backend,
@@ -1647,27 +2139,26 @@ class DecisionMaker:
                         effective_stack=effective_stack,
                         legal_actions=legal_actions,
                         spot_id=spot_id,
-                        hero_position=hero_position,
                         state_confidence=state_confidence,
                         action_history=action_history,
                         time_budget_ms=_solve_budget_ms,
+                        villain_name=villain_name,
+                        hero_range=hero_range,
+                        hero_range_meta=hero_range_meta,
+                        num_players=resolved_num_players,
+                        villain_ranges=ordered_ranges,
+                        hero_player_index=hero_player_index,
+                        active_positions=active_positions,
+                        hero_position=solver_hero_position,
+                        **solver_extra,
                     ),
-                    timeout=10.0,
+                    timeout=_solve_budget_ms / 1000.0 + _SOLVER_TIMEOUT_MARGIN_S,
                 )
                 fallback_used = bool(response.get("fallback_used", False))
                 fallback_reason = str(response.get("fallback_reason") or "") or None
                 gto_action = self._normalize_solver_action(
                     response.get("chosen_action", "FOLD"), legal_actions
                 )
-                if multiway_approximation:
-                    warnings = list(response.get("warnings") or [])
-                    if "multiway_approximation" not in warnings:
-                        warnings.append("multiway_approximation")
-                    response["warnings"] = warnings
-                    response["multiway"] = {
-                        "approximation": True,
-                        "players": multiway_players,
-                    }
                 gto_details = response
                 logger.info(
                     "Réponse GTO Rust reçue en %sms : %s", response.get("elapsed_ms"), gto_action
@@ -1682,7 +2173,11 @@ class DecisionMaker:
                         response.get("warnings"),
                     )
             except TimeoutError:
-                logger.error("Solver Rust timeout (>10s). Fail-safe to FOLD/CHECK.")
+                logger.error(
+                    "Solver Rust timeout (>%.1fs, budget %dms). Fail-safe to FOLD/CHECK.",
+                    _solve_budget_ms / 1000.0 + _SOLVER_TIMEOUT_MARGIN_S,
+                    _solve_budget_ms,
+                )
                 self._register_solver_timeout()
                 fallback_used = True
                 fallback_reason = "solver_timeout"
@@ -1844,6 +2339,8 @@ class DecisionMaker:
         if confidence_gap is not None:
             confidence_metadata["vs_profile_exploit_gap"] = confidence_gap
 
+        metadata_hero_range = str(gto_details.get("hero_range") or hero_range)
+
         metadata = {
             "profile": self._build_profile_metadata(structured_profile),
             "solver": solver_metadata,
@@ -1861,7 +2358,23 @@ class DecisionMaker:
                 "villain_position": villain_position,
                 "hero_combo": _hero_combo_notation(hero_hand),
             },
+            "range": {
+                "hero": metadata_hero_range,
+                "hero_size": hero_range_meta.get("hero_range_size"),
+                "hero_class_count": hero_range_meta.get("hero_range_class_count"),
+                "hero_source": hero_range_meta.get("hero_range_source"),
+                "hero_combo": hero_range_meta.get("hero_combo"),
+                "degenerate": hero_range_meta.get("degenerate_range"),
+                "villain": villain_range,
+            },
         }
+        # Champs plats pour le journal canonique (schema v1, compat).
+        metadata["hero_range"] = metadata_hero_range
+        metadata["hero_range_size"] = hero_range_meta.get("hero_range_size")
+        metadata["hero_range_class_count"] = hero_range_meta.get("hero_range_class_count")
+        metadata["hero_range_source"] = hero_range_meta.get("hero_range_source")
+        metadata["hero_combo"] = hero_range_meta.get("hero_combo")
+        metadata["degenerate_range"] = hero_range_meta.get("degenerate_range")
         if rl_ab_metadata:
             metadata["rl_ab"] = rl_ab_metadata
 
@@ -1890,8 +2403,25 @@ class DecisionMaker:
             warnings.append("fallback_used")
         if state_confidence < 0.6:
             warnings.append("ocr_low_confidence")
+        if hero_range_meta.get("degenerate_range"):
+            warnings.append("degenerate_hero_range")
+        for response_warning in gto_details.get("warnings") or []:
+            if response_warning and response_warning not in warnings:
+                warnings.append(str(response_warning))
+        if fallback_reason and fallback_reason not in warnings:
+            warnings.append(fallback_reason)
+        if is_multiway:
+            multiway_metadata = dict(gto_details.get("multiway") or {})
+            multiway_metadata.setdefault("mode", "multiway")
+            multiway_metadata.setdefault("num_players", resolved_num_players)
+            multiway_metadata.setdefault("active_positions", list(active_positions or []))
+            multiway_metadata.setdefault("villain_ranges", list(ordered_ranges))
+            multiway_metadata.setdefault("hero_player_index", hero_player_index)
+            multiway_metadata.setdefault("solver_hero_position", solver_hero_position)
+            multiway_metadata.setdefault("converged", bool(gto_details.get("converged", False)))
+            metadata["multiway"] = multiway_metadata
 
-        return {
+        decision_payload = {
             "action": final_action,
             "bet_size": bet_size,
             "ev": gto_details.get("hero_ev", 0.0),
@@ -1911,6 +2441,12 @@ class DecisionMaker:
             "ab_decision": rl_ab_metadata or None,
             "llm_advice": llm_advice,
         }
+        # N'est émis que si le solveur l'a réellement rapporté : les rejeux
+        # golden comparent la décision au champ près, une clé `None` ajoutée
+        # partout ferait échouer les fixtures sans rien tracer de plus.
+        if gto_details.get("converged") is not None:
+            decision_payload["converged"] = bool(gto_details.get("converged"))
+        return decision_payload
 
     def _register_solver_timeout(self) -> None:
         """Phase 2.6 — backoff exponentiel : 60s, 120s, 240s, cap 300s."""
@@ -1945,9 +2481,7 @@ class DecisionMaker:
         action = (
             "FOLD"
             if "FOLD" in normalized_legal_actions
-            else normalized_legal_actions[0]
-            if normalized_legal_actions
-            else "CHECK"
+            else normalized_legal_actions[0] if normalized_legal_actions else "CHECK"
         )
         return {
             "action": action,

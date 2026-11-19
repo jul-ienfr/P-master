@@ -51,7 +51,13 @@ pub fn equity_ev(pot: f32, equity: f32, cost: f32) -> f32 {
 ///
 /// `winners` n'intervient pas ici (pot net) ; voir `rake_adjusted_share` pour le split.
 #[inline]
-pub fn equity_ev_rake_aware(pot: f32, equity: f32, cost: f32, rake_rate: f32, rake_cap: f32) -> f32 {
+pub fn equity_ev_rake_aware(
+    pot: f32,
+    equity: f32,
+    cost: f32,
+    rake_rate: f32,
+    rake_cap: f32,
+) -> f32 {
     let rake = compute_rake(pot as f64, rake_rate as f64, rake_cap as f64) as f32;
     equity * (pot - rake).max(0.0) - cost
 }
@@ -63,7 +69,11 @@ pub fn compute_rake(pot: f64, rake_rate: f64, rake_cap: f64) -> f64 {
         return 0.0;
     }
     let r = pot * rake_rate;
-    if rake_cap > 0.0 { r.min(rake_cap) } else { r }
+    if rake_cap > 0.0 {
+        r.min(rake_cap)
+    } else {
+        r
+    }
 }
 
 /// Pot net après rake : `(pot - rake).max(0)`.
@@ -115,19 +125,25 @@ pub fn ev_summary(
     let dollar_ev_note = bb_fallback_note.or_else(|| {
         if ev_bb.is_none() {
             Some("bb inconnu — ev_bb/ev_dollars indisponibles".to_string())
-        } else if ev_dollars.is_none() && bb_dollars.is_none() {
-            None
         } else {
             None
         }
     });
     // Ne pas polluer la note si tout est renseigné
-    let dollar_ev_note = if ev_bb.is_some() && dollar_ev_note.as_deref() == Some("bb inconnu — ev_bb/ev_dollars indisponibles") {
+    let dollar_ev_note = if ev_bb.is_some()
+        && dollar_ev_note.as_deref() == Some("bb inconnu — ev_bb/ev_dollars indisponibles")
+    {
         None
     } else {
         dollar_ev_note
     };
-    EvSummary { ev_chips, ev_bb, ev_bb_per_100, ev_dollars, dollar_ev_note }
+    EvSummary {
+        ev_chips,
+        ev_bb,
+        ev_bb_per_100,
+        ev_dollars,
+        dollar_ev_note,
+    }
 }
 
 /// Dérive `bb` depuis `effective_stack` (chips) — convention 100bb deep.

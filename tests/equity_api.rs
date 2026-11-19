@@ -1,4 +1,4 @@
-use postflop_solver::{evaluate_equity, ev, EquityMode, EquityRequest};
+use postflop_solver::{ev, evaluate_equity, EquityMode, EquityRequest};
 
 #[test]
 fn equity_ev_equals_equity_times_pot() {
@@ -7,7 +7,13 @@ fn equity_ev_equals_equity_times_pot() {
     let resp = evaluate_equity(EquityRequest {
         hero_hand: vec!["Ah".into(), "Ad".into()],
         villain_ranges: vec!["KcKd".into()],
-        board: vec!["2c".into(), "7d".into(), "9h".into(), "Js".into(), "Qd".into()],
+        board: vec![
+            "2c".into(),
+            "7d".into(),
+            "9h".into(),
+            "Js".into(),
+            "Qd".into(),
+        ],
         mode: EquityMode::Exact,
         pot: Some(pot),
         use_cache: false,
@@ -15,7 +21,9 @@ fn equity_ev_equals_equity_times_pot() {
     })
     .expect("exact equity");
 
-    let ev_chips = resp.ev_chips_given_pot.expect("ev_chips_given_pot with pot");
+    let ev_chips = resp
+        .ev_chips_given_pot
+        .expect("ev_chips_given_pot with pot");
     // ev should be equity * pot  (cost=0)
     let expected = ev::equity_ev(pot, resp.equity, 0.0);
     assert!(
@@ -43,7 +51,11 @@ fn equity_ev_with_cost_is_equity_times_pot_minus_cost() {
     let equity = 0.55f32;
     let cost = 50.0f32;
     let ev = ev::equity_ev(pot, equity, cost);
-    assert!((ev - 5.0).abs() < 1e-6, "equity_ev(100,0.55,50) should be 5, got {}", ev);
+    assert!(
+        (ev - 5.0).abs() < 1e-6,
+        "equity_ev(100,0.55,50) should be 5, got {}",
+        ev
+    );
     // Rake-aware variant sanity: with no rake should equal plain equity_ev
     let ev_rake = ev::equity_ev_rake_aware(pot, equity, cost, 0.0, 0.0);
     assert!(

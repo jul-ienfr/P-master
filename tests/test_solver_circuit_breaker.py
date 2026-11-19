@@ -80,9 +80,9 @@ def test_breaker_backoff_is_exponential_and_capped(monkeypatch):
         clock["t"] += 1.0
         dm._register_solver_timeout()
         remaining = dm._solver_cooldown_until - clock["t"]
-        assert remaining == pytest.approx(cooldown), (
-            f"cooldown attendu {cooldown}s, obtenu {remaining}s"
-        )
+        assert remaining == pytest.approx(
+            cooldown
+        ), f"cooldown attendu {cooldown}s, obtenu {remaining}s"
 
 
 def test_success_resets_consecutive_timeouts(monkeypatch):
@@ -101,6 +101,10 @@ def test_success_resets_consecutive_timeouts(monkeypatch):
     async def flaky_wait_for(coro, timeout=None):
         calls["n"] += 1
         if calls["n"] == 1:
+            # Le vrai wait_for prend possession de la coroutine (ensure_future)
+            # avant d'expirer ; le faux doit la consommer pareil, sinon Python
+            # signale « coroutine was never awaited ».
+            coro.close()
             raise TimeoutError()
         return await real_wait_for(coro, timeout=timeout)
 
@@ -134,3 +138,25 @@ def test_active_breaker_short_circuits_solver_call(monkeypatch):
     assert fallback["action"] == "FOLD"
     assert fallback["source"] == "FALLBACK"
     assert fallback["metadata"]["solver"]["circuit_breaker"]["active"] is True
+
+
+def test_solver_timeout_follows_budget_plus_margin(monkeypatch):
+    """F-13 : le timeout d'annulation suit le budget solve, pas une constante."""
+    import src.bot.decision_maker as dm_module
+    from src.bot.decision_maker import _SOLVER_TIMEOUT_MARGIN_S
+
+    dm = _make_decision_maker()
+    captured: list[float] = []
+
+    async def spy_wait_for(coro, timeout=None):
+        captured.append(timeout)
+        return await coro
+
+    monkeypatch.setattr(dm_module.asyncio, "wait_for", spy_wait_for)
+    asyncio.run(dm.get_best_action(**_request()))
+
+    assert captured, "wait_for n'a pas été appelé"
+    budget_ms = dm._multiway_time_budget(2)
+    expected = budget_ms / 1000.0 + _SOLVER_TIMEOUT_MARGIN_S
+    assert captured[0] == pytest.approx(expected)
+    assert captured[0] < 10.0, "un timeout fixe de 10 s trahirait un budget ignoré"
