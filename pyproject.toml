@@ -66,6 +66,7 @@ dev = [
     "mypy>=1.10",
     "pip-audit>=2.7",
     "pre-commit>=4.0",
+    "phevaluator>=0.6.0",
 ]
 vision = [
     # Phase 2.2 — WGC promu en deps principales (Windows) ; extra conservé
@@ -100,6 +101,10 @@ lint.select = ["E", "F", "W", "I", "B", "C4", "UP"]
 # line-length=100). Les littéraux non coupables (prompts, ranges, payloads) ne
 # doivent pas casser la gate de lint.
 lint.ignore = ["E501"]
+# F-14 (tranché le 19/11/2026, ADR-001) : `poker/` est le laboratoire historique,
+# explicitement hors production (521 erreurs, dont 41 imports étoile et 41
+# `except` nus). L'exclusion est portée par la config, pas par la commande CI.
+extend-exclude = ["poker"]
 
 [tool.ruff.lint.per-file-ignores]
 # Points d'entrée : bootstrap sys.path avant les imports (src/main.py, CLI, tests).
@@ -149,5 +154,9 @@ markers = ["integration: integration tests that may require external services", 
 norecursedirs = [".venv", "website/node_modules"]
 
 [tool.coverage.run]
+# F-14 (tranché le 19/11/2026, ADR-001) : `src/` est la seule base de
+# production ; `poker/` est collecté à titre informatif pour le seuil global
+# historique (52 %), tandis que `src/` a son propre seuil bloquant (80 %) dans
+# `python-tests.yml`. `poker/vboxapi/*` reste hors mesure (code tiers vendu).
 source = ["src", "poker"]
 omit = ["poker/vboxapi/*", "*/__pycache__/*", "tests/*", "poker/tests/*"]

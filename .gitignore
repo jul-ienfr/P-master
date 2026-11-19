@@ -3,6 +3,7 @@
 /python_bindings/target
 /website/src-tauri/target
 /website/node_modules
+/node_modules
 /website/dist
 /portable/build
 /portable/dist
@@ -28,6 +29,8 @@ __pycache__/
 /dataset/yolo_pokerstars
 /dataset/runtime_observation
 /dataset/needs_annotation
+# Captures d'écran et journaux de runtime : données de table tierces.
+/dataset/runtime_failures
 /logs
 /models/clustering
 /models/yolo_runs

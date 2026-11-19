@@ -4,6 +4,12 @@ This folder hosts the offline evaluation layer for the V2 runtime:
 
 - `automation.py`: artifact catalog and automation payload helpers for the phase-2 validation stack.
 - `benchmark_harness.py`: canonical benchmark runner for native solver/equity outputs and optional oracle backends.
+- `best_response.py`: native MES/best-response measurement, 169-range expansion, and disjoint-range guards.
+- `mes_spot.py`: measures one tree preset with the native Rust solver and records any range normalization.
+- `slumbot_benchmark.py`: external HU benchmark of the research `hero_heuristic` policy against the public Slumbot HTTP API, with JSONL hand logs and 95% confidence intervals.
+- `slumbot_runtime_benchmark.py`: external HU benchmark of the production `DecisionMaker` (preflop store, Rust solver, cache, fallbacks) against Slumbot, with the same JSONL/CI format plus per-decision source and latency. It replays the current street history (`street`, `actor`, total contribution in bb) so facing-bet nodes are solved correctly.
+- `../scripts/bench_production_runtime.py`: headless benchmark of the production `DecisionMaker` (gate, preflop store, Rust solver, cache) on fixed preflop/flop/turn/river spots.
+- `../scripts/check_perf_gate.py`: CI performance gate (constat F-09). Runs the benchmark in a fresh process per repetition, keeps the cold-latency minimum per spot (load noise only adds time, so the minimum estimates real machine capacity without false positives), and compares it to `results/perf_baseline.json` with a 10% regression threshold plus machine-noise tolerance. A fixed CPU workload calibrates the reference to the current machine, so a slower CI runner does not fail the gate. Hard invariants are zero fallbacks and a multiway backend. `--update` rewrites the baseline (review the diff).
 - `calibration.py`: calibration profile fitting and range-model promotion helpers.
 - `challengers.py`: lazy registry and loaders for optional offline challengers such as PokerKit, PyPokerEngine, RLCard, PokerRL, neuron_poker, and poker_ai.
 - `node_oracle_runner.js`: Node bridge for JS oracle backends such as `pokersolver`, with optional on-demand vendoring.
@@ -36,6 +42,10 @@ Validation notes:
 - `python3 research/run_validation_suite.py` writes `research/results/validation_suite.json`.
 - `python3 research/run_policy_compare.py tests/fixtures/policy_compare_sample_corpus.json --baseline gto_solver --challenger rl_validated` writes `research/results/policy_compare_summary.json`.
 - `python3 research/run_rl_lab.py` writes `research/results/rl_lab_summary.json`.
+- `python3 research/mes_spot.py --preset 4bp_hu_100bb --max-iterations 50` writes `research/results/mes_4bp_hu_100bb.json`.
+- `python3 research/slumbot_benchmark.py --hands 1000 --output research/results/slumbot_1000.jsonl` writes the JSONL hand log and `slumbot_1000.summary.json`.
+- `python3 -m research.slumbot_runtime_benchmark --hands 100 --output research/results/slumbot_runtime_100.jsonl` benchmarks the production `DecisionMaker` against Slumbot and writes the same JSONL/summary pair plus per-decision sources.
+- `python3 scripts/bench_production_runtime.py --bet-sizes 50%` writes `research/results/runtime_benchmark.json` (cold/warm latency, fallbacks, exploitability).
 - `cargo run --example native_latency` writes the native latency summary used for p95 checks.
 - `python3 scripts/run_refonte_ci.py` runs the full phase-2 stack and writes `research/results/refonte_ci_summary.json`.
 

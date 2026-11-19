@@ -48,11 +48,24 @@ jobs:
 
       # Phase 4.1 — ratchet : baseline 37% -> 39% -> 42% -> 45% -> 50% -> 52% (2026-08-26).
       # Gate 52% aujourd'hui ; objectif long terme 60%.
-      # NB : le package legacy poker/ (~10.5k stmts, ~12% couvert) dilue la metrique globale ;
-      # src/ seul est a ~84%. Perimetre de mesure a trancher separement.
-      # poker/tests reste hors collecte par défaut (lancé par scripts/run_refonte_ci.py).
+      # F-14 (tranché le 19/11/2026, ADR-001) : `poker/` est le laboratoire
+      # historique, hors production — il reste hors lint et hors couverture
+      # bloquante. La couverture de `src/` (seule base de production) est
+      # mesurée séparément ci-dessous avec son propre seuil.
       - name: Tests + coverage
         run: uv run pytest --cov=src --cov=poker --cov-report=term-missing --cov-report=xml --cov-fail-under=52
+
+      # F-14 — seuil bloquant indépendant pour `src/` (critère n°1 de l'ADR-001).
+      # Mesuré à 83 % le 19/11/2026 ; marge de 3 points sous la mesure.
+      # Réutilise les données `.coverage` du pas précédent : aucun second run.
+      - name: Coverage src/ (seuil production)
+        run: uv run coverage report --include="src/*" --fail-under=80
+
+      # F-09 — gate de performance : latence froide comparée à la baseline
+      # versionnée (`research/results/perf_baseline.json`), seuil de régression
+      # 10 % + bruit machine. Zéro fallback toléré sur le corpus de référence.
+      - name: Performance gate (p95 vs baseline)
+        run: uv run python scripts/check_perf_gate.py --repeat 3
 
       - name: Upload coverage artifact
         if: always()

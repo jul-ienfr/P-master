@@ -1,0 +1,32 @@
+{
+  "calibration_ms": 10.293,
+  "heads_up": {
+    "backends": [
+      "native_solver",
+      "preflop_precomputed"
+    ],
+    "cold_ms": {
+      "flop_3bp_qq": 648.2,
+      "flop_srp_akhk": 886.9,
+      "preflop_bb_kqo_face_open": 0.2,
+      "preflop_btn_aa": 194.2,
+      "river_55": 2.6,
+      "turn_ts9s": 94.0
+    },
+    "fallbacks": 0
+  },
+  "kind": "perf_baseline",
+  "multiway": {
+    "backends": [
+      "multiway_mccfr"
+    ],
+    "cold_ms": {
+      "n=3": 680.3,
+      "n=4": 243.1,
+      "n=5": 156.9,
+      "n=6": 88.3
+    },
+    "fallbacks": 0
+  },
+  "repeat": 5
+}

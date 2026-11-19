@@ -1021,6 +1021,15 @@ wheels = [
 ]
 
 [[package]]
+name = "phevaluator"
+version = "0.6.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/1c/fa/de863004b3f3c3ec5b3959b91e74a8fad94165717e88f13a8dc997f6424c/phevaluator-0.6.0.tar.gz", hash = "sha256:3fba3a05c2ef82fab969dcc1ac8f623f4b0d0a00c36493ca1f60838d205403a7", size = 8044415, upload-time = "2026-07-11T01:14:26.966Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0e/0a/d632c620172532492343e32d8b3d92ad8eedd8de8715895ef41f5c66b3bd/phevaluator-0.6.0-cp311-cp311-win_amd64.whl", hash = "sha256:b215938f069b979af1b5a142fecc5f70b86e9be7b10b051ee6b0fcbc63ea6483", size = 3661389, upload-time = "2026-07-11T01:14:02.686Z" },
+]
+
+[[package]]
 name = "pillow"
 version = "10.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1150,6 +1159,7 @@ dependencies = [
 dev = [
     { name = "black", marker = "sys_platform == 'win32'" },
     { name = "mypy", marker = "sys_platform == 'win32'" },
+    { name = "phevaluator", marker = "sys_platform == 'win32'" },
     { name = "pip-audit", marker = "sys_platform == 'win32'" },
     { name = "pre-commit", marker = "sys_platform == 'win32'" },
     { name = "pylint", marker = "sys_platform == 'win32'" },
@@ -1175,6 +1185,7 @@ requires-dist = [
     { name = "optuna", specifier = "==4.4.0" },
     { name = "pandas", specifier = "==2.3.1" },
     { name = "pgvector", specifier = "==0.5.0" },
+    { name = "phevaluator", marker = "extra == 'dev'", specifier = ">=0.6.0" },
     { name = "pillow", specifier = ">=10.0.0" },
     { name = "pip-audit", marker = "extra == 'dev'", specifier = ">=2.7" },
     { name = "pokerkit", specifier = "==0.6.2" },
