@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-from poker.decisionmaker.v2_contracts import ReplayRecord
+from src.contracts.v2_contracts import ReplayRecord
 
 
 class Policy(Protocol):

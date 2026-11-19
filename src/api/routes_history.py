@@ -6,8 +6,8 @@ import logging
 
 from aiohttp import web
 
-from poker.decisionmaker.v2_contracts import SpotSnapshot
 from src.api.snapshots import SnapshotPayloadMixin, safe_float
+from src.contracts.v2_contracts import SpotSnapshot
 
 logger = logging.getLogger("BotAPI")
 

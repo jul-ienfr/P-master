@@ -12,7 +12,7 @@ if __package__ in (None, ""):
 
 from poker.decisionmaker.decision_service import CanonicalDecisionService
 from poker.decisionmaker.tree_presets import build_prewarm_requests
-from poker.decisionmaker.v2_contracts import (
+from src.contracts.v2_contracts import (
     CachePolicy,
     SolveResponseV2,
     SpotSnapshot,

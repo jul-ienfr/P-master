@@ -10,7 +10,7 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 
 from poker.decisionmaker.decision_service import CanonicalDecisionService
-from poker.decisionmaker.v2_contracts import SpotSnapshot
+from src.contracts.v2_contracts import SpotSnapshot
 
 
 def build_spot_from_transcript(transcript: str) -> SpotSnapshot:

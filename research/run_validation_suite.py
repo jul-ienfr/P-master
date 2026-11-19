@@ -17,7 +17,7 @@ if str(ROOT) not in sys.path:
 
 from poker.decisionmaker.oracle_backends import detect_oracle_backends, rank_showdown_hand
 from poker.decisionmaker.tree_presets import list_tree_presets
-from poker.decisionmaker.v2_contracts import (  # noqa: E402
+from src.contracts.v2_contracts import (  # noqa: E402
     ActionEstimate,
     DecisionGateResult,
     DecisionSnapshot,

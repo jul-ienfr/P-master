@@ -7,7 +7,7 @@ import time
 from typing import Any, Callable
 
 from poker.decisionmaker.oracle_backends import detect_oracle_backends, rank_showdown_hand
-from poker.decisionmaker.v2_contracts import BenchmarkResult, SolveRequestV2, SolveResponseV2
+from src.contracts.v2_contracts import BenchmarkResult, SolveRequestV2, SolveResponseV2
 
 
 SolverCallable = Callable[[SolveRequestV2], SolveResponseV2 | dict[str, Any]]

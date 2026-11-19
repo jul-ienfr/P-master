@@ -7,13 +7,13 @@ shape without depending on the old runtime internals.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, fields, is_dataclass
-from datetime import datetime, timezone
-from enum import Enum
 import json
 import os
 import platform
 import sys
+from dataclasses import dataclass, field, fields, is_dataclass
+from datetime import UTC, datetime
+from enum import Enum, StrEnum
 from typing import Any
 
 try:  # pragma: no cover - optional metadata lookup
@@ -128,13 +128,13 @@ class SerializableDataclass:
         return cls.from_dict(json.loads(payload))
 
 
-class LlmProviderMode(str, Enum):
+class LlmProviderMode(StrEnum):
     DISABLED = "disabled"
     OPENAI_COMPATIBLE_REMOTE = "openai_compatible_remote"
     OPENAI_COMPATIBLE_LOCAL = "openai_compatible_local"
 
 
-class LlmAssistTaskType(str, Enum):
+class LlmAssistTaskType(StrEnum):
     SPOT_EXPLAIN = "spot_explain"
     LINE_COMPARE = "line_compare"
     DECISION_RATIONALE = "decision_rationale"
@@ -145,26 +145,26 @@ class LlmAssistTaskType(str, Enum):
     REPLAY_COACH = "replay_coach"
 
 
-class EquityBackend(str, Enum):
+class EquityBackend(StrEnum):
     RUST_EXACT = "rust_exact"
     RUST_MONTE_CARLO = "rust_monte_carlo"
     ORACLE_BACKEND = "oracle_backend"
     UNKNOWN = "unknown"
 
 
-class RangeModelVersion(str, Enum):
+class RangeModelVersion(StrEnum):
     HEURISTIC_V1 = "heuristic_v1"
     BOARD_AWARE_V2 = "board_aware_v2"
     CALIBRATED_V3 = "calibrated_v3"
 
 
-class CachePolicy(str, Enum):
+class CachePolicy(StrEnum):
     DISABLED = "disabled"
     MEMORY = "memory"
     PERSISTENT = "persistent"
 
 
-class CacheTier(str, Enum):
+class CacheTier(StrEnum):
     NONE = "none"
     MEMORY = "memory"
     DISK = "disk"
@@ -179,7 +179,7 @@ class ActionOptionV2(SerializableDataclass):
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, payload: Any) -> "ActionOptionV2":
+    def from_dict(cls, payload: Any) -> ActionOptionV2:
         if isinstance(payload, str):
             normalized = payload.strip()
             return cls(name=normalized, label=normalized.title())
@@ -187,11 +187,7 @@ class ActionOptionV2(SerializableDataclass):
         return cls(
             name=str(payload.get("name", "")),
             label=str(payload.get("label", payload.get("name", ""))),
-            size=(
-                None
-                if payload.get("size") in (None, "")
-                else _as_float(payload.get("size"))
-            ),
+            size=(None if payload.get("size") in (None, "") else _as_float(payload.get("size"))),
             available=_as_bool(payload.get("available", True), default=True),
             metadata=_as_any_dict(payload.get("metadata")),
         )
@@ -208,7 +204,7 @@ class OcrConfidenceReport(SerializableDataclass):
     notes: tuple[str, ...] = ()
 
     @classmethod
-    def from_dict(cls, payload: Any) -> "OcrConfidenceReport":
+    def from_dict(cls, payload: Any) -> OcrConfidenceReport:
         payload = payload or {}
         return cls(
             overall=_as_float(payload.get("overall", payload.get("confidence", 0.0))),
@@ -230,7 +226,7 @@ class DecisionGateResult(SerializableDataclass):
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, payload: Any) -> "DecisionGateResult":
+    def from_dict(cls, payload: Any) -> DecisionGateResult:
         payload = payload or {}
         return cls(
             allowed=_as_bool(payload.get("allowed", True), default=True),
@@ -250,7 +246,7 @@ class ActionEstimate(SerializableDataclass):
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, payload: Any) -> "ActionEstimate":
+    def from_dict(cls, payload: Any) -> ActionEstimate:
         payload = payload or {}
         return cls(
             name=str(payload.get("name", "")),
@@ -283,7 +279,7 @@ class SpotSnapshot(SerializableDataclass):
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, payload: Any) -> "SpotSnapshot":
+    def from_dict(cls, payload: Any) -> SpotSnapshot:
         payload = payload or {}
         return cls(
             spot_id=str(payload.get("spot_id", payload.get("spotId", ""))),
@@ -330,7 +326,7 @@ class SpotSnapshot(SerializableDataclass):
         history: Any = None,
         strategy: Any = None,
         source: str = "live",
-    ) -> "SpotSnapshot":
+    ) -> SpotSnapshot:
         hero_cards = _as_tuple(getattr(table, "mycards", None))
         board = _as_tuple(getattr(table, "cardsOnTable", None))
         game_stage = str(getattr(table, "gameStage", ""))
@@ -427,7 +423,7 @@ class SpotSnapshot(SerializableDataclass):
         )
 
     @classmethod
-    def from_legacy_json(cls, payload: str) -> "SpotSnapshot":
+    def from_legacy_json(cls, payload: str) -> SpotSnapshot:
         return cls.from_dict(json.loads(payload))
 
 
@@ -445,7 +441,7 @@ class DecisionSnapshot(SerializableDataclass):
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, payload: Any) -> "DecisionSnapshot":
+    def from_dict(cls, payload: Any) -> DecisionSnapshot:
         payload = payload or {}
         alternatives = payload.get("alternatives", [])
         if alternatives is None:
@@ -456,7 +452,10 @@ class DecisionSnapshot(SerializableDataclass):
                 ActionEstimate.from_dict(item) if not isinstance(item, ActionEstimate) else item
                 for item in alternatives
             ),
-            ev_by_action={str(key): _as_float(value) for key, value in _as_any_dict(payload.get("ev_by_action")).items()},
+            ev_by_action={
+                str(key): _as_float(value)
+                for key, value in _as_any_dict(payload.get("ev_by_action")).items()
+            },
             exploitability=_as_float(payload.get("exploitability", 0.0)),
             source=str(payload.get("source", "legacy")),
             warnings=_as_tuple(payload.get("warnings")),
@@ -475,9 +474,11 @@ class DecisionSnapshot(SerializableDataclass):
         )
 
     @classmethod
-    def from_legacy(cls, decision: Any, source: str = "legacy") -> "DecisionSnapshot":
+    def from_legacy(cls, decision: Any, source: str = "legacy") -> DecisionSnapshot:
         action = str(getattr(decision, "decision", ""))
-        alternatives = getattr(decision, "alternatives", None) or getattr(decision, "actions", None) or []
+        alternatives = (
+            getattr(decision, "alternatives", None) or getattr(decision, "actions", None) or []
+        )
         ev_map = getattr(decision, "ev_by_action", None) or getattr(decision, "evs", None) or {}
         warnings = getattr(decision, "warnings", None) or []
         return cls(
@@ -486,17 +487,19 @@ class DecisionSnapshot(SerializableDataclass):
                 item if isinstance(item, ActionEstimate) else ActionEstimate.from_dict(item)
                 for item in alternatives
             ),
-            ev_by_action={str(key): _as_float(value) for key, value in _as_any_dict(ev_map).items()},
+            ev_by_action={
+                str(key): _as_float(value) for key, value in _as_any_dict(ev_map).items()
+            },
             exploitability=_as_float(getattr(decision, "exploitability", 0.0)),
             source=source,
             warnings=_as_tuple(warnings),
             latency_ms=_as_int(getattr(decision, "latency_ms", getattr(decision, "elapsed_ms", 0))),
             confidence=_as_float(getattr(decision, "confidence", 0.0)),
             gate_result=(
-                getattr(decision, "gate_result")
+                decision.gate_result
                 if isinstance(getattr(decision, "gate_result", None), DecisionGateResult)
                 else (
-                    DecisionGateResult.from_dict(getattr(decision, "gate_result"))
+                    DecisionGateResult.from_dict(decision.gate_result)
                     if isinstance(getattr(decision, "gate_result", None), dict)
                     else None
                 )
@@ -528,14 +531,12 @@ class SolveRequestV2(SerializableDataclass):
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, payload: Any) -> "SolveRequestV2":
+    def from_dict(cls, payload: Any) -> SolveRequestV2:
         payload = payload or {}
         return cls(
             spot_id=str(_payload_get(payload, "spot_id", "spotId", default="")),
             hero_range=str(_payload_get(payload, "hero_range", "heroRange", default="")),
-            villain_ranges=_as_tuple(
-                _payload_get(payload, "villain_ranges", "villainRanges")
-            ),
+            villain_ranges=_as_tuple(_payload_get(payload, "villain_ranges", "villainRanges")),
             board=_as_tuple(_payload_get(payload, "board")),
             starting_pot=_as_float(
                 _payload_get(payload, "starting_pot", "startingPot", default=0.0)
@@ -543,26 +544,20 @@ class SolveRequestV2(SerializableDataclass):
             effective_stack=_as_float(
                 _payload_get(payload, "effective_stack", "effectiveStack", default=0.0)
             ),
-            hero_position=str(
-                _payload_get(payload, "hero_position", "heroPosition", default="")
-            ),
-            action_history=_as_tuple(
-                _payload_get(payload, "action_history", "actionHistory")
-            ),
-            tree_preset_id=str(
-                _payload_get(payload, "tree_preset_id", "treePresetId", default="")
-            ),
+            hero_position=str(_payload_get(payload, "hero_position", "heroPosition", default="")),
+            action_history=_as_tuple(_payload_get(payload, "action_history", "actionHistory")),
+            tree_preset_id=str(_payload_get(payload, "tree_preset_id", "treePresetId", default="")),
             rake=_as_float(_payload_get(payload, "rake", default=0.0)),
             num_players=_as_int(
                 _payload_get(payload, "num_players", "numPlayers", default=2), default=2
             ),
             legal_actions=tuple(
                 ActionOptionV2.from_dict(item)
-                for item in (_payload_get(payload, "legal_actions", "legalActions", default=()) or ())
+                for item in (
+                    _payload_get(payload, "legal_actions", "legalActions", default=()) or ()
+                )
             ),
-            cache_policy=_coerce_cache_policy(
-                _payload_get(payload, "cache_policy", "cachePolicy")
-            ),
+            cache_policy=_coerce_cache_policy(_payload_get(payload, "cache_policy", "cachePolicy")),
             hero_confidence=_as_float(
                 _payload_get(payload, "hero_confidence", "heroConfidence", default=0.0)
             ),
@@ -600,7 +595,7 @@ class SolveResponseV2(SerializableDataclass):
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, payload: Any) -> "SolveResponseV2":
+    def from_dict(cls, payload: Any) -> SolveResponseV2:
         payload = payload or {}
         actions = _payload_get(payload, "actions", default=[])
         if actions is None:
@@ -626,9 +621,7 @@ class SolveResponseV2(SerializableDataclass):
             hero_ev=_as_float(_payload_get(payload, "hero_ev", "heroEv", default=0.0)),
             exploitability=_as_float(_payload_get(payload, "exploitability", default=0.0)),
             backend=str(_payload_get(payload, "backend", default="native")),
-            cache_tier=_coerce_cache_tier(
-                _payload_get(payload, "cache_tier", "cacheTier")
-            ),
+            cache_tier=_coerce_cache_tier(_payload_get(payload, "cache_tier", "cacheTier")),
             normalized_ranges=_as_tuple(
                 _payload_get(payload, "normalized_ranges", "normalizedRanges")
             ),
@@ -655,7 +648,7 @@ class ReplayRecord(SerializableDataclass):
     tags: tuple[str, ...] = ()
 
     @classmethod
-    def from_dict(cls, payload: Any) -> "ReplayRecord":
+    def from_dict(cls, payload: Any) -> ReplayRecord:
         payload = payload or {}
         return cls(
             replay_id=str(payload.get("replay_id", payload.get("replayId", ""))),
@@ -677,7 +670,7 @@ class BenchmarkResult(SerializableDataclass):
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, payload: Any) -> "BenchmarkResult":
+    def from_dict(cls, payload: Any) -> BenchmarkResult:
         payload = payload or {}
         return cls(
             name=str(payload.get("name", "")),
@@ -725,11 +718,11 @@ class LlmConfig(SerializableDataclass):
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def disabled_default(cls) -> "LlmConfig":
+    def disabled_default(cls) -> LlmConfig:
         return cls()
 
     @classmethod
-    def from_dict(cls, payload: Any) -> "LlmConfig":
+    def from_dict(cls, payload: Any) -> LlmConfig:
         payload = payload or {}
         return cls(
             enabled=_as_bool(_payload_get(payload, "enabled", default=False), default=False),
@@ -774,14 +767,12 @@ class LlmAssistTask(SerializableDataclass):
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, payload: Any) -> "LlmAssistTask":
+    def from_dict(cls, payload: Any) -> LlmAssistTask:
         payload = payload or {}
         spot = _payload_get(payload, "spot")
         decision = _payload_get(payload, "decision")
         return cls(
-            task_type=_coerce_task_type(
-                _payload_get(payload, "task_type", "taskType", "kind")
-            ),
+            task_type=_coerce_task_type(_payload_get(payload, "task_type", "taskType", "kind")),
             prompt=str(
                 _payload_get(
                     payload,
@@ -792,12 +783,15 @@ class LlmAssistTask(SerializableDataclass):
                 )
             ),
             spot=SpotSnapshot.from_dict(spot) if isinstance(spot, dict) else spot,
-            decision=DecisionSnapshot.from_dict(decision) if isinstance(decision, dict) else decision,
+            decision=(
+                DecisionSnapshot.from_dict(decision) if isinstance(decision, dict) else decision
+            ),
             context=_as_any_dict(_payload_get(payload, "context")),
             role=str(_payload_get(payload, "role", default="")),
             temperature_override=(
                 None
-                if _payload_get(payload, "temperature_override", "temperatureOverride") in (None, "")
+                if _payload_get(payload, "temperature_override", "temperatureOverride")
+                in (None, "")
                 else _as_float(_payload_get(payload, "temperature_override", "temperatureOverride"))
             ),
             metadata=_as_any_dict(_payload_get(payload, "metadata")),
@@ -817,7 +811,7 @@ class LlmAssistResponse(SerializableDataclass):
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, payload: Any) -> "LlmAssistResponse":
+    def from_dict(cls, payload: Any) -> LlmAssistResponse:
         payload = payload or {}
         return cls(
             summary=str(_payload_get(payload, "summary", default="")),
@@ -1022,7 +1016,9 @@ def build_mock_llm_assist_payload(request_payload: Any = None) -> dict[str, Any]
     if not isinstance(payload, dict):
         payload = {}
     task_name = str(payload.get("task") or payload.get("task_type") or "spot_explain")
-    prompt = str(payload.get("prompt") or payload.get("context_summary") or payload.get("notes") or "")
+    prompt = str(
+        payload.get("prompt") or payload.get("context_summary") or payload.get("notes") or ""
+    )
     tags = _as_tuple(payload.get("tags"))
     return {
         "summary": f"Local mock copilot response for {task_name}.",
@@ -1048,8 +1044,7 @@ def build_mock_solve_response_payload(request_payload: Any = None) -> dict[str, 
         payload = {}
 
     if any(
-        key in payload
-        for key in ("hero_range", "heroRange", "villain_ranges", "villainRanges")
+        key in payload for key in ("hero_range", "heroRange", "villain_ranges", "villainRanges")
     ):
         request = SolveRequestV2.from_dict(payload)
     else:
@@ -1057,9 +1052,7 @@ def build_mock_solve_response_payload(request_payload: Any = None) -> dict[str, 
         request = SolveRequestV2(
             spot_id=str(payload.get("spot_id", "")),
             hero_range=str(payload.get("oop_range" if hero_is_oop else "ip_range", "")),
-            villain_ranges=(
-                str(payload.get("ip_range" if hero_is_oop else "oop_range", "")),
-            ),
+            villain_ranges=(str(payload.get("ip_range" if hero_is_oop else "oop_range", "")),),
             board=_as_tuple(payload.get("board")),
             starting_pot=_as_float(payload.get("starting_pot", 0.0)),
             effective_stack=_as_float(payload.get("effective_stack", 0.0)),
@@ -1304,7 +1297,7 @@ def build_mock_bot_cockpit_payload(
     service_name: str = "poker-restapi-local",
     endpoint: str = "/bot-cockpit/payload",
 ) -> dict[str, Any]:
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     llm_config = build_default_llm_config()
     spot_snapshot = build_mock_spot_snapshot()
     decision_snapshot = build_mock_decision_snapshot()
@@ -1361,7 +1354,7 @@ def build_replay_analytics_surface_payload(
     service_name: str = "poker-restapi-local",
     endpoint: str = "/replay-analytics/payload",
 ) -> dict[str, Any]:
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     samples = build_suite_samples()
     replay_payload = build_mock_replay_analytics_payload()
     decision_snapshot = build_mock_decision_snapshot()
@@ -1371,7 +1364,11 @@ def build_replay_analytics_surface_payload(
         {
             "id": str(cluster.get("id", f"highlight-{index + 1}")),
             "title": str(cluster.get("label", f"Replay highlight {index + 1}")),
-            "street": str(timeline[index].get("street", "unknown")) if index < len(timeline) else "unknown",
+            "street": (
+                str(timeline[index].get("street", "unknown"))
+                if index < len(timeline)
+                else "unknown"
+            ),
             "result": (
                 f"{timeline[index].get('result_bb', 0.0):+.1f} bb"
                 if index < len(timeline)
@@ -1422,7 +1419,10 @@ def build_replay_analytics_surface_payload(
             "Dedicated replay analytics payload served from the local runtime.",
             "This route mirrors the workstation happy path more closely than /runtime-snapshot.",
         ],
-        "samples": {"replay_analytics": replay_payload, "decision_snapshot": samples["decision_snapshot"]},
+        "samples": {
+            "replay_analytics": replay_payload,
+            "decision_snapshot": samples["decision_snapshot"],
+        },
     }
 
 
@@ -1430,7 +1430,7 @@ def build_config_lab_surface_payload(
     service_name: str = "poker-restapi-local",
     endpoint: str = "/config-lab/payload",
 ) -> dict[str, Any]:
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     llm_config = build_default_llm_config()
     llm_payload = llm_config.to_dict()
     config_payload = build_mock_config_lab_payload()
@@ -1496,7 +1496,7 @@ def build_config_lab_surface_payload(
 
 def build_runtime_snapshot(service_name: str = "poker-restapi-local") -> dict[str, Any]:
     """Return a local-only runtime snapshot for the future suite integration."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     llm_config = build_default_llm_config()
     samples = build_suite_samples()
     return {
@@ -1531,7 +1531,7 @@ def build_health_payload() -> dict[str, Any]:
         "service": "poker-restapi-local",
         "api_version": "v2",
         "llm_enabled": config.is_enabled(),
-        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "timestamp_utc": datetime.now(UTC).isoformat(),
     }
 
 

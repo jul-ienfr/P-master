@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from poker.decisionmaker.v2_contracts import (
+from src.contracts.v2_contracts import (
     CachePolicy,
     CacheTier,
     DecisionGateResult,

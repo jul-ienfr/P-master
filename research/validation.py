@@ -6,7 +6,7 @@ from typing import Any, Callable
 import statistics
 import time
 
-from poker.decisionmaker.v2_contracts import (
+from src.contracts.v2_contracts import (
     BenchmarkResult,
     DecisionSnapshot,
     ReplayRecord,

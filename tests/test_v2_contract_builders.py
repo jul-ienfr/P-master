@@ -2,7 +2,7 @@
 
 import json
 
-from poker.decisionmaker.v2_contracts import (
+from src.contracts.v2_contracts import (
     build_config_lab_surface_payload,
     build_mock_bot_cockpit_payload,
     build_mock_config_payload,

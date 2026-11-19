@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from poker.decisionmaker.v2_contracts import ReplayRecord
+from src.contracts.v2_contracts import ReplayRecord
 
 
 def _action_ratios(action_history: list[str]) -> dict[str, float]:

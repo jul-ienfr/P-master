@@ -7,7 +7,7 @@ from enum import Enum
 import logging
 from typing import Optional
 
-from poker.decisionmaker.v2_contracts import RangeModelVersion
+from src.contracts.v2_contracts import RangeModelVersion
 
 logger = logging.getLogger(__name__)
 

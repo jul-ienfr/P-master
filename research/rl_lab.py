@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 from poker.decisionmaker.tree_presets import list_tree_presets
-from poker.decisionmaker.v2_contracts import (
+from src.contracts.v2_contracts import (
     ActionEstimate,
     DecisionGateResult,
     DecisionSnapshot,
@@ -24,7 +24,6 @@ from research.self_play import (
     estimate_local_best_response,
     run_head_to_head,
 )
-
 
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS_DIR = ROOT / "research" / "results"
@@ -215,16 +214,83 @@ def run_challenger_smoke_suite(records: list[ReplayRecord]) -> list[dict[str, An
     return smoke_rows
 
 
+def estimate_solver_best_response(
+    records: list[ReplayRecord] | tuple[ReplayRecord, ...],
+    *,
+    max_iterations: int = 20,
+    bet_sizes: str | None = "50%",
+) -> dict[str, Any]:
+    """Évalue le corpus du lab avec le solveur natif au lieu des EV inventées.
+
+    Chaque snapshot est converti en spot solveur, ses ranges sont rendues
+    disjointes par ``measure_spot_best_response``, puis l'action de politique
+    est rapprochée de l'action solveur la plus proche (``bet_50`` → ``bet_9``).
+    Un arbre réduit (``bet_sizes``) est utilisé pour tenir un budget court.
+    """
+    from research.best_response import (
+        bet_sizes_from_legal_actions,
+        measure_corpus_best_response,
+        measure_spot_best_response,
+        spots_from_replay_records,
+    )
+
+    spots: list[dict[str, Any]] = []
+    for spot in spots_from_replay_records(records):
+        action = str(spot.get("policy_action") or "")
+        if not spot.get("board") or action in {"", "NoAction"}:
+            continue
+        is_bet = action.lower().startswith("bet_")
+        spots.append(
+            dict(
+                spot,
+                bet_sizes=(bet_sizes_from_legal_actions([action]) or bet_sizes)
+                if is_bet
+                else bet_sizes,
+                map_single_bet=is_bet,
+            )
+        )
+
+    corpus = measure_corpus_best_response(
+        spots,
+        gap_fn=lambda spot: measure_spot_best_response(spot, max_iterations=max_iterations),
+    )
+    evaluated = int(corpus.get("evaluated_spots", 0))
+    mean_gap = float(corpus.get("mean_best_response_gap", 0.0))
+    return {
+        "policy": "baseline_trace",
+        "records": len(records),
+        "evaluated_records": evaluated,
+        "solver_evaluated_records": evaluated,
+        "backend": "native_mes" if evaluated else "alternatives_fallback",
+        "lbr_gap": round(mean_gap * evaluated, 4),
+        "average_gap": round(mean_gap, 4),
+        "max_iterations": max_iterations,
+        "bet_sizes": bet_sizes,
+        "corpus": corpus,
+    }
+
+
 def build_rl_lab_payload(
     records: list[ReplayRecord] | tuple[ReplayRecord, ...] | None = None,
+    *,
+    solver_eval: bool = False,
+    max_iterations: int = 20,
+    bet_sizes: str | None = "50%",
 ) -> dict[str, Any]:
     selected_records = list(records or build_rl_replay_suite())
     tournament = run_policy_round_robin(selected_records)
     smoke = run_challenger_smoke_suite(selected_records)
-    best_response = estimate_local_best_response(
-        selected_records,
-        policy=ReplayDecisionPolicy(name="baseline_trace"),
-    )
+    if solver_eval:
+        best_response = estimate_solver_best_response(
+            selected_records,
+            max_iterations=max_iterations,
+            bet_sizes=bet_sizes,
+        )
+    else:
+        best_response = estimate_local_best_response(
+            selected_records,
+            policy=ReplayDecisionPolicy(name="baseline_trace"),
+        )
     ready_challengers = [entry["challenger_id"] for entry in smoke if entry["status"] == "ready"]
 
     return {
@@ -239,13 +305,29 @@ def build_rl_lab_payload(
     }
 
 
-def write_rl_lab_summary(
+def write_rl_lab_payload(
+    payload: dict[str, Any],
     output_path: str | Path | None = None,
-    *,
-    records: list[ReplayRecord] | tuple[ReplayRecord, ...] | None = None,
 ) -> Path:
-    payload = build_rl_lab_payload(records)
+    """Écrit un payload déjà calculé (évite de résoudre deux fois le corpus)."""
     path = Path(output_path) if output_path is not None else RESULTS_DIR / "rl_lab_summary.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return path
+
+
+def write_rl_lab_summary(
+    output_path: str | Path | None = None,
+    *,
+    records: list[ReplayRecord] | tuple[ReplayRecord, ...] | None = None,
+    solver_eval: bool = False,
+    max_iterations: int = 20,
+    bet_sizes: str | None = "50%",
+) -> Path:
+    payload = build_rl_lab_payload(
+        records,
+        solver_eval=solver_eval,
+        max_iterations=max_iterations,
+        bet_sizes=bet_sizes,
+    )
+    return write_rl_lab_payload(payload, output_path)

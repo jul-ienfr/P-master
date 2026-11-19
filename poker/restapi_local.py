@@ -48,7 +48,7 @@ try:  # pragma: no cover - optional when only importing the module in tests
 except ImportError:  # pragma: no cover - local API can still be inspected without a server
     uvicorn = None
 
-from poker.decisionmaker.v2_contracts import (
+from src.contracts.v2_contracts import (
     build_config_lab_surface_payload,
     build_health_payload,
     build_mock_bot_cockpit_payload,

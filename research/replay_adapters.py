@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from poker.decisionmaker.v2_contracts import DecisionSnapshot, ReplayRecord, SpotSnapshot
+from src.contracts.v2_contracts import DecisionSnapshot, ReplayRecord, SpotSnapshot
 
 
 def spot_to_pokerkit_payload(spot: SpotSnapshot) -> dict[str, Any]:

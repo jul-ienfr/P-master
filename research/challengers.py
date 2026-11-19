@@ -7,7 +7,7 @@ import importlib.util
 import pkgutil
 from typing import Any
 
-from poker.decisionmaker.v2_contracts import SpotSnapshot, build_mock_spot_snapshot
+from src.contracts.v2_contracts import SpotSnapshot, build_mock_spot_snapshot
 from research.replay_adapters import (
     spot_to_pokerkit_payload,
     spot_to_pokerrl_payload,

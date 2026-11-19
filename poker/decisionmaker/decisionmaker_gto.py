@@ -45,7 +45,7 @@ from poker.decisionmaker.decision_service import CanonicalDecisionService
 from poker.decisionmaker.gto_runtime import ensure_local_gto_server
 from poker.decisionmaker.range_tracker import RangeTrackerManager
 from poker.decisionmaker.tree_presets import choose_tree_preset_id
-from poker.decisionmaker.v2_contracts import (
+from src.contracts.v2_contracts import (
     ActionEstimate,
     CachePolicy,
     CacheTier,

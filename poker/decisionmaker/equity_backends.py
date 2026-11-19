@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from poker.decisionmaker.v2_contracts import CacheTier, EquityBackend
+from src.contracts.v2_contracts import CacheTier, EquityBackend
 
 
 @dataclass(frozen=True)

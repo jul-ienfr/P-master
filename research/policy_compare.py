@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from poker.decisionmaker.v2_contracts import SpotSnapshot
+from src.contracts.v2_contracts import SpotSnapshot
 
 
 def _normalize_action(value: Any) -> str:

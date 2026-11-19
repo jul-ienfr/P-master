@@ -12,7 +12,7 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 
 from research.automation import build_automation_payload
-from poker.decisionmaker.v2_contracts import build_mock_replay_record
+from src.contracts.v2_contracts import build_mock_replay_record
 from research.calibration import benchmark_range_model_versions, fit_calibration_profile
 from research.challengers import challenger_payload, challenger_registry, load_challenger
 from research.opponent_datasets import build_opponent_dataset

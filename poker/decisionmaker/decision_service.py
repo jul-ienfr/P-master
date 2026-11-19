@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 from typing import Any, Callable
 
-from poker.decisionmaker.v2_contracts import (
+from src.contracts.v2_contracts import (
     ActionOptionV2,
     BenchmarkResult,
     CachePolicy,
