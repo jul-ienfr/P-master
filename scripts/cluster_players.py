@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 import sys
-from collections import defaultdict
+
 import numpy as np
 
 try:
@@ -38,7 +38,7 @@ async def run_clustering():
         FROM players
         WHERE (hands_played > 50 OR observed_hands > 50)
     """
-    
+
     async with db.pool.acquire() as conn:
         rows = await conn.fetch(query)
 
@@ -54,23 +54,23 @@ async def run_clustering():
     for row in rows:
         name = row['player_name']
         sample_size = max(row['observed_hands'], row['hands_played'])
-        
+
         vpip = float(row['vpip_count']) / sample_size if sample_size > 0 else 0.0
         pfr = float(row['pfr_count']) / sample_size if sample_size > 0 else 0.0
         gap = max(0.0, vpip - pfr)
-        
+
         raw_stats = row['raw_stats'] if isinstance(row['raw_stats'], dict) else {}
         agg_actions = int(raw_stats.get('aggressive_actions', 0))
         pass_actions = int(raw_stats.get('passive_actions', 0))
         total_actions = agg_actions + pass_actions
-        
+
         afq = float(agg_actions) / total_actions if total_actions > 0 else 0.0
 
         player_names.append(name)
         features.append([vpip, pfr, gap, afq])
 
     X = np.array(features)
-    
+
     # Normalisation
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
@@ -83,11 +83,11 @@ async def run_clustering():
     # Analyse des centroids pour nommer les clusters
     centroids = kmeans.cluster_centers_
     original_centroids = scaler.inverse_transform(centroids)
-    
+
     cluster_names = {}
     for i, centroid in enumerate(original_centroids):
         c_vpip, c_pfr, c_gap, c_afq = centroid
-        
+
         # Logique de nommage basée sur les centres de gravité mathématiques
         if c_vpip > 0.40:
             name = "Maniac" if c_afq > 0.45 else "Whale"
@@ -97,7 +97,7 @@ async def run_clustering():
             name = "TightAggressive" if c_pfr > 0.10 else "TightPassive" # Nit
         else:
             name = "RegAggressive" if c_afq > 0.35 else "RegPassive"
-            
+
         cluster_names[i] = name
         logger.info(f"Cluster {i} identifié comme {name} (VPIP:{c_vpip:.2f}, PFR:{c_pfr:.2f}, AFq:{c_afq:.2f})")
 
@@ -105,7 +105,7 @@ async def run_clustering():
     logger.info("Mise à jour des profils en base de données...")
     updates = 0
     async with db.pool.acquire() as conn:
-        for name, label in zip(player_names, labels):
+        for name, label in zip(player_names, labels, strict=True):
             new_type = cluster_names[label]
             await conn.execute(
                 "UPDATE players SET player_type = $1 WHERE player_name = $2",

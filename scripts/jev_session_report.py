@@ -106,7 +106,7 @@ def main() -> int:
     result = chat(prompt, model=args.model, base_url=args.base_url,
                   timeout_s=args.timeout)
     if result["report"] is None:
-        print("JEV rapport: indisponible (%s)" % result["reason"])
+        print(f"JEV rapport: indisponible ({result['reason']})")
         return 1
     if args.out:
         Path(args.out).write_text(result["report"] + "\n", encoding="utf-8")

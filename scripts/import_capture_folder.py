@@ -5,7 +5,6 @@ import hashlib
 import shutil
 from pathlib import Path
 
-
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -11,7 +12,6 @@ from unittest.mock import patch
 import pytest
 
 from src.runtime import debug as dbg
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -315,8 +315,7 @@ def test_redact_url_credentials():
 # to_thread_with_context
 # ---------------------------------------------------------------------------
 
-@pytest.mark.asyncio
-async def test_to_thread_with_context_propagates():
+def test_to_thread_with_context_propagates():
     dbg.set_debug_context(spot_id="CTX42")
     filt = dbg.DebugContextFilter()
 
@@ -325,7 +324,7 @@ async def test_to_thread_with_context_propagates():
         filt.filter(rec)
         return getattr(rec, "spot_id", None)
 
-    result = await dbg.to_thread_with_context(check_context)
+    result = asyncio.run(dbg.to_thread_with_context(check_context))
     assert result == "CTX42"
     dbg.set_debug_context(spot_id="-")
 

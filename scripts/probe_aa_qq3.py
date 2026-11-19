@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Sonde provisoire n°3 : AA-vs-QQ mono-combo est dégénéré (showdown
 déterministe à 100 %) — tester un range héros mixte à équité partagée.
 

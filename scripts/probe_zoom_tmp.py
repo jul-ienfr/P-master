@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
 """Zoom diagnostique hero-cards temoin : crops absolus + stats + sweep carte."""
 import sys
 from pathlib import Path
 
 import cv2
-import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:

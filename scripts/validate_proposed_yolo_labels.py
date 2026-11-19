@@ -3,9 +3,9 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
-import sys
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,7 +13,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.vision.yolo_schema import YOLO_CLASS_NAMES
-
 
 GENERIC_CARD_LABELS = {"board_card", "hero_card"}
 

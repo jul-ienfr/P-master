@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Sonde provisoire n°2 : isoler la non-convergence AA-héros (F-I).
 
 F : AsAd vs QQ, héros IP (swap position — OOP nuts vs IP nuts ?).

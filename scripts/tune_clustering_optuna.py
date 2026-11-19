@@ -28,20 +28,22 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
     from sklearn.cluster import KMeans
-    from sklearn.preprocessing import StandardScaler
     from sklearn.metrics import (
-        silhouette_score,
-        davies_bouldin_score,
         calinski_harabasz_score,
+        davies_bouldin_score,
+        silhouette_score,
     )
-except ImportError:
-    raise ImportError("scikit-learn is required. Run: pip install scikit-learn")
+    from sklearn.preprocessing import StandardScaler
+except ImportError as exc:
+    raise ImportError(
+        "scikit-learn is required. Run: pip install scikit-learn"
+    ) from exc
 
 try:
     import optuna
-    from optuna.samplers import TPESampler, GridSampler
-except ImportError:
-    raise ImportError("optuna is required. Run: pip install optuna")
+    from optuna.samplers import TPESampler
+except ImportError as exc:
+    raise ImportError("optuna is required. Run: pip install optuna") from exc
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("ClusterTuning")
@@ -230,7 +232,7 @@ def run_final_clustering(X_full: np.ndarray, best_params: dict) -> None:
 
     # Distribution
     unique, counts = np.unique(labels, return_counts=True)
-    distribution = {int(u): int(c) for u, c in zip(unique, counts)}
+    distribution = {int(u): int(c) for u, c in zip(unique, counts, strict=True)}
 
     # Centroids back to original scale
     centroids_orig = scaler.inverse_transform(kmeans.cluster_centers_)
@@ -253,7 +255,7 @@ def run_final_clustering(X_full: np.ndarray, best_params: dict) -> None:
     )
     print(f"Features used: {', '.join(fnames)}")
     print(f"\nCluster distribution: {distribution}")
-    print(f"\nCentroids (original scale):")
+    print("\nCentroids (original scale):")
     for i, centroid in enumerate(centroids_orig):
         vals = ", ".join(f"{v:.4f}" for v in centroid)
         print(f"  Cluster {i}: [{vals}]")

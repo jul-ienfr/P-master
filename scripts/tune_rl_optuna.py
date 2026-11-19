@@ -19,7 +19,6 @@ import os
 import random
 import sys
 import types
-import warnings
 
 import numpy as np
 
@@ -53,9 +52,9 @@ os.makedirs(os.path.join(_project_root, "models", "rl"), exist_ok=True)
 # ---------------------------------------------------------------------------
 try:
     import optuna
-    from optuna.samplers import TPESampler
-    from optuna.pruners import MedianPruner
     import optuna.trial
+    from optuna.pruners import MedianPruner
+    from optuna.samplers import TPESampler
 except ImportError:
     print("Optuna is required. Install it with: pip install optuna")
     sys.exit(1)
@@ -82,7 +81,7 @@ def make_dynamic_exploit_network(fc1_units, fc2_units, fc3_units, dropout_rate):
     """
     class DynamicExploitValueNetwork(nn.Module):
         def __init__(self, state_dim, action_dim):
-            super(DynamicExploitValueNetwork, self).__init__()
+            super().__init__()
             self.fc1 = nn.Linear(state_dim, fc1_units)
             self.fc2 = nn.Linear(fc1_units, fc2_units)
             self.fc3 = nn.Linear(fc2_units, fc3_units)
@@ -120,7 +119,7 @@ def _patched_train_step(self):
         return 0.0
 
     batch = random.sample(self.memory, self.batch_size)
-    states, actions, rewards, next_states, dones, next_masks = zip(*batch)
+    states, actions, rewards, next_states, dones, next_masks = zip(*batch, strict=True)
 
     states = torch.FloatTensor(np.array(states)).to(self.device)
     actions = torch.LongTensor(np.array(actions)).unsqueeze(1).to(self.device)

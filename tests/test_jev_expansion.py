@@ -9,7 +9,7 @@ import io
 import json
 from unittest import mock
 
-from scripts.jev_autolabel_incidents import build_autolabel_questions, autolabel
+from scripts.jev_autolabel_incidents import autolabel, build_autolabel_questions
 from scripts.jev_judge_sessions import (
     build_judge_questions,
     build_judge_state,

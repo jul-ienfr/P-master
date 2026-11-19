@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import cv2
 
@@ -14,7 +14,6 @@ if str(ROOT) not in sys.path:
 from src.vision.detector import PokerDetector
 from src.vision.models import DetectionResult
 from src.vision.yolo_schema import YOLO_CLASS_MAP, YOLO_CLASS_NAMES
-
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
 

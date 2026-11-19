@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Diagnostic numerique du miss hero-cards sur l'image temoin.
 1) Fichier modele YOLO + chargement ultralytics.
 2) Replay PokerDetector.analyze_frame complet + dump candidats cartes YOLO bruts.
@@ -9,7 +8,6 @@ import traceback
 from pathlib import Path
 
 import cv2
-import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:

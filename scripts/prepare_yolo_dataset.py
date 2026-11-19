@@ -3,16 +3,15 @@ from __future__ import annotations
 import argparse
 import random
 import shutil
+import sys
 from dataclasses import dataclass
 from pathlib import Path
-import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.vision.yolo_schema import YOLO_CLASS_NAMES, write_dataset_yaml
-
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
 

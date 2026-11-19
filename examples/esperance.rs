@@ -14,7 +14,10 @@ fn main() {
     let s = ev_summary(ev, Some(bb), Some(bb_dollars), None);
     println!(
         "S1 ev_chips={:.1} ev_bb={:.1} bb/100={:.0} $EV={:.2}",
-        s.ev_chips, s.ev_bb.unwrap(), s.ev_bb_per_100.unwrap(), s.ev_dollars.unwrap()
+        s.ev_chips,
+        s.ev_bb.unwrap(),
+        s.ev_bb_per_100.unwrap(),
+        s.ev_dollars.unwrap()
     );
     // ── Spot 2 — rake 5% cap $3 + PKO $EV=ChipEV+BountyEV ──
     // rake=min(pot*rate,cap) net=pot-rake (C20) ; bounty 0.3 BI P(elim)=0.2 (C23).
@@ -26,7 +29,12 @@ fn main() {
     let bounty_ev_bi = 0.2 * 0.3; // 0.06 BI
     println!(
         "S2 rake={:.0} net={:.0} ev_chips={:.1} ev_bb={:.1} $EV={:.2} (+BountyEV={:.2} BI)",
-        rake, net, t.ev_chips, t.ev_bb.unwrap(), t.ev_dollars.unwrap(), bounty_ev_bi
+        rake,
+        net,
+        t.ev_chips,
+        t.ev_bb.unwrap(),
+        t.ev_dollars.unwrap(),
+        bounty_ev_bi
     );
     println!("units: ev_chips → ev_bb → ev_bb_per_100 → ev_dollars → $EV (docs/esperance.md §3)");
 
@@ -44,12 +52,9 @@ fn main() {
             regime_filter = Some(v.to_string());
         }
     }
-    let filter_norm = regime_filter.as_deref().map(|s| {
-        s.to_lowercase()
-            .replace('×', "x")
-            .replace(' ', "")
-            .replace('-', "")
-    });
+    let filter_norm = regime_filter
+        .as_deref()
+        .map(|s| s.to_lowercase().replace('×', "x").replace([' ', '-'], ""));
 
     let should_show = |tag: &str| -> bool {
         match &filter_norm {
@@ -119,7 +124,10 @@ fn main() {
         let known = ["4hx5j", "6hx6j", "12hx6j"];
         let matched = known.iter().any(|k| should_show(k));
         if !matched {
-            eprintln!("--regime inconnu \"{}\" — valeurs: 4h5j, 6h6j, 12h6j (defaut: affiche les 3)", f);
+            eprintln!(
+                "--regime inconnu \"{}\" — valeurs: 4h5j, 6h6j, 12h6j (defaut: affiche les 3)",
+                f
+            );
         }
     }
 }

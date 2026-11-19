@@ -51,7 +51,7 @@ def bench_probe() -> None:
 # ---------------------------------------------------------------------------
 
 def bench_setup_idempotence(tmp_path: Path | None = None) -> None:
-    from src.runtime.debug import setup_debug_logging, _reset_debug_state
+    from src.runtime.debug import _reset_debug_state, setup_debug_logging
 
     root = tmp_path or (ROOT / ".bench_tmp")
     root.mkdir(parents=True, exist_ok=True)

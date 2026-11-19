@@ -19,12 +19,12 @@ fn parse_args() -> (usize, Vec<String>, u32, Option<u64>) {
                     board = vec![];
                 } else {
                     board = raw
-                        .split(|c| c == ',' || c == ' ')
+                        .split([',', ' '])
                         .filter(|s| !s.is_empty())
                         .map(|s| s.to_string())
                         .collect();
                     // single concatenated form like "Ah7d2c" -> ["Ah","7d","2c"]
-                    if board.len() == 1 && board[0].len() > 2 && board[0].len() % 2 == 0 {
+                    if board.len() == 1 && board[0].len() > 2 && board[0].len().is_multiple_of(2) {
                         let s = board[0].clone();
                         board = s
                             .as_bytes()
@@ -61,7 +61,9 @@ fn main() {
     let ranges: Vec<String> = if use_avoid_pool {
         // 6 ranks qui n'utilisent ni A ni K → aucune collision avec Ah/Kx
         let pool_avoid = ["QQ", "JJ", "TT", "99", "88", "77"];
-        (0..n).map(|i| pool_avoid[i % pool_avoid.len()].to_string()).collect()
+        (0..n)
+            .map(|i| pool_avoid[i % pool_avoid.len()].to_string())
+            .collect()
     } else {
         let pool = ["AA", "KK", "QQ", "JJ", "TT", "AKs"];
         let mut r: Vec<String> = (0..n).map(|i| pool[i % pool.len()].to_string()).collect();

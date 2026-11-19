@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Sonde provisoire : asymétrie de convergence AA vs QQ (spot river_jam)."""
 import json
 import sys

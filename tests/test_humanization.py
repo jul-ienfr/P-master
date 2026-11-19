@@ -211,7 +211,7 @@ def test_send_text_handles_shift_state(monkeypatch, fast_sleep):
 
 
 def test_typo_simulated_then_backspace(monkeypatch, fast_sleep):
-    key_events = install_fake_keyboard(monkeypatch)
+    install_fake_keyboard(monkeypatch)
 
     class TypoProfile(HumanizationProfile):
         def chance(self, probability):
@@ -341,8 +341,9 @@ def test_default_backend_is_win32():
     profile = HumanizationProfile.from_config(None)
     assert profile.input_backend == "win32"
 
-    controller = make_controller()
-    from src.bot.action_controller import InputBackend, Win32Backend as WB
+    make_controller()
+    from src.bot.action_controller import InputBackend
+    from src.bot.action_controller import Win32Backend as WB
 
     assert isinstance(WB(), WB)
     assert hasattr(InputBackend, "move_to")
@@ -380,7 +381,7 @@ def test_win32_backend_type_char_shift(monkeypatch):
 
 
 def test_bet_sequence_bet_btn_always_clicked_with_legacy_flag(monkeypatch, fast_sleep):
-    key_events = install_fake_keyboard(monkeypatch)
+    install_fake_keyboard(monkeypatch)
     profile = HumanizationProfile(
         seed=2,
         typing={"legacy_double_enter": True, "select_ctrl_a_probability": 0.0},
@@ -412,7 +413,7 @@ def test_bet_sequence_bet_btn_always_clicked_with_legacy_flag(monkeypatch, fast_
 
 
 def test_bet_sequence_ctrl_a_selection_when_configured(monkeypatch, fast_sleep):
-    key_events = install_fake_keyboard(monkeypatch)
+    install_fake_keyboard(monkeypatch)
     profile = HumanizationProfile(
         seed=4, typing={"select_ctrl_a_probability": 1.0, "select_triple_click_probability": 0.0}
     )

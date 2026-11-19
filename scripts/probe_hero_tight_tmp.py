@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Zoom fin hero : crop x700-1300/y800-1050 + stats par sous-fenetre 60x84."""
 import sys
 from pathlib import Path

@@ -1,8 +1,8 @@
-# -*- coding: utf-8 -*-
 """Sonde diagnostique : positions hero-cards temoin + coin haut-gauche + tailles templates."""
+from pathlib import Path
+
 import cv2
 import numpy as np
-from pathlib import Path
 
 WIT = Path("dataset/needs_annotation/failed_20260903_111458_115.jpg")
 img = cv2.imread(str(WIT))

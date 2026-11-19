@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import argparse
 import shutil
-from pathlib import Path
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -13,7 +13,6 @@ from ultralytics import YOLO
 
 from src.vision.detector import resolve_model_path
 from src.vision.yolo_schema import YoloDatasetSchemaError, validate_dataset_yaml_schema
-
 
 DEFAULT_BASE_MODEL = "models/yolo11n.pt"
 

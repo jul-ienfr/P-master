@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Localise tous les rectangles de cartes + coin ancre sur le temoin (coords absolues)."""
 import sys
 from pathlib import Path
