@@ -28,7 +28,8 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
 
-from src.bot.jev_gate import JevDecision, JevGateConfig, decide as jev_decide
+from src.bot.jev_gate import JevDecision, JevGateConfig
+from src.bot.jev_gate import decide as jev_decide
 
 logger = logging.getLogger("SuperBot2026")
 
@@ -74,7 +75,7 @@ class AiGateConfig:
         cls,
         overrides: dict[str, Any] | None = None,
         base: dict[str, Any] | None = None,
-    ) -> "AiGateConfig":
+    ) -> AiGateConfig:
         """Construit la config : fichier (``base``) < env < ``overrides``."""
         cfg = cls()
         node: dict[str, Any] = {}

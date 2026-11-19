@@ -47,7 +47,7 @@ fail-open **sans appel réseau** (`fail-open: missing api key`).
 | Écart | Proxy `:4000` | Officiel | Isolation |
 |---|---|---|---|
 | `base_url` | `http://127.0.0.1:4000` (+ `/v1/systemone` ajouté) | URL complète incluant `/v1/systemone` (reconnue telle quelle) | `djev_gate._endpoint` |
-| `model` | `jev-1.13-free`, cost `0`, anonyme | `jev-1.13.0` piné (alias `jev-latest` mouvant) | `DjevGateConfig.model` |
+| `model` | `jev-1.13-free`, cost `0`, anonyme | `jev-1.13.0` piné (alias `jev-latest` mouvant) | `DjevGateConfig._align_model_with_endpoint` : loopback → `jev-1.13-free`, cloud → `jev-1.13.0` |
 | auth | aucune | `Bearer` depuis `os.environ[api_key_env]` | `djev_gate.query` |
 | `state` | string-only (400 si objet) | objet accepté, mais on garde string-only (comparabilité) | `build_state` partagé |
 | erreurs | 404 proxy | 401/422 fail-open direct ; 429/529 1 retry + `retry-after` | `djev_gate.query` |
@@ -55,9 +55,11 @@ fail-open **sans appel réseau** (`fail-open: missing api key`).
 
 ## 4. Modèle piné
 
-`jev-1.13.0` (stable). `jev-latest` et `jev-preview` = alias mouvants :
-**interdits** dès que des seuils sont tunés (la doc prévient que `jev-preview`
-peut changer sans préavis). Logger toujours `model` effectif + `probabilities`.
+`jev-1.13.0` (stable) côté cloud. `jev-latest` et `jev-preview` = alias
+mouvants : **interdits** dès que des seuils sont tunés (la doc prévient que
+`jev-preview` peut changer sans préavis). Le gate aligne automatiquement le
+modèle sur l'endpoint : `jev-1.13-free` sur le proxy loopback, `jev-1.13.0`
+sur le cloud. Logger toujours `model` effectif + `probabilities`.
 
 ## 5. Pricing / limites (doc, non mesuré ici)
 

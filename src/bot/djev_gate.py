@@ -7,7 +7,8 @@ officiel ``https://api.typesafe.ai/v1/systemone``.
 Écarts proxy :4000 vs officiel, TOUS isolés ici (jamais dans gate_flow.py) :
   - ``base_url`` : proxy = ``http://127.0.0.1:4000`` (+ ``/v1/systemone``
     ajouté) ; officiel = URL complète incluant ``/v1/systemone`` (reconnue et
-    utilisée telle quelle). Modèle officiel piné ``jev-1.13.0``.
+    utilisée telle quelle). Le modèle est aligné sur l'endpoint : loopback ->
+    ``jev-1.13-free`` (seul modèle proxy), cloud -> ``jev-1.13.0`` (pin).
   - auth : proxy = aucune ; officiel = ``Authorization: Bearer`` lu depuis
     ``os.environ[api_key_env]`` (nom de var, JAMAIS la valeur en dur). Clé
     absente + URL non-loopback -> fail-open SANS appel réseau.
@@ -62,7 +63,9 @@ __all__ = [
 ]
 
 DEFAULT_BASE_URL = "http://127.0.0.1:4000"  # lock LAN : proxy local gratuit sans cle (cloud desactive par choix)
-DEFAULT_MODEL = "jev-1.13.0"  # pin stable ; jev-latest/jev-preview = alias mouvants
+DEFAULT_CLOUD_MODEL = "jev-1.13.0"  # pin stable officiel ; jev-latest/jev-preview = alias mouvants
+DEFAULT_PROXY_MODEL = "jev-1.13-free"  # seul modele Jev expose par le proxy local
+DEFAULT_MODEL = DEFAULT_CLOUD_MODEL  # compat : constante historique = pin cloud
 DEFAULT_TIMEOUT_S = 5.0
 DEFAULT_API_KEY_ENV = "TYPESAFE_API_KEY"
 DEFAULT_LAN_URL = "http://127.0.0.1:4000"
@@ -114,12 +117,28 @@ class DjevGateConfig:
     min_downgrade_confidence: float = MIN_DOWNGRADE_CONFIDENCE
     risky_threshold: float = RISKY_THRESHOLD
 
+    def __post_init__(self) -> None:
+        self._align_model_with_endpoint()
+
+    def _align_model_with_endpoint(self) -> None:
+        """Aligne le modèle sur le dialecte réellement appelé.
+
+        Le proxy local ne connaît que ``jev-1.13`` / ``jev-1.13-free`` ;
+        le cloud officiel pin ``jev-1.13.0``. Sans cet alignement, le défaut
+        loopback partait en 404 puis fail-open silencieux.
+        """
+        if _is_loopback(self.base_url):
+            if self.model == DEFAULT_CLOUD_MODEL:
+                self.model = DEFAULT_PROXY_MODEL
+        elif self.model == DEFAULT_PROXY_MODEL:
+            self.model = DEFAULT_CLOUD_MODEL
+
     @classmethod
     def from_env(
         cls,
         overrides: dict[str, Any] | None = None,
         base: dict[str, Any] | None = None,
-    ) -> "DjevGateConfig":
+    ) -> DjevGateConfig:
         """Construit la config : fichier (``base``) < env < ``overrides``.
 
         Bloc fichier attendu (tout optionnel) : ``{"mode","model","timeout_s",
@@ -189,6 +208,7 @@ class DjevGateConfig:
                 "DJEV | unknown mode %r, falling back to observer", cfg.mode
             )
             cfg.mode = "observer"
+        cfg._align_model_with_endpoint()
         if cfg.offline_mode:
             # Offline strict : aucun egress WAN (fallbacks cloud tombés,
             # miroir TS normalizeAiGateConfig / Rust normalize_ai_gate_config).
@@ -237,11 +257,14 @@ def query(
     """
     cfg = config or DjevGateConfig.from_env()
     started = time.monotonic()
-    fail = lambda reason: JevDecision(  # noqa: E731
-        verdict=None,
-        reason=reason,
-        latency_ms=(time.monotonic() - started) * 1000.0,
-    )
+    def fail(reason: str) -> JevDecision:
+        latency_ms = (time.monotonic() - started) * 1000.0
+        logger.warning("DJEV | %s model=%s %.0fms", reason, cfg.model, latency_ms)
+        return JevDecision(
+            verdict=None,
+            reason=reason,
+            latency_ms=latency_ms,
+        )
     if not isinstance(state, str) or not state.strip():
         return fail("fail-open: empty state")
     url = _endpoint(cfg.base_url)

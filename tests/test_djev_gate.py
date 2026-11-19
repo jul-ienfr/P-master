@@ -73,9 +73,14 @@ def _lan_cfg(**kw):
     return DjevGateConfig.from_env(base=base)
 
 
-def test_default_model_pinned():
+def test_default_model_is_endpoint_aware():
     assert DEFAULT_MODEL == "jev-1.13.0"
-    assert DjevGateConfig.from_env().model == "jev-1.13.0"
+    # Loopback par défaut : le proxy ne connaît que jev-1.13-free.
+    assert DjevGateConfig.from_env().model == "jev-1.13-free"
+    cloud = DjevGateConfig.from_env(
+        base={"base_url": "https://api.typesafe.ai/v1/systemone"}
+    )
+    assert cloud.model == "jev-1.13.0"
 
 
 def test_endpoint_accepts_naked_or_full_base():
@@ -237,7 +242,12 @@ def test_decide_observer_never_changes_heuristic():
 
 
 def test_from_env_precedence_base_env_overrides(monkeypatch):
-    base = {"mode": "enforcing", "model": "jev-1.13.0", "timeout_s": 2.0}
+    base = {
+        "mode": "enforcing",
+        "model": "jev-1.13.0",
+        "timeout_s": 2.0,
+        "base_url": "https://api.typesafe.ai/v1/systemone",
+    }
     cfg = DjevGateConfig.from_env(base=base)
     assert (cfg.mode, cfg.model, cfg.timeout_s) == ("enforcing", "jev-1.13.0", 2.0)
     monkeypatch.setenv("POKER_DJEV_MODE", "off")

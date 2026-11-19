@@ -157,7 +157,7 @@ class JevGateConfig:
         cls,
         overrides: dict[str, Any] | None = None,
         base: dict[str, Any] | None = None,
-    ) -> "JevGateConfig":
+    ) -> JevGateConfig:
         """Construit la config : fichier (``base``) < env < ``overrides``.
 
         Bloc fichier attendu (tout optionnel, défauts = comportement actuel) :
@@ -424,11 +424,16 @@ def query(
     """POST /v1/systemone, parse tolérant. Jamais d'exception vers l'appelant."""
     cfg = config or JevGateConfig.from_env()
     started = time.monotonic()
-    fail = lambda reason: JevDecision(
-        verdict=None,
-        reason=reason,
-        latency_ms=(time.monotonic() - started) * 1000.0,
-    )
+    def fail(reason: str) -> JevDecision:
+        latency_ms = (time.monotonic() - started) * 1000.0
+        # Un fail-open silencieux est un angle mort : on trace toujours le
+        # motif et le modèle effectif (jamais la clé ni le corps).
+        logger.warning("JEV | %s model=%s %.0fms", reason, cfg.model, latency_ms)
+        return JevDecision(
+            verdict=None,
+            reason=reason,
+            latency_ms=latency_ms,
+        )
     if not isinstance(state, str) or not state.strip():
         return fail("fail-open: empty state")
     url = f"{cfg.base_url.rstrip('/')}/v1/systemone"

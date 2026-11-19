@@ -124,7 +124,7 @@
       "cloud_fallback": false,
       "djev": {
         "base_url": "http://127.0.0.1:4000",
-        "model": "jev-1.13.0",
+        "model": "jev-1.13-free",
         "api_key_env": "TYPESAFE_API_KEY",
         "timeout_s": 5.0,
         "mode": "observer",
