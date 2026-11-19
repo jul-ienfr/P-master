@@ -336,6 +336,27 @@ The live Python bot keeps RL enabled by default for backward compatibility, but 
 
 Resolution order is: environment variable, then `config.json`, then the built-in default.
 
+## Licence et composants tiers
+
+Le code de ce dépôt est distribué sous **GNU Affero General Public License v3.0
+uniquement** (`AGPL-3.0-only`, voir `LICENSE`). Toute mise à disposition du
+logiciel modifié à des utilisateurs via un réseau déclenche l'obligation de
+fournir le code source correspondant (section 13 de la licence).
+
+Le solveur Rust est un fork de [`b-inary/postflop-solver`](https://github.com/b-inary/postflop-solver),
+lui-même sous AGPL-3.0. Les composants utilisés comme dépendances ou oracles
+conservent leurs licences d'origine :
+
+- PokerKit — MIT ;
+- OpenSpiel — Apache-2.0 ;
+- `phevaluator`, `pokersolver`, `poker_evaluator` — MIT ;
+- TexasSolver, desktop-postflop, wasm-postflop — AGPL-3.0 (références de
+  comparaison, non liées au binaire distribué).
+
+Ne pas distribuer le contenu de `dataset/runtime_failures/` : il contient des
+captures de tables tierces et des pseudos de joueurs (voir
+`docs/PRIVACY_REVIEW_runtime_failures_2026-11-14.md`).
+
 ## Integration Notes
 
 - The server path is the safest choice if you want a process boundary and simple runtime isolation.
