@@ -317,7 +317,7 @@ response = self.solver_provider.solve_spot_v2(
 
 ### P2 — Qualité et industrialisation
 
-#### F-18 : l'OCR surya n'a jamais pu se charger — les chemins d'import n'existent dans aucune version
+#### F-18 : l'OCR surya est inerte depuis le 24/08/2026 — le code vise une API que plus aucune version n'expose
 
 `src/vision/ocr.py:38-40` importe trois symboles sous `try/except ImportError` :
 
@@ -327,19 +327,29 @@ from surya.foundation import FoundationPredictor
 from surya.recognition import RecognitionPredictor
 ```
 
-**Aucun des trois chemins n'existe** dans les versions de `surya-ocr` que le projet a utilisées, ni dans aucune autre :
+Ces trois chemins **ont existé**, dans une fenêtre étroite de la lignée `surya-ocr` :
 
-| Chemin attendu | 0.9.2 | 0.22.1 | 0.24.0 |
+| Version | `surya/foundation.py` | `surya/common/surya/` | `TaskNames` |
 |---|---|---|---|
-| `surya/common/surya/schema.py` | absent | absent | absent |
-| `surya/foundation.py` | absent | absent | absent |
-| `surya/recognition/__init__.py` | présent | présent | présent |
+| 0.13.1 et avant | absent | absent | absent |
+| **0.14.0 – 0.14.7** | absent | **présent** | **présent** |
+| **0.15.0 – 0.17.1** | **présent** | **présent** | **présent** |
+| 0.20.0 et après | absent | absent | absent |
 
-Vérifié sur les wheels PyPI téléchargés (`pip download --no-deps`, contenu de l'archive) et sur deux venvs neufs (`uv sync --frozen`) : `SURYA_AVAILABLE` vaut **`False` dans tous les cas**, y compris sur le lockfile d'origine du 20/11 au matin — le défaut est **antérieur et indépendant** à la montée de dépendances de F-17. Le symbole `TaskNames` (utilisé ligne 305 pour `ocr_without_boxes`) n'existe dans **aucun** fichier de ces versions. Les imports ont été écrits le 08/05/2026 (`030d9c7`, « bundle vision and training changes »), quand `surya-ocr` était absent du `pyproject.toml` — le paquet a été déclaré plus tard, le 24/08 (`a48994f`), sans que ces chemins soient jamais validés.
+Vérifié en téléchargeant les wheels PyPI (96 versions publiées, échantillon couvrant chaque lignée mineure, contenu des archives inspecté) et non par simple import. La signature du code correspond **exactement** à la fenêtre `0.15.0–0.17.1` : `RecognitionPredictor.__init__(self, foundation_predictor: FoundationPredictor)` (vérifié dans le wheel 0.17.1), puis appel `predictor(images, task_names=[...], bboxes=..., math_mode=False)` — tous ces paramètres existent en 0.17.1 et ont disparu en 0.20.
 
-**Conséquence** : `SuryaEngine` lève `RuntimeError("surya-ocr is not installed")` à l'instanciation, et l'`except ImportError` le fait **en silence** — aucune erreur au boot, le moteur est simplement retiré de la liste disponible (avec `rapidocr` et `tesseract` en amont, la politique OCR de F-08 n'en charge aucun des deux). Le repli est correct, mais la revendication « pseudos batch 92→96 % » du `pyproject.toml:15` n'est **adossée à aucun moteur exécutable**.
+**Rectification.** Une première version de ce constat affirmait que ces chemins n'avaient « jamais existé dans aucune version » : c'était **faux**, et dû à un échantillon trop étroit (0.9.2, 0.22.1, 0.24.0 — trois points qui encadrent la fenêtre sans la toucher). Le tableau ci-dessus remplace cette affirmation.
 
-**Reste ouvert** : porter `SuryaEngine` sur l'API réelle. En 0.24, `RecognitionPredictor` s'instancie sans `FoundationPredictor` (`RecognitionPredictor(manager=None)` fonctionne — vérifié), ne prend plus `task_names`/`bboxes`/`math_mode`, et renvoie des `PageOCRResult` avec `blocks[].html` au lieu de `text_lines[].text`. S'ajoute un changement d'architecture : 0.24 passe par un backend externe (`vllm`/`llamacpp`, binaire `llama-server` à installer) au lieu d'inférence torch en process. Aucun test ne couvre `SuryaEngine` — c'est ce qui a laissé le défaut invisible. La décision appartient au propriétaire : soit porter le moteur, soit retirer la dépendance et la revendication.
+**Ce qui reste établi** : le défaut est réel et daté. `pyproject.toml` déclare `surya-ocr` le 24/08/2026 (`a48994f`, « build: lockfile uv, pin rust-toolchain, retrait easyocr »), et **tous** les lockfiles depuis cette date résolvent `0.22.1` — soit cinq versions au-dessus de la fenêtre compatible. Les imports, eux, ont été écrits le 08/05/2026 (`030d9c7`) quand `surya-ocr` était absent du `pyproject.toml`. Le paquet a donc été déclaré **après** la fenêtre d'API que le code consomme, sans que la compatibilité soit vérifiée. `SURYA_AVAILABLE` vaut `False` sur le lockfile d'origine du 20/11 au matin comme sur tout lockfile depuis le 24/08.
+
+**Conséquence** : `SuryaEngine` lève `RuntimeError("surya-ocr is not installed")` à l'instanciation, et l'`except ImportError` le fait **en silence** — aucune erreur au boot, le moteur est simplement retiré de la liste disponible. La revendication « pseudos batch 92→96 % » du `pyproject.toml:15` n'est **adossée à aucun moteur exécutable** depuis trois mois.
+
+**Deux voies, aucune tranchée ici** (la décision appartient au propriétaire) :
+
+1. **Épingler `surya-ocr>=0.15.0,<0.20`** — le code fonctionnerait tel quel. Mais cette fenêtre impose `pillow<11` et `opencv-python-headless==4.11.0.86`, donc **annule le correctif F-17** (143 avis de sécurité reviennent, dont 69 sur `pillow`). Vérifié : c'est exactement la contrainte qui verrouillait le lockfile avant le 20/11.
+2. **Porter `SuryaEngine` sur l'API 0.24** — `RecognitionPredictor()` s'instancie sans argument (vérifié), mais ne prend plus `task_names`/`bboxes`/`math_mode` et renvoie des `PageOCRResult` avec `blocks[].html` au lieu de `text_lines[].text`. S'ajoute un changement d'architecture : 0.24 passe par un backend externe (`vllm`/`llamacpp`, binaire `llama-server` à installer) au lieu d'une inférence torch en process.
+
+Aucun test ne couvre `SuryaEngine` — c'est ce qui a laissé le défaut invisible pendant trois mois. La configuration livrée (`config.json`) n'active que `rapidocr`, donc **l'impact runtime actuel est nul** : le défaut est latent, pas actif.
 
 - Packaging/release AGPL, SBOM, `cargo audit`.
 - Reproductibilité Linux partielle (dépendances Windows).
