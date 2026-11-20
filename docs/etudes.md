@@ -83,6 +83,7 @@
 - **Apport chiffré** : Estimateur sans biais, variance **−68 à −85%**, **44× moins de mains** pour même intervalle de confiance (ou 10× moins en pratique prudente).
 - **Limite** : Besoin d'estimateurs de contrôle (value estimates).
 - **Chantier** : **Bench V1** — vérification sans biais, 10× moins de mains pour CI exploitabilité.
+- **État (20/11/2026, spec `011`)** : implémenté dans `research/variance_reduction.py` (`aivat_estimate`, plus le cas général `control_variate_estimate` à β optimal). Sans biais **par construction** (`E[X] = E[u]`), réduction de variance **mesurée** et non supposée ; le contrôle concret du harnais est l'équité préflop centrée (`preflop_equity_control`, moyenne exactement nulle par symétrie). Vérifié par test sur jeux synthétiques à vérité connue (couverture nominale de l'IC, contrôle constant → estimation brute, contrôle parfait → variance nulle).
 
 ### C12 — Brown et al. 2020 — ReBeL (Science 368 abb1446)
 
@@ -196,6 +197,7 @@
 - **Référence** : B. Brost et al., *MIVAT: Multiplayer Variance Reduction*, arXiv [2009.09318](https://arxiv.org/abs/2009.09318) + *Unified Variance Reduction*, arXiv [2302.12510](https://arxiv.org/abs/2302.12510)
 - **Apport chiffré** : MIVAT **+40% sur AIVAT** en 6-max (variance encore plus basse).
 - **Chantier** : Bench variance — successeur d'AIVAT pour 6-max.
+- **État (20/11/2026, spec `011`)** : implémenté dans `research/variance_reduction.py` (`mivat_estimate`) — un estimateur à variable de contrôle **par joueur**, sans biais, chacun à partir de sa propre variable de contrôle, sans fuite d'information entre joueurs. Vérifié par test sur un jeu synthétique à 3 joueurs. La mesure chiffrée du gain « +40 % sur AIVAT » reste à produire sur un pool réel.
 
 ### Socles hors numérotation
 
@@ -215,7 +217,7 @@
 | C05–C08 | Cepheus/DeepStack/Libratus/Deep CFR | Baselines |
 | C09 | DCFR | HU intact + P0 swap HS-PCFR(30) |
 | C10 | Pluribus MCCFR 6-max | **V1 N-way 3..6** |
-| C11 | AIVAT | Bench V1 variance |
+| C11 | AIVAT | **Fait (spec `011`)** — `research/variance_reduction.py` |
 | C12–C14 | ReBeL / PoG / SoG GT-CFR | V2 pistes |
 | C15 | Supremus | Bench vs Slumbot |
 | C16–C17 | HS-PCFR(30) / DDCFR | **P0 optionnel** HS-PCFR(30) drop-in |
@@ -226,6 +228,6 @@
 | C22 | Donk GTO | V1.2 donk OOP |
 | C23 | PKO Bounty Power | Mode PKO V1.2–V2 |
 | C24 | ICM / 1-KLSS | MTT/ICM V1.2–V2 |
-| C25–C27 | EMD / RL-CFR / MIVAT | Pistes abstraction/variance |
+| C25–C27 | EMD / RL-CFR / MIVAT | EMD/RL-CFR : pistes abstraction ; MIVAT : **fait (spec `011`)** |
 
 > **Aucune des 27 études n'invalide le V1 bloc 5.5j.** Deux pistes V2 (GT-CFR unifié, HS-PCFR(30) drop-in) sont additives.

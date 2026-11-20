@@ -100,7 +100,7 @@ Le gate et le `DecisionMaker` normalisent les actions et protègent les all-ins.
 - **Multiway non branché** (P0, voir 4.4) — historique, clos par la spec `002-runtime-n-way`.
 - **Exploitabilité résiduelle élevée** sur les flops à froid : 6,66 et 6,12 en unités solveur pour un budget de 800 ms ; le turn et la river répondent en 10–15 ms mais avec une exploitabilité supérieure à la cible (5,5 sur la river citée). Le budget ne suffit pas à converger ; il faut un blueprint ou un arbre plus petit, pas seulement plus d'itérations.
 - **Pas de benchmark de convergence en CI.** Le p95 est mesuré dans un script, pas bloquant. Une régression de 10 % peut passer.
-- **Pas d'AIVAT/MIVAT** pour réduire la variance des évaluations. Les winrates restent donc très bruités.
+- **AIVAT/MIVAT** : corrigé le 20/11/2026 (spec `011`) — estimateurs à variable de contrôle dans `research/variance_reduction.py`, vérifiés sans biais et réducteurs sur jeux synthétiques à vérité connue. La variance des évaluations peut désormais être réduite ; la mesure réelle dépend d'une campagne opérateur.
 - **Pas de HS-PCFR/HS-DCFR**, alors que l'étude C16 est citée ; le gain de convergence n'est ni mesuré ni intégré.
 - **Pas d'EMD clustering** (C25) : l'abstraction de ranges reste heuristique.
 - **ICM partiel** (`src/bot/icm_calculator.py`), **FGS et PKO absents** (C23/C24). Pour le cash, ce n'est pas bloquant ; pour les tournois, oui.
@@ -267,6 +267,17 @@ response = self.solver_provider.solve_spot_v2(
 
 **Critère d'acceptation :** un rapport daté avec IC 95 %, taille d'échantillon justifiée, et une conclusion explicite « significatif » ou « non significatif ». Un résultat non significatif est acceptable ; une absence de protocole ne l'est pas.
 
+**État au 20/11/2026 — corrigé (spec `011`).** Les quatre manques sont traités, et le constat a révélé deux défauts supplémentaires non listés à l'origine :
+
+1. **Réduction de variance (C11/C27).** `research/variance_reduction.py` : `control_variate_estimate` (`X = u − β·(C − E[C])`, β optimal), `aivat_estimate` (contrôle centré), `mivat_estimate` (un estimateur par joueur). Sans biais pour toute moyenne de contrôle connue ; une moyenne estimée sur l'échantillon mesuré marque `unbiased_inputs=False` plutôt que de se prétendre sans biais. La réduction de variance rapportée est **mesurée**, jamais supposée (contrôle constant → 0, contrôle parfait → variance nulle).
+2. **Puissance statistique déclarée à l'avance.** `research/sample_size.py` : `required_hands` calcule `⌈(z·σ/demi-largeur)²⌉` avant la mesure, et `classify_winrate` rend un verdict explicite (`significant_positive`, `significant_negative`, `not_significant`, `underpowered`, `unmeasured`). Le protocole n'est déclaré complet que si l'effectif atteint le requis **et** que l'IC est fourni.
+3. **Benchmark du chemin de production.** `research/production_benchmark.py` mesure une politique fournie (donc `DecisionMaker.get_best_action` quand l'opérateur la passe) sur le pool synthétique, avec IC, effectif, mains requises et réduction de variance. L'artefact porte `hero_policy` et `hero_policy_is_production` : une mesure d'heuristique est étiquetée comme telle et **ne satisfait jamais** le protocole du gate. Point d'entrée opérateur `scripts/production_winrate_benchmark.py` (artefact daté `research/results/production_winrate_<site>.json`). Sans main évaluable, le rapport est `unmeasured` à taux `None`.
+4. **Gate go-live.** `src/runtime/strategy_metrics.py` alimente `strategy_metrics` depuis l'artefact (chemin surchargeable par `POKER_STRATEGY_METRICS_PATH`), et `operator_snapshot.py` le passe au gate — le câblage n'est plus mort. Deux checks s'ajoutent, **actifs seulement quand l'artefact porte les champs de protocole** : `strategy_protocol` (IC fourni, effectif ≥ requis, politique de production, statut mesuré) et `strategy_winrate_significant` (borne haute de l'IC ≥ 0). Le comportement historique est préservé quand `strategy_metrics` est absent ou réduit à `{winrate_bb100, best_response_gap}` (contrat Phase 5.18), vérifié par les tests existants.
+
+**Deux défauts trouvés en écrivant la spec :** (a) `strategy_metrics` n'était **jamais** fourni par un appelant — les deux checks stratégiques étaient toujours neutralisés (même schéma que le `SessionManager` orphelin de la spec `004`) ; (b) la seule condition était `winrate_bb100 >= 0`, donc un winrate de +0,1 bb/100 avec un IC [−50 ; +50] passait — un résultat non significatif présenté comme une preuve.
+
+**Vérifié :** 44 tests nouveaux (non-biais, réduction de variance, formule de puissance, verdicts, harnais, contrat, gate) + non-régression du gate ; suite complète **1 362 passés** (contre 1 258), `ruff` vert, `cargo test --lib` 75 passés inchangé. **Reste ouvert :** la campagne réelle n'est pas exécutée (le solveur coûte ~800 ms par flop à froid) — le harnais est donc testé sur des politiques déterministes, et le gate reste honnêtement neutralisé jusqu'à ce que l'opérateur lance `scripts/production_winrate_benchmark.py --policy production`. Le critère d'acceptation (« un rapport daté avec IC, taille d'échantillon justifiée, conclusion explicite ») est satisfait par l'outillage ; le résultat chiffré reste à produire.
+
 #### F-04 : risque de secrets versionnés
 
 **Preuve :** `git ls-files config.json` retourne `config.json`. `.gitignore` ignore `config.local.json` et `.env`, mais pas `config.json`.
@@ -287,7 +298,7 @@ response = self.solver_provider.solve_spot_v2(
 | F-08 | Vision non prouvée par site | 4 OCR, pas de benchmark de bout en bout | fixtures, précision/latence par site, 1 OCR principal + 1 fallback — **corrigé le 20/11/2026** (spec `010`) : politique OCR par site `src/vision/ocr_policy.py` (un principal + au plus un fallback ; quatre moteurs déclarés sont ramenés à la politique du site avec trace `policy_notes`, jamais en silence), appliquée au boot par `PokerOCR` avec le site actif (`bot.active_site`) ; `src/vision/preset_validation.py` est la source unique du statut et un preset sans échantillon évalué est `unmeasured` à taux `None` (le vert vide `min(scores) if scores else 1.0` est supprimé ; les deux manifestes livrés passent de `green`/`1.0`/`0` à `unmeasured`/`null`/`0`) ; harnais `src/vision/vision_benchmark.py` + point d'entrée `scripts/vision_benchmark.py` mesurant précision/effectif/latence médiane par champ sur captures étiquetées (artefact daté `research/results/vision_benchmark_<site>.json`), champ illisible compté comme échec jamais exclu, rapport `unmeasured` sans capture — **aucun taux inventé**. 39 tests nouveaux, suite complète verte (1318 passés, 5 ignorés). Reste ouvert : aucune capture d'écran committée, donc la précision réelle par site reste **à mesurer** ; conformité d'écran (thèmes, DPI, langues) non couverte |
 | F-09 | Pas de gate de performance | benchmark manuel | CI p95 + exploitabilité, seuil de régression 10 % — **corrigé le 19/11/2026**, **recalibré le 20/11/2026** : `scripts/check_perf_gate.py` compare la latence froide (minimum par spot, un processus neuf par répétition) à la baseline versionnée `research/results/perf_baseline.json`. Le premier run CI réel du gate a révélé deux défauts de mesure, tous deux corrigés : (1) un spot qui atteint le délai de garde du solveur (`budget + 2,0 s`) mesurait ce délai, pas le coût du solveur, et était compté comme régression (« +149 % ») puis comme fallback produit ; il est désormais identifié comme **saturation** et sorti de la comparaison ; (2) la calibration de vitesse était mono-thread alors que le solveur est parallèle (rayon), ce qui sous-estimait le handicap d'un runner à peu de cœurs — elle mesure maintenant un débit parallèle (`zlib`). Constat de fond : la latence absolue du solveur parallèle varie trop entre machines (×1,4 à ×3,2 selon le spot sur le runner GitHub) pour porter un gate bloquant ; la comparaison de latence est donc **informative** hors machine de référence (`--strict-latency` la rend bloquante là où la baseline a été mesurée), tandis que les invariants durs — **zéro fallback produit** et backend multiway présent — restent bloquants partout. Logique verrouillée par `tests/test_perf_gate_logic.py` (7 tests) ; falsification rejouée : fallback produit et backend absent font échouer le gate. Câblé dans `python-tests.yml`. Reste ouvert : un seuil de latence portable (machine épinglée ou métrique indépendante du matériel) |
 | F-10 | Pas de traces/SLO complets | `metrics.py` agrège localement | tracing `spot_id`, métriques par étage, SLO et alertes |
-| F-11 | AIVAT/MIVAT absents | aucune occurrence dans `src/`/`poker/` | implémenter C11/C27 pour l'évaluation |
+| F-11 | AIVAT/MIVAT absents | aucune occurrence dans `src/`/`poker/` | **corrigé le 20/11/2026** (spec `011`) : `research/variance_reduction.py` implémente l'estimateur à variable de contrôle (`control_variate_estimate`, β optimal), AIVAT (`aivat_estimate`, contrôle centré) et MIVAT (`mivat_estimate`, un estimateur par joueur). Sans biais **par construction** (`E[X] = E[u]` pour tout β et toute moyenne de contrôle connue) et réducteur quand le contrôle est corrélé : vérifié par test sur jeux synthétiques à vérité connue (couverture nominale de l'IC, contrôle constant → estimation brute, contrôle parfait → variance nulle, β optimal ≥ β = 1). Le taux de réduction rapporté est **mesuré**, jamais supposé. Reste ouvert : le portage Rust (inutile — hors boucle de décision) |
 | F-12 | HS-PCFR/EMD/FGS/PKO absents | aucune occurrence | expérimenter C16/C25/C23/C24 derrière des flags |
 | F-13 | Timeout solveur 10 s vs budget 800 ms | `decision_maker.py:1805` | timeout = budget + marge, annulation propre — **corrigé le 19/11/2026** : `timeout = budget_solve/1000 + 2,0 s` (marge = plancher d'itération non interruptible ~454 ms + réserve d'échéance), verrouillé par `tests/test_solver_circuit_breaker.py::test_solver_timeout_follows_budget_plus_margin` |
 | F-14 | `poker/` hors périmètre de lint/tests | CI lint `src tests poker/tools` seulement | **tranché le 19/11/2026 — exclusion formelle** (ADR-001 : `poker/` est le laboratoire historique, hors production ; l'inclure coûterait 521 erreurs ruff dont 41 imports étoile et 41 `except` nus). La CI conserve le seuil global 52 % informatif et ajoute un **seuil bloquant indépendant pour `src/`** (`coverage report --include="src/*" --fail-under=80`, mesuré à 83 %, réutilise les données du run précédent), critère n°1 de l'ADR-001 |
@@ -319,7 +330,7 @@ La documentation est excellente ; l'implémentation est partielle. Le tableau ci
 | C08 | Deep CFR | Non implémenté | le RL adapter n'est pas Deep CFR |
 | C09 | DCFR | Implémenté | `solver.rs` |
 | C10 | Pluribus / MCCFR | Partiel | `multiway.rs`, branché au runtime 3–6 way via `multiway_mccfr` (échantillonné, non convergé) |
-| C11 | AIVAT | Absent | priorité pour l'évaluation |
+| C11 | AIVAT | Implémenté | `research/variance_reduction.py` (`aivat_estimate`) — contrôle d'équité centré, sans biais, réduction mesurée (spec `011`) |
 | C12 | ReBeL | Non implémenté | non requis à court terme |
 | C13 | Player of Games | Non implémenté | recherche |
 | C14 | Student of Games | Non implémenté | recherche |
@@ -335,7 +346,7 @@ La documentation est excellente ; l'implémentation est partielle. Le tableau ci
 | C24 | ICM / FGS | Partiel | ICM Python, FGS absent |
 | C25 | EMD clustering | Absent | abstraction de ranges |
 | C26 | RL-CFR | Absent | l'adapter RL n'est pas RL-CFR |
-| C27 | MIVAT | Absent | priorité pour l'évaluation |
+| C27 | MIVAT | Implémenté | `research/variance_reduction.py` (`mivat_estimate`) — un estimateur par joueur (spec `011`) |
 
 **Lecture :** le projet n'a pas besoin d'implémenter les 27 études. Il doit en revanche **déclarer** lesquelles fondent chaque fonctionnalité et **mesurer** l'écart. Les priorités scientifiques sont C11/C27 (évaluation), C16 (vitesse de convergence), C25 (abstraction), C23/C24 (tournois). C05/C06/C12–C15/C19 sont des références, pas des obligations.
 
@@ -381,6 +392,8 @@ Résultat mesuré (machine au repos, six runs, `research/results/runtime_benchma
 **Preuve ajoutée : l'EV extraite dépend bien du combo.** Le rejeu résout désormais la même range à budget convergé (12 800 ms) pour deux combos, `AhKh` et `7c7d` (77). Résultat déterministe sur trois exécutions : l'EV de range est identique (−1,0767 pour les deux), l'EV du combo diffère (1,0081 vs 21,4050). C'est la vérification directe que `hero_hand` sélectionne bien le combo et non la range.
 
 **Instabilité de mesure documentée (et non masquée).** L'exploitabilité n'est recalculée que tous les 10 tours (`solver.rs:171`). Conséquence sur le singleton à 800 ms : ~10 itérations y tiennent selon la charge machine, donc la valeur *rapportée* bascule entre 0,0389 (fraîche, `converged=true`) et 11,6855 (valeur pré-boucle, `converged=false`) — observé sur deux exécutions successives du même script. Le rejeu ajoute donc une jambe de référence à 3 200 ms, déterministe (0,0389, `converged=true`, reproduit 6 fois), et c'est cette valeur qui sert de comparaison. Sur la range complète, ~2 itérations seulement tiennent dans 800 ms, donc la valeur rapportée y est toujours la valeur pré-boucle 12,7015.
+
+**Preuve de performance — protocole désormais outillé (spec `011`).** Les winrates publiés (`monte_carlo_sim`, `slumbot_benchmark`) mesurent `hero_heuristic`, pas le chemin de production : leurs IC (±100 à ±143 bb/100) ne prouvent rien sur le solveur. L'outillage ajouté rend une mesure *interprétable* au lieu d'un chiffre nu : estimateurs à variance réduite (AIVAT/MIVAT), nombre de mains requis calculé à l'avance pour une demi-largeur visée, harnais qui mesure une politique fournie et étiquette honnêtement `hero_policy_is_production`. Aucune campagne chiffrée n'est encore exécutée — le tableau ci-dessus reste la seule mesure disponible, et elle porte sur l'heuristique.
 
 ### 6.3 Tests
 
@@ -507,13 +520,13 @@ Le registre `docs/rust-migration-ledger.md` doit lister chaque composant, son é
 
 ### Sprint 3 — Validation scientifique (4 semaines)
 
-- AIVAT/MIVAT.
-- Benchmark du solveur de production sur un pool synthétique, puissance statistique définie.
-- Expérience HS-PCFR sur un sous-ensemble de spots.
-- EMD pour l'abstraction de ranges.
-- Gate de validation dans `go_live_gate`.
+- ~~AIVAT/MIVAT.~~ → **fait le 20/11/2026** (spec `011`) : estimateurs à variable de contrôle (`research/variance_reduction.py`), sans biais par construction, réduction mesurée ; MIVAT par joueur.
+- ~~Benchmark du solveur de production sur un pool synthétique, puissance statistique définie.~~ → **outillage fait le 20/11/2026** (spec `011`) : harnais `research/production_benchmark.py` mesurant une politique fournie, `required_hands` (mains requises déclarées à l'avance), verdict explicite. La **campagne chiffrée** reste à lancer par l'opérateur (`scripts/production_winrate_benchmark.py --policy production`).
+- Expérience HS-PCFR sur un sous-ensemble de spots. → reste à faire (C16).
+- EMD pour l'abstraction de ranges. → reste à faire (C25).
+- ~~Gate de validation dans `go_live_gate`.~~ → **fait le 20/11/2026** (spec `011`) : le câblage mort est réparé (`strategy_metrics_from_artifacts` → `operator_snapshot`), et deux checks de protocole bloquent un échantillon sous-dimensionné, un artefact d'heuristique ou un winrate significativement négatif.
 
-**Sortie :** un rapport de winrate avec IC et une décision explicite de go/no-go.
+**Sortie :** un rapport de winrate avec IC et une décision explicite de go/no-go — l'outillage est livré, le rapport chiffré reste à produire.
 
 ### Sprint 4 — Industrialisation (4 semaines)
 
@@ -535,7 +548,8 @@ La constitution est ratifiée. Les specs suivantes structurent le programme ; se
 | `000-programme-v1` | Programme Poker Master v1 | Cadre | Ouverte |
 | `001-gto-hero-range` | Range héros complète et EV combo | P0 | **Livrée (19/11/2026)** : p95 froid 812,0 ms, rejeu golden `pass` ; réserve : convergence hors budget 800 ms (blueprint/bucketing) |
 | `002-runtime-n-way` | Multiway 3–6 joueurs branché au runtime | P0 | Livrée (17/11/2026) |
-| `003-scientific-validity` | AIVAT/MIVAT et benchmark de production | P1 | Backlog |
+| `003-scientific-validity` | AIVAT/MIVAT et benchmark de production | P1 | **Livrée (20/11/2026)** sous `011` : estimateurs AIVAT/MIVAT sans biais, puissance statistique déclarée à l'avance, harnais de benchmark du chemin de production étiqueté honnêtement, gate go-live câblé sur l'artefact ; 44 tests, suite verte ; constats F-03/F-11 clos (campagne chiffrée à lancer par l'opérateur) |
+| `011-scientific-validity` | Preuve statistique de performance et réduction de variance | P0 | **Livrée (20/11/2026)** : `research/variance_reduction.py` (AIVAT/MIVAT), `research/sample_size.py` (puissance + verdict), `research/production_benchmark.py` (harnais honnête), `src/runtime/strategy_metrics.py` + checks de protocole du gate, `scripts/production_winrate_benchmark.py` ; constats F-03 et F-11 clos |
 | `004-bankroll-risk` | Bankroll, RoR, move-up/down | P1 | **Livrée (20/11/2026)** : moteur Rust `src/bankroll.rs` (RoR, P(profit), Kelly, bankroll cible, move-up/down, limites de session), 16 tests contre les formes fermées, bindings PyO3, enveloppe Python + journal d'audit ; constat F-07 clos |
 | `005-vision-multi-site` | Adaptateurs PokerStars/Winamax | P1 | **Livrée (20/11/2026)** : registre `SITE_ADAPTERS` (PokerStars, Winamax), `WindowProfile`/`ActionLimits`/`amount_parser()` au contrat, sélection par `bot.active_site`, `src/vision/action_limits.py`, fixtures de montants par site ; 21 tests, comportement PokerStars inchangé ; constat F-06 clos |
 | `006-legacy-boundary` | Frontière `src/` vs `poker/` | P1 | Backlog |
@@ -565,7 +579,7 @@ Chaque spec doit contenir des scénarios testables, des exigences fonctionnelles
 Le projet a déjà fait le plus difficile : un solveur Rust sérieux, une architecture de mesure, une documentation scientifique et une culture de l'honnêteté sur les résultats. Il lui manque trois choses pour passer du prototype au système :
 
 1. **la correction scientifique** (range héros ; multiway clos le 17/11/2026 par la spec `002`) ;
-2. **la preuve empirique** (benchmark du solveur de production, AIVAT/MIVAT) ;
+2. **la preuve empirique** — outillage livré le 20/11/2026 (spec `011`) : benchmark du chemin de production, AIVAT/MIVAT, puissance déclarée, gate câblé ; il reste à **lancer la campagne** pour obtenir le chiffre ;
 3. **la discipline de production** (une seule base, secrets, gates, bankroll, observabilité).
 
 Les deux premières sont des prérequis. La troisième est un programme de quelques semaines, pas une réécriture. F-02 est corrigé ; F-01 est corrigé dans le code (range complète transmise, main cible séparée) et ses critères de latence sont levés au 19/11 (soir) : p95 froid 812,0 ms contre 950 ms visés, rejeu golden `pass` avec non-convergence étiquetée et convergence à 0,455 à 12,8 s. Réserve : à budget 800 ms la convergence n'est pas atteinte (~2 itérations), donc l'exploitabilité rapportée sur flop froid (12,49) reste au-dessus de la cible 0,5 — un blueprint pré-calculé ou un bucketing de range est la voie pour la ramener dans le budget.

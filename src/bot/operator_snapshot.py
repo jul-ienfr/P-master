@@ -13,6 +13,7 @@ from src.runtime.policy_compare import (
     dedupe_runtime_ab_decisions,
 )
 from src.runtime.session import parse_bool_flag as _parse_bool_flag
+from src.runtime.strategy_metrics import strategy_metrics_from_artifacts
 from src.vision.models import TableState
 
 logger = logging.getLogger("SuperBot2026")
@@ -303,6 +304,7 @@ class OperatorSnapshotMixin:
             readiness=current_readiness,
             validation=current_validation,
             thresholds=getattr(self, "go_live_gate_thresholds", {}),
+            strategy_metrics=strategy_metrics_from_artifacts(),
         )
         self.last_go_live_gate = go_live_gate.to_dict()
         return {
@@ -451,6 +453,7 @@ class OperatorSnapshotMixin:
             readiness=current_readiness,
             validation=current_validation,
             thresholds=getattr(self, "go_live_gate_thresholds", {}),
+            strategy_metrics=strategy_metrics_from_artifacts(),
         )
         self.last_go_live_gate = go_live_gate.to_dict()
         runtime_ab_summary = build_runtime_ab_summary(history["decisions"])

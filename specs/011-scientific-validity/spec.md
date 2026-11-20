@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-20
 
-**Status**: En cours
+**Status**: Livrée (20/11/2026)
 
 **Input**: Audit du 17/11/2026, constat F-03 (« aucune preuve statistique de performance »), constat P0, et traçabilité C11 (AIVAT) / C27 (MIVAT) marquées « Absent ». Correctif attendu par l'audit : « un benchmark reproductible du solveur de production (pas de l'heuristique) contre un pool synthétique et, si possible, un bot de référence ; AIVAT/MIVAT pour réduire la variance (C11/C27) ; un nombre de mains et une puissance statistique définis à l'avance ; un artefact versionné et un gate CI. » Sprint 3 : « Gate de validation dans `go_live_gate` ».
 
@@ -45,7 +45,7 @@ En tant que mainteneur, je veux calculer à l'avance le nombre de mains nécessa
 
 **Why this priority**: l'audit exige une taille d'échantillon justifiée à l'avance ; c'est ce qui distingue un protocole d'une mesure opportuniste.
 
-**Independent Test**: pour σ = 90 bb/100 et une demi-largeur visée de 10 bb/100, le nombre de mains requis est 3 112 (=(1,96·90/10)²), et il croît quand la largeur visée décroît.
+**Independent Test**: pour σ = 90 bb/100 et une demi-largeur visée de 10 bb/100, le nombre de mains requis est 312 (=(1,96·90/10)² = 311,17 → 312), et il croît quand la largeur visée décroît.
 
 **Acceptance Scenarios**:
 
@@ -117,7 +117,7 @@ En tant qu'opérateur, je veux que le gate de mise en production lise l'artefact
 
 ### Key Entities
 
-- **EstimatorResult** : `n`, estimation réduite, estimation brute, demi-largeur d'IC réduite et brute, taux de réduction de variance, coefficient β, moyenne de la variable de contrôle, indicateur « entrées sans biais ».
+- **VarianceReducedEstimate** : `n`, estimation réduite, estimation brute, demi-largeur d'IC réduite et brute, taux de réduction de variance, coefficient β, moyenne de la variable de contrôle, indicateur « entrées sans biais ».
 - **WinrateVerdict** : `verdict`, `significant`, `protocol_complete`, `reasons`.
 - **ProductionBenchmarkReport** : politique, indicateur de production, adversaires, mains, mains requises, winrate, IC, verdict, statut, réduction de variance, date.
 
@@ -127,7 +127,7 @@ En tant qu'opérateur, je veux que le gate de mise en production lise l'artefact
 
 - **SC-001**: L'estimateur est sans biais sur un jeu synthétique à vérité connue (l'IC de l'estimation couvre la vérité au taux nominal) — vérifié par test.
 - **SC-002**: L'estimateur réduit la variance sur un contrôle corrélé et est identique à la moyenne brute sur un contrôle constant — vérifié par test.
-- **SC-003**: Le nombre de mains requis vaut `⌈(1,96·σ/demi-largeur)²⌉` et croît quand la largeur visée décroît — vérifié par test.
+- **SC-003**: Le nombre de mains requis vaut `⌈(1,96·σ/demi-largeur)²⌉` (312 pour σ = 90, demi-largeur = 10) et croît quand la largeur visée décroît — vérifié par test.
 - **SC-004**: Le verdict distingue significatif positif, significatif négatif, non significatif et sous-dimensionné — vérifié par test.
 - **SC-005**: Un artefact d'heuristique n'est pas accepté comme mesure de production par le gate — vérifié par test.
 - **SC-006**: Le gate bloque sur un IC entièrement négatif et neutralise ses checks quand aucun artefact n'est fourni (non-régression) — vérifié par test.

@@ -40,9 +40,9 @@ Rendre une mesure de winrate **interprétable** au lieu d'un chiffre nu : des es
 
 `aivat_estimate(payoffs, controls)` : cas AIVAT où `E[C] = 0` par construction (variable de contrôle centrée), `β = 1`.
 
-`mivat_estimate(per_player_payoffs, per_player_controls)` : un `EstimatorResult` par joueur, chacun sans biais à partir de sa propre variable de contrôle.
+`mivat_estimate(per_player_payoffs, per_player_controls)` : un `VarianceReducedEstimate` par joueur, chacun sans biais à partir de sa propre variable de contrôle.
 
-`EstimatorResult` porte l'estimation réduite et brute (en bb/100), leurs demi-largeurs d'IC 95 %, le taux de réduction de variance **mesuré**, β et la moyenne du contrôle.
+`VarianceReducedEstimate` porte l'estimation réduite et brute (en bb/100), leurs demi-largeurs d'IC 95 %, le taux de réduction de variance **mesuré**, β et la moyenne du contrôle.
 
 ### 2. Puissance statistique (`research/sample_size.py`, nouveau)
 
@@ -107,4 +107,4 @@ tests/test_strategy_metrics.py        # contrat + gate (nouveau)
 
 ## Complexity Tracking
 
-Aucune complexité algorithmique ajoutée. Les trois structures nouvelles (`EstimatorResult`, `WinrateVerdict`, `ProductionBenchmarkReport`) remplacent des pratiques implicites : une moyenne brute sans puissance déclarée, un `strategy_metrics` mort, et une condition `winrate >= 0` qui accepte un résultat non significatif. Sans elles, une mesure reste un chiffre nu, et le gate stratégique reste inopérant.
+Aucune complexité algorithmique ajoutée. Les trois structures nouvelles (`VarianceReducedEstimate`, `WinrateVerdict`, `ProductionBenchmarkReport`) remplacent des pratiques implicites : une moyenne brute sans puissance déclarée, un `strategy_metrics` mort, et une condition `winrate >= 0` qui accepte un résultat non significatif. Sans elles, une mesure reste un chiffre nu, et le gate stratégique reste inopérant.

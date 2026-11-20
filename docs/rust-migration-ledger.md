@@ -42,6 +42,7 @@ sur rejeux → suppression de l'ancien chemin.
 | Entraînement des modèles | Recherche, notebooks |
 | Moteurs OCR (rapidocr/surya) | Dépendances lourdes, interfaces Python ; le catalogue est réduit à une politique par site — un principal + au plus un fallback (spec `010`), la règle restant une table, pas un calcul |
 | API HTTP/asyncio | Intégration et observabilité |
+| Estimateurs de winrate (AIVAT/MIVAT, puissance statistique) | Outillage d'évaluation hors boucle de décision : consomme des résultats et des contrôles déjà collectés (spec `011`). Aucun calcul chaud ajouté — l'équité reste en Rust (`src/equity.rs`) et n'est pas dupliquée |
 | Contrats V2 partagés (`src/contracts/v2_contracts.py`) | Base de production unique depuis le 19/11/2026 (déplacé depuis `poker/decisionmaker/`) ; importé par le runtime, `research/` et le laboratoire ; aucune dépendance sortante |
 | Interface opérateur | Itération rapide |
 | Scripts de recherche | Reproductibilité scientifique |

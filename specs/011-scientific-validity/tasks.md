@@ -18,7 +18,7 @@
 
 ## Phase 2: Implémentation
 
-- [x] T011 [US1] Créer `research/variance_reduction.py` : `EstimatorResult`, `control_variate_estimate`, `aivat_estimate`, `mivat_estimate`.
+- [x] T011 [US1] Créer `research/variance_reduction.py` : `VarianceReducedEstimate`, `control_variate_estimate`, `aivat_estimate`, `mivat_estimate`.
 - [x] T012 [US2] Créer `research/sample_size.py` : `required_hands`, `WinrateVerdict`, `classify_winrate`.
 - [x] T013 [US3] Créer `research/production_benchmark.py` : `ProductionBenchmarkReport`, `run_production_benchmark`, `preflop_equity_control`, `write_report`.
 - [x] T014 [US4] Créer `src/runtime/strategy_metrics.py` : `build_strategy_metrics`, `strategy_metrics_from_artifacts`.

@@ -24,6 +24,10 @@ DEFAULT_GO_LIVE_THRESHOLDS = {
     # d'évaluation scientifique sont fournis via ``strategy_metrics``.
     "min_winrate_bb100": 0.0,
     "max_best_response_gap_bb": 0.25,
+    # Protocole scientifique (spec 011, constat F-03) : actifs seulement quand
+    # l'artefact porte les champs de protocole (IC, effectif, effectif requis).
+    # Sans eux, les checks sont neutralisés (comportement historique).
+    "require_strategy_protocol": True,
     # Phase 0.6.7 / 0.7.3 : applicables quand ``blueprint_metrics`` est fourni.
     # Couverture du blueprint pour le format courant (bloque le go-live) et
     # présence d'un rapport de calibration de tolérance de mises à jour.
@@ -86,6 +90,63 @@ class GoLiveGateResult:
         }
 
 
+def _strategy_protocol_fields(
+    strategy_metrics: dict,
+) -> tuple[float | None, float | None, int, int, bool, str]:
+    """Champs de protocole d'un artefact stratégique (spec 011).
+
+    Retourne ``(ci_low, ci_high, evaluated, required, is_production, status)``.
+    Les bornes d'IC sont ``None`` quand elles sont absentes ou illisibles.
+    """
+
+    def _float(key: str) -> float | None:
+        try:
+            return float(strategy_metrics.get(key))
+        except (TypeError, ValueError):
+            return None
+
+    def _int(key: str) -> int:
+        try:
+            return int(strategy_metrics.get(key))
+        except (TypeError, ValueError):
+            return 0
+
+    return (
+        _float("winrate_ci_low"),
+        _float("winrate_ci_high"),
+        _int("evaluated_hands"),
+        _int("required_hands"),
+        bool(strategy_metrics.get("hero_policy_is_production", False)),
+        str(strategy_metrics.get("winrate_status") or ""),
+    )
+
+
+def _strategy_protocol_complete(strategy_metrics: dict) -> tuple[bool, list[str]]:
+    """Le protocole scientifique est-il complet pour fonder un go-live ?
+
+    Exige un IC fourni, un effectif ≥ requis (et non nul), une politique de
+    production, et un statut autre que ``unmeasured``. Chaque manque est nommé :
+    un protocole incomplet ne doit jamais passer pour une preuve.
+    """
+    ci_low, ci_high, evaluated, required, is_production, status = _strategy_protocol_fields(
+        strategy_metrics
+    )
+    missing: list[str] = []
+    if ci_low is None or ci_high is None:
+        missing.append("ci95_missing")
+    if required <= 0:
+        missing.append("required_hands_missing")
+    if evaluated <= 0:
+        missing.append("no_evaluated_hands")
+    elif required > 0 and evaluated < required:
+        missing.append("sample_below_required")
+    if not is_production:
+        missing.append("policy_not_production")
+    if status == "unmeasured":
+        missing.append("unmeasured")
+    return (not missing), missing
+
+
 def evaluate_go_live_gate(
     local_metrics: dict,
     metrics_snapshot: dict,
@@ -124,6 +185,23 @@ def evaluate_go_live_gate(
     """
     strategy_metrics = dict(strategy_metrics or {})
     has_strategy_artifacts = bool(strategy_metrics)
+    # Spec 011 : les checks de protocole ne s'activent que si l'artefact porte
+    # des champs de protocole. Un ``strategy_metrics`` réduit à
+    # ``{winrate_bb100, best_response_gap}`` (contrat Phase 5.18) garde donc son
+    # comportement d'origine, exactement.
+    has_strategy_protocol = any(
+        strategy_metrics.get(key) is not None
+        for key in ("winrate_ci_low", "winrate_ci_high", "evaluated_hands", "required_hands")
+    )
+    strategy_protocol_ok, strategy_protocol_missing = (
+        _strategy_protocol_complete(strategy_metrics) if has_strategy_protocol else (True, [])
+    )
+    strategy_ci_low, strategy_ci_high, strategy_evaluated, strategy_required, _, _ = (
+        _strategy_protocol_fields(strategy_metrics)
+    )
+    strategy_winrate_significant_ok = (
+        not has_strategy_protocol or strategy_ci_high is None or strategy_ci_high >= 0.0
+    )
     blueprint_metrics = dict(blueprint_metrics or {})
     has_blueprint_artifacts = bool(blueprint_metrics)
     djev_probe = dict(djev_probe) if isinstance(djev_probe, dict) else {}
@@ -153,6 +231,13 @@ def evaluate_go_live_gate(
         "strategy_evaluated": 1.0 if has_strategy_artifacts else 0.0,
         "winrate_bb100": float(strategy_metrics.get("winrate_bb100", 0.0) or 0.0),
         "best_response_gap": float(strategy_metrics.get("best_response_gap", 0.0) or 0.0),
+        # Protocole scientifique (spec 011) : neutralisé sans champs de protocole.
+        "strategy_protocol_evaluated": 1.0 if has_strategy_protocol else 0.0,
+        "strategy_protocol_ok": 1.0 if strategy_protocol_ok else 0.0,
+        "strategy_winrate_ci_low": strategy_ci_low,
+        "strategy_winrate_ci_high": strategy_ci_high,
+        "strategy_evaluated_hands": strategy_evaluated,
+        "strategy_required_hands": strategy_required,
         "blueprint_coverage": (
             _blueprint_current_coverage(blueprint_metrics) if has_blueprint_artifacts else 0.0
         ),
@@ -240,6 +325,31 @@ def evaluate_go_live_gate(
             "threshold": thresholds["max_best_response_gap_bb"],
             "operator": "<=",
             "reason": "exploitability_above_threshold",
+        },
+        # Spec 011 — protocole scientifique : actif seulement quand l'artefact
+        # porte un IC, un effectif et un effectif requis. Un protocole incomplet
+        # (échantillon sous-dimensionné, artefact d'heuristique, absence d'IC)
+        # bloque le go-live : un résultat non significatif ne peut pas fonder un
+        # déploiement.
+        "strategy_protocol": {
+            "ok": (not has_strategy_protocol)
+            or (not thresholds["require_strategy_protocol"])
+            or strategy_protocol_ok,
+            "metric": metrics["strategy_protocol_ok"],
+            "threshold": thresholds["require_strategy_protocol"],
+            "operator": "bool",
+            "reason": "strategy_protocol_incomplete",
+            "missing": list(strategy_protocol_missing),
+        },
+        # Spec 011 — un winrate significativement négatif (borne haute de l'IC95
+        # < 0) bloque le go-live. Un IC contenant zéro ne bloque pas ici : c'est
+        # le check de protocole qui refuse de le présenter comme une preuve.
+        "strategy_winrate_significant": {
+            "ok": strategy_winrate_significant_ok,
+            "metric": metrics["strategy_winrate_ci_high"],
+            "threshold": 0.0,
+            "operator": ">=",
+            "reason": "winrate_significantly_negative",
         },
         # Phase 0.6.7 — bloquant live : couverture du format courant à 1.0.
         "blueprint_coverage": {
