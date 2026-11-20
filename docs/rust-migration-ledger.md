@@ -29,7 +29,7 @@ sur rejeux → suppression de l'ancien chemin.
 | État canonique et validateurs | Python dispersé | Rust | P1 | `007` | Un seul `CanonicalState`, tests de propriété |
 | Orchestrateur de politique | Python | Rust | P1 | `007` | Sélection d'action unique, testée sur rejeux |
 | Journal de décision structuré | Python | Rust | P1 | `008` | Schéma versionné, corrélation `spot_id` |
-| Post-traitement vision | Python | Rust | P2 | `005`, `007` | Fusion OCR et machine à états testées ; le format de montants par site est déclaré une seule fois (adaptateur) |
+| Post-traitement vision | Python | Rust | P2 | `005`, `007`, `010` | Fusion OCR et machine à états testées ; le format de montants par site est déclaré une seule fois (adaptateur) ; le choix des moteurs est une politique par site (un principal + un fallback), pas un calcul |
 | Encodage/validation d'actions plateforme | Python | Rust | P2 | `005` | Contrat par site livré (`site_adapter.py` + `action_limits.py`) ; portage Rust des limites non engagé |
 | Cache de spots | Python | Rust ou partagé | P2 | `007` | Clé versionnée, parité |
 
@@ -40,7 +40,7 @@ sur rejeux → suppression de l'ancien chemin.
 | Capture DXcam/WGC | API Windows, bindings natifs |
 | Inférence YOLO/ONNX | Écosystème Python, GPU |
 | Entraînement des modèles | Recherche, notebooks |
-| Moteurs OCR (rapidocr/surya) | Dépendances lourdes, interfaces Python |
+| Moteurs OCR (rapidocr/surya) | Dépendances lourdes, interfaces Python ; le catalogue est réduit à une politique par site — un principal + au plus un fallback (spec `010`), la règle restant une table, pas un calcul |
 | API HTTP/asyncio | Intégration et observabilité |
 | Contrats V2 partagés (`src/contracts/v2_contracts.py`) | Base de production unique depuis le 19/11/2026 (déplacé depuis `poker/decisionmaker/`) ; importé par le runtime, `research/` et le laboratoire ; aucune dépendance sortante |
 | Interface opérateur | Itération rapide |

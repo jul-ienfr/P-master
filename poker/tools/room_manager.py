@@ -27,6 +27,7 @@ from PIL import Image
 
 from poker.tools.helper import COMPUTER_NAME, get_config, get_dir
 from poker.tools.supported_sites import infer_supported_site
+from src.vision.preset_validation import ValidationOutcome, compute_validation_status
 
 log = logging.getLogger(__name__)
 
@@ -352,24 +353,11 @@ def _json_safe(value: Any) -> Any:
     return value
 
 
-@dataclass
-class ValidationResult:
-    status: str
-    golden_pass_rate: float
-    live_pass_rate: float
-    critical_anchor_score: float
-    issues: list[str] = field(default_factory=list)
-    evaluated_samples: int = 0
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "status": self.status,
-            "golden_pass_rate": round(self.golden_pass_rate, 4),
-            "live_pass_rate": round(self.live_pass_rate, 4),
-            "critical_anchor_score": round(self.critical_anchor_score, 4),
-            "issues": list(self.issues),
-            "evaluated_samples": self.evaluated_samples,
-        }
+# Alias du type de production (spec 010, F-08). Le laboratoire portait un second
+# type homonyme, qui arrondissait les taux (``round(None, 4)`` levait) et pouvait
+# diverger de la source unique. Il n'y a plus qu'un type : ``ValidationOutcome``
+# de ``src/vision/preset_validation``.
+ValidationResult = ValidationOutcome
 
 
 @dataclass
@@ -387,7 +375,7 @@ class RuntimeResolution:
 class DriftResult:
     status: str
     table_name: str
-    score: float
+    score: float | None
     version_id: str | None = None
     diagnostics: list[str] = field(default_factory=list)
 
@@ -1340,28 +1328,27 @@ class LocalPresetRepository:
             for screenshot in (live_screenshots or [])
         ]
 
-        golden_pass_rate = min(golden_scores) if golden_scores else 1.0
-        live_pass_rate = sum(live_scores) / len(live_scores) if live_scores else golden_pass_rate
         critical_anchor_score = self._score_critical_anchors(
             table_dict, (live_screenshots or [None])[0]
         )
 
-        if issues:
-            status = "red"
-        elif golden_pass_rate == 1.0 and live_pass_rate >= 0.95 and critical_anchor_score == 1.0:
-            status = "green"
-        elif critical_anchor_score == 1.0 and 0.80 <= live_pass_rate < 0.95:
-            status = "yellow"
-        else:
-            status = "red"
-
-        result = ValidationResult(
-            status=status,
-            golden_pass_rate=golden_pass_rate,
-            live_pass_rate=live_pass_rate,
+        # Source unique du statut (spec 010) : un preset sans échantillon évalué
+        # est « unmeasured », jamais « green ». Corrige le vert vide
+        # (`min(scores) if scores else 1.0` déclarait vert un preset non mesuré).
+        outcome = compute_validation_status(
+            golden_scores=golden_scores,
+            live_scores=live_scores,
             critical_anchor_score=critical_anchor_score,
             issues=issues,
-            evaluated_samples=len(golden_scores) + len(live_scores),
+        )
+
+        result = ValidationResult(
+            status=outcome.status,
+            golden_pass_rate=outcome.golden_pass_rate,
+            live_pass_rate=outcome.live_pass_rate,
+            critical_anchor_score=outcome.critical_anchor_score,
+            issues=list(outcome.issues),
+            evaluated_samples=outcome.evaluated_samples,
         )
         manifest["validation"] = result.as_dict()
         manifest["lifecycle"]["updated_at"] = _utc_now()
@@ -1925,13 +1912,8 @@ class LocalPresetRepository:
             "assets": {},
             "nn": {},
             "reference_samples": [],
-            "validation": ValidationResult(
-                status="red",
-                golden_pass_rate=0.0,
-                live_pass_rate=0.0,
-                critical_anchor_score=0.0,
+            "validation": compute_validation_status(
                 issues=["Draft not validated yet."],
-                evaluated_samples=0,
             ).as_dict(),
             "fingerprint": {
                 "hash": "",

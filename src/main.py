@@ -240,19 +240,24 @@ class SuperBotController(
             self.detector.model = None
             logger.info("YOLO desactive pour la boucle live. Backend template force.")
         ocr_cfg = self.config.get("ocr", {}) or {}
-        self.analysis_ocr = PokerOCR.from_config(ocr_cfg)
+        # Politique OCR par site (spec 010, F-08) : le site actif vient de la
+        # configuration, comme pour les manifestes et les limites d'action.
+        active_site_key = str(bot_cfg.get("active_site") or DEFAULT_SITE_KEY)
+        self.analysis_ocr = PokerOCR.from_config(ocr_cfg, site_key=active_site_key)
         fast_amount_ocr = PokerOCR.from_config(
             {
                 **ocr_cfg,
                 "mode": "fallback",
                 "parallel": False,
-            }
+            },
+            site_key=active_site_key,
         )
         fast_live_ocr = PokerOCR(
             use_gpu=bool(ocr_cfg.get("use_gpu", True)),
             enabled_engines=["rapidocr"],
             mode="priority",
             parallel=False,
+            site_key=active_site_key,
         )
         self.ocr = fast_live_ocr if getattr(fast_live_ocr, "engines", []) else self.analysis_ocr
         self.amount_ocr = (

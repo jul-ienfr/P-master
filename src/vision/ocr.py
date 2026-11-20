@@ -20,6 +20,14 @@ from src.runtime.player_name_resolver import (
     is_usable_player_name,
     sanitize_player_name,
 )
+from src.vision.ocr_policy import (
+    MAX_ENGINES as MAX_OCR_ENGINES,
+)
+from src.vision.ocr_policy import (
+    clamp_to_policy,
+    policy_for_site,
+    validate_engine_selection,
+)
 
 try:
     with warnings.catch_warnings():
@@ -364,6 +372,7 @@ class PokerOCR:
         allow_decimal_amounts: bool = False,
         amount_thousands_separators: Sequence[str] | None = None,
         amount_decimal_separators: Sequence[str] | None = None,
+        site_key: str | None = None,
     ):
         del use_gpu
         self.mode = mode if mode in SUPPORTED_OCR_MODES else "consensus_amounts"
@@ -384,12 +393,41 @@ class PokerOCR:
         if not self.allow_decimal_amounts:
             self.amount_decimal_separators = ()
         self.enabled_engines = self._normalize_engines(enabled_engines)
+        # Politique OCR par site (spec 010, F-08) : le runtime charge au plus un
+        # principal et un fallback, jamais le catalogue entier. Appliquée
+        # seulement quand un site est connu, pour ne pas changer le contrat du
+        # normaliseur bas niveau (utilisé hors runtime, en sonde et en tests).
+        self.ocr_policy: dict[str, object] | None = None
+        self.policy_notes: list[str] = []
+        if site_key:
+            self._apply_ocr_policy(site_key)
         self.engines: list[BaseOCREngine] = []
         self.last_metadata: dict[str, object] = self._empty_metadata()
         self._load_engines()
 
+    def _apply_ocr_policy(self, site_key: str) -> None:
+        """Restreint les moteurs à la politique du site (au plus deux).
+
+        Une configuration déclarant plus de deux moteurs est ramenée à la
+        politique du site et la restriction est **tracée** (jamais silencieuse).
+        Une configuration à un ou deux moteurs valides est honorée telle quelle :
+        c'est une surcharge explicite de l'opérateur.
+        """
+        policy = policy_for_site(site_key)
+        self.ocr_policy = policy.as_dict()
+        if len(self.enabled_engines) > MAX_OCR_ENGINES:
+            self.policy_notes.append(
+                f"site {policy.site_key}: {len(self.enabled_engines)} moteurs déclarés, "
+                f"ramenés à la politique du site ({', '.join(policy.engines())})"
+            )
+            self.enabled_engines = clamp_to_policy(self.enabled_engines, policy)
+        else:
+            # Un principal sans fallback reste autorisé, mais la politique
+            # déclarée du site reste la référence pour le repli.
+            self.enabled_engines = validate_engine_selection(self.enabled_engines)
+
     @classmethod
-    def from_config(cls, config: dict | None):
+    def from_config(cls, config: dict | None, site_key: str | None = None):
         cfg = config or {}
         amount_cfg = cfg.get("amount_format", {})
         if not isinstance(amount_cfg, dict):
@@ -407,6 +445,7 @@ class PokerOCR:
             ),
             amount_thousands_separators=amount_cfg.get("thousands_separators"),
             amount_decimal_separators=amount_cfg.get("decimal_separators"),
+            site_key=site_key,
         )
 
     def _normalize_engines(self, enabled_engines: Sequence[str] | None) -> list[str]:
@@ -477,6 +516,8 @@ class PokerOCR:
             "requested_engines": list(self.enabled_engines),
             "loaded_engines": [engine.name for engine in self.engines],
             "unavailable_engines": unavailable,
+            "ocr_policy": dict(self.ocr_policy) if self.ocr_policy else None,
+            "policy_notes": list(self.policy_notes),
             "mode": self.mode,
             "parallel": self.parallel,
             "allow_decimal_amounts": self.allow_decimal_amounts,
@@ -497,6 +538,8 @@ class PokerOCR:
             "requested_engines": [],
             "loaded_engines": [],
             "unavailable_engines": {},
+            "ocr_policy": None,
+            "policy_notes": [],
             "selected_engine": "",
             "selected_text": "",
             "selected_variant": "",

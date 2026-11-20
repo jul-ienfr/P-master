@@ -569,11 +569,11 @@
     }
   },
   "validation": {
-    "critical_anchor_score": 1,
+    "critical_anchor_score": null,
     "evaluated_samples": 0,
-    "golden_pass_rate": 1,
+    "golden_pass_rate": null,
     "issues": [],
-    "live_pass_rate": 1,
-    "status": "green"
+    "live_pass_rate": null,
+    "status": "unmeasured"
   }
 }
