@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 # Catalogue supporté — doit rester aligné sur ``src.vision.ocr.SUPPORTED_OCR_ENGINES``.
-SUPPORTED_ENGINES: tuple[str, ...] = ("rapidocr", "tesseract", "surya", "doctr")
+SUPPORTED_ENGINES: tuple[str, ...] = ("rapidocr", "tesseract", "doctr")
 
 # Politique par défaut : un principal rapide et sans dépendance système, un
 # fallback optionnel. Aucun site ne charge plus de deux moteurs.

@@ -43,7 +43,6 @@ class HardwareProfile:
     cuda_alloc_conf: str | None  # valeur PYTORCH_CUDA_ALLOC_CONF, None = défaut torch
     cudnn_benchmark: bool
     yolo_model: str  # sélection modèle via HardwareProfile.yolo_model
-    surya_batch: int
     observation_capture: bool
     concurrent_tables: int
     time_budget_ms: int
@@ -56,8 +55,7 @@ class HardwareProfile:
             return "CPU fallback (CPUExecutionProvider)"
         return (
             f"{self.name.upper()} ({self.gpu_name}, {self.vram_total_mib} MiB) -> "
-            f"{self.yolo_model}, cap {int(self.vram_cap_fraction * 100)}%, "
-            f"Surya batch {self.surya_batch}"
+            f"{self.yolo_model}, cap {int(self.vram_cap_fraction * 100)}%"
         )
 
 
@@ -70,7 +68,6 @@ _PROFILES: dict[str, HardwareProfile] = {
         cuda_alloc_conf="max_split_size_mb:128",
         cudnn_benchmark=False,
         yolo_model="yolov12n_fp32",
-        surya_batch=1,
         observation_capture=False,
         concurrent_tables=1,
         time_budget_ms=1000,
@@ -83,7 +80,6 @@ _PROFILES: dict[str, HardwareProfile] = {
         cuda_alloc_conf=None,
         cudnn_benchmark=True,
         yolo_model="yolov12s_fp16",
-        surya_batch=4,
         observation_capture=True,
         concurrent_tables=4,
         time_budget_ms=1000,
@@ -95,7 +91,6 @@ _PROFILES: dict[str, HardwareProfile] = {
         cuda_alloc_conf=None,
         cudnn_benchmark=False,
         yolo_model="yolov12n_cpu",
-        surya_batch=1,
         observation_capture=False,
         concurrent_tables=1,
         time_budget_ms=1200,

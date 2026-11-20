@@ -79,7 +79,6 @@ def test_detect_12g_profile_for_ampere(monkeypatch):
     assert profile.name == PROFILES_12G
     assert profile.vram_cap_fraction == 0.90
     assert profile.cudnn_benchmark is True
-    assert profile.surya_batch == 4
 
 
 def test_env_forced_profile_overrides_detection(monkeypatch):

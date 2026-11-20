@@ -6,7 +6,6 @@ from src.vision.temporal_ocr import TemporalOCRFilter
 
 def test_default_requested_engines_prioritize_rapidocr(monkeypatch):
     monkeypatch.setattr(ocr_module, "RAPIDOCR_AVAILABLE", True)
-    monkeypatch.setattr(ocr_module, "SURYA_AVAILABLE", True)
     monkeypatch.setattr(ocr_module, "TESSERACT_AVAILABLE", True)
     monkeypatch.setattr(ocr_module, "DOCTR_AVAILABLE", False)
 
@@ -18,12 +17,12 @@ def test_default_requested_engines_prioritize_rapidocr(monkeypatch):
 
 def test_engine_normalization_keeps_supported_order():
     ocr = ocr_module.PokerOCR(
-        enabled_engines=["rapidocr", "rapidocr", "tesseract", "unknown", "surya"],
+        enabled_engines=["rapidocr", "rapidocr", "tesseract", "unknown", "doctr"],
         mode="priority",
         parallel=False,
     )
 
-    assert ocr.enabled_engines == ["rapidocr", "tesseract", "surya"]
+    assert ocr.enabled_engines == ["rapidocr", "tesseract", "doctr"]
 
 
 def test_temporal_filter_defaults_include_rapidocr(monkeypatch):

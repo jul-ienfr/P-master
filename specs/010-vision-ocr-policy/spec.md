@@ -111,7 +111,7 @@ En tant que mainteneur, je veux un harnais qui, à partir de captures étiqueté
 
 - Les captures d'écran réelles ne sont pas committables dans ce dépôt (données d'exploitation) : le harnais est testé sur des captures **synthétiques** générées en test, et la mesure réelle s'exécute quand l'opérateur fournit ses captures.
 - La précision cible par champ est celle de la cible §3.1 (aucune régression de plus de 2 points, SC-005 de la spec programme) ; elle n'est pas réinventée ici.
-- Le catalogue de moteurs reste `rapidocr`, `tesseract`, `surya`, `doctr` ; cette spec n'ajoute ni n'en retire aucun.
+- Le catalogue de moteurs reste `rapidocr`, `tesseract`, `surya`, `doctr` ; cette spec n'ajoute ni n'en retire aucun. — *Rectifié le 20/11/2026 : `surya` est retiré du catalogue (F-18, audit §P2 — moteur inerte, fenêtre d'API 0.15–0.17.1 incompatible avec F-17) ; le catalogue est désormais `rapidocr`, `tesseract`, `doctr`.*
 - La correction du statut de validation touche `poker/tools/room_manager.py` (laboratoire) : c'est le seul endroit qui produit ce champ ; le runtime moderne le consommera via le registre de presets.
 
 ## Plan de test

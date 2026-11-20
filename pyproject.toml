@@ -12,8 +12,11 @@ dependencies = [
     "dxcam==0.3.0; sys_platform == 'win32'",  # 0.0.5→0.3.0 DPI/multi-mon (Windows only)
     "ultralytics==8.3.197",                # YOLOv12n/s FP16 (v11 39.5→v12 40.6 mAP)
     "rapidocr>=3.2.3",                     # PP-OCRv5 montants 99%
-    "surya-ocr>=0.24.0",                   # pseudos batch 92→96% (remplace easyocr). 0.22→0.24 (audit
-                                           # 2026-11-20) : 0.22.1 imposait pillow<11, qui portait 69 avis
+    # surya-ocr retiré le 20/11/2026 (F-18) : le code consommait une API de la fenêtre
+    # 0.15–0.17.1, or l'épinglage de cette fenêtre exige transformers<5 (9 avis PYSEC,
+    # rouvre F-17) + opencv-python-headless (conflit cv2/ de F-17) ; l'API 0.24 impose
+    # un serveur LLM externe, incompatible avec le budget de décision (1 s). Vérifié :
+    # aucune configuration n'activait surya (config.json : rapidocr seul).
     "onnxruntime-gpu==1.19.2; sys_platform != 'darwin'",  # LTS CC6.1 Pascal (1.3Go); pas de wheel darwin
     "opencv-python==4.11.0.86",            # 4.10→4.11 DPI
     "windows-capture==2.0.1; sys_platform == 'win32'",  # Phase 2.2 WGC HWND (occlusion-safe)
@@ -137,7 +140,7 @@ module = [
     "onnxruntime.*", "sklearn.*", "pandas.*", "asyncpg.*", "redis.*",
     "pydantic.*", "aiohttp.*", "openai.*", "transitions.*",
     "uiautomation.*", "windows_capture.*", "dxcam.*", "pynput.*",
-    "rapidocr.*", "surya.*", "rlcard.*", "pokerkit.*", "gymnasium.*",
+    "rapidocr.*", "rlcard.*", "pokerkit.*", "gymnasium.*",
     "huggingface_hub.*", "safetensors.*", "optuna.*", "pgvector.*",
     "postflop_solver_py.*", "yaml.*", "dotenv.*", "win32api.*", "win32con.*",
 ]

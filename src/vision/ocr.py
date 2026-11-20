@@ -1,7 +1,6 @@
 import logging
 import os
 import re
-import warnings
 from collections import Counter
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -28,20 +27,6 @@ from src.vision.ocr_policy import (
     policy_for_site,
     validate_engine_selection,
 )
-
-try:
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore",
-            message="urllib3 .* doesn't match a supported version!",
-        )
-        from surya.common.surya.schema import TaskNames
-        from surya.foundation import FoundationPredictor
-        from surya.recognition import RecognitionPredictor
-
-    SURYA_AVAILABLE = True
-except ImportError:
-    SURYA_AVAILABLE = False
 
 try:
     from rapidocr import RapidOCR
@@ -78,7 +63,13 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_OCR_ENGINES = ("rapidocr", "tesseract", "surya", "doctr")
+# surya-ocr retiré du catalogue le 20/11/2026 (F-18, audit §P2) : le moteur
+# était inerte depuis le 24/08/2026 — ses imports (`surya.foundation`,
+# `surya.recognition`, `TaskNames`) ne correspondent qu'à la fenêtre
+# 0.15–0.17.1, dont l'épinglage rouvre les avis de sécurité de F-17
+# (`transformers<5`, `opencv-python-headless`), et l'API 0.24 impose un
+# serveur LLM externe incompatible avec le budget de décision.
+SUPPORTED_OCR_ENGINES = ("rapidocr", "tesseract", "doctr")
 SUPPORTED_OCR_MODES = ("priority", "fallback", "consensus_amounts")
 DEFAULT_AMOUNT_THOUSANDS_SEPARATORS = (" ",)
 DEFAULT_AMOUNT_DECIMAL_SEPARATORS: tuple[str, ...] = ()
@@ -248,75 +239,6 @@ class RapidOCREngine(BaseOCREngine):
         return self._extract_text(result)
 
 
-class SuryaEngine(BaseOCREngine):
-    name = "surya"
-    _init_lock = Lock()
-    _predict_lock = Lock()
-    _recognition_predictor: Optional["RecognitionPredictor"] = None
-    _load_error: str | None = None
-
-    def __init__(self):
-        if not SURYA_AVAILABLE:
-            raise RuntimeError("surya-ocr is not installed")
-
-    @classmethod
-    def _get_predictor(cls) -> "RecognitionPredictor":
-        if cls._recognition_predictor is not None:
-            return cls._recognition_predictor
-
-        if cls._load_error is not None:
-            raise RuntimeError(cls._load_error)
-
-        with cls._init_lock:
-            if cls._recognition_predictor is not None:
-                return cls._recognition_predictor
-            if cls._load_error is not None:
-                raise RuntimeError(cls._load_error)
-
-            try:
-                foundation_predictor = FoundationPredictor()
-                recognition_predictor = RecognitionPredictor(foundation_predictor)
-                recognition_predictor.disable_tqdm = True
-                cls._recognition_predictor = recognition_predictor
-            except Exception as exc:
-                cls._load_error = f"surya initialization failed: {exc}"
-                raise RuntimeError(cls._load_error) from exc
-
-        return cls._recognition_predictor
-
-    def read_text(self, image_crop: np.ndarray) -> str:
-        if image_crop is None or image_crop.size == 0:
-            return ""
-
-        predictor = self._get_predictor()
-        rgb_image = cv2.cvtColor(image_crop, cv2.COLOR_BGR2RGB)
-        pil_image = Image.fromarray(rgb_image)
-        width, height = pil_image.size
-        bboxes = [[[0, 0, width, height]]]
-
-        with self._predict_lock:
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    "ignore",
-                    message="'pin_memory' argument is set as true but no accelerator is found.*",
-                )
-                predictions = predictor(
-                    [pil_image],
-                    task_names=[TaskNames.ocr_without_boxes],
-                    bboxes=bboxes,
-                    math_mode=False,
-                )
-
-        if not predictions:
-            return ""
-
-        return " ".join(
-            line.text.strip()
-            for line in predictions[0].text_lines
-            if getattr(line, "text", "").strip()
-        ).strip()
-
-
 class DocTREngine(BaseOCREngine):
     name = "doctr"
 
@@ -468,16 +390,13 @@ class PokerOCR:
             return preferred
 
         legacy: list[str] = []
-        if SURYA_AVAILABLE:
-            legacy.append("surya")
         if DOCTR_AVAILABLE:
             legacy.append("doctr")
-        return legacy or ["rapidocr", "tesseract", "surya", "doctr"]
+        return legacy or ["rapidocr", "tesseract", "doctr"]
 
     def _load_engines(self) -> None:
         engine_factories = {
             "rapidocr": RapidOCREngine,
-            "surya": SuryaEngine,
             "doctr": DocTREngine,
             "tesseract": TesseractEngine,
         }

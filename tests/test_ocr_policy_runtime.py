@@ -45,9 +45,9 @@ def _no_real_engine_load(monkeypatch):
     monkeypatch.setattr(PokerOCR, "_load_engines", _fake_load_engines)
 
 
-def test_runtime_clamps_four_engines_to_the_site_policy():
+def test_runtime_clamps_engines_beyond_the_site_policy():
     ocr = PokerOCR(
-        enabled_engines=["rapidocr", "tesseract", "surya", "doctr"],
+        enabled_engines=["rapidocr", "tesseract", "doctr"],
         mode="fallback",
         site_key="pokerstars",
     )
@@ -58,10 +58,10 @@ def test_runtime_clamps_four_engines_to_the_site_policy():
 
 
 def test_runtime_keeps_an_explicit_two_engine_override():
-    ocr = PokerOCR(enabled_engines=["surya", "doctr"], mode="fallback", site_key="winamax")
+    ocr = PokerOCR(enabled_engines=["doctr", "rapidocr"], mode="fallback", site_key="winamax")
 
     # Une surcharge explicite à deux moteurs valides est honorée telle quelle.
-    assert ocr.enabled_engines == ["surya", "doctr"]
+    assert ocr.enabled_engines == ["doctr", "rapidocr"]
     assert ocr.policy_notes == []
 
 
@@ -70,6 +70,14 @@ def test_config_path_keeps_its_historical_normalization_contract():
 
     # Non-régression : un moteur inconnu est écarté par le normaliseur existant,
     # il ne fait pas lever le runtime (contrat inchangé de `_normalize_engines`).
+    assert ocr.enabled_engines == ["rapidocr"]
+
+
+def test_legacy_surya_in_a_config_is_dropped_without_raising():
+    # Un config.json hérité peut encore nommer `surya` (moteur retiré, F-18) :
+    # il est écarté par le normaliseur, sans lever — même contrat.
+    ocr = PokerOCR(enabled_engines=["rapidocr", "surya"], site_key="pokerstars")
+
     assert ocr.enabled_engines == ["rapidocr"]
 
 
@@ -84,7 +92,7 @@ def test_policy_is_exposed_in_metadata():
 
 def test_from_config_forwards_site_key():
     ocr = PokerOCR.from_config(
-        {"enabled_engines": ["rapidocr", "tesseract", "surya", "doctr"]},
+        {"enabled_engines": ["rapidocr", "tesseract", "doctr"]},
         site_key="winamax",
     )
 
@@ -93,10 +101,10 @@ def test_from_config_forwards_site_key():
 
 
 def test_without_site_key_the_low_level_contract_is_unchanged():
-    ocr = PokerOCR(enabled_engines=["rapidocr", "tesseract", "surya"], mode="priority")
+    ocr = PokerOCR(enabled_engines=["rapidocr", "tesseract", "doctr"], mode="priority")
 
     # Hors runtime (sonde, tests), le normaliseur garde son comportement.
-    assert ocr.enabled_engines == ["rapidocr", "tesseract", "surya"]
+    assert ocr.enabled_engines == ["rapidocr", "tesseract", "doctr"]
     assert ocr.get_metadata()["ocr_policy"] is None
 
 

@@ -17,7 +17,7 @@ def main() -> int:
     parser.add_argument("--image", required=True, help="Path to the image file")
     parser.add_argument("--field", choices=["text", "amount"], default="amount")
     parser.add_argument(
-        "--engines", default="rapidocr,tesseract,surya", help="Comma-separated OCR engines"
+        "--engines", default="rapidocr,tesseract", help="Comma-separated OCR engines"
     )
     parser.add_argument("--mode", default="consensus_amounts")
     parser.add_argument("--parallel", action="store_true")

@@ -34,7 +34,7 @@ def test_read_player_name_prefers_usable_candidate_over_first_non_empty_noise(mo
     threshold = np.zeros((20, 24, 3), dtype=np.uint8)
 
     ocr = build_test_ocr(
-        FakeTextEngine("surya", {(10, 10): "Suivr", (20, 20): "Suivr", (20, 24): "Suivr"}),
+        FakeTextEngine("rapidocr", {(10, 10): "Suivr", (20, 20): "Suivr", (20, 24): "Suivr"}),
         FakeTextEngine("tesseract", {(10, 10): "", (20, 20): "Nick Deb01", (20, 24): "Nick Deb01"}),
     )
     monkeypatch.setattr(
@@ -62,7 +62,7 @@ def test_read_player_name_returns_empty_when_only_ui_or_numeric_noise_is_found(m
     enhanced = np.zeros((20, 20, 3), dtype=np.uint8)
 
     ocr = build_test_ocr(
-        FakeTextEngine("surya", {(10, 10): "Passer", (20, 20): "Passer"}),
+        FakeTextEngine("rapidocr", {(10, 10): "Passer", (20, 20): "Passer"}),
         FakeTextEngine("tesseract", {(10, 10): "150.4", (20, 20): "150.4"}),
     )
     monkeypatch.setattr(

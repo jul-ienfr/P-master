@@ -65,7 +65,7 @@ def test_identical_fallback_is_dropped():
 
 def test_validate_selection_rejects_more_than_two():
     with pytest.raises(ValueError, match="maximum 2"):
-        validate_engine_selection(["rapidocr", "tesseract", "surya"])
+        validate_engine_selection(["rapidocr", "tesseract", "doctr"])
 
 
 def test_validate_selection_rejects_unknown_engine():
@@ -98,7 +98,7 @@ def test_clamp_keeps_only_policy_engines_in_policy_order():
     policy = policy_for_site("pokerstars")
 
     # Une sélection large est ramenée à la politique du site, dans son ordre.
-    clamped = clamp_to_policy(["surya", "tesseract", "rapidocr", "doctr"], policy)
+    clamped = clamp_to_policy(["doctr", "tesseract", "rapidocr"], policy)
 
     assert clamped == ["rapidocr", "tesseract"]
 
@@ -106,6 +106,6 @@ def test_clamp_keeps_only_policy_engines_in_policy_order():
 def test_clamp_never_exceeds_max_engines():
     policy = OCREnginePolicy(site_key="x", primary="rapidocr", fallback="tesseract")
 
-    clamped = clamp_to_policy(["rapidocr", "tesseract", "surya"], policy)
+    clamped = clamp_to_policy(["rapidocr", "tesseract", "doctr"], policy)
 
     assert len(clamped) <= MAX_ENGINES

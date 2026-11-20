@@ -281,7 +281,7 @@ impl Default for OcrConfig {
         Self {
             enabled_engines: vec![
                 "rapidocr".to_string(),
-                "surya".to_string(),
+                "tesseract".to_string(),
             ],
             mode: "consensus_amounts".to_string(),
             parallel: true,
@@ -2297,7 +2297,7 @@ fn get_ocr_status(state: tauri::State<'_, AppState>) -> OcrStatusResponse {
         .expect("ocr config lock poisoned")
         .clone();
     let enabled_engines_json = serde_json::to_string(&config.enabled_engines)
-        .unwrap_or_else(|_| "[\"rapidocr\", \"surya\"]".to_string());
+        .unwrap_or_else(|_| "[\"rapidocr\", \"tesseract\"]".to_string());
     let mode_json = serde_json::to_string(&config.mode)
         .unwrap_or_else(|_| "\"consensus_amounts\"".to_string());
     let parallel_literal = if config.parallel { "True" } else { "False" };
@@ -2336,7 +2336,6 @@ fn get_ocr_status(state: tauri::State<'_, AppState>) -> OcrStatusResponse {
             vec![
                 "rapidocr".to_string(),
                 "tesseract".to_string(),
-                "surya".to_string(),
                 "doctr".to_string(),
             ]
         });
