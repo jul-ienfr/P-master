@@ -353,7 +353,7 @@ Aucun test ne couvre `SuryaEngine` — c'est ce qui a laissé le défaut invisib
 
 - Packaging/release AGPL, SBOM. — *fait le 20/11/2026 (F-19) : `cargo audit` en CI et SBOM CycloneDX pour Python et les trois crates Rust, voir §3.9 ; le volet packaging/release AGPL reste ouvert.*
 - Reproductibilité Linux partielle (dépendances Windows).
-- Documentation de l'état réel : plusieurs docs décrivent des fonctionnalités « DONE » alors que le runtime ne les utilise pas (multiway).
+- Documentation de l'état réel : plusieurs docs décrivent des fonctionnalités « DONE » alors que le runtime ne les utilise pas. — *le cas cité (multiway) est **périmé** : vérifié le 20/11/2026, le runtime transmet bien `num_players` (`decision_maker.py:791`) et les ranges par villain (`:743`, `:778`), et la spec `002` l'a branché sur `multiway_mccfr` ; voir §8. La ligne reste ouverte pour les autres fonctionnalités, non auditées ici.*
 - Nettoyage des artefacts de recherche non versionnés ou non reproductibles.
 - Tests de propriété sur l'état canonique et les ranges.
 - Suppression des avertissements `fmt` préexistants (dérive de version rustfmt) pour rendre `cargo fmt --check` exploitable. — *fait le 20/11/2026 (F-19) : `gto_server/src/main.rs` reformaté et l'étape CI vérifie désormais les trois crates (le crate racine n'est pas un workspace, donc `fmt --all` ne descendait pas dans `gto_server/` ni `python_bindings/`).*
