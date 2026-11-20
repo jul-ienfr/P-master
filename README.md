@@ -65,7 +65,7 @@ pip install -e . --group dev
 Notes:
 
 - `pyproject.toml` + `uv.lock` are the single dependency source. The legacy mirror files (`requirements_win.txt`, `requirements_2026.txt`, `requirements_mac.txt`) have been removed — do not recreate them.
-- **Contrainte GPU Pascal (GTX 10xx) : `onnxruntime-gpu` est figé à `1.19.2` (LTS, compute capability 6.1). Ne pas monter de version sans changer de GPU** ; `torch==2.8.0` avec inductor désactivé sur ces profils (voir `src/runtime/hardware.py`).
+- **Contrainte GPU Pascal (GTX 10xx) : `onnxruntime-gpu` est figé à `1.19.2` (LTS, compute capability 6.1). Ne pas monter de version sans changer de GPU** ; `torch` est monté à 2.13.0 le 20/11/2026 (audit : 9 avis → 0), ce qui ne change rien à cette contrainte — le wheel PyPI de `torch` est **CPU**, l'inférence GPU passe par `onnxruntime-gpu` (voir `src/runtime/hardware.py`).
 - Numeric OCR now uses `RapidOCR` with `onnxruntime`, so no separate local Tesseract install is required for the main path.
 - The first OCR run downloads RapidOCR models into the active Python environment.
 - You may also need the Microsoft Visual C++ Redistributable.
