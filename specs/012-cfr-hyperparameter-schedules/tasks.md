@@ -37,7 +37,7 @@
 - [x] T024 [US1] `cargo test` (lib + intégration) vert, y compris Kuhn/Leduc sous chaque schedule.
 - [x] T025 [US1] `cargo fmt --check` et `cargo clippy` verts sur le code modifié.
 - [x] T026 [US1] `uv run pytest` complet vert (non-régression) et `uv run ruff check src tests scripts poker/tools`.
-- [x] T027 [US1] Gate de performance F-09 vert (`scripts/check_perf_gate.py`), défaut inchangé.
+- [x] T027 [US1] Gate de performance F-09 : **déjà en ÉCHEC avant cette spec**, et inchangé par elle. Le gate échoue sur `multiway: 24 fallback(s) produit(s)` et `backend multiway absent (['fallback'])` — vérifié identique sur un checkout propre de `4a9d9b3` (HEAD d'avant la spec). Non satisfait au sens littéral de « vert » ; hors périmètre de `012`, à traiter séparément.
 - [x] T028 [US2] Produire l'artefact `research/results/cfr_schedule_benchmark.json` et vérifier qu'il est lisible et daté.
 
 ## Phase 4: Défauts trouvés en validation (ajoutés en cours de route)
@@ -65,4 +65,4 @@
 - [x] Un artefact daté rapporte l'exploitabilité par palier pour le défaut et HS-DCFR(30) sur Kuhn et Leduc, sans affirmer de gain non mesuré.
 - [x] La fiche C16 ne cite plus d'identifiant arXiv invalide et recommande la variante que l'article recommande pour le poker.
 - [x] `config.json` ne contient plus de clé de schedule sans effet.
-- [x] `cargo test`, `cargo fmt --check`, `pytest`, `ruff` et le gate F-09 sont verts.
+- [x] `cargo test`, `cargo fmt --check`, `pytest` et `ruff` sont verts. Le gate F-09 est **rouge avant et après** cette spec (fallbacks multiway), sans lien avec elle — voir T027.

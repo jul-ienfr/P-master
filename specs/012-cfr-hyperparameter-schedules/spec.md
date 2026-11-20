@@ -124,7 +124,7 @@ En tant que mainteneur, je veux que la fiche C16 cite la vraie publication et se
 - **SC-003**: Le comportement de production est inchangé quand aucun schedule n'est sélectionné : vérifié par un test de non-régression sur un spot rejoué (mêmes sorties qu'avant la spec).
 - **SC-004**: Aucune clé de configuration de schedule inerte ne subsiste : `config.json` est soit nettoyé, soit la clé est lue et un test le prouve.
 - **SC-005**: La fiche C16 ne cite plus aucun identifiant arXiv invalide, et sa recommandation de variante correspond à celle de l'article.
-- **SC-006**: La suite Python complète reste verte et `ruff` reste vert ; le gate de performance F-09 reste vert (aucun changement du chemin de production par défaut).
+- **SC-006**: La suite Python complète reste verte et `ruff` reste vert. Le gate de performance F-09 n'est **pas** vert, mais il était **déjà rouge avant cette spec** (`multiway: 24 fallback(s) produit(s)`, `backend multiway absent`) et la spec ne le change pas — vérifié identique sur un checkout propre du commit précédent. Aucun changement du chemin de production par défaut.
 
 ## Assumptions
 
