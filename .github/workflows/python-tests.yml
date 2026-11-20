@@ -77,3 +77,18 @@ jobs:
 
       - name: Dependency audit (pip-audit, advisory)
         run: uv run pip-audit --skip-editable
+
+      # SBOM CycloneDX des dépendances Python (F-19). `pip-audit` sait déjà le
+      # produire : aucun outil supplémentaire n'est nécessaire. L'artefact est
+      # joint au run, jamais committé (il change à chaque montée de dépendance).
+      - name: SBOM (CycloneDX, Python)
+        if: always()
+        run: uv run pip-audit --skip-editable -f cyclonedx-json -o sbom-python.cdx.json
+
+      - name: Upload SBOM
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sbom-python
+          path: sbom-python.cdx.json
+          if-no-files-found: ignore

@@ -69,3 +69,26 @@ jobs:
         cargo audit --file Cargo.lock -D warnings
         cargo audit --file gto_server/Cargo.lock -D warnings
         cargo audit --file python_bindings/Cargo.lock -D warnings
+
+    # SBOM CycloneDX du graphe de dépendances Rust (F-19). Un par crate, les
+    # trois ne formant pas un workspace. L'artefact est joint au run, jamais
+    # committé (il change à chaque montée de dépendance).
+    - name: Install cargo-cyclonedx
+      uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2
+      with:
+        tool: cargo-cyclonedx
+
+    - name: SBOM (CycloneDX, Rust)
+      run: |
+        cargo cyclonedx --format json --manifest-path Cargo.toml
+        cargo cyclonedx --format json --manifest-path gto_server/Cargo.toml
+        cargo cyclonedx --format json --manifest-path python_bindings/Cargo.toml
+
+    - name: Upload SBOMs
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: sbom-rust
+        path: |
+          **/*.cdx.json
+        if-no-files-found: ignore
