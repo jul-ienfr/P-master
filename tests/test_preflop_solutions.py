@@ -198,7 +198,30 @@ def test_heads_up_precomputed_uses_hu_sb_table(tmp_path):
     assert action in {"RAISE", "BET", "ALL_IN"}
 
 
-def test_resolve_live_decision_respects_budget():
+def test_resolve_live_decision_reports_budget_honestly():
+    """Le drapeau `budget_respected` est **cohérent avec la mesure publiée**,
+    jamais supposé vrai.
+
+    Historique du défaut (constat F-16). La version d'origine exigeait
+    `budget_respected is True` avec un budget de 800 ms, sur **une seule**
+    mesure d'horloge murale. La fonction fait au minimum une passe de 240
+    échantillons de Monte-Carlo (~120 ms ici, davantage sur un runner chargé) :
+    sur un runner lent, cette passe minimale dépasse à elle seule les 800 ms et
+    le drapeau vaut honnêtement `False`. Le test échouait donc sur la **vitesse
+    de la machine**, pas sur le comportement du code — et il a masqué le gate de
+    performance F-09 pendant huit pushes, « Tests + coverage » échouant avant
+    lui.
+
+    Ce qui est réellement défendu ici, et qui ne dépend pas de la machine :
+
+    - le verdict publié ne peut pas **contredire** la mesure publiée — un
+      `budget_respected` vrai au-delà du budget serait un mensonge ; l'autre
+      sens (`False` sur machine chargée) est un rapport honnête ;
+    - **sous le plancher**, le budget ne peut pas être tenu (la passe minimale
+      de 240 échantillons coûte des dizaines de millisecondes), donc le drapeau
+      doit dire `False` — et la décision doit rester légale, jamais dégradée en
+      silence.
+    """
     result = resolve_live_decision(
         "AsKs",
         context="rfi",
@@ -210,7 +233,26 @@ def test_resolve_live_decision_respects_budget():
         seed=5,
     )
     assert result["chosen_action"] in {"RAISE", "CALL", "CHECK", "FOLD"}
-    assert result["budget_respected"] is True
+    assert result["samples"] >= 240
+    assert 0.0 <= result["equity"] <= 1.0
+    # Un verdict « respecté » avec une mesure au-delà du budget serait
+    # contradictoire. (L'arrondi de `elapsed_ms` à 2 décimales ne peut que
+    # minorer, donc `<=` reste sûr dans ce sens.)
+    if result["budget_respected"]:
+        assert result["elapsed_ms"] <= 800
+
+    tight = resolve_live_decision(
+        "AsKs",
+        context="rfi",
+        depth_bb=100,
+        pot=1.5,
+        to_call=0.0,
+        effective_stack=100.0,
+        time_budget_ms=1,
+        seed=5,
+    )
+    assert tight["budget_respected"] is False
+    assert tight["chosen_action"] in {"RAISE", "CALL", "CHECK", "FOLD"}
 
 
 def test_decision_maker_preflop_falls_back_to_charts_without_solutions():
