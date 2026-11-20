@@ -12,14 +12,15 @@ use crate::alloc::*;
 /// Schedule de discount des hyperparamètres CFR.
 ///
 /// Le défaut ([`DiscountSchedule::Dcfr`]) reproduit **exactement** le comportement
-/// historique du crate : ses paramètres viennent de [`DiscountParams::new`], qui
+/// historique du crate : ses paramètres viennent de `DiscountParams::new`, qui
 /// n'a pas été modifiée. Les variantes `HsDcfr*` appliquent les schedules
 /// d'hyperparamètres publiés par Zhang, McAleer et Sandholm (AAAI 2026,
 /// arXiv 2404.09097) : au lieu de discounts constants, `α`, `β` et `γ` varient
 /// linéairement avec l'itération.
 ///
-/// Le choix est explicite et jamais silencieux : [`DiscountSchedule::from_str`]
-/// rejette un nom inconnu au lieu de retomber sur le défaut.
+/// Le choix est explicite et jamais silencieux : `DiscountSchedule::from_str`
+/// (l'implémentation de [`std::str::FromStr`]) rejette un nom inconnu au lieu de
+/// retomber sur le défaut.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum DiscountSchedule {
     /// DCFR tel qu'implémenté historiquement par le crate (défaut).

@@ -145,24 +145,89 @@ def test_summary_of_a_journal_without_stages_is_empty_and_valid():
 
 
 def test_timer_overhead_is_measured_not_assumed():
-    """Le surcoût est mesuré : la borne du test garde une marge de mesure (CI
-    lente) tout en interdisant un coût d'un ordre de grandeur au-dessus."""
+    """Le surcoût est **mesuré**, jamais supposé négligeable — sur une borne qui
+    tient compte de la machine.
+
+    Historique du défaut (spec `008`). La version d'origine posait deux bornes :
+    un plafond absolu (`measured_us < 5.0`) et un ratio serré
+    (`measured_us <= baseline_us * 5 + 1.0`), chacun sur **une seule** mesure
+    d'horloge murale. Les deux ont échoué en CI, sur deux runs différents :
+
+    - 20/11/2026 09:49 : `assert 3.740 <= (0.251 * 5) + 1.0` — le ratio, la
+      baseline valant 0,251 µs sur un runner chargé ;
+    - 20/11/2026 11:16 : `assert 5.206 < 5.0` — le plafond absolu.
+
+    Les deux mesuraient la **machine**, pas le code : sur un runner chargé, deux
+    `perf_counter` nus coûtent déjà plusieurs microsecondes, et une mesure unique
+    d'horloge murale est dominée par la charge.
+
+    Mesure retenue : le **minimum sur plusieurs passes**. Le bruit de charge ne
+    fait qu'ajouter du temps, jamais en retirer — le minimum estime donc le coût
+    réel sans faux positif, et une régression vraie remonte aussi le minimum.
+
+    Invariant testé, et son honnêteté : le timer fait **deux lectures d'horloge
+    plus une comptabilité de dictionnaire** (`start` empile, `stop` dépile et
+    accumule). Il coûte donc quelques fois deux lectures nues — mesuré à ~7× ici,
+    pas « le même ordre de grandeur ». La borne encode ce qui est réellement
+    défendu : rester **sous une vingtaine de fois** la base mesurée, ce qui
+    attrape une régression d'un ordre de grandeur (un `stop` qui parcourrait tous
+    les étages, par exemple) sans échouer sur une machine lente.
+
+    Le second invariant est le plus tranchant, et il est **indépendant de la
+    machine** : le coût par appel ne doit pas croître avec le nombre d'étages
+    suivis. C'est la vraie régression à craindre (une comptabilité O(n) par
+    appel) ; un ratio entre deux mesures de la même machine la révèle sans
+    dépendre de sa vitesse.
+    """
     iterations = 20_000
-    timer = StageTimer()
+    passes = 5
 
-    baseline_start = time.perf_counter()
-    for _ in range(iterations):
+    def per_call_us(body, count: int = iterations) -> float:
+        started = time.perf_counter()
+        for _ in range(count):
+            body()
+        return (time.perf_counter() - started) / count * 1e6
+
+    def two_bare_clock_reads() -> None:
         time.perf_counter()
         time.perf_counter()
-    baseline_us = (time.perf_counter() - baseline_start) / iterations * 1e6
 
-    measured_start = time.perf_counter()
-    for _ in range(iterations):
-        timer.start("solver")
-        timer.stop("solver")
-    measured_us = (time.perf_counter() - measured_start) / iterations * 1e6
+    baseline = min(per_call_us(two_bare_clock_reads) for _ in range(passes))
 
-    assert measured_us < 5.0, f"coût mesuré {measured_us:.3f} µs par étage"
-    # L'accumulateur n'ajoute qu'une comptabilité, pas un ordre de grandeur.
-    assert measured_us <= baseline_us * 5 + 1.0
-    assert len(timer) == 1
+    one_stage = StageTimer()
+    measured = min(
+        per_call_us(lambda: (one_stage.start("solver"), one_stage.stop("solver")))
+        for _ in range(passes)
+    )
+
+    assert measured <= baseline * 20 + 5.0, (
+        f"coût mesuré {measured:.3f} µs par étage pour une base de "
+        f"{baseline:.3f} µs — d'un ordre de grandeur au-dessus"
+    )
+    assert len(one_stage) == 1
+
+    # Le coût par appel est constant en nombre d'étages suivis : une
+    # comptabilité qui parcourrait ses étages à chaque `stop` ferait exploser ce
+    # ratio. Indépendant de la vitesse de la machine (ratio de deux mesures).
+    many_stages = StageTimer()
+    names = [f"stage_{i}" for i in range(64)]
+    # Un cycle complet (64 étages) par itération : le coût **par étage** se lit
+    # donc directement. Peu d'itérations suffisent — c'est un ratio, pas une
+    # mesure absolue.
+    many_iterations = 200
+
+    def round_robin_many() -> None:
+        for name in names:
+            many_stages.start(name)
+            many_stages.stop(name)
+
+    many_us = (
+        min(per_call_us(round_robin_many, many_iterations) for _ in range(passes))
+        / len(names)
+    )
+    assert many_us <= measured * 5 + 1.0, (
+        f"le coût par étage croît avec le nombre d'étages suivis : "
+        f"{measured:.3f} µs à 1 étage, {many_us:.3f} µs à {len(names)} — "
+        f"comptabilité non constante"
+    )
+    assert len(many_stages) == len(names)
