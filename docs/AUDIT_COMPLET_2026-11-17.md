@@ -194,7 +194,7 @@ La corrélation de bout en bout existe déjà par `spot_id` dans le journal ; le
 
 - Le seuil de couverture global (52 %) est artificiellement bas à cause de `poker/` ; il ne protège pas `src/` — un seuil bloquant dédié à `src/` (80 %) a depuis été ajouté (F-14), mesuré à 83 %.
 - Le gate de performance existe désormais (F-09) ; **le gate d'exploitabilité manque toujours**.
-- Pas de SBOM dans le workflow consulté — **corrigé le 20/11/2026 (F-19)** : SBOM CycloneDX produit pour le Python (`pip-audit -f cyclonedx-json`, 162 composants — aucun outil supplémentaire, `pip-audit` sait déjà l'émettre) et pour les trois crates Rust (`cargo cyclonedx` : 86 + 36 + 40 composants sur le runner). Les deux sont joints au run comme artefacts, jamais committés (ils changent à chaque montée de dépendance). `cargo audit` — **corrigé le même jour** : job `audit` dans `rust.yml`, `-D warnings` sur les trois lockfiles ; deux vulnérabilités réelles (`zstd-safe`/`zstd-sys`) et un avis `unsound` (`tokio`) corrigés par montée, deux avis `pyo3` corrigés par montée majeure, `bincode` exempté explicitement dans `.cargo/audit.toml`.
+- Pas de SBOM dans le workflow consulté — **corrigé le 20/11/2026 (F-19)** : SBOM CycloneDX produit pour le Python (`pip-audit -f cyclonedx-json`, 161 composants sur le runner — aucun outil supplémentaire, `pip-audit` sait déjà l'émettre) et pour les trois crates Rust (`cargo cyclonedx` : 86 + 36 + 40 composants). Les deux sont joints au run comme artefacts, jamais committés (ils changent à chaque montée de dépendance). `cargo audit` — **corrigé le même jour** : job `audit` dans `rust.yml`, `-D warnings` sur les trois lockfiles ; deux vulnérabilités réelles (`zstd-safe`/`zstd-sys`) et un avis `unsound` (`tokio`) corrigés par montée, deux avis `pyo3` corrigés par montée majeure, `bincode` exempté explicitement dans `.cargo/audit.toml`.
 - `config.json` est **suivi par git** (`git ls-files config.json`). Même s'il ne contient pas de secret aujourd'hui, c'est un risque : toute clé ajoutée serait versionnée. Les secrets doivent venir de l'environnement ou d'un fichier ignoré (`config.local.json`, `.env`).
 - Licence AGPL-3.0-only : toute redistribution/déploiement réseau doit être conforme. À documenter dans le README et dans le processus de release.
 - Python est épinglé à `==3.11.*` et le projet dépend de wheels Windows spécifiques (torch, onnxruntime-gpu, dxcam, uiautomation). La reproductibilité Linux est donc partielle.
@@ -383,7 +383,7 @@ Les huit autres avis `zstd-safe` (RUSTSEC-2026-0395 à 0406) sont des avertissem
 
 **Défaut de couverture trouvé au passage :** `cargo fmt --check` ne couvrait que le crate racine. Les trois crates ne forment pas un workspace, donc `fmt --all` ne descend ni dans `gto_server/` ni dans `python_bindings/` — la dérive de rustfmt y était structurellement invisible. `gto_server/src/main.rs` portait effectivement six écarts préexistants (retour à la ligne d'imports, `debug!` sur une ligne, `if` long), corrigés par `cargo fmt` (purement cosmétique, clippy et build inchangés). L'étape CI vérifie désormais les trois crates explicitement.
 
-**SBOM (même constat, même jour) :** le volet « SBOM » de la ligne `docs/AUDIT_COMPLET_2026-11-17.md:197` est traité sans nouvel outil Python — `pip-audit`, déjà en CI, sait émettre du CycloneDX (`-f cyclonedx-json`) : 162 composants, artefact `sbom-python`. Côté Rust, `cargo cyclonedx` produit un SBOM par crate, artefact `sbom-rust` (vérifié sur l'artefact CI du run `44758944817` : `gto_server` 86, `postflop-solver` 36, `postflop-solver-py` 40 composants — les comptes diffèrent de un à deux composants entre Windows et le runner Linux, qui résout d'autres dépendances de plateforme). Les deux artefacts sont joints au run et jamais committés.
+**SBOM (même constat, même jour) :** le volet « SBOM » de la ligne `docs/AUDIT_COMPLET_2026-11-17.md:197` est traité sans nouvel outil Python — `pip-audit`, déjà en CI, sait émettre du CycloneDX (`-f cyclonedx-json`) : 161 composants sur le runner (artefact `sbom-python`, vérifié sur le run `44758945073`). Côté Rust, `cargo cyclonedx` produit un SBOM par crate, artefact `sbom-rust` (vérifié sur l'artefact CI du run `44758944817` : `gto_server` 86, `postflop-solver` 36, `postflop-solver-py` 40 composants — les comptes diffèrent de un à deux composants entre Windows et le runner Linux, qui résout d'autres dépendances de plateforme). Les deux artefacts sont joints au run et jamais committés.
 
 **Reste ouvert :** le volet packaging/release AGPL de la même ligne de la feuille de route (hors périmètre de ce constat).
 
@@ -606,7 +606,7 @@ Le registre `docs/rust-migration-ledger.md` doit lister chaque composant, son é
 
 ### Sprint 4 — Industrialisation (4 semaines)
 
-- Packaging/release AGPL, SBOM, `cargo audit`. — *fait le 20/11/2026 (F-19) : SBOM CycloneDX (Python 162 composants, Rust 86 + 36 + 40) et `cargo audit -D warnings` en CI sur les trois lockfiles.*
+- Packaging/release AGPL, SBOM, `cargo audit`. — *fait le 20/11/2026 (F-19) : SBOM CycloneDX (Python 161 composants, Rust 86 + 36 + 40) et `cargo audit -D warnings` en CI sur les trois lockfiles.*
 - Tests end-to-end sur rejeux.
 - Documentation de l'état réel.
 - Nettoyage de la dette et suppression des chemins morts.
