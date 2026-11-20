@@ -15,6 +15,7 @@ sur rejeux → suppression de l'ancien chemin.
 |---|---|---|---|
 | Solveur DCFR HU | `src/solver.rs` | Production | Budget mural, finalisation réservée |
 | Solveur MCCFR multiway 3–6 | `src/multiway.rs` | Production | Spec `002` — branché au runtime, backend `multiway_mccfr`, réponses `sampled=true` et `converged=false` |
+| Bankroll et risque | `src/bankroll.rs` | Production | Spec `004` — RoR, P(profit), Kelly, bankroll cible, move-up/down, limites de session ; 16 tests contre les formes fermées de `docs/probabilites.md` §2/§6 ; exposé par PyO3, `src/bot/session_manager.py` ne garde que l'horloge et les messages |
 | Équité et évaluation | `src/equity.rs`, `src/ev.rs` | Production | |
 | Arbre et abstraction de mises | `src/action_tree.rs`, `src/bet_size.rs` | Production | |
 | Rake dans l'arbre | `src/gto_api.rs`, `src/tree.rs` | Production | C20 |
@@ -27,7 +28,6 @@ sur rejeux → suppression de l'ancien chemin.
 |---|---|---|---|---|---|
 | État canonique et validateurs | Python dispersé | Rust | P1 | `007` | Un seul `CanonicalState`, tests de propriété |
 | Orchestrateur de politique | Python | Rust | P1 | `007` | Sélection d'action unique, testée sur rejeux |
-| Bankroll et risque | Python | Rust | P1 | `004` | RoR, move-up/down, audit |
 | Journal de décision structuré | Python | Rust | P1 | `008` | Schéma versionné, corrélation `spot_id` |
 | Post-traitement vision | Python | Rust | P2 | `005`, `007` | Fusion OCR et machine à états testées |
 | Encodage/validation d'actions plateforme | Python | Rust | P2 | `005` | Contrat par site, tests de conformité |

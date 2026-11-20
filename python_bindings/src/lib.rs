@@ -1,12 +1,18 @@
 use postflop_solver::{
-    evaluate_equity as evaluate_equity_native, llm_assist_stub_response,
-    measure_best_response_gap as measure_best_response_gap_native,
-    range_relative_strength as range_relative_strength_native, solve_spot as solve_spot_native,
+    assess_cash as assess_cash_native, bankroll_for_target_ror as bankroll_for_target_ror_native,
+    evaluate_equity as evaluate_equity_native, kelly_fraction as kelly_fraction_native,
+    llm_assist_stub_response, measure_best_response_gap as measure_best_response_gap_native,
+    probability_of_profit_cash as probability_of_profit_cash_native,
+    probability_of_profit_mtt as probability_of_profit_mtt_native,
+    range_relative_strength as range_relative_strength_native, risk_band as risk_band_native,
+    risk_of_ruin_cash as risk_of_ruin_cash_native, risk_of_ruin_mtt as risk_of_ruin_mtt_native,
+    session_verdict as session_verdict_native, solve_spot as solve_spot_native,
     solve_spot_v2 as solve_spot_v2_native, ActionOptionV2, BestResponseRequest, BetSizeSpec,
     CachePolicy, CacheTier, DecisionWarning, EquityMode, EquityRequest, EquityResponse,
     LlmAssistResponse, LlmAssistTask, LlmConfig, LlmContextScope, LlmPrivacyMode, LlmProviderMode,
-    RangeModelVersion, RangeStrengthRequest, RangeStrengthResponse, SolveActionV2, SolveRequest,
-    SolveRequestV2, SolveResponse, SolveResponseV2, TreePresetId, WinnerTypeDetail,
+    RangeModelVersion, RangeStrengthRequest, RangeStrengthResponse, RiskBand, SessionLimits,
+    SessionVerdict, SolveActionV2, SolveRequest, SolveRequestV2, SolveResponse, SolveResponseV2,
+    StopReason, TreePresetId, WinnerTypeDetail,
 };
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
@@ -688,6 +694,148 @@ fn winner_types_to_python(
     Ok(result)
 }
 
+/// Nom stable d'une bande de risque, tel qu'écrit dans le journal d'audit.
+fn risk_band_name(band: RiskBand) -> &'static str {
+    match band {
+        RiskBand::Safe => "safe",
+        RiskBand::Acceptable => "acceptable",
+        RiskBand::Elevated => "elevated",
+        RiskBand::Excessive => "excessive",
+    }
+}
+
+/// Nom stable d'un motif d'arrêt de session.
+fn stop_reason_name(reason: StopReason) -> &'static str {
+    match reason {
+        StopReason::MaxDuration => "max_duration",
+        StopReason::StopLoss => "stop_loss",
+        StopReason::StopWin => "stop_win",
+        StopReason::DailyHands => "daily_hands",
+    }
+}
+
+/// Risque de ruine cash — unités naturelles bb/100 et buy-ins (spec 004, §6).
+#[pyfunction]
+fn risk_of_ruin_cash(
+    win_rate_bb_per_100: f64,
+    sigma_bb_per_100: f64,
+    roll_buyins: f64,
+) -> PyResult<Option<f64>> {
+    Ok(
+        risk_of_ruin_cash_native(win_rate_bb_per_100 as f32, sigma_bb_per_100 as f32, roll_buyins as f32)
+            .map(f64::from),
+    )
+}
+
+/// Risque de ruine tournoi — ROI en fraction de BI, σ en BI, bankroll en BI.
+#[pyfunction]
+fn risk_of_ruin_mtt(roi: f64, sigma_bi: f64, roll_buyins: f64) -> PyResult<Option<f64>> {
+    Ok(risk_of_ruin_mtt_native(roi as f32, sigma_bi as f32, roll_buyins as f32).map(f64::from))
+}
+
+/// Bankroll minimale (en BI) pour un RoR cible — inverse du RoR.
+#[pyfunction]
+fn bankroll_for_target_ror(
+    edge_bi: f64,
+    variance_bi2: f64,
+    target_ror: f64,
+) -> PyResult<Option<f64>> {
+    Ok(
+        bankroll_for_target_ror_native(edge_bi as f32, variance_bi2 as f32, target_ror as f32)
+            .map(f64::from),
+    )
+}
+
+/// P(profit) cash après `hands` mains — `Φ(WR·√(N/100)/σ)`.
+#[pyfunction]
+fn probability_of_profit_cash(
+    win_rate_bb_per_100: f64,
+    sigma_bb_per_100: f64,
+    hands: u64,
+) -> PyResult<Option<f64>> {
+    Ok(probability_of_profit_cash_native(
+        win_rate_bb_per_100 as f32,
+        sigma_bb_per_100 as f32,
+        hands,
+    ))
+}
+
+/// P(profit) tournoi après `n_tournaments` tournois.
+#[pyfunction]
+fn probability_of_profit_mtt(roi: f64, sigma_bi: f64, n_tournaments: u64) -> PyResult<Option<f64>> {
+    Ok(probability_of_profit_mtt_native(roi as f32, sigma_bi as f32, n_tournaments))
+}
+
+/// Fraction de Kelly optimale `edge/variance`, bornée à 1.
+#[pyfunction]
+fn kelly_fraction(edge_bi: f64, variance_bi2: f64) -> PyResult<Option<f64>> {
+    Ok(kelly_fraction_native(edge_bi as f32, variance_bi2 as f32).map(f64::from))
+}
+
+/// Bande de risque qualitative d'un RoR : "safe", "acceptable", "elevated", "excessive".
+#[pyfunction]
+fn risk_band(ror: f64) -> PyResult<&'static str> {
+    Ok(risk_band_name(risk_band_native(ror as f32)))
+}
+
+/// Évaluation complète d'un plan cash, renvoyée comme dict journalisable (spec 004).
+#[pyfunction]
+#[pyo3(signature = (win_rate_bb_per_100, sigma_bb_per_100, roll_buyins))]
+fn assess_cash(
+    py: Python<'_>,
+    win_rate_bb_per_100: f64,
+    sigma_bb_per_100: f64,
+    roll_buyins: f64,
+) -> PyResult<PyObject> {
+    let a = assess_cash_native(
+        win_rate_bb_per_100 as f32,
+        sigma_bb_per_100 as f32,
+        roll_buyins as f32,
+    );
+    let dict = PyDict::new(py);
+    dict.set_item("format", "cash")?;
+    dict.set_item("roll_buyins", a.roll_buyins)?;
+    dict.set_item("ror", a.ror.map(f64::from))?;
+    dict.set_item("risk_band", a.risk_band.map(risk_band_name))?;
+    dict.set_item("kelly", a.kelly.map(f64::from))?;
+    dict.set_item("bankroll_for_1pct_ror", a.bankroll_for_1pct_ror.map(f64::from))?;
+    Ok(dict.into())
+}
+
+/// Verdict de session : `None` si la session continue, sinon le motif d'arrêt.
+///
+/// `max_hands_per_day = 0` désactive le plafond journalier.
+#[pyfunction]
+#[pyo3(signature = (
+    hours_played,
+    profit_loss_buyins,
+    max_hours = 4.0,
+    stop_loss_buyins = 3.0,
+    stop_win_buyins = 10.0,
+    hands_today = 0,
+    max_hands_per_day = 0
+))]
+fn session_verdict(
+    hours_played: f64,
+    profit_loss_buyins: f64,
+    max_hours: f64,
+    stop_loss_buyins: f64,
+    stop_win_buyins: f64,
+    hands_today: u64,
+    max_hands_per_day: u64,
+) -> PyResult<Option<&'static str>> {
+    let limits = SessionLimits {
+        max_hours: max_hours as f32,
+        stop_loss_buyins: stop_loss_buyins as f32,
+        stop_win_buyins: stop_win_buyins as f32,
+        max_hands_per_day,
+    };
+    Ok(match session_verdict_native(&limits, hours_played as f32, hands_today, profit_loss_buyins as f32) {
+        SessionVerdict::Continue => None,
+        SessionVerdict::Stop(reason) => Some(stop_reason_name(reason)),
+    })
+}
+
 #[pymodule]
 fn postflop_solver_py(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(solve_spot, m)?)?;
@@ -696,5 +844,15 @@ fn postflop_solver_py(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> 
     m.add_function(wrap_pyfunction!(solve_spot_v2, m)?)?;
     m.add_function(wrap_pyfunction!(measure_best_response_gap, m)?)?;
     m.add_function(wrap_pyfunction!(llm_assist_stub, m)?)?;
+    // Spec 004 — moteur de bankroll et de risque (déterministe, sans état).
+    m.add_function(wrap_pyfunction!(risk_of_ruin_cash, m)?)?;
+    m.add_function(wrap_pyfunction!(risk_of_ruin_mtt, m)?)?;
+    m.add_function(wrap_pyfunction!(bankroll_for_target_ror, m)?)?;
+    m.add_function(wrap_pyfunction!(probability_of_profit_cash, m)?)?;
+    m.add_function(wrap_pyfunction!(probability_of_profit_mtt, m)?)?;
+    m.add_function(wrap_pyfunction!(kelly_fraction, m)?)?;
+    m.add_function(wrap_pyfunction!(risk_band, m)?)?;
+    m.add_function(wrap_pyfunction!(assess_cash, m)?)?;
+    m.add_function(wrap_pyfunction!(session_verdict, m)?)?;
     Ok(())
 }

@@ -133,6 +133,20 @@ Il n'y a **pas** de plan de bankroll, pas de risque de ruine, pas de move-up/mov
 - journal d'audit de chaque changement de limite,
 - tests contre des formules fermées.
 
+**État au 20/11/2026 — cible atteinte (spec `004`).** `src/bankroll.rs` est un module pur et sans état :
+
+- RoR `exp(−2·edge·roll/variance)` en unités buy-ins, avec les conversions cash (bb/100) et tournoi (ROI, BI) faites au même endroit — l'erreur d'unités qui avait faussé une version antérieure du §6 est structurellement impossible ;
+- P(profit) `Φ(WR·√(N/100)/σ)` via une approximation `erf` d'erreur bornée (1,5·10⁻⁷) ;
+- Kelly `edge/variance` borné, bankroll cible pour un RoR donné (inverse du RoR) ;
+- move-up/down à hystérésis (seuil haut ≠ seuil bas, zone morte, bornes d'échelle) ;
+- limites dures de session (durée, plafond journalier, stop-loss, stop-win) avec ordre de priorité déterministe.
+
+Les tables du doc sont des tests : RoR 6-max WR7/σ90/40 BI = 0,10 %, HU WR5/σ70/20 BI = 1,69 %, MTT ROI15/σ1,9/50 BI = 1,57 %, P(profit) 50k = 96 %. Le seuil documenté de 40 BI n'est plus posé, il est *vérifié* : la bankroll qui ramène le RoR 6-max sous 1 % vaut ~24 BI.
+
+Deux constats complémentaires : (1) `SessionManager` n'était **instancié nulle part** dans le runtime de production — la protection de bankroll était orpheline ; il est désormais branché sur le moteur Rust via `src/bot/bankroll.py`, en conservant ses seuils et messages historiques. (2) Chaque évaluation est journalisable (`BankrollAuditLog`, JSONL, schéma stable et testé) pour répondre à l'exigence d'audit.
+
+Restent hors périmètre : la production du winrate et de l'écart-type (spec `003`), l'ICM/PKO, et le pilotage automatique de la limite sans confirmation humaine.
+
 ### 3.6 Plateformes
 
 - Moderne : PokerStars seulement (`src/vision/site_adapter.py`).
@@ -265,7 +279,7 @@ response = self.solver_provider.solve_spot_v2(
 |---|---|---|---|
 | F-05 | Deux bases Python sans frontière | `src/` 34,6 k lignes, `poker/` 26,3 k ; couverture 52 % globale vs ~84 % `src/` | ADR, isoler `poker/`, split de couverture, plan de suppression — **frontière d'import fermée le 19/11/2026** : les contrats V2 passent de `poker/decisionmaker/v2_contracts.py` à `src/contracts/v2_contracts.py` (déplacement `git mv`, 23 importateurs basculés, comportement identique vérifié par empreinte des builders et des énumérations) ; `tests/test_adr001_boundary.py` verrouille le critère n°3 de l'ADR-001 (imports statiques et dynamiques, falsification vérifiée). Reste ouvert : split de couverture (F-14) et plan de suppression de `poker/` |
 | F-06 | Winamax absent du runtime moderne | `site_adapter.py:85-91` | adaptateur Winamax + fixtures + tests de conformité |
-| F-07 | Bankroll limitée à 3 seuils de session | `session_manager.py:15-17` | moteur bankroll/RoR/move-up-down en Rust |
+| F-07 | Bankroll limitée à 3 seuils de session | `session_manager.py:15-17` | moteur bankroll/RoR/move-up-down en Rust — **corrigé le 20/11/2026** (spec `004`) : `src/bankroll.rs` implémente RoR `exp(−2·edge·roll/variance)` en unités buy-ins, P(profit) `Φ(WR·√(N/100)/σ)`, Kelly, bankroll cible pour un RoR donné, move-up/down à hystérésis et limites de session (durée, plafond journalier, stop-loss, stop-win) ; 16 tests Rust + 18 tests Python reproduisent les tables de `docs/probabilites.md` §2/§6 (RoR 6-max WR7/40BI = 0,10 %, HU WR5/20BI = 1,69 %, P(profit) 50k = 96 %). Découverte au passage : `SessionManager` n'était **instancié nulle part** dans le runtime de production — la protection de bankroll était orpheline, pas seulement minimale ; il est désormais branché sur le moteur Rust et conserve ses messages et seuils historiques |
 | F-08 | Vision non prouvée par site | 4 OCR, pas de benchmark de bout en bout | fixtures, précision/latence par site, 1 OCR principal + 1 fallback |
 | F-09 | Pas de gate de performance | benchmark manuel | CI p95 + exploitabilité, seuil de régression 10 % — **corrigé le 19/11/2026** : `scripts/check_perf_gate.py` compare la latence froide (médiane par spot, un processus neuf par répétition) à la baseline versionnée `research/results/perf_baseline.json` ; seuil 10 % + 25 % de bruit machine, plancher absolu sous 5 ms, invariants durs (zéro fallback, backend multiway présent). Câblé dans `python-tests.yml` (étape « Performance gate »). Falsification vérifiée : régression de 141 % détectée, fallback injecté détecté |
 | F-10 | Pas de traces/SLO complets | `metrics.py` agrège localement | tracing `spot_id`, métriques par étage, SLO et alertes |
@@ -385,7 +399,7 @@ Résultat mesuré (machine au repos, six runs, `research/results/runtime_benchma
 
 1. **État canonique et validateurs** : résolution des rues, positions, stacks, pots, actions légales. C'est le plus gros gain de fiabilité.
 2. **Orchestrateur de politique** : sélection préflop/postflop, node-locking, exploitation, fallback. Aujourd'hui en Python, avec des chemins entremêlés.
-3. **Bankroll et risque** : RoR, move-up/down, limites de session, audit.
+3. **Bankroll et risque** : RoR, move-up/down, limites de session, audit. — *Corrigé le 20/11/2026 (spec `004`) : moteur `src/bankroll.rs` + enveloppe `src/bot/bankroll.py`, voir §3.5 et §8.*
 4. **Journal de décision structuré** : schéma versionné, sérialisation, corrélation `spot_id`.
 5. **Post-traitement vision** : fusion OCR, cohérence temporelle, machine à états de table.
 6. **Encodage/validation des actions de plateforme** : règles légales et limites par site.
@@ -476,7 +490,7 @@ Le registre `docs/rust-migration-ledger.md` doit lister chaque composant, son é
 ### Sprint 2 — Domaines manquants (3 semaines)
 
 - Adaptateur Winamax + fixtures.
-- Moteur bankroll/RoR en Rust.
+- Moteur bankroll/RoR en Rust. → **fait le 20/11/2026** (spec `004`) : `src/bankroll.rs` (RoR en unités buy-ins, P(profit) `Φ`, Kelly, bankroll cible, move-up/down à hystérésis, limites de session), exposé par PyO3 (9 fonctions), enveloppé par `src/bot/bankroll.py` (journal d'audit JSONL) et branché dans `session_manager.py`. 16 tests Rust + 18 tests Python reproduisent les tables de `docs/probabilites.md` §2/§6 ; `SessionManager`, qui n'était instancié nulle part, est désormais utilisable.
 - Vision : benchmark par site, réduction à 1 OCR principal + 1 fallback.
 - Traces `spot_id` et métriques par étage.
 
@@ -513,7 +527,7 @@ La constitution est ratifiée. Les specs suivantes structurent le programme ; se
 | `001-gto-hero-range` | Range héros complète et EV combo | P0 | **Livrée (19/11/2026)** : p95 froid 812,0 ms, rejeu golden `pass` ; réserve : convergence hors budget 800 ms (blueprint/bucketing) |
 | `002-runtime-n-way` | Multiway 3–6 joueurs branché au runtime | P0 | Livrée (17/11/2026) |
 | `003-scientific-validity` | AIVAT/MIVAT et benchmark de production | P1 | Backlog |
-| `004-bankroll-risk` | Bankroll, RoR, move-up/down | P1 | Backlog |
+| `004-bankroll-risk` | Bankroll, RoR, move-up/down | P1 | **Livrée (20/11/2026)** : moteur Rust `src/bankroll.rs` (RoR, P(profit), Kelly, bankroll cible, move-up/down, limites de session), 16 tests contre les formes fermées, bindings PyO3, enveloppe Python + journal d'audit ; constat F-07 clos |
 | `005-vision-multi-site` | Adaptateurs PokerStars/Winamax | P1 | Backlog |
 | `006-legacy-boundary` | Frontière `src/` vs `poker/` | P1 | Backlog |
 | `007-rust-core-migration` | Migration des domaines chauds | P1 | Backlog |
