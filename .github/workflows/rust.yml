@@ -36,7 +36,14 @@ jobs:
         cargo +nightly-2025-08-01 clippy --release --features zstd -- -D warnings
         cargo +nightly-2025-08-01 clippy --release --features custom-alloc -- -D warnings
     - name: Check formatting
-      run: cargo +nightly-2025-08-01 fmt --all --check
+      # Le crate racine n'est pas un workspace : `fmt --all` ne descend pas dans
+      # `gto_server/` ni `python_bindings/`, dont la dérive de rustfmt était donc
+      # invisible en CI (corrigée le 20/11/2026, F-19). Les trois crates sont
+      # vérifiés explicitement.
+      run: |
+        cargo +nightly-2025-08-01 fmt --all --check
+        cargo +nightly-2025-08-01 fmt --manifest-path gto_server/Cargo.toml --check
+        cargo +nightly-2025-08-01 fmt --manifest-path python_bindings/Cargo.toml --check
     - name: Check documentation
       run: cargo +nightly-2025-08-01 doc --release
 

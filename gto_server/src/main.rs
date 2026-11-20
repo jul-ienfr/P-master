@@ -5,9 +5,9 @@ use axum::{
 };
 use postflop_solver::{
     evaluate_equity, llm_assist_stub_response, range_relative_strength, solve_spot, solve_spot_v2,
-    EquityRequest, EquityResponse, LlmAssistResponse, LlmAssistTask, LlmConfig,
-    LlmContextScope, LlmPrivacyMode, LlmProviderMode, RangeStrengthRequest,
-    RangeStrengthResponse, SolveRequest, SolveRequestV2, SolveResponse, SolveResponseV2,
+    EquityRequest, EquityResponse, LlmAssistResponse, LlmAssistTask, LlmConfig, LlmContextScope,
+    LlmPrivacyMode, LlmProviderMode, RangeStrengthRequest, RangeStrengthResponse, SolveRequest,
+    SolveRequestV2, SolveResponse, SolveResponseV2,
 };
 use serde::Deserialize;
 use std::{collections::BTreeMap, net::SocketAddr, sync::OnceLock, time::Duration};
@@ -165,7 +165,11 @@ async fn range_strength_handler(
         .await?
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
-    debug!(percentile=response.relative_strength, hero_equity=response.hero_equity, "range strength complete");
+    debug!(
+        percentile = response.relative_strength,
+        hero_equity = response.hero_equity,
+        "range strength complete"
+    );
 
     Ok(Json(response))
 }
@@ -236,7 +240,11 @@ fn build_llm_config(request: &LlmAssistRequestV2) -> LlmConfig {
 fn build_used_context(request: &LlmAssistRequestV2) -> Vec<LlmContextScope> {
     let mut scopes = Vec::new();
 
-    if request.prompt.as_ref().is_some_and(|value| !value.trim().is_empty()) {
+    if request
+        .prompt
+        .as_ref()
+        .is_some_and(|value| !value.trim().is_empty())
+    {
         push_scope(&mut scopes, LlmContextScope::Ui);
     }
     if request.spot.is_some() {
@@ -290,7 +298,9 @@ fn build_provider_metadata(
 
 fn parse_provider_mode(value: Option<&str>) -> LlmProviderMode {
     match value.map(|value| value.trim().to_ascii_lowercase()) {
-        Some(value) if value == "openai_compatible_remote" => LlmProviderMode::OpenaiCompatibleRemote,
+        Some(value) if value == "openai_compatible_remote" => {
+            LlmProviderMode::OpenaiCompatibleRemote
+        }
         Some(value) if value == "openai_compatible_local" => LlmProviderMode::OpenaiCompatibleLocal,
         _ => LlmProviderMode::Disabled,
     }

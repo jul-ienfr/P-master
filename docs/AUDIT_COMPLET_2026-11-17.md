@@ -356,7 +356,7 @@ Aucun test ne couvre `SuryaEngine` — c'est ce qui a laissé le défaut invisib
 - Documentation de l'état réel : plusieurs docs décrivent des fonctionnalités « DONE » alors que le runtime ne les utilise pas (multiway).
 - Nettoyage des artefacts de recherche non versionnés ou non reproductibles.
 - Tests de propriété sur l'état canonique et les ranges.
-- Suppression des avertissements `fmt` préexistants (dérive de version rustfmt) pour rendre `cargo fmt --check` exploitable.
+- Suppression des avertissements `fmt` préexistants (dérive de version rustfmt) pour rendre `cargo fmt --check` exploitable. — *fait le 20/11/2026 (F-19) : `gto_server/src/main.rs` reformaté et l'étape CI vérifie désormais les trois crates (le crate racine n'est pas un workspace, donc `fmt --all` ne descendait pas dans `gto_server/` ni `python_bindings/`).*
 
 #### F-19 : aucune vérification d'avis Rust en CI — trois vulnérabilités réelles dans les lockfiles
 
@@ -379,9 +379,11 @@ Les huit autres avis `zstd-safe` (RUSTSEC-2026-0395 à 0406) sont des avertissem
 
 **Une exemption, déclarée :** `bincode` 2.0.1 est `unmaintained` (RUSTSEC-2025-0141 — l'équipe a cessé le développement), sans vulnérabilité publiée. Il porte le format binaire des arbres sérialisés (`save_data_to_file`, `.flop`) : le remplacer par `postcard`/`wincode` changerait ce format sur disque et casserait la lecture des arbres existants, du cache disque et du bundle portable. L'exemption est écrite dans `.cargo/audit.toml` avec sa raison, jamais silencieuse. Réévaluer si une vulnérabilité — et non un simple avis de maintenance — est publiée.
 
-**Vérifié :** les trois lockfiles sortent en `0` sous `-D warnings` ; `cargo test --release --features zstd` (83 lib + 4 + 4 + 7 + 1 + 2 + 24 + 24 + 13 doctests), `cargo clippy -- -D warnings` sur les deux features, `cargo build --features custom-alloc`, `cargo +stable build`, `gto_server` build + clippy, et le gate de performance F-09 (`GATE PERF : OK`, 0 fallback) — tous verts. `cargo fmt --check` reste vert sur le crate racine et sur `python_bindings` ; `gto_server/src/main.rs` a des écarts `fmt` **préexistants** (non touchés par ce correctif, `cargo fmt --check` ne couvre pas ce crate en CI).
+**Vérifié :** les trois lockfiles sortent en `0` sous `-D warnings` ; le job `audit` passe en CI dès son premier run (run `44757556793`, commit `068fe74`). `cargo test --release --features zstd` (83 lib + 4 + 4 + 7 + 1 + 2 + 24 + 24 + 13 doctests), `cargo clippy -- -D warnings` sur les deux features, `cargo build --features custom-alloc`, `cargo +stable build`, `gto_server` build + clippy, et le gate de performance F-09 (`GATE PERF : OK`, 0 fallback) — tous verts.
 
-**Reste ouvert :** le SBOM (non produit) et la couverture `fmt` de `gto_server`.
+**Défaut de couverture trouvé au passage :** `cargo fmt --check` ne couvrait que le crate racine. Les trois crates ne forment pas un workspace, donc `fmt --all` ne descend ni dans `gto_server/` ni dans `python_bindings/` — la dérive de rustfmt y était structurellement invisible. `gto_server/src/main.rs` portait effectivement six écarts préexistants (retour à la ligne d'imports, `debug!` sur une ligne, `if` long), corrigés par `cargo fmt` (purement cosmétique, clippy et build inchangés). L'étape CI vérifie désormais les trois crates explicitement.
+
+**Reste ouvert :** le SBOM (non produit).
 
 ---
 
