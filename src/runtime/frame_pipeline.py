@@ -15,7 +15,7 @@ from src.vision.models import DetectionResult, TableState, decode_card_token
 from src.vision.numeric_reader import NumericReader
 from src.vision.preset_registry import PresetRegistry
 from src.vision.region_proposals import build_region_proposals, resolve_region_proposals
-from src.vision.site_adapter import get_active_adapter
+from src.vision.site_adapter import DEFAULT_SITE_KEY, get_active_adapter
 from src.vision.table_geometry import (
     DEFAULT_RUNTIME_GEOMETRY,
     geometry_from_manifest,
@@ -75,12 +75,22 @@ class FramePipeline:
         except Exception:
             return geometry_to_pixel_regions(frame, DEFAULT_RUNTIME_GEOMETRY)
 
+    def _active_site_key(self) -> str:
+        """Site actif lu depuis la configuration (``bot.active_site``).
+
+        Le site n'est plus codé en dur : changer de plateforme se fait par
+        configuration, sans toucher au code (constat F-06).
+        """
+        config = getattr(self.controller, "config", None) or {}
+        bot_cfg = config.get("bot", {}) if isinstance(config, dict) else {}
+        return str(bot_cfg.get("active_site") or DEFAULT_SITE_KEY)
+
     def _get_preset_registry(self) -> PresetRegistry | None:
         registry = getattr(self, "preset_registry", None)
         if registry is not None:
             return registry
         try:
-            registry = PresetRegistry.from_adapter(get_active_adapter("pokerstars"))
+            registry = PresetRegistry.from_adapter(get_active_adapter(self._active_site_key()))
         except Exception:
             return None
         self.preset_registry = registry

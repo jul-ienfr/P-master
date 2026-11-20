@@ -178,6 +178,11 @@ def _apply_env_overrides(cfg: dict) -> dict:
     if window_kw and window_kw.strip():
         cfg.setdefault("bot", {})["window_title_keywords"] = window_kw.strip()
 
+    # POKER_ACTIVE_SITE — override bot.active_site (adaptateur de plateforme, spec 005)
+    active_site = os.getenv("POKER_ACTIVE_SITE")
+    if active_site and active_site.strip():
+        cfg.setdefault("bot", {})["active_site"] = active_site.strip().lower()
+
     v = _parse_bool_env(os.getenv("POKER_ENABLE_TIMESFM"))
     if v is not None:
         cfg.setdefault("timesfm", {})["enabled"] = v

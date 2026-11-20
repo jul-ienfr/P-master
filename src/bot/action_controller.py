@@ -18,6 +18,7 @@ from src.bot.humanization import (
     compute_think_time,
 )
 from src.bot.sanity_checker import ActionIntent
+from src.vision.site_adapter import get_active_adapter, resolve_site_from_title
 
 logger = logging.getLogger(__name__)
 DEFAULT_POKER_WINDOW_KEYWORDS = ("NLHE", "Hold'em No Limit", "PokerStars")
@@ -959,8 +960,17 @@ class ActionController:
                 bb_size = 200  # Fallback par defaut absolu
                 active_regex = r"\d+[/,](\d+)\b"
 
-                # 1. Selection automatique du profil du site depuis config.json
+                # 1. Selection du profil de site : registre d'adaptateurs (deterministe),
+                #    puis surcharge eventuelle par config.json bot.site_profiles.
                 if self.window_title:
+                    site_key = resolve_site_from_title(self.window_title)
+                    if site_key:
+                        try:
+                            profile = get_active_adapter(site_key).window_profile
+                            bb_size = int(profile.default_bb)
+                            active_regex = profile.stake_regex or active_regex
+                        except Exception:
+                            pass
                     try:
                         config_path = os.path.join(
                             os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
@@ -969,8 +979,6 @@ class ActionController:
                         with open(config_path) as f:
                             cfg = json.load(f)
                             profiles = cfg.get("bot", {}).get("site_profiles", {})
-
-                            # On cherche quel site correspond au titre de la fenetre actuelle
                             for site_name, profile in profiles.items():
                                 if site_name.lower() in self.window_title.lower():
                                     bb_size = int(profile.get("default_bb", bb_size))

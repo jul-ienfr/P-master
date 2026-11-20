@@ -27,6 +27,7 @@
     "live_debounce_reset_sleep_s": 0.03,
     "live_debounce_stable_window_s": 0.12,
     "live_debounce_poll_sleep_s": 0.02,
+    "active_site": "pokerstars",
     "window_title_keywords": "NLHE|Hold'em No Limit|Connecté en tant que|PokerStars",
     "humanization": {
       "enabled": true,

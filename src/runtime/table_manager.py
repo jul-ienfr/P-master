@@ -24,7 +24,7 @@ from src.bot.action_controller import (
     score_window_signals,
 )
 from src.runtime.table_session import TableSession
-from src.vision.site_adapter import get_active_adapter
+from src.vision.site_adapter import DEFAULT_SITE_KEY, get_active_adapter
 
 logger = logging.getLogger(__name__)
 
@@ -137,8 +137,10 @@ class WindowManager:
         return scored
 
 
-def default_session_factory(candidate: TableWindowCandidate) -> TableSession:
-    adapter = get_active_adapter("pokerstars")
+def default_session_factory(
+    candidate: TableWindowCandidate, site_key: str = DEFAULT_SITE_KEY
+) -> TableSession:
+    adapter = get_active_adapter(site_key)
     session_id = f"table_{candidate.hwnd:x}"
     return TableSession(
         session_id=session_id,

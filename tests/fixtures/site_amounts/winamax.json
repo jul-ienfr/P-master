@@ -1,0 +1,12 @@
+{
+  "site_key": "winamax",
+  "note": "Convention européenne : séparateur de milliers espace, séparateur décimal virgule, symbole euro absorbé.",
+  "cases": [
+    {"text": "1 234,50", "expected": 1234.5, "note": "milliers + décimale virgule"},
+    {"text": "12,5", "expected": 12.5, "note": "décimale virgule"},
+    {"text": "0,50", "expected": 0.5, "note": "décimale sous l'unité"},
+    {"text": "2 500", "expected": 2500.0, "note": "milliers sans décimale"},
+    {"text": "€1 250,25", "expected": 1250.25, "note": "symbole euro absorbé"},
+    {"text": "250", "expected": 250.0, "note": "entier simple"}
+  ]
+}

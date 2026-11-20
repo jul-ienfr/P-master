@@ -1,0 +1,12 @@
+{
+  "site_key": "pokerstars",
+  "note": "Play money : pas de décimales, séparateur de milliers espace. Les symboles monétaires sont absorbés par le parseur.",
+  "cases": [
+    {"text": "1 234", "expected": 1234.0, "note": "séparateur de milliers espace"},
+    {"text": "250", "expected": 250.0, "note": "entier simple"},
+    {"text": "$1 250", "expected": 1250.0, "note": "symbole dollar absorbé"},
+    {"text": "2 500", "expected": 2500.0, "note": "milliers"},
+    {"text": "2K", "expected": 2000.0, "note": "suffixe K (entier, play money)"},
+    {"text": "12,5", "expected": null, "note": "décimales interdites en play money"}
+  ]
+}

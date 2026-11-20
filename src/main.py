@@ -147,6 +147,7 @@ from src.vision.models import DetectionResult, TableState
 from src.vision.observation_dataset import ObservationDatasetCollector
 from src.vision.ocr import PokerOCR
 from src.vision.runtime_failure_dataset import RuntimeFailureDataset
+from src.vision.site_adapter import DEFAULT_SITE_KEY
 from src.vision.table_geometry import (
     build_dynamic_coordinates,
     copy_table_state,
@@ -333,8 +334,10 @@ class SuperBotController(
             site_profiles=self.action_controller.site_profiles,
         )
 
+        self.active_site = str(bot_cfg.get("active_site") or DEFAULT_SITE_KEY)
+
         def _table_session_factory(candidate):
-            session = default_session_factory(candidate)
+            session = default_session_factory(candidate, site_key=self.active_site)
             session.runtime["tracker"] = TableTracker(self.db, table_id=session.table_id)
             return session
 

@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.vision.capture import ScreenCapture
+from src.vision.site_adapter import available_site_keys, resolve_site_from_title
 
 try:
     import win32gui
@@ -58,14 +59,15 @@ def get_poker_window():
 def extract_table_info_from_title(title: str):
     title_lower = title.lower()
 
-    # 1. Site
-    site = "UnknownSite"
-    if "pokerstars" in title_lower:
-        site = "PokerStars"
-    elif "winamax" in title_lower:
-        site = "Winamax"
+    # 1. Site — résolu par le registre d'adaptateurs (source unique, spec 005).
+    #    Un site du registre mais sans table de noms connue est capitalisé tel quel.
+    site_key = resolve_site_from_title(title)
+    if site_key and site_key in available_site_keys():
+        site = site_key.capitalize()
     elif "partypoker" in title_lower:
         site = "PartyPoker"
+    else:
+        site = "UnknownSite"
 
     # 2. Variante
     variant = "UnknownVariant"
