@@ -9,6 +9,70 @@ use std::time::Instant;
 #[cfg(feature = "custom-alloc")]
 use crate::alloc::*;
 
+/// Schedule de discount des hyperparamètres CFR.
+///
+/// Le défaut ([`DiscountSchedule::Dcfr`]) reproduit **exactement** le comportement
+/// historique du crate : ses paramètres viennent de [`DiscountParams::new`], qui
+/// n'a pas été modifiée. Les variantes `HsDcfr*` appliquent les schedules
+/// d'hyperparamètres publiés par Zhang, McAleer et Sandholm (AAAI 2026,
+/// arXiv 2404.09097) : au lieu de discounts constants, `α`, `β` et `γ` varient
+/// linéairement avec l'itération.
+///
+/// Le choix est explicite et jamais silencieux : [`DiscountSchedule::from_str`]
+/// rejette un nom inconnu au lieu de retomber sur le défaut.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DiscountSchedule {
+    /// DCFR tel qu'implémenté historiquement par le crate (défaut).
+    #[default]
+    Dcfr,
+    /// HS-DCFR(30) : `γ` initial 30 — variante recommandée pour les grands jeux
+    /// de poker par les auteurs (HS-PCFR+ est moins bon que DCFR sur ces jeux).
+    HsDcfr30,
+    /// HS-DCFR(15) : `γ` initial 15, transition plus rapide.
+    HsDcfr15,
+}
+
+impl DiscountSchedule {
+    /// Nom canonique, utilisé pour la traçabilité (métadonnées de réponse).
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Dcfr => "dcfr",
+            Self::HsDcfr30 => "hs_dcfr_30",
+            Self::HsDcfr15 => "hs_dcfr_15",
+        }
+    }
+}
+
+impl std::str::FromStr for DiscountSchedule {
+    type Err = String;
+
+    /// Analyse un nom de schedule (casse et espaces ignorés).
+    ///
+    /// Un nom inconnu est une **erreur**, jamais un repli sur le défaut : un
+    /// schedule mal orthographié qui produirait silencieusement le comportement
+    /// historique serait indiscernable d'une mesure du défaut.
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "" | "dcfr" | "default" => Ok(Self::Dcfr),
+            "hs_dcfr_30" | "hs-dcfr-30" | "hsdcfr30" | "hs_pcf_30" | "hs-dcfr(30)" => {
+                Ok(Self::HsDcfr30)
+            }
+            "hs_dcfr_15" | "hs-dcfr-15" | "hsdcfr15" | "hs_pcf_15" | "hs-dcfr(15)" => {
+                Ok(Self::HsDcfr15)
+            }
+            other => Err(format!(
+                "schedule de discount inconnu: {other:?} (attendu: dcfr, hs_dcfr_30, hs_dcfr_15)"
+            )),
+        }
+    }
+}
+
+impl std::fmt::Display for DiscountSchedule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 struct DiscountParams {
     alpha_t: f32,
     beta_t: f32,
@@ -16,6 +80,10 @@ struct DiscountParams {
 }
 
 impl DiscountParams {
+    /// Paramètres du DCFR historique du crate.
+    ///
+    /// **Ne pas modifier** : c'est le comportement de production. Les schedules
+    /// expérimentaux passent par [`DiscountParams::for_schedule`].
     pub fn new(current_iteration: u32) -> Self {
         // 0, 1, 4, 16, 64, 256, ...
         let nearest_lower_power_of_4 = match current_iteration {
@@ -32,6 +100,53 @@ impl DiscountParams {
         Self {
             alpha_t: (pow_alpha / (pow_alpha + 1.0)) as f32,
             beta_t: 0.5,
+            gamma_t: pow_gamma as f32,
+        }
+    }
+
+    /// Paramètres pour un schedule donné, à l'itération `t` sur un total `n`.
+    ///
+    /// Les formules publiées donnent des **exposants** (`α = 1 + 3t/n`,
+    /// `β = −1 − 2t/n`, `γ = 30 − 5t/n`) ; les champs de cette structure sont les
+    /// **facteurs de rétention** appliqués aux valeurs cumulées, exactement comme
+    /// pour le DCFR du crate (`t^α/(t^α+1)`, `t^β/(t^β+1)`, `(t/(t+1))^γ`).
+    /// La conversion est donc obligatoire : écrire `γ = 30` dans `gamma_t`
+    /// ferait *croître* la stratégie cumulée au lieu de la réduire.
+    pub fn for_schedule(schedule: DiscountSchedule, t: u32, total_iterations: u32) -> Self {
+        match schedule {
+            DiscountSchedule::Dcfr => Self::new(t),
+            DiscountSchedule::HsDcfr30 => Self::hs_dcfr(t, total_iterations, 30.0),
+            DiscountSchedule::HsDcfr15 => Self::hs_dcfr(t, total_iterations, 15.0),
+        }
+    }
+
+    fn hs_dcfr(t: u32, total_iterations: u32, gamma_initial: f64) -> Self {
+        let t = t as f64;
+        let n = (total_iterations.max(1)) as f64;
+
+        // `t = 0` : aucune valeur cumulée à réduire (les regrets et la stratégie
+        // cumulée sont nuls). La formule publiée donne `β = −1`, et `t^β` n'y est
+        // pas défini ; on pose les limites (α→0, β→1, γ→0) plutôt qu'un `NaN`,
+        // qui se propagerait à toutes les itérations suivantes.
+        if t < 1.0 {
+            return Self {
+                alpha_t: 0.0,
+                beta_t: 1.0,
+                gamma_t: 0.0,
+            };
+        }
+
+        let alpha = 1.0 + 3.0 * t / n;
+        let beta = -1.0 - 2.0 * t / n;
+        let gamma = gamma_initial - 5.0 * t / n;
+
+        let pow_alpha = t.powf(alpha);
+        let pow_beta = t.powf(beta);
+        let pow_gamma = (t / (t + 1.0)).powf(gamma);
+
+        Self {
+            alpha_t: (pow_alpha / (pow_alpha + 1.0)) as f32,
+            beta_t: (pow_beta / (pow_beta + 1.0)) as f32,
             gamma_t: pow_gamma as f32,
         }
     }
@@ -95,6 +210,34 @@ pub fn solve_with_deadline_storing<T: Game>(
     deadline: Option<Instant>,
     stored_player: Option<usize>,
 ) -> f32 {
+    solve_with_schedule(
+        game,
+        max_num_iterations,
+        target_exploitability,
+        print_progress,
+        deadline,
+        stored_player,
+        DiscountSchedule::default(),
+    )
+}
+
+/// Variante de [`solve_with_deadline_storing`] avec un schedule de discount
+/// explicite.
+///
+/// Le schedule par défaut ([`DiscountSchedule::Dcfr`]) reproduit exactement le
+/// comportement de [`solve_with_deadline_storing`] : les appelants existants
+/// n'ont pas à changer. `n` (le total d'itérations des schedules HS) est
+/// `max_num_iterations` — en mode budget c'est un plafond, pas le compte réel,
+/// ce qui est documenté dans la spec `012`.
+pub fn solve_with_schedule<T: Game>(
+    game: &mut T,
+    max_num_iterations: u32,
+    target_exploitability: f32,
+    print_progress: bool,
+    deadline: Option<Instant>,
+    stored_player: Option<usize>,
+    schedule: DiscountSchedule,
+) -> f32 {
     if game.is_solved() {
         panic!("Game is already solved");
     }
@@ -153,7 +296,7 @@ pub fn solve_with_deadline_storing<T: Game>(
         }
 
         let iteration_start = Instant::now();
-        let params = DiscountParams::new(t);
+        let params = DiscountParams::for_schedule(schedule, t, max_num_iterations);
 
         // alternating updates
         for player in 0..2 {
@@ -201,6 +344,26 @@ pub fn solve_with_deadline_storing<T: Game>(
 /// Proceeds Discounted CFR algorithm for one iteration.
 #[inline]
 pub fn solve_step<T: Game>(game: &T, current_iteration: u32) {
+    solve_step_with_schedule(
+        game,
+        current_iteration,
+        DiscountSchedule::default(),
+        current_iteration.saturating_add(1),
+    );
+}
+
+/// Variante de [`solve_step`] avec un schedule de discount explicite.
+///
+/// `total_iterations` alimente les schedules HS (`n` dans les formules
+/// publiées) ; les appelants qui itèrent par paliers le connaissent. Le défaut
+/// conserve le comportement historique.
+#[inline]
+pub fn solve_step_with_schedule<T: Game>(
+    game: &T,
+    current_iteration: u32,
+    schedule: DiscountSchedule,
+    total_iterations: u32,
+) {
     if game.is_solved() {
         panic!("Game is already solved");
     }
@@ -210,7 +373,7 @@ pub fn solve_step<T: Game>(game: &T, current_iteration: u32) {
     }
 
     let mut root = game.root();
-    let params = DiscountParams::new(current_iteration);
+    let params = DiscountParams::for_schedule(schedule, current_iteration, total_iterations);
 
     // alternating updates
     for player in 0..2 {
@@ -546,4 +709,197 @@ fn regret_matching_compressed(regret: &[i16], num_actions: usize) -> Vec<f32> {
     });
 
     strategy
+}
+
+#[cfg(test)]
+mod schedule_tests {
+    use super::*;
+    use std::str::FromStr;
+
+    /// T001 — le défaut ne bouge pas : les valeurs d'avant la spec `012`.
+    ///
+    /// Ces nombres sont ceux de `DiscountParams::new` avant l'ajout des
+    /// schedules (formule historique : `t^1,5/(t^1,5+1)`, `β = 0,5`,
+    /// `(t_γ/(t_γ+1))³` avec `t_γ` remis à zéro à chaque puissance de 4).
+    /// Toute dérive du chemin de production casse ce test.
+    #[test]
+    fn default_discount_params_are_frozen() {
+        let cases: [(u32, f32, f32, f32); 5] = [
+            (0, 0.0, 0.5, 0.0),
+            (1, 0.0, 0.5, 0.0),
+            (2, 0.5, 0.5, 0.125),
+            (10, 0.964_285_73, 0.5, 0.629_737_6),
+            (100, 0.998_985_8, 0.5, 0.921_090_54),
+        ];
+        for (t, alpha, beta, gamma) in cases {
+            let params = DiscountParams::new(t);
+            assert_eq!(params.alpha_t, alpha, "alpha_t à t = {t}");
+            assert_eq!(params.beta_t, beta, "beta_t à t = {t}");
+            assert_eq!(params.gamma_t, gamma, "gamma_t à t = {t}");
+        }
+    }
+
+    /// T001 (suite) — `Dcfr` délègue à `new`, sans duplication de formule.
+    #[test]
+    fn dcfr_schedule_delegates_to_historical_new() {
+        for t in [0u32, 1, 2, 10, 100, 1000] {
+            let via_new = DiscountParams::new(t);
+            let via_schedule = DiscountParams::for_schedule(DiscountSchedule::Dcfr, t, 1000);
+            assert_eq!(via_new.alpha_t, via_schedule.alpha_t, "alpha_t à t = {t}");
+            assert_eq!(via_new.beta_t, via_schedule.beta_t, "beta_t à t = {t}");
+            assert_eq!(via_new.gamma_t, via_schedule.gamma_t, "gamma_t à t = {t}");
+        }
+    }
+
+    /// T002 — sélection : casse et espaces tolérés, inconnu rejeté.
+    #[test]
+    fn schedule_parsing_accepts_known_names_and_rejects_unknown() {
+        for text in ["dcfr", "DCFR", "  Dcfr  ", "default", ""] {
+            assert_eq!(
+                DiscountSchedule::from_str(text).unwrap(),
+                DiscountSchedule::Dcfr,
+                "« {text} » doit sélectionner DCFR"
+            );
+        }
+        for text in ["hs_dcfr_30", "HS_DCFR_30", " hs-dcfr-30 ", "HsDcfr30"] {
+            assert_eq!(
+                DiscountSchedule::from_str(text).unwrap(),
+                DiscountSchedule::HsDcfr30,
+                "« {text} » doit sélectionner HS-DCFR(30)"
+            );
+        }
+        for text in ["hs_dcfr_15", "HS-DCFR-15", "hsdcfr15"] {
+            assert_eq!(
+                DiscountSchedule::from_str(text).unwrap(),
+                DiscountSchedule::HsDcfr15,
+                "« {text} » doit sélectionner HS-DCFR(15)"
+            );
+        }
+
+        // Un nom inconnu est une erreur explicite, jamais un repli sur le défaut :
+        // un schedule mal orthographié indiscernable du défaut serait un mensonge
+        // de mesure (FR-004).
+        for text in ["hs_dcfr_20", "dcfr_30", "hspcfr", "30", "true"] {
+            let err =
+                DiscountSchedule::from_str(text).expect_err("un schedule inconnu doit être refusé");
+            assert!(
+                err.contains("inconnu"),
+                "l'erreur doit nommer le problème, reçu : {err}"
+            );
+            assert!(
+                err.contains("hs_dcfr_30"),
+                "l'erreur doit lister les valeurs attendues, reçu : {err}"
+            );
+        }
+    }
+
+    /// T002 (suite) — le nom canonique est stable et se relit.
+    #[test]
+    fn canonical_names_round_trip() {
+        for schedule in [
+            DiscountSchedule::Dcfr,
+            DiscountSchedule::HsDcfr30,
+            DiscountSchedule::HsDcfr15,
+        ] {
+            let name = schedule.as_str();
+            assert_eq!(DiscountSchedule::from_str(name).unwrap(), schedule);
+            assert_eq!(schedule.to_string(), name);
+        }
+        assert_eq!(DiscountSchedule::default(), DiscountSchedule::Dcfr);
+    }
+
+    /// T003 — les formules publiées, aux points de contrôle numériques.
+    ///
+    /// `for_schedule` convertit les **exposants** publiés (`α = 1 + 3t/n`,
+    /// `β = −1 − 2t/n`, `γ = 30 − 5t/n`) en **facteurs de rétention**
+    /// (`t^α/(t^α+1)`, `t^β/(t^β+1)`, `(t/(t+1))^γ`), la forme lue par la boucle.
+    /// Les valeurs attendues sont recalculées sur cette conversion, pas recopiées.
+    #[test]
+    fn hs_dcfr_formulas_match_published_checkpoints() {
+        let t = 10u32;
+        let n = 1000u32;
+        // α = 1 + 3·10/1000 = 1,03 ; β = −1 − 0,02 = −1,02 ; γ = 30 − 0,05 = 29,95
+        let alpha = 1.0 + 3.0 * 10.0 / 1000.0;
+        let beta = -1.0 - 2.0 * 10.0 / 1000.0;
+        let gamma30 = 30.0 - 5.0 * 10.0 / 1000.0;
+        let gamma15 = 15.0 - 5.0 * 10.0 / 1000.0;
+
+        let params30 = DiscountParams::for_schedule(DiscountSchedule::HsDcfr30, t, n);
+        assert!(
+            (params30.alpha_t - retention(10.0f64.powf(alpha))).abs() < 1e-6,
+            "alpha_t HS-DCFR(30) à t = 10"
+        );
+        assert!(
+            (params30.beta_t - retention(10.0f64.powf(beta))).abs() < 1e-6,
+            "beta_t HS-DCFR(30) à t = 10"
+        );
+        assert!(
+            (params30.gamma_t - (10.0f64 / 11.0).powf(gamma30) as f32).abs() < 1e-6,
+            "gamma_t HS-DCFR(30) à t = 10"
+        );
+
+        // γ initial 15 : mêmes α et β, γ différent — c'est le seul paramètre qui
+        // distingue les deux variantes.
+        let params15 = DiscountParams::for_schedule(DiscountSchedule::HsDcfr15, t, n);
+        assert_eq!(params15.alpha_t, params30.alpha_t);
+        assert_eq!(params15.beta_t, params30.beta_t);
+        assert!(
+            (params15.gamma_t - (10.0f64 / 11.0).powf(gamma15) as f32).abs() < 1e-6,
+            "gamma_t HS-DCFR(15) à t = 10"
+        );
+        assert!(
+            params15.gamma_t > params30.gamma_t,
+            "γ15 < γ30 ⇒ la rétention de la stratégie est plus forte avec γ30"
+        );
+    }
+
+    /// Facteur de rétention `x/(x+1)`, la conversion utilisée par `for_schedule`.
+    fn retention(x: f64) -> f32 {
+        (x / (x + 1.0)) as f32
+    }
+
+    /// T004 — finitude : aucun `NaN`, aucun `∞`, sur toute la plage d'itérations.
+    ///
+    /// `t = 0` est le cas dangereux : `β = −1` et `0^β` n'est pas défini. Le code
+    /// doit produire un paramètre fini, jamais `NaN` (qui se propagerait à toutes
+    /// les itérations suivantes via les regrets cumulés).
+    #[test]
+    fn schedule_params_are_finite_and_bounded_for_every_iteration() {
+        for schedule in [
+            DiscountSchedule::Dcfr,
+            DiscountSchedule::HsDcfr30,
+            DiscountSchedule::HsDcfr15,
+        ] {
+            for n in [1u32, 2, 10, 1000, 10000] {
+                for t in 0..=n {
+                    let params = DiscountParams::for_schedule(schedule, t, n);
+                    for (label, value) in [
+                        ("alpha_t", params.alpha_t),
+                        ("beta_t", params.beta_t),
+                        ("gamma_t", params.gamma_t),
+                    ] {
+                        assert!(
+                            value.is_finite(),
+                            "{schedule:?} {label} non fini à t = {t}, n = {n} : {value}"
+                        );
+                        assert!(
+                            (0.0..=1.0).contains(&value),
+                            "{schedule:?} {label} hors de [0, 1] à t = {t}, n = {n} : {value}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// T004 (suite) — `t = 0` explicitement : itération sans discount.
+    #[test]
+    fn first_iteration_is_discount_free_and_finite() {
+        for schedule in [DiscountSchedule::HsDcfr30, DiscountSchedule::HsDcfr15] {
+            let params = DiscountParams::for_schedule(schedule, 0, 1000);
+            assert_eq!(params.alpha_t, 0.0, "{schedule:?} à t = 0");
+            assert_eq!(params.beta_t, 1.0, "{schedule:?} à t = 0");
+            assert_eq!(params.gamma_t, 0.0, "{schedule:?} à t = 0");
+        }
+    }
 }

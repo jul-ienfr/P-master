@@ -162,6 +162,39 @@ fn gto_action_history_after_check_reaches_facing_bet_node() {
     );
 }
 
+/// spec `012` — le schedule fait partie de l'identité du solve natif.
+///
+/// Sans cela, un spot déjà résolu sous DCFR serait servi depuis `SOLVE_CACHE`
+/// à une requête HS-DCFR : la réponse porterait le nom du schedule demandé
+/// (`metadata`), mais la stratégie du défaut. Même défaut de fond que la clé de
+/// cache Python (`spot_cache_key`), ici dans le cache natif.
+#[test]
+fn gto_cache_key_separates_discount_schedules() {
+    let mut dcfr = river_request(20.0);
+    dcfr.use_cache = true;
+    dcfr.discount_schedule = None;
+
+    // Premier appel : peuple le cache sous le défaut.
+    let first = solve_spot(dcfr.clone()).expect("solve DCFR");
+    assert!(!first.cache_hit, "le premier appel ne peut pas être un hit");
+
+    // Même requête, même cache : c'est bien un hit (le cache fonctionne).
+    let repeat = solve_spot(dcfr.clone()).expect("solve DCFR (2e)");
+    assert!(
+        repeat.cache_hit,
+        "une requête identique doit être servie depuis le cache"
+    );
+
+    // Même spot, schedule différent : le cache ne doit PAS répondre.
+    let mut hs = dcfr.clone();
+    hs.discount_schedule = Some("hs_dcfr_30".to_string());
+    let hs_response = solve_spot(hs).expect("solve HS-DCFR(30)");
+    assert!(
+        !hs_response.cache_hit,
+        "un schedule différent ne doit pas être servi depuis le cache DCFR"
+    );
+}
+
 #[test]
 fn gto_ev_chips_bb_roundtrip_via_effective_stack() {
     // Cheap pure-helper check without a solve: ev_bb_per_100_from_chips

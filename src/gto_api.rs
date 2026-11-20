@@ -108,6 +108,12 @@ pub struct SolveRequest {
     /// c'est le mode de production ; `false` uniquement pour les diagnostics.
     #[serde(default = "default_compress_tree")]
     pub compress_tree: bool,
+    /// Schedule de discount des hyperparamètres CFR (spec `012`).
+    ///
+    /// Absent ou vide → DCFR historique du crate (comportement inchangé). Un nom
+    /// inconnu est une erreur explicite, jamais un repli silencieux sur le défaut.
+    #[serde(default)]
+    pub discount_schedule: Option<String>,
 }
 
 fn default_compress_tree() -> bool {
@@ -135,6 +141,7 @@ impl Default for SolveRequest {
             bet_size_spec: None,
             time_budget_ms: None,
             compress_tree: default_compress_tree(),
+            discount_schedule: None,
         }
     }
 }
@@ -269,6 +276,8 @@ struct NormalizedSolveRequest {
     /// Compression mémoire de l'arbre (i16 + échelle) : ~2× moins de RAM et
     /// parcours plus rapides sur les gros arbres. Défaut : activée.
     compress_tree: bool,
+    /// Schedule de discount effectivement appliqué (spec `012`).
+    discount_schedule: crate::solver::DiscountSchedule,
 }
 
 /// Runs the postflop solver directly from Rust.
@@ -566,13 +575,14 @@ fn solve_spot_inner(request: SolveRequest) -> SolveResult {
     // Seules les valeurs du héros sont stockées : c'est le seul joueur lu par
     // la réponse, et la finalisation ne parcourt l'arbre qu'une fois au lieu de
     // deux (~300 ms économisées sur un flop à range complète).
-    let exploitability = crate::solve_with_deadline_storing(
+    let exploitability = crate::solve_with_schedule(
         &mut game,
         normalized.max_iterations,
         normalized.target_exploitability,
         false,
         deadline,
         Some(hero_player),
+        normalized.discount_schedule,
     );
 
     // L'arbre est résolu depuis la racine de la rue ; on avance ensuite au
@@ -917,7 +927,20 @@ fn normalize_solve_request(request: SolveRequest) -> Result<NormalizedSolveReque
         bet_size_spec: request.bet_size_spec.unwrap_or_default(),
         time_budget_ms: request.time_budget_ms,
         compress_tree: request.compress_tree,
+        discount_schedule: parse_discount_schedule(request.discount_schedule.as_deref())?,
     })
+}
+
+/// Analyse un nom de schedule de discount (spec `012`).
+///
+/// `None` ou vide → DCFR historique. Un nom inconnu remonte une erreur : un
+/// schedule mal orthographié ne doit pas produire silencieusement le défaut.
+fn parse_discount_schedule(value: Option<&str>) -> Result<crate::solver::DiscountSchedule, String> {
+    use std::str::FromStr;
+    match value {
+        None => Ok(crate::solver::DiscountSchedule::default()),
+        Some(text) => crate::solver::DiscountSchedule::from_str(text),
+    }
 }
 
 /// Parses a two-card hand such as `"AsKs"` into canonical cards.
@@ -1142,7 +1165,7 @@ fn build_game(request: &NormalizedSolveRequest) -> Result<PostFlopGame, SolveErr
 fn solve_cache_key(request: &NormalizedSolveRequest) -> String {
     let spec = &request.bet_size_spec;
     format!(
-        "oop={}|ip={}|board={}|pot={:.3}|stack={:.3}|hero_oop={}|iters={}|target={:.6}|hand={}|rake={:.4}|cap={:.3}|mixed={}|bets={}|raises={}|donks={},{}|budget={}|history={}",
+        "oop={}|ip={}|board={}|pot={:.3}|stack={:.3}|hero_oop={}|iters={}|target={:.6}|hand={}|rake={:.4}|cap={:.3}|mixed={}|bets={}|raises={}|donks={},{}|budget={}|history={}|schedule={}",
         request.oop_range_text,
         request.ip_range_text,
         request.board.strings.join(","),
@@ -1167,6 +1190,7 @@ fn solve_cache_key(request: &NormalizedSolveRequest) -> String {
             .map(|value| value.to_string())
             .unwrap_or_default(),
         request.action_history.join(","),
+        request.discount_schedule.as_str(),
     )
 }
 

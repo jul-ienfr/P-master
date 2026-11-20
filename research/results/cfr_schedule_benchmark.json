@@ -1,0 +1,41 @@
+{
+  "kind": "cfr_schedule_benchmark",
+  "date": "2026-11-20",
+  "produced_by": "cargo run --release --example cfr_schedule_benchmark",
+  "deterministic": true,
+  "tiers": [10,100,1000,10000],
+  "tolerance": 0.000100,
+  "reference_values": {"kuhn": -0.055556, "leduc": -0.085600},
+  "scope": "Jeux tabulaires Kuhn et Leduc de tests/common ; le postflop HU a range complete n'est pas mesure.",
+  "all_reach_reference": true,
+  "comparison_summary": "HS-DCFR est strictement moins exploitable que le DCFR du crate sur 6 des 16 couples (schedule, jeu, palier) mesurés (hs_dcfr_30 sur kuhn : 0/4 paliers, hs_dcfr_15 sur kuhn : 1/4 paliers, hs_dcfr_30 sur leduc : 2/4 paliers, hs_dcfr_15 sur leduc : 3/4 paliers) : le résultat est mitigé, pas un gain net.",
+  "hs_wins_over_dcfr": 6,
+  "comparison_pairs": 16,
+  "claim": "Les trois schedules atteignent la valeur de jeu de référence à 10 000 itérations sur Kuhn et Leduc. Sur la VITESSE de convergence, le résultat est mesuré et rapporté ci-dessous sans arrondi favorable ; le gain de 2–3 ordres de magnitude annoncé par l'article (arXiv 2404.09097) n'est pas reproduit ici. Deux explications possibles, non départagées par cette mesure : le crate implémente une variante DCFR qui n'est pas le DCFR canonique de l'article (β = 0,5 constant, reset de la stratégie à chaque puissance de 4), et l'article avertit lui-même que l'avantage des schedules diminue quand la taille du jeu augmente. Aucun gain n'est affirmé au-delà de ce qui a été mesuré.",
+  "comparison": [
+    {"game":"kuhn","schedule":"hs_dcfr_30","iterations":10,"dcfr_exploitability":0.047541,"hs_exploitability":0.064793,"hs_better":false},
+    {"game":"kuhn","schedule":"hs_dcfr_30","iterations":100,"dcfr_exploitability":0.004756,"hs_exploitability":0.011226,"hs_better":false},
+    {"game":"kuhn","schedule":"hs_dcfr_30","iterations":1000,"dcfr_exploitability":0.000158,"hs_exploitability":0.000364,"hs_better":false},
+    {"game":"kuhn","schedule":"hs_dcfr_30","iterations":10000,"dcfr_exploitability":1.882762e-5,"hs_exploitability":1.932308e-5,"hs_better":false},
+    {"game":"kuhn","schedule":"hs_dcfr_15","iterations":10,"dcfr_exploitability":0.047541,"hs_exploitability":0.057958,"hs_better":false},
+    {"game":"kuhn","schedule":"hs_dcfr_15","iterations":100,"dcfr_exploitability":0.004756,"hs_exploitability":0.005089,"hs_better":false},
+    {"game":"kuhn","schedule":"hs_dcfr_15","iterations":1000,"dcfr_exploitability":0.000158,"hs_exploitability":0.000173,"hs_better":false},
+    {"game":"kuhn","schedule":"hs_dcfr_15","iterations":10000,"dcfr_exploitability":1.882762e-5,"hs_exploitability":5.964190e-6,"hs_better":true},
+    {"game":"leduc","schedule":"hs_dcfr_30","iterations":10,"dcfr_exploitability":0.550213,"hs_exploitability":0.534977,"hs_better":true},
+    {"game":"leduc","schedule":"hs_dcfr_30","iterations":100,"dcfr_exploitability":0.018851,"hs_exploitability":0.017459,"hs_better":true},
+    {"game":"leduc","schedule":"hs_dcfr_30","iterations":1000,"dcfr_exploitability":0.000184,"hs_exploitability":0.000686,"hs_better":false},
+    {"game":"leduc","schedule":"hs_dcfr_30","iterations":10000,"dcfr_exploitability":1.138449e-5,"hs_exploitability":1.893565e-5,"hs_better":false},
+    {"game":"leduc","schedule":"hs_dcfr_15","iterations":10,"dcfr_exploitability":0.550213,"hs_exploitability":0.497254,"hs_better":true},
+    {"game":"leduc","schedule":"hs_dcfr_15","iterations":100,"dcfr_exploitability":0.018851,"hs_exploitability":0.011387,"hs_better":true},
+    {"game":"leduc","schedule":"hs_dcfr_15","iterations":1000,"dcfr_exploitability":0.000184,"hs_exploitability":0.000353,"hs_better":false},
+    {"game":"leduc","schedule":"hs_dcfr_15","iterations":10000,"dcfr_exploitability":1.138449e-5,"hs_exploitability":1.043826e-5,"hs_better":true}
+  ],
+  "measurements": [
+  {"kind":"cfr_schedule_measurement","date":"2026-11-20","game":"kuhn","schedule":"dcfr","tolerance":0.000100,"reference_value":-0.055556,"tiers":[10,100,1000,10000],"samples":[{"iterations":10,"exploitability":0.047541,"game_value":-0.082794},{"iterations":100,"exploitability":0.004756,"game_value":-0.055588},{"iterations":1000,"exploitability":0.000158,"game_value":-0.055556},{"iterations":10000,"exploitability":1.882762e-5,"game_value":-0.055556}],"reaches_reference":true,"claim":"à 10000 itérations, valeur de jeu -0.055556 (référence -0.055556, écart 2.61e-8, tolérance 1e-4) — atteint la référence"},
+  {"kind":"cfr_schedule_measurement","date":"2026-11-20","game":"kuhn","schedule":"hs_dcfr_30","tolerance":0.000100,"reference_value":-0.055556,"tiers":[10,100,1000,10000],"samples":[{"iterations":10,"exploitability":0.064793,"game_value":-0.055490},{"iterations":100,"exploitability":0.011226,"game_value":-0.055411},{"iterations":1000,"exploitability":0.000364,"game_value":-0.055554},{"iterations":10000,"exploitability":1.932308e-5,"game_value":-0.055556}],"reaches_reference":true,"claim":"à 10000 itérations, valeur de jeu -0.055556 (référence -0.055556, écart 3.73e-9, tolérance 1e-4) — atteint la référence"},
+  {"kind":"cfr_schedule_measurement","date":"2026-11-20","game":"kuhn","schedule":"hs_dcfr_15","tolerance":0.000100,"reference_value":-0.055556,"tiers":[10,100,1000,10000],"samples":[{"iterations":10,"exploitability":0.057958,"game_value":-0.060175},{"iterations":100,"exploitability":0.005089,"game_value":-0.055524},{"iterations":1000,"exploitability":0.000173,"game_value":-0.055555},{"iterations":10000,"exploitability":5.964190e-6,"game_value":-0.055556}],"reaches_reference":true,"claim":"à 10000 itérations, valeur de jeu -0.055556 (référence -0.055556, écart 5.59e-8, tolérance 1e-4) — atteint la référence"},
+  {"kind":"cfr_schedule_measurement","date":"2026-11-20","game":"leduc","schedule":"dcfr","tolerance":0.000100,"reference_value":-0.085600,"tiers":[10,100,1000,10000],"samples":[{"iterations":10,"exploitability":0.550213,"game_value":-0.213498},{"iterations":100,"exploitability":0.018851,"game_value":-0.085709},{"iterations":1000,"exploitability":0.000184,"game_value":-0.085606},{"iterations":10000,"exploitability":1.138449e-5,"game_value":-0.085606}],"reaches_reference":true,"claim":"à 10000 itérations, valeur de jeu -0.085606 (référence -0.085600, écart 6.45e-6, tolérance 1e-4) — atteint la référence"},
+  {"kind":"cfr_schedule_measurement","date":"2026-11-20","game":"leduc","schedule":"hs_dcfr_30","tolerance":0.000100,"reference_value":-0.085600,"tiers":[10,100,1000,10000],"samples":[{"iterations":10,"exploitability":0.534977,"game_value":-0.185229},{"iterations":100,"exploitability":0.017459,"game_value":-0.085686},{"iterations":1000,"exploitability":0.000686,"game_value":-0.085606},{"iterations":10000,"exploitability":1.893565e-5,"game_value":-0.085606}],"reaches_reference":true,"claim":"à 10000 itérations, valeur de jeu -0.085606 (référence -0.085600, écart 6.45e-6, tolérance 1e-4) — atteint la référence"},
+  {"kind":"cfr_schedule_measurement","date":"2026-11-20","game":"leduc","schedule":"hs_dcfr_15","tolerance":0.000100,"reference_value":-0.085600,"tiers":[10,100,1000,10000],"samples":[{"iterations":10,"exploitability":0.497254,"game_value":-0.158714},{"iterations":100,"exploitability":0.011387,"game_value":-0.085617},{"iterations":1000,"exploitability":0.000353,"game_value":-0.085606},{"iterations":10000,"exploitability":1.043826e-5,"game_value":-0.085606}],"reaches_reference":true,"claim":"à 10000 itérations, valeur de jeu -0.085606 (référence -0.085600, écart 6.42e-6, tolérance 1e-4) — atteint la référence"}
+  ]
+}

@@ -92,6 +92,7 @@ fn unsupported_v2_spot_returns_structured_warnings() {
         random_seed: None,
         bet_size_spec: None,
         compress_tree: true,
+        discount_schedule: None,
     })
     .expect("structured V2 fallback response");
 
@@ -143,6 +144,7 @@ fn supported_v2_spot_populates_backend_metadata() {
         random_seed: None,
         bet_size_spec: None,
         compress_tree: true,
+        discount_schedule: None,
     })
     .expect("supported v2 solve");
 
@@ -189,6 +191,7 @@ fn action_history_and_rake_bridge_to_native_solver() {
         random_seed: None,
         bet_size_spec: None,
         compress_tree: true,
+        discount_schedule: None,
     })
     .expect("v2 solve with history and rake");
 
@@ -239,6 +242,7 @@ fn three_way_river_routes_to_native_multiway_solver() {
         random_seed: None,
         bet_size_spec: None,
         compress_tree: true,
+        discount_schedule: None,
     })
     .expect("3-way river solve");
 
@@ -364,6 +368,7 @@ fn six_way_river_routes_to_native_multiway_solver() {
         random_seed: Some(42),
         bet_size_spec: None,
         compress_tree: true,
+        discount_schedule: None,
     })
     .expect("6-way V2 river solve");
 
@@ -407,6 +412,7 @@ fn strict_mode_refuses_heuristic_ranges() {
         random_seed: None,
         bet_size_spec: None,
         compress_tree: true,
+        discount_schedule: None,
     })
     .expect("strict heuristic refusal");
     assert_eq!(response.backend, "refused");
@@ -446,6 +452,7 @@ fn strict_mode_refuses_sampled_multiway() {
         random_seed: None,
         bet_size_spec: None,
         compress_tree: true,
+        discount_schedule: None,
     })
     .expect("strict multiway refusal");
     assert_eq!(response.backend, "refused");
@@ -496,6 +503,7 @@ fn strict_mode_heads_up_reports_convergence() {
         random_seed: None,
         bet_size_spec: None,
         compress_tree: true,
+        discount_schedule: None,
     })
     .expect("strict heads-up solve");
     assert_eq!(response.backend, "native_solver");
@@ -511,6 +519,83 @@ fn strict_mode_heads_up_reports_convergence() {
             .warnings
             .contains(&DecisionWarning::ConvergenceNotReached)
             != response.converged
+    );
+}
+
+/// spec `012` — FR-016 : interaction définie entre mode strict et schedule non défaut.
+///
+/// Définition retenue : **le schedule ne change pas la sémantique du mode
+/// strict**. Le mode strict promet une chose — `converged` vaut exactement
+/// `exploitability <= epsilon_target` — et cette promesse porte sur une
+/// exploitabilité *mesurée*, pas sur la façon dont les regrets sont discountés.
+/// Un schedule non défaut est donc appliqué dans la boucle stricte (il en
+/// change la vitesse, pas le critère), le verdict de convergence reste
+/// mesure-driven, et le schedule effectivement appliqué est tracé. Aucune
+/// combinaison n'est refusée.
+#[test]
+fn strict_mode_accepts_a_non_default_schedule_with_an_honest_verdict() {
+    let request = SolveRequestV2 {
+        spot_id: Some("strict-hu-schedule".to_string()),
+        hero_range: "AA,KK".to_string(),
+        villain_ranges: vec!["QQ".to_string()],
+        board: vec![
+            "2c".to_string(),
+            "7d".to_string(),
+            "Js".to_string(),
+            "4h".to_string(),
+            "9s".to_string(),
+        ],
+        starting_pot: 10.0,
+        effective_stack: 20.0,
+        hero_position: Some("oop".to_string()),
+        action_history: Vec::new(),
+        tree_preset_id: TreePresetId::river_jam_low_spr(),
+        rake: 0.0,
+        rake_cap: 0.0,
+        num_players: 2,
+        legal_actions: Vec::new(),
+        cache_policy: CachePolicy::Disabled,
+        hero_confidence: Some(0.95),
+        state_confidence: Some(0.95),
+        range_model_version: RangeModelVersion::BoardAwareV2,
+        use_cache: false,
+        time_budget_ms: None,
+        epsilon_target: Some(0.001),
+        hero_hand: None,
+        sample_mixed: false,
+        random_seed: None,
+        bet_size_spec: None,
+        compress_tree: true,
+        discount_schedule: Some("hs_dcfr_30".to_string()),
+    };
+
+    let response = solve_spot_v2(request).expect("strict solve sous HS-DCFR(30)");
+
+    // Le mode strict n'est pas refusé à cause du schedule : il résout.
+    assert_eq!(response.backend, "native_solver");
+    assert!(response.epsilon_target > 0.0);
+    // Le schedule demandé est bien celui appliqué et tracé (pas de repli).
+    assert_eq!(
+        response
+            .metadata
+            .get("discount_schedule")
+            .map(String::as_str),
+        Some("hs_dcfr_30"),
+        "le schedule appliqué doit être tracé, même en mode strict"
+    );
+    // Le verdict de convergence reste mesure-driven, identique à la règle du
+    // mode strict sous le défaut : le schedule ne peut pas le rendre optimiste.
+    assert_eq!(
+        response.converged,
+        response.exploitability <= response.epsilon_target,
+        "le verdict strict doit rester cohérent avec l'exploitabilité mesurée"
+    );
+    assert!(
+        response
+            .warnings
+            .contains(&DecisionWarning::ConvergenceNotReached)
+            != response.converged,
+        "l'avertissement de non-convergence doit refléter la mesure"
     );
 }
 
@@ -550,6 +635,7 @@ fn hero_combo_ev_selection_prefers_best_ev_for_exact_hand() {
         random_seed: None,
         bet_size_spec: None,
         compress_tree: true,
+        discount_schedule: None,
     })
     .expect("combo EV solve");
 
@@ -592,6 +678,7 @@ fn bet_size_spec_controls_tree_abstraction() {
         random_seed: None,
         bet_size_spec: spec,
         compress_tree: true,
+        discount_schedule: None,
     };
 
     // Abstraction restreinte : bets 100% uniquement, pas de raises.
@@ -983,4 +1070,88 @@ fn llm_stub_response_is_offline_safe() {
         .warnings
         .contains(&DecisionWarning::ModelUnavailable));
     assert_eq!(response.used_context.len(), 2);
+}
+
+/// spec `012` — T010/FR-005 : le schedule appliqué est tracé dans les métadonnées.
+#[test]
+fn v2_response_traces_the_applied_discount_schedule() {
+    let mut request = SolveRequestV2 {
+        spot_id: Some("spot-schedule".to_string()),
+        hero_range: "AsKs".to_string(),
+        villain_ranges: vec!["QQ+".to_string()],
+        board: vec![
+            "Ah".to_string(),
+            "7d".to_string(),
+            "2c".to_string(),
+            "Kd".to_string(),
+            "9s".to_string(),
+        ],
+        starting_pot: 8.0,
+        effective_stack: 20.0,
+        hero_position: Some("oop".to_string()),
+        tree_preset_id: TreePresetId::river_jam_low_spr(),
+        num_players: 2,
+        cache_policy: CachePolicy::Memory,
+        range_model_version: RangeModelVersion::BoardAwareV2,
+        use_cache: false,
+        time_budget_ms: Some(75),
+        ..SolveRequestV2::default()
+    };
+
+    // Sans sélection : le défaut est tracé, nom canonique.
+    let response = solve_spot_v2(request.clone()).expect("solve par défaut");
+    assert_eq!(
+        response
+            .metadata
+            .get("discount_schedule")
+            .map(String::as_str),
+        Some("dcfr"),
+        "le défaut doit être tracé comme dcfr"
+    );
+
+    // Avec HS-DCFR(30) : le nom canonique du schedule demandé apparaît.
+    request.discount_schedule = Some("hs_dcfr_30".to_string());
+    let response = solve_spot_v2(request).expect("solve HS-DCFR(30)");
+    assert_eq!(
+        response
+            .metadata
+            .get("discount_schedule")
+            .map(String::as_str),
+        Some("hs_dcfr_30")
+    );
+}
+
+/// spec `012` — FR-004 : un schedule inconnu est rejeté, jamais ramené au défaut.
+#[test]
+fn v2_request_rejects_unknown_discount_schedule() {
+    let request = SolveRequestV2 {
+        spot_id: Some("spot-bad-schedule".to_string()),
+        hero_range: "AsKs".to_string(),
+        villain_ranges: vec!["QQ+".to_string()],
+        board: vec![
+            "Ah".to_string(),
+            "7d".to_string(),
+            "2c".to_string(),
+            "Kd".to_string(),
+            "9s".to_string(),
+        ],
+        starting_pot: 8.0,
+        effective_stack: 20.0,
+        hero_position: Some("oop".to_string()),
+        tree_preset_id: TreePresetId::river_jam_low_spr(),
+        num_players: 2,
+        cache_policy: CachePolicy::Memory,
+        range_model_version: RangeModelVersion::BoardAwareV2,
+        use_cache: false,
+        time_budget_ms: Some(75),
+        discount_schedule: Some("hs_dcfr_20".to_string()),
+        ..SolveRequestV2::default()
+    };
+
+    let err = solve_spot_v2(request).expect_err("un schedule inconnu doit être refusé");
+    let message = err.to_string();
+    assert!(
+        message.contains("inconnu"),
+        "l'erreur doit nommer le problème : {message}"
+    );
 }

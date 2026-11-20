@@ -536,6 +536,11 @@ class DecisionMaker:
         # d'environnement pour retrouver l'abstraction complète.
         self.solver_bet_sizes = (os.getenv("POKER_SOLVER_BET_SIZES") or "").strip() or "50%"
         self.solver_raise_sizes = (os.getenv("POKER_SOLVER_RAISE_SIZES") or "").strip() or "2.5x"
+        # spec 012 — schedule de discount CFR. Défaut `None` : le solveur garde
+        # son comportement historique (DCFR du crate). Un schedule HS ne
+        # s'active que si l'opérateur le demande explicitement, par variable
+        # d'environnement ; un nom inconnu est refusé par le solveur natif.
+        self.discount_schedule = (os.getenv("POKER_DISCOUNT_SCHEDULE") or "").strip() or None
         resolved_solver_backend = (
             postflop_solver_py
             if solver_backend is _DEFAULT_DEPENDENCY and RUST_SOLVER_AVAILABLE
@@ -690,6 +695,7 @@ class DecisionMaker:
         hero_player_index: int | None = None,
         active_positions: list[str] | tuple[str, ...] | None = None,
         epsilon_target: float | None = None,
+        discount_schedule: str | None = None,
     ) -> dict:
         # La rake est désormais modélisée DANS l'arbre (rake_rate/rake_cap) et non
         # plus en déflatant le pot.
@@ -737,6 +743,9 @@ class DecisionMaker:
             villain_ranges=villain_ranges,
             hero_player_index=hero_player_index,
             active_positions=active_positions,
+            # spec 012 — le schedule fait partie de l'identité du spot : un hit
+            # de cache sous DCFR ne doit jamais servir une requête HS-DCFR.
+            discount_schedule=discount_schedule or self.discount_schedule,
         )
         cached_response = self._solve_cache_get(cache_key)
         if cached_response is not None:
@@ -759,6 +768,11 @@ class DecisionMaker:
         provider_extra: dict[str, Any] = {}
         if epsilon_target is not None:
             provider_extra["epsilon_target"] = epsilon_target
+        # spec 012 — le schedule effectif : l'argument de l'appel prime, sinon
+        # la configuration de l'instance, sinon rien (défaut historique).
+        effective_schedule = discount_schedule or self.discount_schedule
+        if effective_schedule:
+            provider_extra["discount_schedule"] = effective_schedule
         response = self.solver_provider.solve_spot_v2(
             hero_range=solver_hero_range,
             villain_ranges=ordered_ranges,
@@ -877,6 +891,7 @@ class DecisionMaker:
         villain_ranges: list[str] | tuple[str, ...] | None = None,
         hero_player_index: int | None = None,
         active_positions: list[str] | tuple[str, ...] | None = None,
+        discount_schedule: str | None = None,
     ) -> str:
         # Phase 0.5.6/4.1 — délégué au helper partagé `spot_cache_key`.
         return spot_cache_key(
@@ -896,6 +911,7 @@ class DecisionMaker:
             villain_ranges=villain_ranges,
             hero_player_index=hero_player_index,
             active_positions=active_positions,
+            discount_schedule=discount_schedule,
         )
 
     def _solve_cache_get(self, key: str) -> dict | None:

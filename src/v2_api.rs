@@ -386,6 +386,13 @@ pub struct SolveRequestV2 {
     /// `false` uniquement pour les diagnostics de fidélité f32.
     #[serde(default = "default_compress_tree_v2")]
     pub compress_tree: bool,
+    /// Schedule de discount des hyperparamètres CFR (spec `012`).
+    ///
+    /// Absent → DCFR historique du crate (comportement de production inchangé).
+    /// `hs_dcfr_30` / `hs_dcfr_15` sélectionnent les schedules publiés
+    /// (Zhang, McAleer, Sandholm, AAAI 2026). Un nom inconnu est refusé.
+    #[serde(default)]
+    pub discount_schedule: Option<String>,
 }
 
 fn default_compress_tree_v2() -> bool {
@@ -420,6 +427,7 @@ impl Default for SolveRequestV2 {
             random_seed: None,
             bet_size_spec: None,
             compress_tree: default_compress_tree_v2(),
+            discount_schedule: None,
         }
     }
 }
@@ -683,6 +691,7 @@ impl From<&crate::gto_api::SolveRequest> for SolveRequestV2 {
             sample_mixed: request.sample_mixed,
             random_seed: request.random_seed,
             bet_size_spec: request.bet_size_spec.clone(),
+            discount_schedule: request.discount_schedule.clone(),
         }
     }
 }
@@ -1234,7 +1243,32 @@ pub fn solve_spot_v2(request: SolveRequestV2) -> SolveV2Result {
             .metadata
             .insert("sample_seed".to_string(), seed.to_string());
     }
+    // Traçabilité du schedule effectivement appliqué (spec `012`) : un nom
+    // canonique, jamais la chaîne brute. Un journal doit distinguer une mesure
+    // du défaut d'une mesure HS.
+    response.metadata.insert(
+        "discount_schedule".to_string(),
+        parse_discount_schedule_for_metadata(request.discount_schedule.as_deref()),
+    );
     Ok(response)
+}
+
+/// Nom canonique du schedule pour les métadonnées de réponse (spec `012`).
+///
+/// Un nom invalide ne devrait pas atteindre ce point (il est refusé à la
+/// construction de la requête) ; il est rapporté tel quel plutôt que masqué,
+/// pour qu'une incohérence reste visible dans le journal.
+fn parse_discount_schedule_for_metadata(value: Option<&str>) -> String {
+    use std::str::FromStr;
+    match value {
+        None => crate::solver::DiscountSchedule::default()
+            .as_str()
+            .to_string(),
+        Some(text) => match crate::solver::DiscountSchedule::from_str(text) {
+            Ok(schedule) => schedule.as_str().to_string(),
+            Err(_) => format!("invalid:{text}"),
+        },
+    }
 }
 
 /// Builds a structured offline-safe LLM response.
@@ -1354,6 +1388,7 @@ fn to_legacy_solve_request(
         bet_size_spec: request.bet_size_spec.clone(),
         time_budget_ms: request.time_budget_ms,
         compress_tree: request.compress_tree,
+        discount_schedule: request.discount_schedule.clone(),
     }
 }
 

@@ -113,19 +113,22 @@
 - **Limite** : Besoin d'un bench Slumbot.
 - **Chantier** : Confirme architecture V1 bloc (blueprint + search), bench vs Slumbot.
 
-### C16 — Li et al. 2024 — HS-PCFR(30) / HS-DCFR(30) (arXiv 2405.08234 + 2405.15794)
+### C16 — Zhang, McAleer & Sandholm 2026 — Schedules d'hyperparamètres CFR (arXiv 2404.09097)
 
-- **Référence** : K. Li et al., *HS-PCFR: Highly Simple CFR with Hyperparameter Schedule*, arXiv [2405.08234](https://arxiv.org/abs/2405.08234) + *HS-DCFR*, arXiv [2405.15794](https://arxiv.org/abs/2405.15794)
-- **Apport chiffré** : `γ(t) = 30 − 5t/1000`, **2–3 ordres de magnitude** vs DCFR, training-free, drop-in (remplace `γ=3.0` DCFR). Bat DDCFR **5–10×**. Pertinent en tabulaire 5/5.
-- **Limite** : Tabulaire, validé en 5/5.
-- **Chantier** : **P0 optionnel** — swap DCFR → HS-PCFR+ drop-in (remplacer `DiscountParams::gamma_t`).
+- **Référence** : N. Zhang, S. McAleer & T. Sandholm, *Faster Game Solving via Hyperparameter Schedules*, **AAAI 2026**, arXiv [2404.09097](https://arxiv.org/abs/2404.09097) (v1 13/04/2024, v2 08/02/2026).
+- **Apport chiffré (chiffres réels de l'article)** : au lieu de discounts constants, les schedules font varier `α`, `β` et `γ` linéairement avec l'itération `t` sur un total `n` — `HSα : α = 1 + 3t/n`, `HSβ : β = −1 − 2t/n`, `HSγ30 : γ = 30 − 5t/n`, `HSγ15 : γ = 15 − 5t/n` (équation 4). Sur les dix jeux du banc, **HS-DCFR(30) bat DDCFR de 3,1 ordres de magnitude en moyenne** (HS-DCFR(15) : 1,6) ; HS-PCFR+(30) bat le SoTA antérieur de 12,5 OoM en moyenne, mais **HS-DCFR(30) est plus d'un OoM meilleur que HS-PCFR+(30) sur Leduc, Big Leduc et Liar's dice-6**. Training-free, quelques lignes de code, sans réglage par jeu.
+- **Recommandation de l'article** : **HS-DCFR(30) pour les grands jeux de poker**, HS-PCFR+(30) pour les autres ; PCFR+ est *moins* efficace que DCFR sur les jeux de type poker (sauf Kuhn, un jeu minuscule). Si un seul schedule : `HSγ30`.
+- **Limite** : jeux tabulaires et HUNL endgames ; l'article avertit que l'avantage relatif des schedules **diminue quand la taille du jeu augmente**, et ne prétend pas que ses schedules soient optimaux par jeu.
+- **État (20/11/2026, spec `012`)** : implémenté et **mesuré**. `DiscountSchedule` (`src/solver.rs`) sélectionne `dcfr` (défaut, inchangé), `hs_dcfr_30` ou `hs_dcfr_15` par la requête ; un nom inconnu est refusé. Harnais de convergence sur Kuhn et Leduc (`tests/cfr_schedule_convergence.rs`), artefact daté `research/results/cfr_schedule_benchmark.json`.
+  **Résultat mesuré, honnête : le gain de l'article n'est PAS reproduit ici.** Les trois schedules atteignent la valeur de jeu de référence (Kuhn `−1/18`, Leduc `−0,0856`), mais HS-DCFR n'est strictement moins exploitable que le DCFR du crate que sur **6 des 16 couples (schedule, jeu, palier)** mesurés — et perd aux paliers hauts (1 000 et 10 000 itérations). Deux causes possibles, non départagées : le crate implémente une variante DCFR qui n'est **pas** le DCFR canonique de l'article (`β = 0,5` constant au lieu de `0` ; reset de la stratégie cumulée à chaque puissance de 4), et l'article prévient lui-même que l'avantage décroît avec la taille du jeu. Aucune adoption en production n'est décidée par cette spec.
+- **Chantier** : **fait le 20/11/2026** (spec `012`) — sélection + mesure ; l'adoption d'un schedule par défaut reste ouverte, adossée à la mesure produite.
 
-### C17 — DDCFR / HS-PCFR+ 2023–2024 (AAAI 2024 2303.12035 / 2310.02156)
+### C17 — DDCFR 2024 (AAAI 2024, arXiv 2303.12035)
 
-- **Référence** : H. Xu et al., *DDCFR: Deep Discounted CFR*, AAAI 2024, arXiv [2303.12035](https://arxiv.org/abs/2303.12035) / arXiv [2310.02156](https://arxiv.org/abs/2310.02156)
+- **Référence** : H. Xu et al., *Dynamic Discounted CFR*, AAAI 2024, arXiv [2303.12035](https://arxiv.org/abs/2303.12035)
 - **Apport** : Schedules dynamiques alpha/beta/gamma via PPO, −30–50% exploitabilité.
-- **Limite** : Overhead PPO, **5–10× pire** que HS-PCFR(30) (C16).
-- **Chantier** : Référence — justifie de préférer HS-PCFR(30) à DDCFR.
+- **Limite** : Overhead PPO ; **battu de 3,1 ordres de magnitude en moyenne par HS-DCFR(30)**, qui est training-free (C16).
+- **Chantier** : Référence — justifie de préférer les schedules fixes (C16) à DDCFR.
 
 ### C18 — ES-CFR (arXiv 2307.00668)
 

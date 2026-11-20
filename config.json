@@ -135,8 +135,7 @@
     "rake_cap": 3.0,
     "deviation_cap": 0.25,
     "iters_min": 1200,
-    "iters_max": 15000,
-    "hs_pcf_30_enabled": false
+    "iters_max": 15000
   },
   "tournament": {
     "enabled": false,

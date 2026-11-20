@@ -33,6 +33,7 @@ def spot_cache_key(
     villain_ranges: list[str] | tuple[str, ...] | None = None,
     hero_player_index: int | None = None,
     active_positions: list[str] | tuple[str, ...] | None = None,
+    discount_schedule: str | None = None,
 ) -> str:
     """Clé canonique d'un spot.
 
@@ -42,6 +43,9 @@ def spot_cache_key(
     clé est byte-identique au format historique de ``_solve_cache_key``.
     ``hero_range`` est inclus quand il est non vide : deux combos cibles de la
     même range ne doivent jamais partager l'EV d'un autre combo.
+    ``discount_schedule`` (spec 012) est inclus quand il est non vide : sans
+    cela, un spot résolu sous HS-DCFR rendrait, sur hit de cache, la réponse
+    du DCFR — la sélection serait silencieusement ignorée.
     """
     payload = {
         "hero": hero_hand,
@@ -67,5 +71,7 @@ def spot_cache_key(
         payload["vr"] = [str(value) for value in (villain_ranges or [])]
         payload["hpi"] = int(hero_player_index or 0)
         payload["po"] = [str(value) for value in (active_positions or [])]
+    if str(discount_schedule or "").strip():
+        payload["ds"] = str(discount_schedule).strip().lower()
     blob = json.dumps(payload, sort_keys=True, default=str)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()

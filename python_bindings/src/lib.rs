@@ -62,6 +62,7 @@ fn solve_spot(
         bet_size_spec: None,
         time_budget_ms: None,
         compress_tree: true,
+        discount_schedule: None,
     };
 
     let response =
@@ -176,7 +177,8 @@ fn range_relative_strength(
     bet_sizes = None,
     raise_sizes = None,
     turn_donk_sizes = None,
-    river_donk_sizes = None
+    river_donk_sizes = None,
+    discount_schedule = None
 ))]
 fn solve_spot_v2(
     py: Python<'_>,
@@ -206,6 +208,7 @@ fn solve_spot_v2(
     raise_sizes: Option<String>,
     turn_donk_sizes: Option<String>,
     river_donk_sizes: Option<String>,
+    discount_schedule: Option<String>,
 ) -> PyResult<PyObject> {
     let request = SolveRequestV2 {
         spot_id: normalize_optional_string(spot_id),
@@ -256,6 +259,7 @@ fn solve_spot_v2(
             None
         },
         compress_tree: true,
+        discount_schedule: normalize_optional_string(discount_schedule),
     };
     let started = Instant::now();
     let mut response =
@@ -721,10 +725,12 @@ fn risk_of_ruin_cash(
     sigma_bb_per_100: f64,
     roll_buyins: f64,
 ) -> PyResult<Option<f64>> {
-    Ok(
-        risk_of_ruin_cash_native(win_rate_bb_per_100 as f32, sigma_bb_per_100 as f32, roll_buyins as f32)
-            .map(f64::from),
+    Ok(risk_of_ruin_cash_native(
+        win_rate_bb_per_100 as f32,
+        sigma_bb_per_100 as f32,
+        roll_buyins as f32,
     )
+    .map(f64::from))
 }
 
 /// Risque de ruine tournoi — ROI en fraction de BI, σ en BI, bankroll en BI.
@@ -763,7 +769,11 @@ fn probability_of_profit_cash(
 /// P(profit) tournoi après `n_tournaments` tournois.
 #[pyfunction]
 fn probability_of_profit_mtt(roi: f64, sigma_bi: f64, n_tournaments: u64) -> PyResult<Option<f64>> {
-    Ok(probability_of_profit_mtt_native(roi as f32, sigma_bi as f32, n_tournaments))
+    Ok(probability_of_profit_mtt_native(
+        roi as f32,
+        sigma_bi as f32,
+        n_tournaments,
+    ))
 }
 
 /// Fraction de Kelly optimale `edge/variance`, bornée à 1.
@@ -798,7 +808,10 @@ fn assess_cash(
     dict.set_item("ror", a.ror.map(f64::from))?;
     dict.set_item("risk_band", a.risk_band.map(risk_band_name))?;
     dict.set_item("kelly", a.kelly.map(f64::from))?;
-    dict.set_item("bankroll_for_1pct_ror", a.bankroll_for_1pct_ror.map(f64::from))?;
+    dict.set_item(
+        "bankroll_for_1pct_ror",
+        a.bankroll_for_1pct_ror.map(f64::from),
+    )?;
     Ok(dict.into())
 }
 
@@ -830,10 +843,17 @@ fn session_verdict(
         stop_win_buyins: stop_win_buyins as f32,
         max_hands_per_day,
     };
-    Ok(match session_verdict_native(&limits, hours_played as f32, hands_today, profit_loss_buyins as f32) {
-        SessionVerdict::Continue => None,
-        SessionVerdict::Stop(reason) => Some(stop_reason_name(reason)),
-    })
+    Ok(
+        match session_verdict_native(
+            &limits,
+            hours_played as f32,
+            hands_today,
+            profit_loss_buyins as f32,
+        ) {
+            SessionVerdict::Continue => None,
+            SessionVerdict::Stop(reason) => Some(stop_reason_name(reason)),
+        },
+    )
 }
 
 #[pymodule]

@@ -55,6 +55,10 @@ _NATIVE_SOLVE_KEYS = {
     "raise_sizes",
     "turn_donk_sizes",
     "river_donk_sizes",
+    # spec 012 — schedule de discount CFR. Sans cette entrée, la clé serait
+    # silencieusement supprimée avant l'appel natif et la sélection n'aurait
+    # aucun effet (même défaut que le FormatProfile orphelin de la spec 005).
+    "discount_schedule",
 }
 
 
