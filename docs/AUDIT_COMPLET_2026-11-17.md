@@ -281,7 +281,7 @@ response = self.solver_provider.solve_spot_v2(
 | F-06 | Winamax absent du runtime moderne | `site_adapter.py:85-91` | adaptateur Winamax + fixtures + tests de conformité |
 | F-07 | Bankroll limitée à 3 seuils de session | `session_manager.py:15-17` | moteur bankroll/RoR/move-up-down en Rust — **corrigé le 20/11/2026** (spec `004`) : `src/bankroll.rs` implémente RoR `exp(−2·edge·roll/variance)` en unités buy-ins, P(profit) `Φ(WR·√(N/100)/σ)`, Kelly, bankroll cible pour un RoR donné, move-up/down à hystérésis et limites de session (durée, plafond journalier, stop-loss, stop-win) ; 16 tests Rust + 18 tests Python reproduisent les tables de `docs/probabilites.md` §2/§6 (RoR 6-max WR7/40BI = 0,10 %, HU WR5/20BI = 1,69 %, P(profit) 50k = 96 %). Découverte au passage : `SessionManager` n'était **instancié nulle part** dans le runtime de production — la protection de bankroll était orpheline, pas seulement minimale ; il est désormais branché sur le moteur Rust et conserve ses messages et seuils historiques |
 | F-08 | Vision non prouvée par site | 4 OCR, pas de benchmark de bout en bout | fixtures, précision/latence par site, 1 OCR principal + 1 fallback |
-| F-09 | Pas de gate de performance | benchmark manuel | CI p95 + exploitabilité, seuil de régression 10 % — **corrigé le 19/11/2026** : `scripts/check_perf_gate.py` compare la latence froide (médiane par spot, un processus neuf par répétition) à la baseline versionnée `research/results/perf_baseline.json` ; seuil 10 % + 25 % de bruit machine, plancher absolu sous 5 ms, invariants durs (zéro fallback, backend multiway présent). Câblé dans `python-tests.yml` (étape « Performance gate »). Falsification vérifiée : régression de 141 % détectée, fallback injecté détecté |
+| F-09 | Pas de gate de performance | benchmark manuel | CI p95 + exploitabilité, seuil de régression 10 % — **corrigé le 19/11/2026**, **recalibré le 20/11/2026** : `scripts/check_perf_gate.py` compare la latence froide (minimum par spot, un processus neuf par répétition) à la baseline versionnée `research/results/perf_baseline.json`. Le premier run CI réel du gate a révélé deux défauts de mesure, tous deux corrigés : (1) un spot qui atteint le délai de garde du solveur (`budget + 2,0 s`) mesurait ce délai, pas le coût du solveur, et était compté comme régression (« +149 % ») puis comme fallback produit ; il est désormais identifié comme **saturation** et sorti de la comparaison ; (2) la calibration de vitesse était mono-thread alors que le solveur est parallèle (rayon), ce qui sous-estimait le handicap d'un runner à peu de cœurs — elle mesure maintenant un débit parallèle (`zlib`). Constat de fond : la latence absolue du solveur parallèle varie trop entre machines (×1,4 à ×3,2 selon le spot sur le runner GitHub) pour porter un gate bloquant ; la comparaison de latence est donc **informative** hors machine de référence (`--strict-latency` la rend bloquante là où la baseline a été mesurée), tandis que les invariants durs — **zéro fallback produit** et backend multiway présent — restent bloquants partout. Logique verrouillée par `tests/test_perf_gate_logic.py` (7 tests) ; falsification rejouée : fallback produit et backend absent font échouer le gate. Câblé dans `python-tests.yml`. Reste ouvert : un seuil de latence portable (machine épinglée ou métrique indépendante du matériel) |
 | F-10 | Pas de traces/SLO complets | `metrics.py` agrège localement | tracing `spot_id`, métriques par étage, SLO et alertes |
 | F-11 | AIVAT/MIVAT absents | aucune occurrence dans `src/`/`poker/` | implémenter C11/C27 pour l'évaluation |
 | F-12 | HS-PCFR/EMD/FGS/PKO absents | aucune occurrence | expérimenter C16/C25/C23/C24 derrière des flags |
@@ -483,9 +483,14 @@ Le registre `docs/rust-migration-ledger.md` doit lister chaque composant, son é
   fixes, verrouillé par
   `tests/test_solver_circuit_breaker.py::test_solver_timeout_follows_budget_plus_margin`.
 - **Gate de performance** : `scripts/check_perf_gate.py` compare la latence
-  froide minimale par spot à la baseline versionnée, avec calibration machine et
-  seuil de régression 10 % ; câblé dans `python-tests.yml`. Falsification
-  vérifiée (régression de 146 % détectée).
+  froide minimale par spot à la baseline versionnée, avec calibration machine
+  parallèle et seuil de régression 10 % ; câblé dans `python-tests.yml`. Le
+  premier run CI réel a montré que la latence absolue du solveur parallèle n'est
+  pas comparable d'une machine à l'autre : les **invariants durs** (zéro fallback
+  produit, backend multiway présent) bloquent partout, la comparaison de latence
+  est informative hors machine de référence et bloquante avec `--strict-latency`.
+  Les saturations au délai de garde solveur sont identifiées comme telles et
+  sorties de la comparaison. Logique verrouillée par `tests/test_perf_gate_logic.py`.
 
 ### Sprint 2 — Domaines manquants (3 semaines)
 

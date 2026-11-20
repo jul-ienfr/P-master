@@ -1,19 +1,28 @@
 {
-  "calibration_ms": 10.293,
+  "calibration_ms": 17.965,
   "heads_up": {
     "backends": [
       "native_solver",
       "preflop_precomputed"
     ],
     "cold_ms": {
-      "flop_3bp_qq": 648.2,
-      "flop_srp_akhk": 886.9,
+      "flop_3bp_qq": 612.8,
+      "flop_srp_akhk": 848.4,
       "preflop_bb_kqo_face_open": 0.2,
-      "preflop_btn_aa": 194.2,
-      "river_55": 2.6,
-      "turn_ts9s": 94.0
+      "preflop_btn_aa": 184.8,
+      "river_55": 2.7,
+      "turn_ts9s": 80.2
     },
-    "fallbacks": 0
+    "fallbacks": 0,
+    "timeout_count": 0,
+    "timeouts": {
+      "flop_3bp_qq": false,
+      "flop_srp_akhk": false,
+      "preflop_bb_kqo_face_open": false,
+      "preflop_btn_aa": false,
+      "river_55": false,
+      "turn_ts9s": false
+    }
   },
   "kind": "perf_baseline",
   "multiway": {
@@ -21,12 +30,19 @@
       "multiway_mccfr"
     ],
     "cold_ms": {
-      "n=3": 680.3,
-      "n=4": 243.1,
-      "n=5": 156.9,
-      "n=6": 88.3
+      "n=3": 691.6,
+      "n=4": 240.1,
+      "n=5": 161.2,
+      "n=6": 84.9
     },
-    "fallbacks": 0
+    "fallbacks": 0,
+    "timeout_count": 0,
+    "timeouts": {
+      "n=3": false,
+      "n=4": false,
+      "n=5": false,
+      "n=6": false
+    }
   },
   "repeat": 5
 }
