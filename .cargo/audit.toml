@@ -1,0 +1,16 @@
+# Configuration cargo-audit (audit RUSTSEC du 20/11/2026, constat F-19).
+#
+# Le gate CI exécute `cargo audit -D warnings` sur les trois lockfiles
+# (racine, gto_server, python_bindings) : une vulnérabilité, un avis `unsound`
+# ou un crate non maintenu font échouer la CI.
+#
+# `bincode` est ignoré **explicitement**, jamais par omission : le crate est
+# déclaré non maintenu (RUSTSEC-2025-0141 — l'équipe a cessé le développement
+# après un incident de harcèlement), sans vulnérabilité publiée associée. Il
+# porte le format binaire des arbres sérialisés (`save_data_to_file`, `.flop`) :
+# le remplacer par postcard/wincode changerait ce format sur disque et casserait
+# la lecture des arbres déjà écrits, du cache disque et du bundle portable.
+# Décision : conserver bincode 2.0.1 tant qu'aucune vulnérabilité (et non un
+# simple avis de maintenance) n'est publiée ; réévaluer à ce moment-là.
+[advisories]
+ignore = ["RUSTSEC-2025-0141"]

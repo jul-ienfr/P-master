@@ -33,6 +33,13 @@ immédiatement, puis purger l'historique git si nécessaire.
   **bloquant** (le `continue-on-error` a été retiré le 26/08/2026 ; l'étape
   passe depuis le 20/11/2026 — 143 avis de sécurité ramenés à zéro par montée
   ciblée des dépendances, voir F-17), secrets exclus du tracking (`.gitignore`)
+- CI : `cargo audit -D warnings` sur les **trois** lockfiles Rust (`Cargo.lock`,
+  `gto_server/`, `python_bindings/`), job `audit` de `rust.yml` — ajouté le
+  20/11/2026 (F-19). `-D warnings` couvre aussi les avis `unsound` et
+  `unmaintained`, pas seulement les vulnérabilités. Les exemptions sont
+  déclarées dans `.cargo/audit.toml` avec leur raison (aujourd'hui : `bincode`,
+  non maintenu sans vulnérabilité publiée, qui porte le format binaire des
+  arbres sérialisés)
 - Requêtes SQL paramétrées (asyncpg `$1...`) — y compris patterns `LIKE`
 
 ## Signaler une vulnérabilité

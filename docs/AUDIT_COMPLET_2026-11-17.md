@@ -194,7 +194,7 @@ La corrélation de bout en bout existe déjà par `spot_id` dans le journal ; le
 
 - Le seuil de couverture global (52 %) est artificiellement bas à cause de `poker/` ; il ne protège pas `src/` — un seuil bloquant dédié à `src/` (80 %) a depuis été ajouté (F-14), mesuré à 83 %.
 - Le gate de performance existe désormais (F-09) ; **le gate d'exploitabilité manque toujours**.
-- Pas de `cargo audit` ni de SBOM dans le workflow consulté.
+- Pas de SBOM dans le workflow consulté. `cargo audit` — **corrigé le 20/11/2026 (F-19)** : job `audit` dans `rust.yml`, `-D warnings` sur les trois lockfiles ; deux vulnérabilités réelles (`zstd-safe`/`zstd-sys`) et un avis `unsound` (`tokio`) corrigés par montée, deux avis `pyo3` corrigés par montée majeure, `bincode` exempté explicitement dans `.cargo/audit.toml`.
 - `config.json` est **suivi par git** (`git ls-files config.json`). Même s'il ne contient pas de secret aujourd'hui, c'est un risque : toute clé ajoutée serait versionnée. Les secrets doivent venir de l'environnement ou d'un fichier ignoré (`config.local.json`, `.env`).
 - Licence AGPL-3.0-only : toute redistribution/déploiement réseau doit être conforme. À documenter dans le README et dans le processus de release.
 - Python est épinglé à `==3.11.*` et le projet dépend de wheels Windows spécifiques (torch, onnxruntime-gpu, dxcam, uiautomation). La reproductibilité Linux est donc partielle.
@@ -351,12 +351,37 @@ Vérifié en téléchargeant les wheels PyPI (96 versions publiées, échantillo
 
 Aucun test ne couvre `SuryaEngine` — c'est ce qui a laissé le défaut invisible pendant trois mois. La configuration livrée (`config.json`) n'active que `rapidocr`, donc **l'impact runtime actuel est nul** : le défaut est latent, pas actif.
 
-- Packaging/release AGPL, SBOM, `cargo audit`.
+- Packaging/release AGPL, SBOM. — *`cargo audit` : fait le 20/11/2026 (F-19), voir §3.9 et le constat F-19 ci-dessous ; le SBOM reste ouvert.*
 - Reproductibilité Linux partielle (dépendances Windows).
 - Documentation de l'état réel : plusieurs docs décrivent des fonctionnalités « DONE » alors que le runtime ne les utilise pas (multiway).
 - Nettoyage des artefacts de recherche non versionnés ou non reproductibles.
 - Tests de propriété sur l'état canonique et les ranges.
 - Suppression des avertissements `fmt` préexistants (dérive de version rustfmt) pour rendre `cargo fmt --check` exploitable.
+
+#### F-19 : aucune vérification d'avis Rust en CI — trois vulnérabilités réelles dans les lockfiles
+
+**Preuve :** `docs/AUDIT_COMPLET_2026-11-17.md:197` (« Pas de `cargo audit` ni de SBOM »). Vérifié le 20/11/2026 : aucun des six workflows ne contient `cargo audit`, et aucun des trois lockfiles n'avait jamais été audité. Mesure sur les trois lockfiles (`Cargo.lock` racine, `gto_server/Cargo.lock`, `python_bindings/Cargo.lock`) :
+
+| Crate | Version | Avis | Portée |
+|---|---|---|---|
+| `zstd-safe` | 6.0.6 | RUSTSEC-2026-0403 (mémoire non initialisée) | racine, `gto_server`, `python_bindings` |
+| `zstd-sys` | 2.0.16 | RUSTSEC-2026-0410 (shim d'allocateur) | racine, `gto_server`, `python_bindings` |
+| `tokio` | 1.53.1 | RUSTSEC-2026-0386 (`unsound`, I/O safety) | `gto_server` |
+| `pyo3` | 0.23.5 | RUSTSEC-2025-0020, RUSTSEC-2026-0177 | `python_bindings` |
+
+Les huit autres avis `zstd-safe` (RUSTSEC-2026-0395 à 0406) sont des avertissements `unsound` que `cargo audit` ne compte pas comme vulnérabilités par défaut — c'est précisément pourquoi le gate tourne en `-D warnings` et non en mode par défaut.
+
+**Correctif :** job `audit` ajouté à `.github/workflows/rust.yml`, indépendant du job de build (ni toolchain nightly, ni compilation), exécutant `cargo audit --file <lockfile> -D warnings` sur les trois lockfiles. Les quatre avis ci-dessus sont corrigés par montée, pas par exemption :
+
+- `zstd` 0.12.4 → 0.14.4 (tire `zstd-safe` 8.3.0, `zstd-sys` 2.1.3) sur les trois lockfiles. La feature `zstdmt` et les API `Encoder`/`Decoder` utilisées par `src/file.rs` existent toujours ; le round-trip compressé est exercé par `file::tests::save_and_load_file_compressed`.
+- `tokio` 1.53.1 → 1.54.1 dans `gto_server`.
+- `pyo3` 0.23 → 0.29 dans `python_bindings`. La montée casse une seule chose : `PyObject` quitte le prelude (remplacé par `Py<PyAny>`), 12 occurrences dans `python_bindings/src/lib.rs`. Aucune des deux API vulnérables (`PyString::from_object`, `PyCFunction::new_closure`) n'est appelée par le code — l'avis est fermé par la montée, pas contourné. Extension reconstruite (`maturin develop --release`) et suite Python complète **1 423 passés, 5 ignorés** — chiffre identique à la référence F-17, donc aucune régression.
+
+**Une exemption, déclarée :** `bincode` 2.0.1 est `unmaintained` (RUSTSEC-2025-0141 — l'équipe a cessé le développement), sans vulnérabilité publiée. Il porte le format binaire des arbres sérialisés (`save_data_to_file`, `.flop`) : le remplacer par `postcard`/`wincode` changerait ce format sur disque et casserait la lecture des arbres existants, du cache disque et du bundle portable. L'exemption est écrite dans `.cargo/audit.toml` avec sa raison, jamais silencieuse. Réévaluer si une vulnérabilité — et non un simple avis de maintenance — est publiée.
+
+**Vérifié :** les trois lockfiles sortent en `0` sous `-D warnings` ; `cargo test --release --features zstd` (83 lib + 4 + 4 + 7 + 1 + 2 + 24 + 24 + 13 doctests), `cargo clippy -- -D warnings` sur les deux features, `cargo build --features custom-alloc`, `cargo +stable build`, `gto_server` build + clippy, et le gate de performance F-09 (`GATE PERF : OK`, 0 fallback) — tous verts. `cargo fmt --check` reste vert sur le crate racine et sur `python_bindings` ; `gto_server/src/main.rs` a des écarts `fmt` **préexistants** (non touchés par ce correctif, `cargo fmt --check` ne couvre pas ce crate en CI).
+
+**Reste ouvert :** le SBOM (non produit) et la couverture `fmt` de `gto_server`.
 
 ---
 

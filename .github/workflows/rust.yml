@@ -39,3 +39,26 @@ jobs:
       run: cargo +nightly-2025-08-01 fmt --all --check
     - name: Check documentation
       run: cargo +nightly-2025-08-01 doc --release
+
+  # F-19 — le trou « pas de cargo audit » de l'audit P2. Le job est séparé du
+  # build : il ne dépend ni de la toolchain nightly ni de la compilation, et
+  # tourne en parallèle.
+  #
+  # `-D warnings` est volontairement plus strict qu'une détection de
+  # vulnérabilités : un avis `unsound` ou un crate non maintenu font aussi
+  # échouer le job. Les exceptions sont **déclarées** dans `.cargo/audit.toml`
+  # (aujourd'hui : `bincode`, non maintenu sans vulnérabilité publiée, qui
+  # porte le format binaire des arbres sérialisés), jamais silencieuses.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+    - name: Install cargo-audit
+      uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2
+      with:
+        tool: cargo-audit
+    - name: Audit the three lockfiles (RUSTSEC)
+      run: |
+        cargo audit --file Cargo.lock -D warnings
+        cargo audit --file gto_server/Cargo.lock -D warnings
+        cargo audit --file python_bindings/Cargo.lock -D warnings

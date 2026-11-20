@@ -42,7 +42,7 @@ fn solve_spot(
     max_iterations: u32,
     target_exploitability: f64,
     use_cache: bool,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let request = SolveRequest {
         oop_range,
         ip_range,
@@ -91,7 +91,7 @@ fn evaluate_equity(
     max_samples: u32,
     seed: Option<u64>,
     use_cache: bool,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let request = EquityRequest {
         hero_hand: trim_cards(hero_hand),
         villain_ranges: trim_cards(villain_ranges),
@@ -132,7 +132,7 @@ fn range_relative_strength(
     max_samples: u32,
     seed: Option<u64>,
     use_cache: bool,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let request = RangeStrengthRequest {
         hero_hand: trim_cards(hero_hand),
         hero_range: hero_range.trim().to_string(),
@@ -209,7 +209,7 @@ fn solve_spot_v2(
     turn_donk_sizes: Option<String>,
     river_donk_sizes: Option<String>,
     discount_schedule: Option<String>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let request = SolveRequestV2 {
         spot_id: normalize_optional_string(spot_id),
         hero_range,
@@ -291,7 +291,7 @@ fn measure_best_response_gap(
     max_iterations: u32,
     policy_action: Option<String>,
     bet_sizes: Option<String>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let request = BestResponseRequest {
         oop_range,
         ip_range,
@@ -342,7 +342,7 @@ fn llm_assist_stub(
     max_output_tokens: Option<u32>,
     streaming: Option<bool>,
     spot_summary: Option<String>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let config = LlmConfig {
         enabled,
         provider_mode: parse_provider_mode(provider_mode.as_deref()),
@@ -406,7 +406,7 @@ fn parse_mode(mode: &str) -> PyResult<EquityMode> {
     }
 }
 
-fn solve_response_to_python(py: Python<'_>, response: SolveResponse) -> PyResult<PyObject> {
+fn solve_response_to_python(py: Python<'_>, response: SolveResponse) -> PyResult<Py<PyAny>> {
     let result = PyDict::new(py);
     result.set_item("recommended_action", response.recommended_action)?;
     result.set_item("hero_ev", response.hero_ev)?;
@@ -417,7 +417,7 @@ fn solve_response_to_python(py: Python<'_>, response: SolveResponse) -> PyResult
     Ok(result.into())
 }
 
-fn equity_response_to_python(py: Python<'_>, response: EquityResponse) -> PyResult<PyObject> {
+fn equity_response_to_python(py: Python<'_>, response: EquityResponse) -> PyResult<Py<PyAny>> {
     let result = PyDict::new(py);
     result.set_item("equity", response.equity)?;
     result.set_item("win_rate", response.win_rate)?;
@@ -436,7 +436,7 @@ fn equity_response_to_python(py: Python<'_>, response: EquityResponse) -> PyResu
 fn range_strength_response_to_python(
     py: Python<'_>,
     response: RangeStrengthResponse,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let result = PyDict::new(py);
     result.set_item("relative_strength", response.relative_strength)?;
     result.set_item("hero_equity", response.hero_equity)?;
@@ -451,7 +451,7 @@ fn range_strength_response_to_python(
 fn solve_spot_v2_response_to_python(
     py: Python<'_>,
     response: SolveResponseV2,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let result = PyDict::new(py);
     result.set_item("chosen_action", response.chosen_action)?;
     result.set_item("actions", solve_actions_v2_to_python(py, response.actions)?)?;
@@ -492,7 +492,7 @@ fn solve_spot_v2_response_to_python(
 fn llm_assist_response_to_python(
     py: Python<'_>,
     response: LlmAssistResponse,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let result = PyDict::new(py);
     result.set_item("summary", response.summary)?;
     result.set_item(
@@ -796,7 +796,7 @@ fn assess_cash(
     win_rate_bb_per_100: f64,
     sigma_bb_per_100: f64,
     roll_buyins: f64,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let a = assess_cash_native(
         win_rate_bb_per_100 as f32,
         sigma_bb_per_100 as f32,
