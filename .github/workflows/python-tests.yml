@@ -67,6 +67,14 @@ jobs:
       - name: Performance gate (p95 vs baseline)
         run: uv run python scripts/check_perf_gate.py --repeat 3
 
+      # Spec 013 — gate d'exploitabilité : second volet de la constitution §III
+      # (« régression > 10 % sur le p95 OU sur l'exploitabilité »). L'exploitabilité
+      # à itérations fixées est déterministe bit-à-bit et invariante au nombre de
+      # threads (mesuré), donc portable — là où la latence ne l'était pas.
+      # Baseline versionnée : `research/results/exploitability_baseline.json`.
+      - name: Exploitability gate (iterations vs baseline)
+        run: uv run python scripts/check_exploitability_gate.py
+
       - name: Upload coverage artifact
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
