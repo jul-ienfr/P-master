@@ -358,7 +358,7 @@ Vérifié en téléchargeant les wheels PyPI (96 versions publiées, échantillo
 - Tests : catalogues et fake-engines mis à jour ; **nouveau** `test_legacy_surya_in_a_config_is_dropped_without_raising` — un `config.json` hérité nommant `surya` reste écarté sans lever (même contrat que tout moteur inconnu).
 - Website : listes et défauts (`["rapidocr", "surya"]` → `["rapidocr", "tesseract"]`) dans `configLab.ts`, `ocrConfig.ts`, `WorkstationShell.tsx`, `OcrSettingsPanel.tsx` et le défaut Tauri (`lib.rs`) — l'écran annonçait un moteur qui ne pouvait pas se charger.
 
-**Vérifié** : suite complète **1424 passés, 5 ignorés** ; `ruff check` + `ruff format --check` verts sur les fichiers touchés ; build website (`tsc` strict + vite) vert ; audit du lockfile **0 avis sur 108 paquets**.
+**Vérifié** : suite complète **1424 passés, 5 ignorés** ; `ruff check` + `ruff format --check` verts sur les fichiers touchés ; build website (`tsc` strict + vite) vert ; audit du lockfile **0 avis sur 108 paquets**. **Vérifié en CI le 20/11/2026 (run `44775690298`, commit `eed5973`)** : les trois workflows passent — Python CI ✅, Rust ✅, Refonte V2 ✅ — avec `pip-audit` vert sur le lockfile allégé.
 
 Aucun test ne couvrait `SuryaEngine` — c'est ce qui a laissé le défaut invisible pendant trois mois ; la troisième voie supprime précisément ce risque, puisqu'il n'y a plus de code surya non testé. La configuration livrée (`config.json`) n'activait que `rapidocr` : le défaut était latent, jamais actif en production.
 
