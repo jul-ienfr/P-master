@@ -11,6 +11,7 @@ import numpy as np
 
 from src.data.redis_cache import AsyncRedisCache
 from src.runtime.bet_logger import log_action_history_bets
+from src.runtime.stage_timing import StageTimer
 from src.solver.provider import SolverProvider
 from src.solver.spot_key import spot_cache_key  # noqa: F401  (ré-export)
 
@@ -2005,14 +2006,22 @@ class DecisionMaker:
             and not self.enable_validated_rl
         )
 
+        # Phase 008 (F-10) — attribution du temps par étage. Le timer vit dans
+        # `metadata`, jamais à la racine du payload : les rejeux golden comparent
+        # la décision au champ près en excluant `metadata` (FR-002).
+        timer = StageTimer()
+
         # 1. Profilage & Node-Locking GTO
+        timer.start("profile")
         profile = await self._get_cached_profile(
             villain_name,
             allow_fetch=not use_preflop_fast_path,
         )
         structured_profile = self._build_structured_profile(profile)
         villain_position = self._infer_villain_position(villain_name, hero_position, action_history)
+        timer.stop("profile")
 
+        timer.start("ranges")
         if is_multiway:
             base_villain_range = ordered_ranges[primary_index]
         else:
@@ -2043,8 +2052,10 @@ class DecisionMaker:
             board=board,
         )
         hero_range = hero_range_meta["hero_range"]
+        timer.stop("ranges")
 
         # 2. Utilisation du Deep Reinforcement Learning pour dévier de la GTO
+        timer.start("rl")
         rl_action_name = None
         preflop_fast_used = False
         if self.rl_agent and not use_preflop_fast_path:
@@ -2068,8 +2079,10 @@ class DecisionMaker:
 
             if rl_action_name and rl_action_name in legal_actions:
                 logger.info(f"L'Agent RL recommande une action exploitative : {rl_action_name}")
+        timer.stop("rl")
 
         # 3. Appel au solver Rust ultra-rapide (CFR+)
+        timer.start("solver")
         gto_action = "FOLD"
         gto_details = {}
         fallback_used = False
@@ -2190,11 +2203,14 @@ class DecisionMaker:
             fallback_used = True
             fallback_reason = "rust_solver_unavailable"
 
+        timer.stop("solver")
+
         # Résilience: si la requête réussit, on reset le circuit breaker
         if not fallback_used:
             self._consecutive_solver_timeouts = 0
 
         # 4. Orchestration exploitative bornée (EV-delta, Phase 2.10)
+        timer.start("exploit")
         alternatives = self._extract_solver_alternatives(gto_details, legal_actions)
         ev_by_action, _, _ = self._build_solver_maps(alternatives)
         final_action, decision_source = self._select_exploit_action(
@@ -2216,6 +2232,8 @@ class DecisionMaker:
             decision_source = "GTO_PREFLOP_FAST"
 
         final_action = self._normalize_solver_action(final_action, legal_actions)
+        timer.stop("exploit")
+        timer.start("assemble")
 
         # 4.5 Assistance LLM (Optionnelle et asynchrone)
         llm_advice = None
@@ -2420,6 +2438,11 @@ class DecisionMaker:
             multiway_metadata.setdefault("solver_hero_position", solver_hero_position)
             multiway_metadata.setdefault("converged", bool(gto_details.get("converged", False)))
             metadata["multiway"] = multiway_metadata
+
+        # 6. Assemblage — dernier étage mesuré avant l'écriture du payload.
+        timer.stop("assemble")
+        metadata["stages_ms"] = timer.as_dict()
+        metadata["stages_total_ms"] = timer.total_ms
 
         decision_payload = {
             "action": final_action,

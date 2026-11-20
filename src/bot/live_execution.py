@@ -9,7 +9,7 @@ from types import SimpleNamespace
 from src.bot.gate_flow import compact_solver_payload as _compact_solver_payload
 from src.bot.runtime_types import CanonicalTableState
 from src.bot.sanity_checker import GateResult
-from src.runtime.decision_log import SCHEMA_VERSION, spot_hash
+from src.runtime.decision_log import SCHEMA_VERSION, spot_hash, versions_from_decision_maker
 from src.vision.models import TableState
 
 logger = logging.getLogger("SuperBot2026")
@@ -715,6 +715,9 @@ class LiveExecutionMixin:
 
         trace = {
             "schema_version": SCHEMA_VERSION,
+            # Registre des versions (spec 008, FR-007) : ce avec quoi la décision
+            # a été prise, pour qu'un rejeu ne devine pas l'état du code.
+            "versions": versions_from_decision_maker(getattr(self, "decision_maker", None)),
             "timestamp": self._utc_now(),
             "session_id": session_id,
             "spot_id": canonical_state.spot_id,

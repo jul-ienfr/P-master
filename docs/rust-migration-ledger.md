@@ -28,7 +28,7 @@ sur rejeux → suppression de l'ancien chemin.
 |---|---|---|---|---|---|
 | État canonique et validateurs | Python dispersé | Rust | P1 | `007` | Un seul `CanonicalState`, tests de propriété |
 | Orchestrateur de politique | Python | Rust | P1 | `007` | Sélection d'action unique, testée sur rejeux |
-| Journal de décision structuré | Python | Rust | P1 | `008` | Schéma versionné, corrélation `spot_id` |
+| Journal de décision structuré | Python | Rust | P1 | `008` | Schéma versionné, corrélation `spot_id` — *schéma versionné et registre de versions livrés côté Python le 20/11/2026 (spec `008`) : bloc `versions` par décision, `KNOWN_SCHEMA_VERSIONS` rend un journal antérieur lisible, `stages_ms` par étage. Le portage Rust n'est pas engagé : la valeur attendue (schéma stable, journal lisible dans le temps) est acquise sans lui.* |
 | Post-traitement vision | Python | Rust | P2 | `005`, `007`, `010` | Fusion OCR et machine à états testées ; le format de montants par site est déclaré une seule fois (adaptateur) ; le choix des moteurs est une politique par site (un principal + un fallback), pas un calcul |
 | Encodage/validation d'actions plateforme | Python | Rust | P2 | `005` | Contrat par site livré (`site_adapter.py` + `action_limits.py`) ; portage Rust des limites non engagé |
 | Cache de spots | Python | Rust ou partagé | P2 | `007` | Clé versionnée, parité |

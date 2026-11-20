@@ -10,10 +10,15 @@ décision sans dépendre du live :
 - ``gate`` : le second avis éventuel (Jev/Djev), en mode observer ou enforcing ;
 - ``solver`` : le mode et le budget effectifs ;
 - ``spot_hash`` : empreinte stable du spot, calculée avec la même
-  normalisation que le cache solveur.
+  normalisation que le cache solveur ;
+- ``versions`` : le registre des versions qui ont produit la décision (schéma,
+  blueprint préflop, modèle de range, tailles de mise) — une version
+  indisponible vaut ``None``, jamais une valeur inventée ;
+- ``decision.stages_ms`` : le temps par étage quand la trace le porte.
 
 Le module est volontairement sans dépendance lourde : il est importable par
-le runtime, les scripts d'audit et les tests.
+le runtime, les scripts d'audit et les tests. Les versions dont la source peut
+manquer sont résolues **à l'appel**, pas à l'import.
 """
 
 from __future__ import annotations
@@ -26,9 +31,28 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from src.runtime.stage_timing import percentile, summarize_stage_timings
 from src.solver.spot_key import spot_cache_key
 
 SCHEMA_VERSION = 1
+
+# Source unique des schémas lisibles (FR-008) : un schéma antérieur **connu**
+# est lu avec sa version au lieu d'être rejeté en bloc, un schéma inconnu reste
+# une erreur. Un journal de deux ans ne doit pas devenir illisible au premier
+# changement de schéma.
+KNOWN_SCHEMA_VERSIONS: tuple[int, ...] = (SCHEMA_VERSION,)
+
+SCHEMA_STATUS_CURRENT = "current"
+SCHEMA_STATUS_LEGACY = "legacy"
+SCHEMA_STATUS_UNKNOWN = "unknown"
+
+VERSION_FIELDS = (
+    "schema_version",
+    "blueprint_version",
+    "range_model_version",
+    "solver_bet_sizes",
+    "solver_raise_sizes",
+)
 
 REQUEST_FIELDS = (
     "hero_hand",
@@ -71,6 +95,7 @@ DECISION_FIELDS = (
     "details",
     "converged",
     "multiway",
+    "stages_ms",
 )
 
 GATE_FIELDS = (
@@ -148,6 +173,71 @@ def spot_hash(request: dict[str, Any]) -> str:
     )
 
 
+def _as_optional_text(value: Any) -> str | None:
+    """Texte non vide, sinon ``None`` — jamais une chaîne vide prise pour une version."""
+    text = str(value).strip() if value is not None else ""
+    return text or None
+
+
+def _resolve_blueprint_version() -> int | None:
+    """Version du blueprint préflop, ou ``None`` si la source est indisponible."""
+    try:
+        from src.solver.blueprint_store import BLUEPRINT_FORMAT_VERSION
+    except Exception:  # source indisponible : ``None``, jamais une version inventée
+        return None
+    try:
+        return int(BLUEPRINT_FORMAT_VERSION)
+    except (TypeError, ValueError):
+        return None
+
+
+def _resolve_range_model_version() -> str | None:
+    """Version par défaut du modèle de range (contrats V2), ou ``None``."""
+    try:
+        from src.contracts.v2_contracts import RangeModelVersion
+    except Exception:  # source indisponible : ``None``, jamais une version inventée
+        return None
+    try:
+        return str(RangeModelVersion.BOARD_AWARE_V2.value)
+    except Exception:
+        return None
+
+
+def decision_versions(
+    *,
+    schema_version: int | None = None,
+    blueprint_version: int | None = None,
+    range_model_version: str | None = None,
+    solver_bet_sizes: Any = None,
+    solver_raise_sizes: Any = None,
+) -> dict[str, Any]:
+    """Registre des versions attaché à une décision (FR-007).
+
+    Un champ non fourni est **résolu** depuis sa source ; une source
+    indisponible vaut ``None``. Une taille de mise vide vaut ``None`` : une
+    chaîne vide ferait croire à une version déclarée.
+    """
+    return {
+        "schema_version": SCHEMA_VERSION if schema_version is None else schema_version,
+        "blueprint_version": (
+            _resolve_blueprint_version() if blueprint_version is None else blueprint_version
+        ),
+        "range_model_version": (
+            _resolve_range_model_version() if range_model_version is None else range_model_version
+        ),
+        "solver_bet_sizes": _as_optional_text(solver_bet_sizes),
+        "solver_raise_sizes": _as_optional_text(solver_raise_sizes),
+    }
+
+
+def versions_from_decision_maker(decision_maker: Any) -> dict[str, Any]:
+    """Bloc ``versions`` d'un ``DecisionMaker`` : tailles de mise réellement effectives."""
+    return decision_versions(
+        solver_bet_sizes=getattr(decision_maker, "solver_bet_sizes", None),
+        solver_raise_sizes=getattr(decision_maker, "solver_raise_sizes", None),
+    )
+
+
 def build_decision_record(
     request: dict[str, Any],
     decision: dict[str, Any],
@@ -155,6 +245,7 @@ def build_decision_record(
     gate: dict[str, Any] | None = None,
     solver: dict[str, Any] | None = None,
     timestamp: str | None = None,
+    versions: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Construit un enregistrement canonique, sans secret ni donnée de table."""
     request_payload = _copy_fields(request, REQUEST_FIELDS)
@@ -163,6 +254,7 @@ def build_decision_record(
         "schema_version": SCHEMA_VERSION,
         "timestamp": timestamp or datetime.now(UTC).isoformat(timespec="seconds"),
         "spot_hash": spot_hash(request_payload),
+        "versions": dict(versions) if versions else decision_versions(),
         "request": request_payload,
         "decision": decision_payload,
         "gate": _copy_fields(gate, GATE_FIELDS) if gate else None,
@@ -241,6 +333,11 @@ def record_from_runtime_trace(trace: dict[str, Any]) -> dict[str, Any]:
         ),
         "multiway": multiway or None,
     }
+    # Un étage non mesuré n'ajoute pas de clé : le journal d'un schéma antérieur
+    # ne gagne pas un `stages_ms: None` qui ferait croire à une mesure absente.
+    stages_ms = metadata.get("stages_ms") if isinstance(metadata, dict) else None
+    if isinstance(stages_ms, dict) and stages_ms:
+        decision["stages_ms"] = stages_ms
     record = build_decision_record(
         request,
         decision,
@@ -248,6 +345,9 @@ def record_from_runtime_trace(trace: dict[str, Any]) -> dict[str, Any]:
         solver=metadata.get("solver") if isinstance(metadata.get("solver"), dict) else None,
         timestamp=str(trace.get("timestamp") or "") or None,
     )
+    trace_versions = trace.get("versions")
+    if isinstance(trace_versions, dict) and trace_versions:
+        record["versions"] = {**record["versions"], **trace_versions}
     if trace.get("spot_hash"):
         record["spot_hash"] = str(trace["spot_hash"])
     if trace.get("schema_version"):
@@ -264,13 +364,43 @@ def coerce_decision_record(payload: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def schema_status(record: Any) -> str:
+    """``current``, ``legacy`` (connu mais antérieur) ou ``unknown``.
+
+    Un schéma inconnu n'est jamais accepté silencieusement : il est nommé
+    ``unknown`` et reste une erreur de validation.
+    """
+    value = record.get("schema_version") if isinstance(record, dict) else None
+    try:
+        version = int(value)
+    except (TypeError, ValueError):
+        return SCHEMA_STATUS_UNKNOWN
+    if version not in KNOWN_SCHEMA_VERSIONS:
+        return SCHEMA_STATUS_UNKNOWN
+    return SCHEMA_STATUS_CURRENT if version == SCHEMA_VERSION else SCHEMA_STATUS_LEGACY
+
+
+def _schema_errors(record: dict[str, Any]) -> list[str]:
+    """Erreurs de schéma — accepte tout schéma connu, signale sa version.
+
+    Un schéma connu (courant **ou** antérieur) ne produit aucune erreur : le
+    journal d'un schéma antérieur reste lisible. Seul un schéma inconnu est une
+    erreur, et le message nomme les schémas connus.
+    """
+    if schema_status(record) == SCHEMA_STATUS_UNKNOWN:
+        return [
+            f"schema_version: {record.get('schema_version')!r} inconnu "
+            f"(connus : {list(KNOWN_SCHEMA_VERSIONS)})"
+        ]
+    return []
+
+
 def validate_decision_record(record: Any) -> list[str]:
     """Retourne la liste des erreurs ; liste vide = enregistrement valide."""
     errors: list[str] = []
     if not isinstance(record, dict):
         return ["record: objet attendu"]
-    if record.get("schema_version") != SCHEMA_VERSION:
-        errors.append(f"schema_version: {record.get('schema_version')!r} != {SCHEMA_VERSION}")
+    errors.extend(_schema_errors(record))
     spot_hash_value = record.get("spot_hash")
     if not isinstance(spot_hash_value, str) or len(spot_hash_value) != 64:
         errors.append("spot_hash: SHA-256 hex attendu")
@@ -323,22 +453,17 @@ def load_decision_records(path: str | Path) -> list[dict[str, Any]]:
     return records
 
 
-def _percentile(sorted_values: list[float], ratio: float) -> float:
-    if not sorted_values:
-        return 0.0
-    index = min(len(sorted_values) - 1, max(0, int(round(ratio * (len(sorted_values) - 1)))))
-    return float(sorted_values[index])
-
-
 def summarize_decision_records(records: list[dict[str, Any]]) -> dict[str, Any]:
-    """Résumé exploitable : latences, fallback, actions, backends."""
+    """Résumé exploitable : latences, fallback, actions, backends, étages."""
     latencies: list[float] = []
     actions: Counter[str] = Counter()
     sources: Counter[str] = Counter()
     backends: Counter[str] = Counter()
+    schema_statuses: Counter[str] = Counter()
     fallback = 0
     invalid = 0
     for record in records:
+        schema_statuses[schema_status(record)] += 1
         if validate_decision_record(record):
             invalid += 1
             continue
@@ -359,10 +484,12 @@ def summarize_decision_records(records: list[dict[str, Any]]) -> dict[str, Any]:
         "fallback_rate": round(fallback / total, 4) if total else 0.0,
         "latency_ms": {
             "p50": round(statistics.median(ordered), 1) if ordered else 0.0,
-            "p95": round(_percentile(ordered, 0.95), 1),
-            "p99": round(_percentile(ordered, 0.99), 1),
+            "p95": round(percentile(ordered, 0.95), 1),
+            "p99": round(percentile(ordered, 0.99), 1),
             "max": round(ordered[-1], 1) if ordered else 0.0,
         },
+        "stages_ms": summarize_stage_timings(records),
+        "schema_versions": dict(schema_statuses),
         "actions": dict(actions.most_common()),
         "sources": dict(sources.most_common()),
         "backends": dict(backends.most_common()),

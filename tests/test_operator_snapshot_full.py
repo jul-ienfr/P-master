@@ -166,3 +166,97 @@ def test_set_loop_stage_updates_and_publishes():
     assert published == []
     c._set_loop_stage("capture", publish=True)
     assert published == [True]
+
+
+# --- SLO exposé par le bridge (spec 008, US2) --------------------------------
+# Ce contrôleur calcule de **vraies** métriques (MetricsMixin) : les SLO sont
+# évalués sur l'historique réel, jamais sur un stub.
+
+
+def _decision(latency_ms: float, *, source: str = "GTO_RUST") -> dict:
+    return {
+        "timestamp": "2026-11-20T10:00:00+00:00",
+        "latency_ms": latency_ms,
+        "source": source,
+        "gate_result": {"allowed": True},
+        "metadata": {"stages_ms": {"solver": latency_ms / 2.0}},
+    }
+
+
+def _slo_controller() -> Controller:
+    c = make_controller()
+    c.hitl = SimpleNamespace(
+        current_issue=None,
+        check_convergence=lambda: True,
+        annotations_count=0,
+        target_dataset_size=1,
+        is_waiting_for_human=False,
+    )
+    c.events = []
+    c._push_runtime_event = lambda kind, message, **context: c.events.append((kind, message))
+    return c
+
+
+def test_bridge_state_exposes_an_slo_block_over_real_metrics():
+    c = _slo_controller()
+    c.decision_trace_history = [_decision(120.0), _decision(140.0)]
+    slo = c._build_runtime_bridge_state()["slo"]
+    assert slo["metrics"]["decision_count"] == 2
+    assert slo["metrics"]["latency_p95_ms"] == 140.0
+    assert slo["objectives"]  # évalué, non vide
+    assert c.last_slo_evaluation["evaluated_at"]
+
+
+def test_slo_breach_is_signalled_once_not_per_snapshot():
+    c = _slo_controller()
+    c.decision_trace_history = [_decision(100.0) for _ in range(5)]  # sain
+    c._build_runtime_bridge_state()  # première observation : aucun événement
+    assert [kind for kind, _msg in c.events if kind.startswith("slo_")] == []
+
+    # Cinq décisions sur cinq en fallback : le taux dépasse la cible de 0,1.
+    c.decision_trace_history = [_decision(100.0, source="FALLBACK") for _ in range(5)]
+    c._build_runtime_bridge_state()
+    assert [kind for kind, _msg in c.events if kind == "slo_breached"] == ["slo_breached"]
+    c._build_runtime_bridge_state()  # même ensemble franchi : aucun bruit
+    assert [kind for kind, _msg in c.events if kind == "slo_breached"] == ["slo_breached"]
+
+
+def test_slo_recovery_is_signalled_when_the_objective_holds_again():
+    c = _slo_controller()
+    c.decision_trace_history = [_decision(100.0) for _ in range(5)]
+    c._build_runtime_bridge_state()  # première observation : sain
+    c.decision_trace_history = [_decision(100.0, source="FALLBACK") for _ in range(5)]
+    c._build_runtime_bridge_state()
+    assert any(kind == "slo_breached" for kind, _msg in c.events)
+    c.decision_trace_history = [_decision(100.0) for _ in range(5)]
+    c._build_runtime_bridge_state()
+    assert any(kind == "slo_recovered" for kind, _msg in c.events)
+
+
+def test_empty_slo_configuration_disables_objectives_without_false_alert():
+    c = _slo_controller()
+    c.config = {"bot": {"slo": []}}
+    c.decision_trace_history = [_decision(100.0, source="FALLBACK")] * 6
+    slo = c._build_runtime_bridge_state()["slo"]
+    assert slo["objectives"] == []
+    assert slo["alerts"] == []
+    assert [kind for kind, _msg in c.events if kind.startswith("slo_")] == []
+
+
+def test_slo_evaluation_does_not_touch_the_go_live_gate_verdict():
+    c = _slo_controller()
+    c.decision_trace_history = [_decision(100.0, source="FALLBACK")] * 6
+    state = c._build_runtime_bridge_state()
+    assert state["slo"]["alerts"]  # un SLO est bien franchi
+    # Le gate garde son propre verdict, nommé séparément (FR-009).
+    assert state["go_live_gate"]["verdict"] == c.last_go_live_gate["verdict"]
+
+
+def test_runtime_status_exposes_slo_without_pushing_an_event():
+    c = _slo_controller()
+    c.decision_trace_history = [_decision(100.0, source="FALLBACK")] * 6
+    status = c._get_runtime_status()
+    assert "slo" in status
+    assert status["slo"]["metrics"]["decision_count"] == 6
+    # La lecture de statut n'écrit rien : aucun événement poussé.
+    assert [kind for kind, _msg in c.events if kind.startswith("slo_")] == []

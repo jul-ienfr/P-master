@@ -85,6 +85,12 @@
       "max_non_actionable_readiness_rate": 0.5,
       "max_invalid_validation_rate": 0.5
     },
+    "slo": [
+      {"name": "fallback_rate", "operator": "<=", "target": 0.1, "severity": "warning"},
+      {"name": "block_rate", "operator": "<=", "target": 0.2, "severity": "warning"},
+      {"name": "latency_p95_ms", "operator": "<=", "target": 500.0, "severity": "warning"},
+      {"name": "solver_p95_ms", "operator": "<=", "target": 450.0, "severity": "warning"}
+    ],
     "jev_gate": {
       "mode": "observer",
       "model": "jev-1.13-free",

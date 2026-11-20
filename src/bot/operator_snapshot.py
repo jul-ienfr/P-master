@@ -13,6 +13,12 @@ from src.runtime.policy_compare import (
     dedupe_runtime_ab_decisions,
 )
 from src.runtime.session import parse_bool_flag as _parse_bool_flag
+from src.runtime.slo import (
+    SloTracker,
+    evaluate_slo,
+    slo_metrics_from_history,
+    slo_objectives_from_config,
+)
 from src.runtime.strategy_metrics import strategy_metrics_from_artifacts
 from src.vision.models import TableState
 
@@ -20,6 +26,46 @@ logger = logging.getLogger("SuperBot2026")
 
 
 class OperatorSnapshotMixin:
+    def _slo_transition_message(self, transition: dict) -> str:
+        if transition.get("kind") == "slo_recovered":
+            return "SLO rétabli : " + ", ".join(transition.get("resolved") or [])
+        return "SLO franchi : " + ", ".join(transition.get("breached") or [])
+
+    def _slo_snapshot(self, local_metrics: dict, decisions: object, *, observe: bool) -> dict:
+        """Bloc ``slo`` : objectifs évalués sur les métriques réelles de la session.
+
+        ``observe=True`` (chemin périodique du bridge) met à jour la mémoire de
+        transition et pousse **un** événement au *changement* de l'ensemble
+        franchi — un SLO franchi ne produit pas un événement par snapshot.
+        ``observe=False`` (lecture de statut à la demande) évalue sans écrire,
+        pour ne pas doubler le flux d'observations du tracker.
+
+        L'évaluation ne lit ni ne modifie le verdict du gate go-live (FR-009) :
+        « apte à démarrer » et « en bonne santé maintenant » restent distincts.
+        """
+        objectives = slo_objectives_from_config(getattr(self, "config", None))
+        metrics = slo_metrics_from_history(local_metrics, decisions)
+        evaluation = evaluate_slo(metrics, objectives)
+        if observe:
+            tracker = getattr(self, "_slo_tracker", None)
+            if tracker is None:
+                tracker = SloTracker()
+                self._slo_tracker = tracker
+            transition = tracker.observe(evaluation)
+            if transition is not None:
+                push = getattr(self, "_push_runtime_event", None)
+                if callable(push):
+                    # ``kind`` est déjà porté par l'événement : le contexte ne
+                    # doit pas le répéter (collision d'argument).
+                    context = {k: v for k, v in transition.items() if k != "kind"}
+                    push(
+                        str(transition["kind"]),
+                        self._slo_transition_message(transition),
+                        **context,
+                    )
+        self.last_slo_evaluation = evaluation.to_dict()
+        return {**evaluation.to_dict(), "metrics": metrics}
+
     def _build_operator_snapshot(self) -> dict[str, object]:
         controls = dict(getattr(self, "operator_controls", {}) or {})
         paused = bool(controls.get("paused", False))
@@ -323,6 +369,7 @@ class OperatorSnapshotMixin:
             "decision": dict(self.last_decision_summary),
             "readiness": dict(self.last_decision_summary.get("runtime_readiness", {}) or {}),
             "go_live_gate": go_live_gate.to_dict(),
+            "slo": self._slo_snapshot(local_metrics, history["decisions"], observe=True),
             "health": health_snapshot,
             "active_solver_backend": self.solver_provider.active_backend()
             if getattr(self, "solver_provider", None) is not None
@@ -488,6 +535,7 @@ class OperatorSnapshotMixin:
             "decision": self.last_decision_summary,
             "readiness": dict(self.last_decision_summary.get("runtime_readiness", {}) or {}),
             "go_live_gate": go_live_gate.to_dict(),
+            "slo": self._slo_snapshot(local_metrics, history["decisions"], observe=False),
             "operator": self._build_operator_snapshot(),
             "observation": observation,
             "history": history,
