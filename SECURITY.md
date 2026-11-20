@@ -30,7 +30,9 @@ immédiatement, puis purger l'historique git si nécessaire.
 - `eval()` interdit sur les payloads distants (`ast.literal_eval` uniquement)
 - Tous les appels HTTP sortants ont un `timeout` + retry borné (`tenacity`)
 - CI : gate `ruff --select E9,F63,F7,F82`, coverage minimale, `pip-audit`
-  (advisory), secrets exclus du tracking (`.gitignore`)
+  **bloquant** (le `continue-on-error` a été retiré le 26/08/2026 ; l'étape
+  passe depuis le 20/11/2026 — 143 avis de sécurité ramenés à zéro par montée
+  ciblée des dépendances, voir F-17), secrets exclus du tracking (`.gitignore`)
 - Requêtes SQL paramétrées (asyncpg `$1...`) — y compris patterns `LIKE`
 
 ## Signaler une vulnérabilité
